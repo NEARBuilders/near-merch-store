@@ -1,0 +1,152 @@
+import { useQuery, useSuspenseQuery, useQueries } from '@tanstack/react-query';
+import { apiClient, queryClient } from '@/utils/orpc';
+import { productKeys, type ProductCategory } from './keys';
+
+export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'];
+
+export function useProducts(options?: {
+  category?: ProductCategory;
+  limit?: number;
+  offset?: number;
+}) {
+  return useQuery({
+    queryKey: productKeys.list({
+      category: options?.category,
+      limit: options?.limit,
+      offset: options?.offset,
+    }),
+    queryFn: () =>
+      apiClient.getProducts({
+        category: options?.category,
+        limit: options?.limit ?? 50,
+        offset: options?.offset ?? 0,
+      }),
+  });
+}
+
+export function useProduct(id: string) {
+  return useQuery({
+    queryKey: productKeys.detail(id),
+    queryFn: () => apiClient.getProduct({ id }),
+    enabled: !!id,
+  });
+}
+
+export function useSuspenseProduct(id: string) {
+  return useSuspenseQuery({
+    queryKey: productKeys.detail(id),
+    queryFn: () => apiClient.getProduct({ id }),
+  });
+}
+
+export function useFeaturedProducts(limit = 8) {
+  return useQuery({
+    queryKey: productKeys.featured(limit),
+    queryFn: () => apiClient.getFeaturedProducts({ limit }),
+  });
+}
+
+export function useSuspenseFeaturedProducts(limit = 8) {
+  return useSuspenseQuery({
+    queryKey: productKeys.featured(limit),
+    queryFn: () => apiClient.getFeaturedProducts({ limit }),
+  });
+}
+
+export function useSearchProducts(query: string, options?: {
+  category?: ProductCategory;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: productKeys.search(query, options?.category, options?.limit),
+    queryFn: () =>
+      apiClient.searchProducts({
+        query,
+        category: options?.category,
+        limit: options?.limit ?? 20,
+      }),
+    enabled: query.length > 0,
+  });
+}
+
+export function useSuspenseSearchProducts(query: string, options?: {
+  category?: ProductCategory;
+  limit?: number;
+}) {
+  return useSuspenseQuery({
+    queryKey: productKeys.search(query, options?.category, options?.limit),
+    queryFn: () =>
+      apiClient.searchProducts({
+        query,
+        category: options?.category,
+        limit: options?.limit ?? 20,
+      }),
+  });
+}
+
+export function useProductsByIds(ids: string[]) {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: productKeys.detail(id),
+      queryFn: () => apiClient.getProduct({ id }),
+      enabled: !!id,
+    })),
+    combine: (results) => ({
+      data: results.map((r) => r.data?.product).filter(Boolean) as Product[],
+      isLoading: results.some((r) => r.isLoading),
+      isError: results.some((r) => r.isError),
+    }),
+  });
+}
+
+export const productLoaders = {
+  featured: (limit = 8) => ({
+    queryKey: productKeys.featured(limit),
+    queryFn: () => apiClient.getFeaturedProducts({ limit }),
+  }),
+
+  detail: (id: string) => ({
+    queryKey: productKeys.detail(id),
+    queryFn: () => apiClient.getProduct({ id }),
+  }),
+
+  list: (options?: { category?: ProductCategory; limit?: number; offset?: number }) => ({
+    queryKey: productKeys.list({
+      category: options?.category,
+      limit: options?.limit,
+      offset: options?.offset,
+    }),
+    queryFn: () =>
+      apiClient.getProducts({
+        category: options?.category,
+        limit: options?.limit ?? 50,
+        offset: options?.offset ?? 0,
+      }),
+  }),
+
+  search: (query: string, options?: { category?: ProductCategory; limit?: number }) => ({
+    queryKey: productKeys.search(query, options?.category, options?.limit),
+    queryFn: () =>
+      apiClient.searchProducts({
+        query,
+        category: options?.category,
+        limit: options?.limit ?? 50,
+      }),
+  }),
+
+  prefetchFeatured: async (limit = 8) => {
+    await queryClient.prefetchQuery(productLoaders.featured(limit));
+  },
+
+  prefetchProduct: async (id: string) => {
+    await queryClient.prefetchQuery(productLoaders.detail(id));
+  },
+
+  prefetchList: async (options?: { category?: ProductCategory; limit?: number; offset?: number }) => {
+    await queryClient.prefetchQuery(productLoaders.list(options));
+  },
+
+  prefetchSearch: async (query: string, options?: { category?: ProductCategory; limit?: number }) => {
+    await queryClient.prefetchQuery(productLoaders.search(query, options));
+  },
+};

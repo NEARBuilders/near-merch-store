@@ -1,0 +1,16 @@
+{
+  "plugins": {
+    "marketplace-api": {
+      "remote": "https://elliot-braem-1080-marketplace-api-marketplace-plu-44ae1619b-ze.zephyrcloud.app",
+      "variables": {},
+      "secrets": {
+        "relayerAccountId": "{{RELAYER_ACCOUNT_ID}}",
+        "relayerPrivateKey": "{{RELAYER_PRIVATE_KEY}}",
+        "STRIPE_SECRET_KEY": "{{STRIPE_SECRET_KEY}}",
+        "STRIPE_WEBHOOK_SECRET": "{{STRIPE_WEBHOOK_SECRET}}",
+        "GELATO_API_KEY": "{{GELATO_API_KEY}}",
+        "GELATO_WEBHOOK_SECRET": "{{GELATO_WEBHOOK_SECRET}}"
+      }
+    }
+  }
+}

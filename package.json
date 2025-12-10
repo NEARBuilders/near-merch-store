@@ -2,23 +2,28 @@
   "name": "marketplace-demo",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "api",
+    "host",
+    "ui"
   ],
   "scripts": {
-    "dev": "turbo dev",
-    "build": "turbo build",
-    "check-types": "turbo check-types",
-    "dev:native": "turbo -F native dev",
-    "dev:web": "turbo -F web dev",
-    "dev:server": "turbo -F server dev",
-    "db:push": "turbo -F server db:push",
-    "db:studio": "turbo -F server db:studio",
-    "db:generate": "turbo -F server db:generate",
-    "db:migrate": "turbo -F server db:migrate"
+    "dev": "bun --filter '*' dev",
+    "dev:api": "bun --filter marketplace-api dev",
+    "dev:host": "bun --filter host dev",
+    "dev:ui": "bun --filter marketplace_ui dev",
+    "build": "bun --filter '*' build",
+    "build:api": "bun --filter marketplace-api build",
+    "build:host": "bun --filter host build",
+    "build:ui": "bun --filter marketplace_ui build",
+    "deploy": "bun --filter marketplace_ui build && bun --filter marketplace-api build",
+    "start": "bun run --filter host build && bun run --filter host preview",
+    "check-types": "bun --filter '*' check-types",
+    "db:push": "bun --filter host db:push",
+    "db:studio": "bun --filter host db:studio",
+    "db:generate": "bun --filter host db:generate",
+    "db:migrate": "bun --filter host db:migrate"
   },
   "dependencies": {},
-  "devDependencies": {
-    "turbo": "^2.5.4"
-  },
+  "devDependencies": {},
   "packageManager": "bun@1.2.20"
 }

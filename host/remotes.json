@@ -1,0 +1,16 @@
+{
+  "title": "Merch",
+  "remotes": {
+    "marketplace_ui": {
+      "url": "https://elliot-braem-1079-marketplace-ui-marketplace-plug-acbefd3bc-ze.zephyrcloud.app",
+      "displayName": "Merch",
+      "registryPath": "/r/registry.json",
+      "exposes": {
+        "App": "./App",
+        "components": "./components",
+        "providers": "./providers",
+        "types": "./types"
+      }
+    }
+  }
+}
