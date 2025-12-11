@@ -15,7 +15,7 @@
     "build:api": "turbo build --filter=marketplace-api",
     "build:host": "turbo build --filter=host",
     "build:ui": "turbo build --filter=marketplace_ui",
-    "deploy": "turbo build --filter=marketplace_ui --filter=marketplace-api",
+    "deploy": "NODE_ENV=production turbo build --filter=marketplace_ui --filter=marketplace-api",
     "typecheck": "turbo typecheck",
     "db:push": "turbo db:push",
     "db:studio": "turbo db:studio",
