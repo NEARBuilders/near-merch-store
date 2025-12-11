@@ -51,10 +51,13 @@ export async function loadBosConfig(): Promise<RuntimeConfig> {
   const env = (process.env.NODE_ENV as 'development' | 'production') || 'development';
   const config = bosConfigRaw as BosConfig;
 
+  const useRemoteApi = process.env.USE_REMOTE_API === 'true';
+  const useRemoteUi = process.env.USE_REMOTE_UI === 'true';
+
   const apiPlugins: RuntimeConfig['apiPlugins'] = {};
   for (const [name, pluginConfig] of Object.entries(config.app.api.plugins)) {
     apiPlugins[name] = {
-      url: pluginConfig[env],
+      url: useRemoteApi ? pluginConfig.production : pluginConfig[env],
       variables: pluginConfig.variables,
       secrets: pluginConfig.secrets,
     };
@@ -66,7 +69,7 @@ export async function loadBosConfig(): Promise<RuntimeConfig> {
     hostUrl: config.app.host[env],
     ui: {
       name: config.app.ui.name,
-      url: config.app.ui[env],
+      url: useRemoteUi ? config.app.ui.production : config.app.ui[env],
       exposes: config.app.ui.exposes,
     },
     apiPlugins,

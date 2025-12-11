@@ -66,7 +66,9 @@ async function startServer() {
     '/*',
     cors({
       origin: process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()) ?? [
+        'http://localhost:3000',
         'http://localhost:3001',
+        'http://localhost:3002',
       ],
       credentials: true,
     })

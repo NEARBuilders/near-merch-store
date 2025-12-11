@@ -16,7 +16,7 @@ const bosConfig = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../bos.config.json'), 'utf8')
 );
 
-const useRemoteApi = import.meta.env.USE_REMOTE_API === 'true';
+const useRemoteApi = process.env.USE_REMOTE_API === 'true';
 const apiUrl = useRemoteApi
   ? `${bosConfig.app.host.production}/api/rpc`
   : `${bosConfig.app.host.development}/api/rpc`;
@@ -132,7 +132,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: 3002,
     printUrls: ({ urls }) => 
       urls.filter(url => url.includes('localhost')),
     headers: {

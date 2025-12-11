@@ -7,24 +7,24 @@
     "ui"
   ],
   "scripts": {
- "dev": "concurrently --raw -n host,api,ui -c cyan,yellow,magenta --hide api,ui \"bun --filter host --silent dev\" \"bun --filter marketplace-api --silent dev\" \"bun --filter marketplace_ui --silent dev\"",
-    "dev:ui": "concurrently --raw -n host,ui -c cyan,magenta \"USE_REMOTE_API=true bun --filter host --silent dev\" \"bun --filter marketplace_ui --silent dev\"",
-    "dev:api": "concurrently --raw -n host,api -c cyan,yellow \"USE_REMOTE_UI=true bun --filter host --silent dev\" \"bun --filter marketplace-api --silent dev\"",
-    "preview": "bun --filter host --silent preview",
-    "build": "bun --filter '*' build",
-    "build:api": "bun --filter marketplace-api build",
-    "build:host": "bun --filter host build",
-    "build:ui": "bun --filter marketplace_ui build",
-    "deploy": "bun build:ui && bun build:api",
-    "typecheck": "bun --filter '*' --silent typecheck",
-    "db:push": "bun --filter '{marketplace-api,host}' db:push",
-    "db:studio": "bun --filter '{marketplace-api,host}' db:studio",
-    "db:generate": "bun --filter '{marketplace-api,host}' db:generate",
-    "db:migrate": "bun --filter '{marketplace-api,host}' db:migrate"
+    "dev": "turbo dev",
+    "dev:ui": "USE_REMOTE_API=true turbo dev --filter=host --filter=marketplace_ui",
+    "dev:api": "USE_REMOTE_UI=true turbo dev --filter=host --filter=marketplace-api",
+    "preview": "turbo preview --filter=host",
+    "build": "turbo build",
+    "build:api": "turbo build --filter=marketplace-api",
+    "build:host": "turbo build --filter=host",
+    "build:ui": "turbo build --filter=marketplace_ui",
+    "deploy": "turbo build --filter=marketplace_ui --filter=marketplace-api",
+    "typecheck": "turbo typecheck",
+    "db:push": "turbo db:push",
+    "db:studio": "turbo db:studio",
+    "db:generate": "turbo db:generate",
+    "db:migrate": "turbo db:migrate"
   },
   "dependencies": {},
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "turbo": "^2.6.3"
   },
   "packageManager": "bun@1.2.20"
 }

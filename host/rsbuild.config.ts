@@ -83,6 +83,8 @@ export default defineConfig({
   source: {
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+      'process.env.USE_REMOTE_API': JSON.stringify(process.env.USE_REMOTE_API || 'false'),
+      'process.env.USE_REMOTE_UI': JSON.stringify(process.env.USE_REMOTE_UI || 'false'),
     },
     entry: {
       index: './src/index.client.tsx',
