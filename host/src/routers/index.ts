@@ -1,13 +1,10 @@
 import type { RouterClient } from 'every-plugin/orpc';
 import { os } from 'every-plugin/orpc';
-import type { Plugins, PluginStatus } from '../runtime';
+import type { Plugins } from '../runtime';
 
 export function createRouter(plugins: Plugins) {
   const baseRouter = {
     health: os.route({ method: 'GET', path: '/health' }).handler(() => 'OK'),
-    status: os
-      .route({ method: 'GET', path: '/status' })
-      .handler((): PluginStatus => plugins.status),
   } as const;
 
   if (!plugins.status.available || !plugins.api?.router) {

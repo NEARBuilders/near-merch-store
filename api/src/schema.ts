@@ -40,7 +40,7 @@ export const FulfillmentConfigSchema = z.object({
   printfulVariantId: z.number().optional(),
   printfulSyncVariantId: z.number().optional(),
   gelatoProductUid: z.string().optional(),
-  fileUrl: z.string().optional(),
+  fileUrl: z.string().nullable().optional(),
 });
 
 export const ProductSchema = z.object({
@@ -54,7 +54,7 @@ export const ProductSchema = z.object({
   fulfillmentProvider: FulfillmentProviderSchema.default('manual'),
   fulfillmentConfig: FulfillmentConfigSchema.optional(),
   productUid: z.string().optional(),
-  fileUrl: z.string().optional(),
+  fileUrl: z.string().nullable().optional(),
 });
 
 export const CollectionSchema = z.object({

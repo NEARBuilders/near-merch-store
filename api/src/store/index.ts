@@ -203,24 +203,32 @@ export const ProductStoreLive = Layer.effect(
       setSyncStatus: (id, status, lastSuccessAt, lastErrorAt, errorMessage) =>
         Effect.tryPromise({
           try: async () => {
-            await db
-              .insert(schema.syncState)
-              .values({
-                id,
-                status,
-                lastSuccessAt: lastSuccessAt || null,
-                lastErrorAt: lastErrorAt || null,
-                errorMessage: errorMessage || null,
-              })
-              .onConflictDoUpdate({
-                target: schema.syncState.id,
-                set: {
-                  status,
-                  lastSuccessAt: lastSuccessAt || null,
-                  lastErrorAt: lastErrorAt || null,
-                  errorMessage: errorMessage || null,
-                },
-              });
+            const existing = await db
+              .select()
+              .from(schema.syncState)
+              .where(eq(schema.syncState.id, id))
+              .limit(1);
+
+            const values = {
+              status,
+              lastSuccessAt: lastSuccessAt || null,
+              lastErrorAt: lastErrorAt || null,
+              errorMessage: errorMessage || null,
+            };
+
+            if (existing.length > 0) {
+              await db
+                .update(schema.syncState)
+                .set(values)
+                .where(eq(schema.syncState.id, id));
+            } else {
+              await db
+                .insert(schema.syncState)
+                .values({
+                  id,
+                  ...values,
+                });
+            }
           },
           catch: (error) => new Error(`Failed to set sync status: ${error}`),
         }),
