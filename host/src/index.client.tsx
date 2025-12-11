@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import Components from './components';
 import Main from './main';
+import { initializeFederation } from './federation';
 
 const rootElement = document.getElementById('root');
 
@@ -20,8 +21,14 @@ const getRouteComponent = () => {
 
 const RootComponent = getRouteComponent();
 
-createRoot(rootElement).render(
-  <StrictMode>
-    <RootComponent />
-  </StrictMode>
-);
+// Initialize federation before rendering
+initializeFederation().then(() => {
+  createRoot(rootElement!).render(
+    <StrictMode>
+      <RootComponent />
+    </StrictMode>
+  );
+}).catch((error) => {
+  console.error('Failed to initialize federation:', error);
+  document.body.innerHTML = '<div style="color: red; padding: 20px;">Failed to initialize application. Check console for details.</div>';
+});
