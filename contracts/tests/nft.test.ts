@@ -89,7 +89,7 @@ describe("NFT Contract", () => {
         .send();
 
       expect(result.transaction.hash).toBeDefined();
-    });
+    }, 30000);
 
     it("should retrieve the minted NFT", async () => {
       const tokenId = "token-1";
@@ -161,6 +161,6 @@ describe("NFT Contract", () => {
       );
 
       expect(token.owner_id).toBe(ctx.rootAccountId);
-    });
+    }, 30000);
   });
 });

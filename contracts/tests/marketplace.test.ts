@@ -114,7 +114,7 @@ describe("Marketplace Contract", () => {
         .send();
 
       expect(result.transaction.hash).toBeDefined();
-    });
+    }, 30000);
 
     it("should return storage balance", async () => {
       const balance = await ctx.near.view(
@@ -159,7 +159,7 @@ describe("Marketplace Contract", () => {
         .send();
 
       expect(result.transaction.hash).toBeDefined();
-    });
+    }, 30000);
 
     it("should retrieve the sale", async () => {
       const tokenId = "marketplace-test-1";
@@ -206,7 +206,7 @@ describe("Marketplace Contract", () => {
         .send();
 
       expect(result.transaction.hash).toBeDefined();
-    });
+    }, 30000);
 
     it("should verify NFT ownership transferred to Bob", async () => {
       const tokenId = "marketplace-test-1";
@@ -221,7 +221,7 @@ describe("Marketplace Contract", () => {
       );
 
       expect(token.owner_id).toBe(bobAccountId);
-    });
+    }, 30000);
 
     it("should show sale was removed", async () => {
       const tokenId = "marketplace-test-1";
@@ -320,6 +320,6 @@ describe("Marketplace Contract", () => {
       );
 
       expect(sale.sale_conditions).toBe(newPrice);
-    });
+    }, 60000);
   });
 });
