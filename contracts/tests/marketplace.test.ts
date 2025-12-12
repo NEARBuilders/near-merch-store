@@ -1,7 +1,9 @@
 import { describe, it, beforeAll, afterAll, expect } from "bun:test";
-// @ts-ignore - bun:test types
-import { Near, generateKey } from "near-kit";
+import { Near, generateKey, parseAmount } from "near-kit";
 import { setupTestEnvironment, teardownTestEnvironment, type TestContext } from "./setup";
+
+// Helper to convert to yoctoNEAR for contract calls
+const toYocto = (amount: string) => parseAmount(amount as any);
 
 let ctx: TestContext;
 let aliceNear: Near;
@@ -12,16 +14,13 @@ let bobAccountId: string;
 describe("Marketplace Contract", () => {
   beforeAll(async () => {
     ctx = await setupTestEnvironment();
-    
+
     // Create Alice account (seller)
     const aliceKey = generateKey();
     aliceAccountId = `alice.${ctx.rootAccountId}`;
-    
+
     aliceNear = new Near({
-      network: {
-        networkId: "sandbox",
-        rpcUrl: ctx.sandbox.rpcUrl,
-      },
+      network: ctx.sandbox,
       privateKey: aliceKey.secretKey,
       defaultSignerId: aliceAccountId,
       defaultWaitUntil: "FINAL",
@@ -30,23 +29,25 @@ describe("Marketplace Contract", () => {
     // Create Bob account (buyer)
     const bobKey = generateKey();
     bobAccountId = `bob.${ctx.rootAccountId}`;
-    
+
     bobNear = new Near({
-      network: {
-        networkId: "sandbox",
-        rpcUrl: ctx.sandbox.rpcUrl,
-      },
+      network: ctx.sandbox,
       privateKey: bobKey.secretKey,
       defaultSignerId: bobAccountId,
       defaultWaitUntil: "FINAL",
     });
 
-    // Create and fund accounts
+    // Create and fund Alice account
     await ctx.near
       .transaction(ctx.rootAccountId)
       .createAccount(aliceAccountId)
       .transfer(aliceAccountId, "50 NEAR")
       .addKey(aliceKey.publicKey.toString(), { type: "fullAccess" })
+      .send();
+
+    // Create and fund Bob account (separate transaction)
+    await ctx.near
+      .transaction(ctx.rootAccountId)
       .createAccount(bobAccountId)
       .transfer(bobAccountId, "50 NEAR")
       .addKey(bobKey.publicKey.toString(), { type: "fullAccess" })
@@ -90,13 +91,13 @@ describe("Marketplace Contract", () => {
         { gas: "30 Tgas", attachedDeposit: "0.01 NEAR" }
       )
       .send();
-  });
+  }, 120000);
 
   afterAll(async () => {
     if (ctx) {
       await teardownTestEnvironment(ctx);
     }
-  });
+  }, 30000);
 
   describe("Storage Management", () => {
     it("should allow depositing storage", async () => {
@@ -113,7 +114,7 @@ describe("Marketplace Contract", () => {
         .send();
 
       expect(result.transaction.hash).toBeDefined();
-    });
+    }, 30000);
 
     it("should return storage balance", async () => {
       const balance = await ctx.near.view(
@@ -139,7 +140,7 @@ describe("Marketplace Contract", () => {
   describe("Listing NFTs", () => {
     it("should list an NFT for sale", async () => {
       const tokenId = "marketplace-test-1";
-      const price = "10 NEAR";
+      const price = toYocto("10 NEAR");
       const approvalId = 1; // From the approval we made
 
       const result = await aliceNear
@@ -158,7 +159,7 @@ describe("Marketplace Contract", () => {
         .send();
 
       expect(result.transaction.hash).toBeDefined();
-    });
+    }, 30000);
 
     it("should retrieve the sale", async () => {
       const tokenId = "marketplace-test-1";
@@ -205,13 +206,13 @@ describe("Marketplace Contract", () => {
         .send();
 
       expect(result.transaction.hash).toBeDefined();
-    });
+    }, 30000);
 
     it("should verify NFT ownership transferred to Bob", async () => {
       const tokenId = "marketplace-test-1";
 
-      // Wait a bit for the transaction to complete
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Wait for the cross-contract call to complete (nft_transfer_payout callback)
+      await new Promise((resolve) => setTimeout(resolve, 5000));
 
       const token = await ctx.near.view(
         ctx.nftContractId,
@@ -220,7 +221,7 @@ describe("Marketplace Contract", () => {
       );
 
       expect(token.owner_id).toBe(bobAccountId);
-    });
+    }, 30000);
 
     it("should show sale was removed", async () => {
       const tokenId = "marketplace-test-1";
@@ -286,14 +287,14 @@ describe("Marketplace Contract", () => {
             nft_contract_id: ctx.nftContractId,
             token_id: tokenId,
             approval_id: 1,
-            sale_conditions: "5 NEAR",
+            sale_conditions: toYocto("5 NEAR"),
           },
           { gas: "100 Tgas", attachedDeposit: "0 NEAR" }
         )
         .send();
 
       // Update price
-      const newPrice = "7.5 NEAR";
+      const newPrice = toYocto("7.5 NEAR");
       const result = await aliceNear
         .transaction(aliceAccountId)
         .functionCall(
@@ -319,7 +320,6 @@ describe("Marketplace Contract", () => {
       );
 
       expect(sale.sale_conditions).toBe(newPrice);
-    });
+    }, 60000);
   });
 });
-

@@ -1,6 +1,5 @@
-// @ts-ignore - near-sandbox is CommonJS
-const { Sandbox, DEFAULT_ACCOUNT_ID, DEFAULT_PRIVATE_KEY } = require("near-sandbox");
-import { Near, generateKey, parseKey, type PrivateKey } from "near-kit";
+import { Near, generateKey, type PrivateKey } from "near-kit";
+import { Sandbox, type Sandbox as SandboxType } from "near-kit/sandbox";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -9,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export interface TestContext {
-  sandbox: InstanceType<typeof Sandbox>;
+  sandbox: SandboxType;
   near: Near;
   rootAccountId: string;
   rootPrivateKey: string;
@@ -21,42 +20,35 @@ export interface TestContext {
  * Start a sandbox and deploy both NFT and marketplace contracts
  */
 export async function setupTestEnvironment(): Promise<TestContext> {
-  // Start sandbox
-  const sandbox = await Sandbox.start({});
+  // Start sandbox using near-kit's Sandbox
+  const sandbox = await Sandbox.start();
   console.log(`✅ Sandbox started at: ${sandbox.rpcUrl}`);
 
-  // Sandbox provides a default account - use it
-  const rootAccountId = DEFAULT_ACCOUNT_ID;
-  const rootPrivateKey = DEFAULT_PRIVATE_KEY;
+  // Sandbox provides a root account (test.near) with a massive balance
+  const rootAccountId = sandbox.rootAccount.id;
+  const rootPrivateKey = sandbox.rootAccount.secretKey;
 
   // Create Near instance pointing to sandbox
   const near = new Near({
-    network: {
-      networkId: "sandbox",
-      rpcUrl: sandbox.rpcUrl,
-    },
+    network: sandbox,
     privateKey: rootPrivateKey as PrivateKey,
     defaultSignerId: rootAccountId,
     defaultWaitUntil: "FINAL",
   });
 
-  console.log(`✅ Using sandbox default account: ${rootAccountId}`);
+  console.log(`✅ Using sandbox root account: ${rootAccountId}`);
 
   // Deploy NFT contract
   const nftKey = generateKey();
   const nftAccountId = `nft.${rootAccountId}`;
-  
+
   console.log(`📦 Deploying NFT contract to ${nftAccountId}...`);
-  
-  // Read the compiled WASM
-  const nftWasmPath = join(
-    __dirname,
-    "../nft/target/wasm32-unknown-unknown/release/nft_contract.wasm"
-  );
+
+  // Read the compiled WASM (from new cargo near build output location)
+  const nftWasmPath = join(__dirname, "../nft/target/near/nft_contract.wasm");
   const nftWasm = readFileSync(nftWasmPath);
 
   // Create account and deploy
-  // Note: Subaccounts can be created from the root account
   await near
     .transaction(rootAccountId)
     .createAccount(nftAccountId)
@@ -66,10 +58,7 @@ export async function setupTestEnvironment(): Promise<TestContext> {
 
   // Create Near instance for NFT contract account
   const nftNear = new Near({
-    network: {
-      networkId: "sandbox",
-      rpcUrl: sandbox.rpcUrl,
-    },
+    network: sandbox,
     privateKey: nftKey.secretKey,
     defaultSignerId: nftAccountId,
     defaultWaitUntil: "FINAL",
@@ -97,13 +86,13 @@ export async function setupTestEnvironment(): Promise<TestContext> {
   // Deploy Marketplace contract
   const marketplaceKey = generateKey();
   const marketplaceAccountId = `marketplace.${rootAccountId}`;
-  
+
   console.log(`📦 Deploying Marketplace contract to ${marketplaceAccountId}...`);
-  
-  // Read the compiled WASM
+
+  // Read the compiled WASM (from new cargo near build output location)
   const marketplaceWasmPath = join(
     __dirname,
-    "../marketplace/target/wasm32-unknown-unknown/release/nft_market_contract.wasm"
+    "../marketplace/target/near/nft_market_contract.wasm"
   );
   const marketplaceWasm = readFileSync(marketplaceWasmPath);
 
@@ -117,10 +106,7 @@ export async function setupTestEnvironment(): Promise<TestContext> {
 
   // Create Near instance for Marketplace contract account
   const marketplaceNear = new Near({
-    network: {
-      networkId: "sandbox",
-      rpcUrl: sandbox.rpcUrl,
-    },
+    network: sandbox,
     privateKey: marketplaceKey.secretKey,
     defaultSignerId: marketplaceAccountId,
     defaultWaitUntil: "FINAL",
@@ -164,10 +150,9 @@ export async function teardownTestEnvironment(ctx: TestContext | undefined): Pro
     return;
   }
   try {
-    await ctx.sandbox.tearDown();
-    console.log("✅ Sandbox torn down");
+    await ctx.sandbox.stop();
+    console.log("✅ Sandbox stopped");
   } catch (error) {
-    console.error("Error tearing down sandbox:", error);
+    console.error("Error stopping sandbox:", error);
   }
 }
-
