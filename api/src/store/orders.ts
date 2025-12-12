@@ -1,0 +1,355 @@
+import { Context, Effect, Layer } from "every-plugin/effect";
+import { eq, desc } from "drizzle-orm";
+import * as schema from "../db/schema";
+import type { OrderStatus, ShippingAddress, TrackingInfo, DeliveryEstimate } from "../schema";
+import { Database } from "./database";
+
+export interface OrderWithItems {
+  id: string;
+  userId: string;
+  status: OrderStatus;
+  totalAmount: number;
+  currency: string;
+  checkoutSessionId?: string;
+  checkoutProvider?: 'stripe' | 'near';
+  fulfillmentOrderId?: string;
+  fulfillmentReferenceId?: string;
+  shippingAddress?: ShippingAddress;
+  trackingInfo?: TrackingInfo[];
+  deliveryEstimate?: DeliveryEstimate;
+  createdAt: string;
+  updatedAt: string;
+  items: OrderItem[];
+}
+
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface CreateOrderInput {
+  userId: string;
+  items: Array<{
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+  totalAmount: number;
+  currency: string;
+}
+
+export class OrderStore extends Context.Tag("OrderStore")<
+  OrderStore,
+  {
+    readonly create: (input: CreateOrderInput) => Effect.Effect<OrderWithItems, Error>;
+    readonly find: (id: string) => Effect.Effect<OrderWithItems | null, Error>;
+    readonly findByUser: (userId: string, options: { limit?: number; offset?: number }) => Effect.Effect<{ orders: OrderWithItems[]; total: number }, Error>;
+    readonly findByCheckoutSession: (checkoutSessionId: string) => Effect.Effect<OrderWithItems | null, Error>;
+    readonly findByFulfillmentRef: (fulfillmentReferenceId: string) => Effect.Effect<OrderWithItems | null, Error>;
+    readonly updateCheckout: (orderId: string, checkoutSessionId: string, checkoutProvider: 'stripe' | 'near') => Effect.Effect<OrderWithItems, Error>;
+    readonly updateStatus: (orderId: string, status: OrderStatus) => Effect.Effect<OrderWithItems, Error>;
+    readonly updateShipping: (orderId: string, shippingAddress: ShippingAddress) => Effect.Effect<OrderWithItems, Error>;
+    readonly updateFulfillment: (orderId: string, fulfillmentOrderId: string) => Effect.Effect<OrderWithItems, Error>;
+    readonly updateTracking: (orderId: string, trackingInfo: TrackingInfo[]) => Effect.Effect<OrderWithItems, Error>;
+    readonly updateDeliveryEstimate: (orderId: string, deliveryEstimate: DeliveryEstimate) => Effect.Effect<OrderWithItems, Error>;
+  }
+>() {}
+
+export const OrderStoreLive = Layer.effect(
+  OrderStore,
+  Effect.gen(function* () {
+    const db = yield* Database;
+
+    const getOrderItems = async (orderId: string): Promise<OrderItem[]> => {
+      const items = await db
+        .select()
+        .from(schema.orderItems)
+        .where(eq(schema.orderItems.orderId, orderId));
+
+      return items.map((item) => ({
+        id: item.id,
+        orderId: item.orderId,
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice / 100,
+      }));
+    };
+
+    const rowToOrder = async (row: typeof schema.orders.$inferSelect): Promise<OrderWithItems> => {
+      const items = await getOrderItems(row.id);
+
+      return {
+        id: row.id,
+        userId: row.userId,
+        status: row.status as OrderStatus,
+        totalAmount: row.totalAmount / 100,
+        currency: row.currency,
+        checkoutSessionId: row.checkoutSessionId || undefined,
+        checkoutProvider: row.checkoutProvider as 'stripe' | 'near' | undefined,
+        fulfillmentOrderId: row.fulfillmentOrderId || undefined,
+        fulfillmentReferenceId: row.fulfillmentReferenceId || undefined,
+        shippingAddress: row.shippingAddress ? JSON.parse(row.shippingAddress) : undefined,
+        trackingInfo: row.trackingInfo ? JSON.parse(row.trackingInfo) : undefined,
+        deliveryEstimate: row.deliveryEstimate ? JSON.parse(row.deliveryEstimate) : undefined,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+        items,
+      };
+    };
+
+    const findOrderById = async (id: string): Promise<OrderWithItems | null> => {
+      const results = await db
+        .select()
+        .from(schema.orders)
+        .where(eq(schema.orders.id, id))
+        .limit(1);
+
+      if (results.length === 0) {
+        return null;
+      }
+
+      return await rowToOrder(results[0]!);
+    };
+
+    return {
+      create: (input) =>
+        Effect.tryPromise({
+          try: async () => {
+            const now = new Date();
+            const orderId = crypto.randomUUID();
+            const fulfillmentReferenceId = `order_${Date.now()}_${input.userId}`;
+
+            await db.insert(schema.orders).values({
+              id: orderId,
+              userId: input.userId,
+              status: 'pending',
+              totalAmount: Math.round(input.totalAmount * 100),
+              currency: input.currency,
+              fulfillmentReferenceId,
+              createdAt: now,
+              updatedAt: now,
+            });
+
+            if (input.items.length > 0) {
+              await db.insert(schema.orderItems).values(
+                input.items.map((item, index) => ({
+                  id: `${orderId}-item-${index}`,
+                  orderId,
+                  productId: item.productId,
+                  productName: item.productName,
+                  quantity: item.quantity,
+                  unitPrice: Math.round(item.unitPrice * 100),
+                  createdAt: now,
+                }))
+              );
+            }
+
+            const order = await findOrderById(orderId);
+            if (!order) {
+              throw new Error('Failed to create order');
+            }
+            return order;
+          },
+          catch: (error) => new Error(`Failed to create order: ${error}`),
+        }),
+
+      find: (id) =>
+        Effect.tryPromise({
+          try: async () => findOrderById(id),
+          catch: (error) => new Error(`Failed to find order: ${error}`),
+        }),
+
+      findByUser: (userId, options) =>
+        Effect.tryPromise({
+          try: async () => {
+            const { limit = 10, offset = 0 } = options;
+
+            const allOrders = await db
+              .select()
+              .from(schema.orders)
+              .where(eq(schema.orders.userId, userId));
+
+            const total = allOrders.length;
+
+            const results = await db
+              .select()
+              .from(schema.orders)
+              .where(eq(schema.orders.userId, userId))
+              .orderBy(desc(schema.orders.createdAt))
+              .limit(limit)
+              .offset(offset);
+
+            const orders = await Promise.all(results.map(rowToOrder));
+
+            return { orders, total };
+          },
+          catch: (error) => new Error(`Failed to find orders: ${error}`),
+        }),
+
+      findByCheckoutSession: (checkoutSessionId) =>
+        Effect.tryPromise({
+          try: async () => {
+            const results = await db
+              .select()
+              .from(schema.orders)
+              .where(eq(schema.orders.checkoutSessionId, checkoutSessionId))
+              .limit(1);
+
+            if (results.length === 0) {
+              return null;
+            }
+
+            return await rowToOrder(results[0]!);
+          },
+          catch: (error) => new Error(`Failed to find order by checkout session: ${error}`),
+        }),
+
+      findByFulfillmentRef: (fulfillmentReferenceId) =>
+        Effect.tryPromise({
+          try: async () => {
+            const results = await db
+              .select()
+              .from(schema.orders)
+              .where(eq(schema.orders.fulfillmentReferenceId, fulfillmentReferenceId))
+              .limit(1);
+
+            if (results.length === 0) {
+              return null;
+            }
+
+            return await rowToOrder(results[0]!);
+          },
+          catch: (error) => new Error(`Failed to find order by fulfillment ref: ${error}`),
+        }),
+
+      updateCheckout: (orderId, checkoutSessionId, checkoutProvider) =>
+        Effect.tryPromise({
+          try: async () => {
+            await db
+              .update(schema.orders)
+              .set({
+                checkoutSessionId,
+                checkoutProvider,
+                updatedAt: new Date(),
+              })
+              .where(eq(schema.orders.id, orderId));
+
+            const order = await findOrderById(orderId);
+            if (!order) {
+              throw new Error('Order not found');
+            }
+            return order;
+          },
+          catch: (error) => new Error(`Failed to update order checkout: ${error}`),
+        }),
+
+      updateStatus: (orderId, status) =>
+        Effect.tryPromise({
+          try: async () => {
+            await db
+              .update(schema.orders)
+              .set({
+                status,
+                updatedAt: new Date(),
+              })
+              .where(eq(schema.orders.id, orderId));
+
+            const order = await findOrderById(orderId);
+            if (!order) {
+              throw new Error('Order not found');
+            }
+            return order;
+          },
+          catch: (error) => new Error(`Failed to update order status: ${error}`),
+        }),
+
+      updateShipping: (orderId, shippingAddress) =>
+        Effect.tryPromise({
+          try: async () => {
+            await db
+              .update(schema.orders)
+              .set({
+                shippingAddress: JSON.stringify(shippingAddress),
+                updatedAt: new Date(),
+              })
+              .where(eq(schema.orders.id, orderId));
+
+            const order = await findOrderById(orderId);
+            if (!order) {
+              throw new Error('Order not found');
+            }
+            return order;
+          },
+          catch: (error) => new Error(`Failed to update order shipping: ${error}`),
+        }),
+
+      updateFulfillment: (orderId, fulfillmentOrderId) =>
+        Effect.tryPromise({
+          try: async () => {
+            await db
+              .update(schema.orders)
+              .set({
+                fulfillmentOrderId,
+                status: 'processing',
+                updatedAt: new Date(),
+              })
+              .where(eq(schema.orders.id, orderId));
+
+            const order = await findOrderById(orderId);
+            if (!order) {
+              throw new Error('Order not found');
+            }
+            return order;
+          },
+          catch: (error) => new Error(`Failed to update order fulfillment: ${error}`),
+        }),
+
+      updateTracking: (orderId, trackingInfo) =>
+        Effect.tryPromise({
+          try: async () => {
+            await db
+              .update(schema.orders)
+              .set({
+                trackingInfo: JSON.stringify(trackingInfo),
+                status: 'shipped',
+                updatedAt: new Date(),
+              })
+              .where(eq(schema.orders.id, orderId));
+
+            const order = await findOrderById(orderId);
+            if (!order) {
+              throw new Error('Order not found');
+            }
+            return order;
+          },
+          catch: (error) => new Error(`Failed to update order tracking: ${error}`),
+        }),
+
+      updateDeliveryEstimate: (orderId, deliveryEstimate) =>
+        Effect.tryPromise({
+          try: async () => {
+            await db
+              .update(schema.orders)
+              .set({
+                deliveryEstimate: JSON.stringify(deliveryEstimate),
+                updatedAt: new Date(),
+              })
+              .where(eq(schema.orders.id, orderId));
+
+            const order = await findOrderById(orderId);
+            if (!order) {
+              throw new Error('Order not found');
+            }
+            return order;
+          },
+          catch: (error) => new Error(`Failed to update delivery estimate: ${error}`),
+        }),
+    };
+  })
+);

@@ -4,6 +4,22 @@ import { orderKeys } from './keys';
 
 export type Order = Awaited<ReturnType<typeof apiClient.getOrder>>['order'];
 
+type OrderBySessionResult = Awaited<ReturnType<typeof apiClient.getOrderByCheckoutSession>>;
+
+export function useOrderByCheckoutSession(
+  sessionId: string | undefined,
+  options?: {
+    refetchInterval?: number | false | ((query: { state: { data?: OrderBySessionResult } }) => number | false);
+  }
+) {
+  return useQuery({
+    queryKey: [...orderKeys.all, 'by-session', sessionId],
+    queryFn: () => apiClient.getOrderByCheckoutSession({ sessionId: sessionId! }),
+    enabled: !!sessionId,
+    refetchInterval: options?.refetchInterval,
+  });
+}
+
 export function useOrders(options?: { limit?: number; offset?: number }) {
   return useQuery({
     queryKey: orderKeys.list({ limit: options?.limit, offset: options?.offset }),

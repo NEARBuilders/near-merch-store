@@ -1,16 +1,12 @@
 import { createPlugin } from 'every-plugin';
 import { Effect, Layer } from 'every-plugin/effect';
 import { z } from 'every-plugin/zod';
-import { InMemoryKeyStore, Near, parseKey, type Network } from 'near-kit';
-
 import { contract } from './contract';
 import { createMarketplaceRuntime } from './runtime';
-import { RelayerService } from './service';
-import { OrderService } from './services/orders';
+import type { OrderStatus, TrackingInfo } from './schema';
 import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
-import { DatabaseLive, ProductStoreLive } from './store';
-
+import { DatabaseLive, OrderStore, OrderStoreLive, ProductStoreLive } from './store';
 export * from './schema';
 
 export const ReturnAddressSchema = z.object({
@@ -36,8 +32,6 @@ export default createPlugin({
   }),
 
   secrets: z.object({
-    RELAYER_ACCOUNT_ID: z.string().min(1, 'Relayer account ID is required'),
-    RELAYER_PRIVATE_KEY: z.string().min(1, 'Relayer private key is required'),
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     GELATO_API_KEY: z.string().optional(),
@@ -53,34 +47,6 @@ export default createPlugin({
 
   initialize: (config) =>
     Effect.gen(function* () {
-      const networkConfig = config.variables.nodeUrl
-        ? {
-          networkId: config.variables.network,
-          rpcUrl: config.variables.nodeUrl,
-        }
-        : (config.variables.network as Network);
-
-      const keyStore = new InMemoryKeyStore();
-      yield* Effect.promise(() =>
-        keyStore.add(
-          config.secrets.RELAYER_ACCOUNT_ID,
-          parseKey(config.secrets.RELAYER_PRIVATE_KEY)
-        )
-      );
-
-      const near = new Near({
-        network: networkConfig,
-        keyStore,
-        defaultSignerId: config.secrets.RELAYER_ACCOUNT_ID,
-        defaultWaitUntil: 'FINAL',
-      });
-
-      const relayerService = new RelayerService(
-        near,
-        config.secrets.RELAYER_ACCOUNT_ID,
-        config.variables.contractId
-      );
-
       const stripeService =
         config.secrets.STRIPE_SECRET_KEY && config.secrets.STRIPE_WEBHOOK_SECRET
           ? new StripeService(config.secrets.STRIPE_SECRET_KEY, config.secrets.STRIPE_WEBHOOK_SECRET)
@@ -113,7 +79,7 @@ export default createPlugin({
         Layer.provide(dbLayer)
       );
 
-      const orderService = new OrderService();
+      const orderLayer = OrderStoreLive.pipe(Layer.provide(dbLayer));
 
       console.log('[Marketplace] Plugin initialized');
       console.log(`[Marketplace] Database: ${config.secrets.DATABASE_URL}`);
@@ -121,11 +87,10 @@ export default createPlugin({
       console.log(`[Marketplace] Stripe: ${stripeService ? 'configured' : 'not configured'}`);
 
       return {
-        relayerService,
-        orderService,
         stripeService,
         runtime,
         appLayer,
+        orderLayer,
         secrets: config.secrets,
       };
     }),
@@ -136,17 +101,29 @@ export default createPlugin({
     }),
 
   createRouter: (context, builder) => {
-    const { relayerService, orderService, stripeService, runtime, appLayer } = context;
+    const { stripeService, runtime, appLayer, orderLayer, secrets } = context;
+
+    const orderToSchema = (order: any) => ({
+      id: order.id,
+      userId: order.userId,
+      productId: order.items[0]?.productId || '',
+      productName: order.items[0]?.productName || '',
+      quantity: order.items[0]?.quantity || 1,
+      totalAmount: order.totalAmount,
+      currency: order.currency,
+      status: order.status,
+      checkoutSessionId: order.checkoutSessionId,
+      checkoutProvider: order.checkoutProvider,
+      fulfillmentOrderId: order.fulfillmentOrderId,
+      fulfillmentReferenceId: order.fulfillmentReferenceId,
+      shippingAddress: order.shippingAddress,
+      trackingInfo: order.trackingInfo,
+      deliveryEstimate: order.deliveryEstimate,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    });
 
     return {
-      connect: builder.connect.handler(async ({ input }) => {
-        return await relayerService.ensureStorageDeposit(input.accountId);
-      }),
-
-      publish: builder.publish.handler(async ({ input }) => {
-        return await relayerService.submitDelegateAction(input.payload);
-      }),
-
       ping: builder.ping.handler(async () => {
         return {
           status: 'ok' as const,
@@ -240,17 +217,23 @@ export default createPlugin({
         const product = productResult.product;
 
         const userId = 'demo-user';
-        const totalAmount = product.price * 100 * input.quantity;
+        const totalAmount = product.price * input.quantity;
 
         const order = await Effect.runPromise(
-          orderService.createOrder({
-            userId,
-            productId: product.id,
-            productName: product.name,
-            quantity: input.quantity,
-            totalAmount,
-            currency: product.currency || 'USD',
-          })
+          Effect.gen(function* () {
+            const store = yield* OrderStore;
+            return yield* store.create({
+              userId,
+              items: [{
+                productId: product.id,
+                productName: product.name,
+                quantity: input.quantity,
+                unitPrice: product.price,
+              }],
+              totalAmount,
+              currency: product.currency || 'USD',
+            });
+          }).pipe(Effect.provide(orderLayer))
         );
 
         const checkout = await Effect.runPromise(
@@ -268,7 +251,10 @@ export default createPlugin({
         );
 
         await Effect.runPromise(
-          orderService.updateOrderCheckout(order.id, checkout.sessionId, 'stripe')
+          Effect.gen(function* () {
+            const store = yield* OrderStore;
+            return yield* store.updateCheckout(order.id, checkout.sessionId, 'stripe');
+          }).pipe(Effect.provide(orderLayer))
         );
 
         return {
@@ -280,12 +266,48 @@ export default createPlugin({
 
       getOrders: builder.getOrders.handler(async ({ input }) => {
         const userId = 'demo-user';
-        return await Effect.runPromise(orderService.getOrders(userId, input));
+        const result = await Effect.runPromise(
+          Effect.gen(function* () {
+            const store = yield* OrderStore;
+            return yield* store.findByUser(userId, input);
+          }).pipe(Effect.provide(orderLayer))
+        );
+
+        return {
+          orders: result.orders.map(orderToSchema),
+          total: result.total,
+        };
       }),
 
       getOrder: builder.getOrder.handler(async ({ input }) => {
         const userId = 'demo-user';
-        return await Effect.runPromise(orderService.getOrder(input.id, userId));
+        const order = await Effect.runPromise(
+          Effect.gen(function* () {
+            const store = yield* OrderStore;
+            return yield* store.find(input.id);
+          }).pipe(Effect.provide(orderLayer))
+        );
+
+        if (!order) {
+          throw new Error('Order not found');
+        }
+
+        if (order.userId !== userId) {
+          throw new Error('Unauthorized');
+        }
+
+        return { order: orderToSchema(order) };
+      }),
+
+      getOrderByCheckoutSession: builder.getOrderByCheckoutSession.handler(async ({ input }) => {
+        const order = await Effect.runPromise(
+          Effect.gen(function* () {
+            const store = yield* OrderStore;
+            return yield* store.findByCheckoutSession(input.sessionId);
+          }).pipe(Effect.provide(orderLayer))
+        );
+
+        return { order: order ? orderToSchema(order) : null };
       }),
 
       stripeWebhook: builder.stripeWebhook.handler(async ({ input }) => {
@@ -309,75 +331,262 @@ export default createPlugin({
             const shippingAddress = stripeService.extractShippingAddress(fullSession);
 
             if (shippingAddress) {
-              await Effect.runPromise(orderService.updateOrderShipping(orderId, shippingAddress));
-              await Effect.runPromise(orderService.updateOrderStatus(orderId, 'paid'));
-
-              const orderResult = await Effect.runPromise(orderService.getOrder(orderId));
-              const order = orderResult.order;
-
-              const productResult = await Effect.runPromise(
+              await Effect.runPromise(
                 Effect.gen(function* () {
-                  const service = yield* ProductService;
-                  return yield* service.getProduct(order.productId);
-                }).pipe(Effect.provide(appLayer))
+                  const store = yield* OrderStore;
+                  yield* store.updateShipping(orderId, shippingAddress);
+                  yield* store.updateStatus(orderId, 'paid');
+                }).pipe(Effect.provide(orderLayer))
               );
-              const product = productResult.product;
 
-              try {
-                const provider = product.fulfillmentProvider
-                  ? runtime.getProvider(product.fulfillmentProvider)
-                  : null;
+              const order = await Effect.runPromise(
+                Effect.gen(function* () {
+                  const store = yield* OrderStore;
+                  return yield* store.find(orderId);
+                }).pipe(Effect.provide(orderLayer))
+              );
 
-                if (provider && product.fulfillmentProvider !== 'manual') {
-                  const fulfillmentOrder = await provider.client.createOrder({
-                    externalId: order.id,
-                    recipient: {
-                      name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
-                      company: shippingAddress.companyName,
-                      address1: shippingAddress.addressLine1,
-                      address2: shippingAddress.addressLine2,
-                      city: shippingAddress.city,
-                      stateCode: shippingAddress.state,
-                      countryCode: shippingAddress.country,
-                      zip: shippingAddress.postCode,
-                      phone: shippingAddress.phone,
-                      email: shippingAddress.email,
-                    },
-                    items: [
-                      {
+              if (order && order.items.length > 0) {
+                const productId = order.items[0]!.productId;
+                const productResult = await Effect.runPromise(
+                  Effect.gen(function* () {
+                    const service = yield* ProductService;
+                    return yield* service.getProduct(productId);
+                  }).pipe(Effect.provide(appLayer))
+                );
+                const product = productResult.product;
+
+                try {
+                  const provider = product.fulfillmentProvider
+                    ? runtime.getProvider(product.fulfillmentProvider)
+                    : null;
+
+                  if (provider && product.fulfillmentProvider !== 'manual') {
+                    const fulfillmentOrder = await provider.client.createOrder({
+                      externalId: order.id,
+                      recipient: {
+                        name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+                        company: shippingAddress.companyName,
+                        address1: shippingAddress.addressLine1,
+                        address2: shippingAddress.addressLine2,
+                        city: shippingAddress.city,
+                        stateCode: shippingAddress.state,
+                        countryCode: shippingAddress.country,
+                        zip: shippingAddress.postCode,
+                        phone: shippingAddress.phone,
+                        email: shippingAddress.email,
+                      },
+                      items: order.items.map(item => ({
                         variantId: product.fulfillmentConfig?.printfulVariantId,
                         productId: product.fulfillmentConfig?.gelatoProductUid
                           ? parseInt(product.fulfillmentConfig.gelatoProductUid)
                           : undefined,
-                        quantity: order.quantity,
+                        quantity: item.quantity,
                         files: product.fulfillmentConfig?.fileUrl
-                          ? [
-                              {
-                                url: product.fulfillmentConfig.fileUrl,
-                                type: 'default',
-                                placement: 'front',
-                              },
-                            ]
+                          ? [{ url: product.fulfillmentConfig.fileUrl, type: 'default', placement: 'front' }]
                           : undefined,
+                      })),
+                      retailCosts: {
+                        currency: order.currency,
                       },
-                    ],
-                    retailCosts: {
-                      currency: order.currency,
-                    },
-                  });
-                  await Effect.runPromise(
-                    orderService.updateOrderFulfillment(orderId, fulfillmentOrder.id)
-                  );
-                } else if (product.fulfillmentProvider === 'manual') {
-                  console.log('[Fulfillment] Manual fulfillment - no automated order creation');
+                    });
+
+                    await Effect.runPromise(
+                      Effect.gen(function* () {
+                        const store = yield* OrderStore;
+                        yield* store.updateFulfillment(orderId, fulfillmentOrder.id);
+                      }).pipe(Effect.provide(orderLayer))
+                    );
+                  } else if (product.fulfillmentProvider === 'manual') {
+                    console.log('[Fulfillment] Manual fulfillment - no automated order creation');
+                  }
+                } catch (error) {
+                  console.error('Failed to create fulfillment order:', error);
                 }
-              } catch (error) {
-                console.error('Failed to create fulfillment order:', error);
               }
             } else {
-              await Effect.runPromise(orderService.updateOrderStatus(orderId, 'paid'));
+              await Effect.runPromise(
+                Effect.gen(function* () {
+                  const store = yield* OrderStore;
+                  yield* store.updateStatus(orderId, 'paid');
+                }).pipe(Effect.provide(orderLayer))
+              );
             }
           }
+        }
+
+        return { received: true };
+      }),
+
+      printfulWebhook: builder.printfulWebhook.handler(async ({ input }) => {
+        try {
+          const payload = JSON.parse(input.body);
+          const eventType = payload.type;
+          const data = payload.data;
+
+          console.log(`[Printful Webhook] Received event: ${eventType}`);
+
+          const externalId = data?.order?.external_id;
+          if (!externalId) {
+            console.log('[Printful Webhook] No external_id found, skipping');
+            return { received: true };
+          }
+
+          const order = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.find(externalId);
+            }).pipe(Effect.provide(orderLayer))
+          );
+
+          if (!order) {
+            console.log(`[Printful Webhook] Order not found: ${externalId}`);
+            return { received: true };
+          }
+
+          let newStatus: OrderStatus | undefined = undefined;
+          let newTracking: TrackingInfo[] | undefined = undefined;
+
+          switch (eventType) {
+            case 'package_shipped':
+              newStatus = 'shipped';
+              if (data.shipment) {
+                newTracking = [{
+                  trackingCode: data.shipment.tracking_number || '',
+                  trackingUrl: data.shipment.tracking_url || '',
+                  shipmentMethodName: data.shipment.service || 'Standard',
+                }];
+              }
+              break;
+
+            case 'order_put_hold':
+            case 'order_put_hold_approval':
+              console.log(`[Printful Webhook] Order ${externalId} put on hold`);
+              break;
+
+            case 'order_canceled':
+              newStatus = 'cancelled';
+              break;
+
+            case 'order_failed':
+              console.error(`[Printful Webhook] Order ${externalId} failed`);
+              break;
+
+            default:
+              console.log(`[Printful Webhook] Unhandled event type: ${eventType}`);
+          }
+
+          if (newStatus) {
+            const statusToUpdate = newStatus;
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(externalId, statusToUpdate);
+              }).pipe(Effect.provide(orderLayer))
+            );
+          }
+
+          if (newTracking) {
+            const trackingToUpdate = newTracking;
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateTracking(externalId, trackingToUpdate);
+              }).pipe(Effect.provide(orderLayer))
+            );
+          }
+        } catch (error) {
+          console.error('[Printful Webhook] Error processing webhook:', error);
+        }
+
+        return { received: true };
+      }),
+
+      gelatoWebhook: builder.gelatoWebhook.handler(async ({ input }) => {
+        try {
+          const payload = JSON.parse(input.body);
+          const eventType = payload.event;
+          const orderData = payload.order || payload;
+
+          console.log(`[Gelato Webhook] Received event: ${eventType}`);
+
+          const externalId = orderData.orderReferenceId || orderData.externalId;
+          if (!externalId) {
+            console.log('[Gelato Webhook] No external ID found, skipping');
+            return { received: true };
+          }
+
+          const order = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.find(externalId);
+            }).pipe(Effect.provide(orderLayer))
+          );
+
+          if (!order) {
+            console.log(`[Gelato Webhook] Order not found: ${externalId}`);
+            return { received: true };
+          }
+
+          let newStatus: OrderStatus | undefined = undefined;
+          let newTracking: TrackingInfo[] | undefined = undefined;
+
+          switch (eventType) {
+            case 'shipment_created':
+            case 'shipment:created':
+              newStatus = 'shipped';
+              const shipments = orderData.shipments || [orderData.shipment];
+              if (shipments && shipments.length > 0) {
+                newTracking = shipments.map((s: any) => ({
+                  trackingCode: s.trackingCode || s.tracking_code || '',
+                  trackingUrl: s.trackingUrl || s.tracking_url || '',
+                  shipmentMethodName: s.shipmentMethodName || s.method || 'Standard',
+                  shipmentMethodUid: s.shipmentMethodUid,
+                  fulfillmentCountry: s.fulfillmentCountry,
+                }));
+              }
+              break;
+
+            case 'order_cancelled':
+            case 'order:cancelled':
+              newStatus = 'cancelled';
+              break;
+
+            case 'delivered':
+            case 'order:delivered':
+              newStatus = 'delivered';
+              break;
+
+            case 'order_created':
+            case 'order:created':
+              newStatus = 'processing';
+              break;
+
+            default:
+              console.log(`[Gelato Webhook] Unhandled event type: ${eventType}`);
+          }
+
+          if (newStatus) {
+            const statusToUpdate = newStatus;
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(externalId, statusToUpdate);
+              }).pipe(Effect.provide(orderLayer))
+            );
+          }
+
+          if (newTracking) {
+            const trackingToUpdate = newTracking;
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateTracking(externalId, trackingToUpdate);
+              }).pipe(Effect.provide(orderLayer))
+            );
+          }
+        } catch (error) {
+          console.error('[Gelato Webhook] Error processing webhook:', error);
         }
 
         return { received: true };
