@@ -33,7 +33,7 @@ function MyAccountPage() {
   const userEmail = session?.user?.email || 'No email';
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-background min-h-screen">
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-8">
         <Link to="/" className="text-sm hover:underline mb-8 inline-block">
           ← Back to Store
@@ -49,7 +49,7 @@ function MyAccountPage() {
               <span>{userEmail}</span>
             </div>
           </div>
-          <Button variant="outline" onClick={handleSignOut} className="border-[rgba(0,0,0,0.1)]">
+          <Button variant="outline" onClick={handleSignOut} className="border-border">
             Sign Out
           </Button>
         </div>
@@ -58,7 +58,7 @@ function MyAccountPage() {
           <div className="space-y-1">
             <button
               onClick={() => setActiveSection('orders')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === 'orders' ? 'bg-[#ececf0]' : 'hover:bg-gray-50'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === 'orders' ? 'bg-muted' : 'hover:bg-muted/50'}`}
             >
               <Package className="size-4" />
               <span className="flex-1 text-sm">Orders in Progress</span>
@@ -67,7 +67,7 @@ function MyAccountPage() {
 
             <button
               onClick={() => setActiveSection('history')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === 'history' ? 'bg-[#ececf0]' : 'hover:bg-gray-50'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === 'history' ? 'bg-muted' : 'hover:bg-muted/50'}`}
             >
               <Clock className="size-4" />
               <span className="flex-1 text-sm">Order History</span>
@@ -76,7 +76,7 @@ function MyAccountPage() {
 
             <button
               onClick={() => setActiveSection('addresses')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === 'addresses' ? 'bg-[#ececf0]' : 'hover:bg-gray-50'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === 'addresses' ? 'bg-muted' : 'hover:bg-muted/50'}`}
             >
               <MapPin className="size-4" />
               <span className="flex-1 text-sm">Shipping Addresses</span>
@@ -85,7 +85,7 @@ function MyAccountPage() {
 
             <button
               onClick={() => setActiveSection('payment')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === 'payment' ? 'bg-[#ececf0]' : 'hover:bg-gray-50'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === 'payment' ? 'bg-muted' : 'hover:bg-muted/50'}`}
             >
               <CreditCard className="size-4" />
               <span className="flex-1 text-sm">Payment Methods</span>
@@ -94,7 +94,7 @@ function MyAccountPage() {
 
             <button
               onClick={() => setActiveSection('accounts')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === 'accounts' ? 'bg-[#ececf0]' : 'hover:bg-gray-50'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === 'accounts' ? 'bg-muted' : 'hover:bg-muted/50'}`}
             >
               <Link2 className="size-4" />
               <span className="flex-1 text-sm">Connected Accounts</span>
@@ -121,7 +121,7 @@ function OrdersInProgress() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-medium">Orders in Progress</h2>
       </div>
-      <div className="bg-[#ececf0] p-8 text-center">
+      <div className="bg-muted p-8 text-center">
         <p className="text-[#717182]">No orders in progress</p>
       </div>
     </div>
@@ -134,7 +134,7 @@ function OrderHistory() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-medium">Order History</h2>
       </div>
-      <div className="bg-[#ececf0] p-8 text-center">
+      <div className="bg-muted p-8 text-center">
         <p className="text-[#717182]">No past orders</p>
       </div>
     </div>
@@ -148,7 +148,7 @@ function ShippingAddresses() {
         <h2 className="text-lg font-medium">Shipping Addresses</h2>
         <Button className="bg-[#00ec97] hover:bg-[#00d687] text-black">Add New Address</Button>
       </div>
-      <div className="bg-[#ececf0] p-8 text-center">
+      <div className="bg-muted p-8 text-center">
         <p className="text-[#717182]">No addresses saved</p>
       </div>
     </div>
@@ -161,10 +161,10 @@ function PaymentMethods() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-medium">Payment Methods</h2>
       </div>
-      <div className="bg-[#ececf0] p-8 text-center">
+      <div className="bg-muted p-8 text-center">
         <p className="text-[#717182]">No payment methods saved</p>
       </div>
-      <div className="bg-[#ececf0] p-4">
+      <div className="bg-muted p-4">
         <p className="text-xs text-[#717182]">🔒 All payment information is encrypted and secure.</p>
       </div>
     </div>
@@ -281,9 +281,9 @@ function ConnectedAccounts() {
     }
   };
 
-  const isProviderLinked = (providerId: string) => 
+  const isProviderLinked = (providerId: string) =>
     Array.isArray(linkedAccounts) && linkedAccounts.some((a) => a.providerId === providerId);
-  const primaryAccount = Array.isArray(linkedAccounts) 
+  const primaryAccount = Array.isArray(linkedAccounts)
     ? (linkedAccounts.find((acc) => acc.providerId === 'siwn') || linkedAccounts[0])
     : null;
 
@@ -300,12 +300,12 @@ function ConnectedAccounts() {
       </div>
 
       {linkedAccounts.length > 0 && (
-        <div className="border-t border-[rgba(0,0,0,0.1)] pt-4 space-y-3">
+        <div className="border-t border-border pt-4 space-y-3">
           <p className="text-sm text-[#717182] mb-2">Linked Accounts</p>
           {linkedAccounts.map((account) => (
             <div
               key={account.providerId || account.accountId}
-              className={`p-4 flex items-center justify-between ${account === primaryAccount ? 'bg-[#d4fced] border border-[#00ec97]' : 'bg-white border border-[rgba(0,0,0,0.1)]'}`}
+              className={`p-4 flex items-center justify-between ${account === primaryAccount ? 'bg-[#d4fced] border border-[#00ec97] dark:bg-green-900/30' : 'bg-card border border-border'}`}
             >
               <div className="flex items-center gap-3">
                 <div className={`size-10 flex items-center justify-center ${account.providerId === 'siwn' ? 'bg-[#00ec97]' : account.providerId === 'github' ? 'bg-[#030213]' : ''}`}>
@@ -353,11 +353,11 @@ function ConnectedAccounts() {
         </div>
       )}
 
-      <div className="border-t border-[rgba(0,0,0,0.1)] pt-4">
+      <div className="border-t border-border pt-4">
         <p className="text-sm text-[#717182] mb-4">Add New Account</p>
 
         {!isProviderLinked('siwn') && (
-          <div className="bg-white border border-[rgba(0,0,0,0.1)] mb-3 p-4 flex items-center justify-between">
+          <div className="bg-card border border-border mb-3 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-[#00ec97] size-10 flex items-center justify-center">
                 <svg className="size-5" viewBox="0 0 24 24" fill="none">
@@ -380,7 +380,7 @@ function ConnectedAccounts() {
         )}
 
         {!isProviderLinked('google') && (
-          <div className="bg-white border border-[rgba(0,0,0,0.1)] mb-3 p-4 flex items-center justify-between">
+          <div className="bg-card border border-border mb-3 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="size-10 flex items-center justify-center">
                 <svg className="size-6" viewBox="0 0 24 24">
@@ -403,7 +403,7 @@ function ConnectedAccounts() {
         )}
 
         {!isProviderLinked('github') && (
-          <div className="bg-white border border-[rgba(0,0,0,0.1)] p-4 flex items-center justify-between">
+          <div className="bg-card border border-border p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-[#030213] size-10 flex items-center justify-center">
                 <svg className="size-5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -423,7 +423,7 @@ function ConnectedAccounts() {
         )}
       </div>
 
-      <div className="bg-[#ececf0] p-4 mt-6">
+      <div className="bg-muted p-4 mt-6">
         <p className="text-xs text-[#717182]">
           💡 Connect multiple accounts for flexible sign-in options. You can disconnect at any time from this page.
         </p>

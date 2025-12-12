@@ -24,7 +24,7 @@ export const Route = createFileRoute('/_marketplace/')({
   },
   errorComponent: ({ error }) => {
     const router = useRouter();
-    
+
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-md text-center space-y-4">
@@ -105,7 +105,7 @@ function MarketplaceHome() {
                   key={collection.slug}
                   to="/collections/$collection"
                   params={{ collection: collection.slug }}
-                  className="group relative aspect-square rounded-[16px] overflow-hidden bg-[#f3f3f5]"
+                  className="group relative aspect-square rounded-[16px] overflow-hidden bg-muted"
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute bottom-4 left-4 text-white">
@@ -118,7 +118,7 @@ function MarketplaceHome() {
         </div>
       </section>
 
-      <section className="py-16 md:py-24 bg-[#f3f3f5]">
+      <section className="py-16 md:py-24 bg-muted/30">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl md:text-3xl font-bold">Featured Products</h2>
@@ -153,10 +153,10 @@ function MarketplaceHome() {
             and community events.
           </p>
           <div className="flex justify-center gap-4">
-            <Button variant="outline" className="border-neutral-950">
+            <Button variant="outline" className="border-border hover:bg-muted">
               Twitter
             </Button>
-            <Button variant="outline" className="border-neutral-950">
+            <Button variant="outline" className="border-border hover:bg-muted">
               Discord
             </Button>
           </div>

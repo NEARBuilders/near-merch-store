@@ -18,7 +18,7 @@ function CheckoutPage() {
 
   if (cartItems.length === 0) {
     return (
-      <div className="bg-white min-h-screen flex items-center justify-center">
+      <div className="bg-background min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-medium mb-4">Your cart is empty</h1>
           <Link to="/" className="text-[#00ec97] hover:underline">
@@ -30,8 +30,8 @@ function CheckoutPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen">
-      <div className="border-b border-[rgba(0,0,0,0.1)]">
+    <div className="bg-background min-h-screen">
+      <div className="border-b border-border">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
           <Link
             to="/cart"
@@ -49,14 +49,14 @@ function CheckoutPage() {
         </h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <div className="border border-[rgba(0,0,0,0.1)] p-8">
+          <div className="border border-border p-8">
             <div className="mb-6">
               <h2 className="text-base font-medium mb-6">Order Summary</h2>
 
               <div className="space-y-4">
                 {cartItems.map((item) => (
                   <div key={item.productId} className="flex gap-4">
-                    <div className="size-20 bg-[#ececf0] border border-[rgba(0,0,0,0.1)] flex-shrink-0 overflow-hidden">
+                    <div className="size-20 bg-muted border border-border flex-shrink-0 overflow-hidden">
                       <img
                         src={item.product.image}
                         alt={item.product.name}
@@ -78,7 +78,7 @@ function CheckoutPage() {
               </div>
             </div>
 
-            <div className="h-px bg-[rgba(0,0,0,0.1)] my-6" />
+            <div className="h-px bg-border my-6" />
 
             <div className="space-y-3 mb-6">
               <div className="flex justify-between text-sm">
@@ -95,7 +95,7 @@ function CheckoutPage() {
               </div>
             </div>
 
-            <div className="h-px bg-[rgba(0,0,0,0.1)] mb-3" />
+            <div className="h-px bg-border mb-3" />
 
             <div className="flex justify-between items-start">
               <span className="text-base font-medium">Total</span>
@@ -105,14 +105,14 @@ function CheckoutPage() {
               </div>
             </div>
 
-            <div className="mt-6 bg-[#f6f6f6] border border-[rgba(0,0,0,0.1)] p-4 flex items-center justify-between gap-4">
+            <div className="mt-6 bg-muted/50 border border-border p-4 flex items-center justify-between gap-4">
               <span className="text-sm">Apply Discount Code</span>
               <input
                 type="text"
                 placeholder="Enter Code"
                 value={discountCode}
                 onChange={(e) => setDiscountCode(e.target.value)}
-                className="bg-white border border-[#dddddd] px-4 py-2 text-sm text-[#717182] placeholder:text-[#717182] outline-none focus:border-neutral-950 transition-colors w-60"
+                className="bg-background border border-input px-4 py-2 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none focus:border-foreground transition-colors w-60"
               />
             </div>
           </div>
@@ -151,7 +151,7 @@ function CheckoutPage() {
 
               <Link
                 to="/checkout/stripe"
-                className="block w-full border border-[rgba(0,0,0,0.1)] p-6 hover:border-neutral-950 transition-colors text-left"
+                className="block w-full border border-border p-6 hover:border-foreground transition-colors text-left"
               >
                 <div className="flex items-start gap-3">
                   <div className="size-10 bg-[#d6d3ff] flex items-center justify-center flex-shrink-0">

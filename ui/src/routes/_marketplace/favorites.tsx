@@ -13,8 +13,8 @@ function FavoritesPage() {
   const { addToCart } = useCart();
 
   return (
-    <div className="bg-white min-h-screen">
-      <div className="border-b border-[rgba(0,0,0,0.1)]">
+    <div className="bg-background min-h-screen">
+      <div className="border-b border-border">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
           <Link
             to="/"
@@ -51,14 +51,14 @@ function FavoritesPage() {
             {favorites.map((product) => (
               <div
                 key={product.id}
-                className="flex flex-col border border-[rgba(0,0,0,0.1)] hover:border-neutral-950 transition-colors"
+                className="flex flex-col border border-border hover:border-foreground transition-colors"
               >
                 <Link
                   to="/products/$productId"
                   params={{ productId: product.id }}
                   className="block"
                 >
-                  <div className="w-full aspect-square bg-[#ececf0] overflow-hidden">
+                  <div className="w-full aspect-square bg-muted overflow-hidden">
                     <img
                       src={product.image}
                       alt={product.name}
@@ -76,22 +76,22 @@ function FavoritesPage() {
                     params={{ productId: product.id }}
                     className="hover:text-[#00ec97] transition-colors"
                   >
-                    <h4 className="text-sm text-neutral-950 mb-1 line-clamp-2">
+                    <h4 className="text-sm text-foreground mb-1 line-clamp-2">
                       {product.name}
                     </h4>
                   </Link>
-                  <p className="text-sm text-neutral-950 mb-4">${product.price}</p>
+                  <p className="text-sm text-foreground mb-4">${product.price}</p>
 
                   <div className="flex gap-2 mt-auto">
                     <Button
                       onClick={() => addToCart(product.id)}
-                      className="flex-1 bg-neutral-950 hover:bg-neutral-800 text-xs h-9"
+                      className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-9"
                     >
                       Add to Cart
                     </Button>
                     <button
                       onClick={() => removeFavorite(product.id)}
-                      className="p-2 border border-[rgba(0,0,0,0.1)] hover:border-neutral-950 hover:bg-gray-50 transition-colors"
+                      className="p-2 border border-border hover:border-foreground hover:bg-muted transition-colors"
                       aria-label="Remove from favorites"
                     >
                       <Trash2 className="size-4" />

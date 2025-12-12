@@ -13,8 +13,8 @@ function CartPage() {
   const { cartItems, subtotal, updateQuantity, updateSize, removeItem } = useCart();
 
   return (
-    <div className="bg-white min-h-screen">
-      <div className="border-b border-[rgba(0,0,0,0.1)]">
+    <div className="bg-background min-h-screen">
+      <div className="border-b border-border">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
           <Link
             to="/"
@@ -42,7 +42,7 @@ function CartPage() {
               <div className="divide-y divide-[rgba(0,0,0,0.1)]">
                 {cartItems.map((item) => (
                   <div key={item.productId} className="py-6 flex gap-4 items-start">
-                    <div className="bg-[#ececf0] rounded size-24 shrink-0 overflow-hidden">
+                    <div className="bg-muted rounded size-24 shrink-0 overflow-hidden">
                       <img
                         src={item.product.image}
                         alt={item.product.name}
@@ -56,7 +56,7 @@ function CartPage() {
                           <Link
                             to="/products/$productId"
                             params={{ productId: item.productId }}
-                            className="hover:text-[#00ec97] transition-colors"
+                            className="hover:text-primary transition-colors"
                           >
                             <h3 className="text-base tracking-[-0.48px] truncate">
                               {item.product.name}
@@ -68,7 +68,7 @@ function CartPage() {
                         </div>
                         <button
                           onClick={() => removeItem(item.productId)}
-                          className="size-8 flex items-center justify-center shrink-0 hover:bg-gray-100 transition-colors"
+                          className="size-8 flex items-center justify-center shrink-0 hover:bg-muted transition-colors"
                           aria-label={`Remove ${item.product.name}`}
                         >
                           <X className="size-4" />
@@ -80,7 +80,7 @@ function CartPage() {
                           <select
                             value={item.size}
                             onChange={(e) => updateSize(item.productId, e.target.value)}
-                            className="appearance-none bg-[#f3f3f5] border-none h-9 px-3.5 pr-9 text-sm tracking-[-0.48px] cursor-pointer"
+                            className="appearance-none bg-muted border-none h-9 px-3.5 pr-9 text-sm tracking-[-0.48px] cursor-pointer"
                           >
                             {SIZES.map((size) => (
                               <option key={size} value={size}>{size}</option>
@@ -91,7 +91,7 @@ function CartPage() {
                       )}
 
                       <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center border border-[rgba(0,0,0,0.1)] rounded h-[34px]">
+                        <div className="flex items-center border border-border rounded h-[34px]">
                           <button
                             onClick={() => updateQuantity(item.productId, -1)}
                             className="size-8 flex items-center justify-center disabled:opacity-50"
@@ -122,7 +122,7 @@ function CartPage() {
             </div>
 
             <div className="lg:col-span-1">
-              <div className="border border-[rgba(0,0,0,0.1)] p-6 sticky top-24">
+              <div className="border border-border p-6 sticky top-24">
                 <h2 className="text-lg font-medium tracking-[-0.48px] mb-6">Order Summary</h2>
 
                 <div className="space-y-3 mb-6">
@@ -140,7 +140,7 @@ function CartPage() {
                   </div>
                 </div>
 
-                <div className="h-px bg-[rgba(0,0,0,0.1)] mb-4" />
+                <div className="h-px bg-border mb-4" />
 
                 <div className="flex justify-between items-center mb-6">
                   <span className="text-base font-medium">Total</span>

@@ -11,6 +11,17 @@
     />
     <link rel="apple-touch-icon" href="/logo192.png" />
     <link rel="manifest" href="/manifest.json" />
+    <script>
+      // Prevent flash of unstyled content (FOUC) for next-themes
+      try {
+        const theme = localStorage.getItem('theme') || 'system';
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        const activeTheme = theme === 'system' ? systemTheme : theme;
+        if (activeTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    </script>
     <title>NEAR Merch</title>
   </head>
   <body>

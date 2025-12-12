@@ -22,7 +22,7 @@ export function ProductCard({
       <Link
         to="/products/$productId"
         params={{ productId: product.id }}
-        className="relative aspect-square overflow-hidden rounded-[8px] bg-[#f3f3f5]"
+        className="relative aspect-square overflow-hidden rounded-[8px] bg-muted"
       >
         <img
           src={product.image}
@@ -40,7 +40,7 @@ export function ProductCard({
           onToggleFavorite(product.id);
         }}
         className={cn(
-          'absolute top-2 right-2 h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow-sm',
+          'absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80 hover:bg-background shadow-sm',
           isFavorite && 'text-red-500'
         )}
       >
@@ -48,13 +48,13 @@ export function ProductCard({
       </Button>
 
       <div className="mt-3 flex-1">
-        <p className="text-xs text-[#717182] uppercase tracking-wider mb-1">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
           {product.category}
         </p>
         <Link
           to="/products/$productId"
           params={{ productId: product.id }}
-          className="font-medium text-sm line-clamp-2 hover:text-[#00ec97] transition-colors"
+          className="font-medium text-sm line-clamp-2 hover:text-primary transition-colors"
         >
           {product.name}
         </Link>
@@ -68,7 +68,7 @@ export function ProductCard({
             e.preventDefault();
             onAddToCart(product.id);
           }}
-          className="bg-neutral-950 hover:bg-neutral-800 text-white h-8 px-3 text-xs"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground h-8 px-3 text-xs"
         >
           <ShoppingBag className="h-3.5 w-3.5 mr-1.5" />
           Add

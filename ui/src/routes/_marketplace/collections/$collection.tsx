@@ -20,7 +20,7 @@ export const Route = createFileRoute('/_marketplace/collections/$collection')({
   },
   errorComponent: ({ error }) => {
     const router = useRouter();
-    
+
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-md text-center space-y-4">
@@ -35,8 +35,8 @@ export const Route = createFileRoute('/_marketplace/collections/$collection')({
             <Button onClick={() => router.invalidate()}>
               Try Again
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => router.navigate({ to: '/collections' })}
             >
               Back to Collections
@@ -119,8 +119,8 @@ function CollectionDetailPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen w-full">
-      <div className="border-b border-[rgba(0,0,0,0.1)] py-4">
+    <div className="bg-background min-h-screen w-full">
+      <div className="border-b border-border py-4">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
           <Link
             to="/collections"
@@ -132,18 +132,18 @@ function CollectionDetailPage() {
         </div>
       </div>
 
-      <div className="border-b border-[rgba(0,0,0,0.1)]">
+      <div className="border-b border-border">
         <div className="grid md:grid-cols-2">
-          <div className="bg-[#ececf0] h-[400px] md:h-[529px] overflow-hidden">
-            <div className="w-full h-full bg-gradient-to-br from-[#ececf0] to-[#d4d4d8] flex items-center justify-center">
+          <div className="bg-muted h-[400px] md:h-[529px] overflow-hidden">
+            <div className="w-full h-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
               <span className="text-8xl opacity-20">{collection.name.charAt(0)}</span>
             </div>
           </div>
 
-          <div className="border-l border-[rgba(0,0,0,0.1)] p-8 md:p-16 flex flex-col justify-center">
+          <div className="border-l border-border p-8 md:p-16 flex flex-col justify-center">
             <div className="space-y-8">
               <h1 className="text-2xl font-medium tracking-[-0.48px]">{metadata.title}</h1>
-              
+
               <p className="text-[#717182] text-lg leading-7 tracking-[-0.48px]">
                 {metadata.description}
               </p>
@@ -157,7 +157,7 @@ function CollectionDetailPage() {
                 ))}
               </div>
 
-              <div className="flex gap-6 pt-4 border-t border-[rgba(0,0,0,0.1)]">
+              <div className="flex gap-6 pt-4 border-t border-border">
                 <div>
                   <p className="text-[#717182] text-sm tracking-[-0.48px] mb-1">Products</p>
                   <p className="tracking-[-0.48px]">{products.length}</p>
@@ -172,7 +172,7 @@ function CollectionDetailPage() {
         </div>
       </div>
 
-      <section className="py-16 md:py-20 border-b border-[rgba(0,0,0,0.1)]">
+      <section className="py-16 md:py-20 border-b border-border">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
           <div className="mb-12">
             <h2 className="text-xl font-medium text-neutral-950 mb-4 tracking-[-0.48px]">
@@ -206,7 +206,7 @@ function CollectionDetailPage() {
             Discover other curated NEAR Protocol merchandise collections
           </p>
           <Link to="/collections">
-            <Button variant="outline" className="border-[rgba(0,0,0,0.1)]">
+            <Button variant="outline" className="border-border">
               View All Collections
             </Button>
           </Link>
@@ -233,7 +233,7 @@ function CollectionProductCard({
 
   return (
     <div
-      className="group bg-white border border-[rgba(0,0,0,0.1)] overflow-hidden cursor-pointer"
+      className="group bg-card border border-border overflow-hidden cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -242,7 +242,7 @@ function CollectionProductCard({
         params={{ productId: product.id }}
         className="block"
       >
-        <div className="relative bg-[#ececf0] aspect-square overflow-hidden">
+        <div className="relative bg-muted aspect-square overflow-hidden">
           <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
 
           <button
@@ -251,7 +251,7 @@ function CollectionProductCard({
               e.stopPropagation();
               onToggleFavorite(product.id);
             }}
-            className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm hover:bg-white transition-all z-10"
+            className="absolute top-3 right-3 p-2 bg-background/80 backdrop-blur-sm hover:bg-background transition-all z-10"
             aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           >
             <Heart
