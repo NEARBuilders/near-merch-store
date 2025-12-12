@@ -216,22 +216,6 @@ export const contract = oc.router({
     )
     .output(WebhookResponseSchema),
 
-  fulfillmentWebhook: oc
-    .route({
-      method: 'POST',
-      path: '/webhooks/fulfillment',
-      summary: 'Fulfillment webhook',
-      description: 'Handles fulfillment provider webhook events (Gelato).',
-      tags: ['Webhooks'],
-    })
-    .input(
-      z.object({
-        body: z.string(),
-        signature: z.string(),
-      })
-    )
-    .output(WebhookResponseSchema),
-
   sync: oc
     .route({
       method: 'POST',

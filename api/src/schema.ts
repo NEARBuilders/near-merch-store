@@ -39,8 +39,57 @@ export const FulfillmentProviderSchema = z.enum(['printful', 'gelato', 'manual']
 export const FulfillmentConfigSchema = z.object({
   printfulVariantId: z.number().optional(),
   printfulSyncVariantId: z.number().optional(),
+  printfulProductId: z.number().optional(),
   gelatoProductUid: z.string().optional(),
   fileUrl: z.string().nullable().optional(),
+});
+
+export const ProductImageTypeSchema = z.enum(['primary', 'mockup', 'preview', 'detail', 'catalog']);
+
+export const MockupStyleSchema = z.enum([
+  'Lifestyle',
+  'Lifestyle 2',
+  'Lifestyle 3',
+  'Flat',
+  'Flat 2',
+  'On Figure',
+  'On Hanger',
+  'Closeup',
+  'Back',
+  'Front',
+  'Left',
+  'Right',
+  '3/4 Front',
+  '3/4 Back',
+]);
+
+export const MockupPlacementSchema = z.enum([
+  'front',
+  'back',
+  'left',
+  'right',
+  'front_large',
+  'back_large',
+  'label_outside',
+  'sleeve_left',
+  'sleeve_right',
+]);
+
+export const MockupConfigSchema = z.object({
+  styles: z.array(MockupStyleSchema).default(['Lifestyle', 'Flat']),
+  placements: z.array(MockupPlacementSchema).default(['front']),
+  format: z.enum(['jpg', 'png']).default('jpg'),
+  generateOnSync: z.boolean().default(true),
+});
+
+export const ProductImageSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  type: ProductImageTypeSchema,
+  placement: z.string().optional(),
+  style: z.string().optional(),
+  variantId: z.string().optional(),
+  order: z.number().default(0),
 });
 
 export const ProductSchema = z.object({
@@ -50,11 +99,13 @@ export const ProductSchema = z.object({
   price: z.number(),
   currency: z.string().default('USD'),
   category: ProductCategorySchema,
-  image: z.string(),
+  images: z.array(ProductImageSchema).default([]),
+  primaryImage: z.string().optional(),
   fulfillmentProvider: FulfillmentProviderSchema.default('manual'),
   fulfillmentConfig: FulfillmentConfigSchema.optional(),
-  productUid: z.string().optional(),
-  fileUrl: z.string().nullable().optional(),
+  mockupConfig: MockupConfigSchema.optional(),
+  sourceProductId: z.string().optional(),
+  collectionIds: z.array(z.string()).optional(),
 });
 
 export const CollectionSchema = z.object({
@@ -65,6 +116,11 @@ export const CollectionSchema = z.object({
 
 export type Product = z.infer<typeof ProductSchema>;
 export type ProductCategory = z.infer<typeof ProductCategorySchema>;
+export type ProductImage = z.infer<typeof ProductImageSchema>;
+export type ProductImageType = z.infer<typeof ProductImageTypeSchema>;
+export type MockupStyle = z.infer<typeof MockupStyleSchema>;
+export type MockupPlacement = z.infer<typeof MockupPlacementSchema>;
+export type MockupConfig = z.infer<typeof MockupConfigSchema>;
 export type Collection = z.infer<typeof CollectionSchema>;
 export type FulfillmentProvider = z.infer<typeof FulfillmentProviderSchema>;
 export type FulfillmentConfig = z.infer<typeof FulfillmentConfigSchema>;
