@@ -1,20 +1,27 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { ArrowRight, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ProductCard } from '@/components/marketplace/product-card';
-import { LoadingSpinner } from '@/components/loading';
-import { useCart } from '@/hooks/use-cart';
-import { useFavorites } from '@/hooks/use-favorites';
+import { useState, useEffect, useRef } from "react";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import {
+  ArrowRight,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ProductCard } from "@/components/marketplace/product-card";
+import { LoadingSpinner } from "@/components/loading";
+import { useCart } from "@/hooks/use-cart";
+import { useFavorites } from "@/hooks/use-favorites";
 import {
   useSuspenseFeaturedProducts,
   useSuspenseCollections,
   productLoaders,
   collectionLoaders,
   type ProductCategory,
-} from '@/integrations/marketplace-api';
-import { queryClient } from '@/utils/orpc';
+} from "@/integrations/marketplace-api";
+import { queryClient } from "@/utils/orpc";
+import manOnNearImage from "@/assets/images/pngs/man_on_near.png";
 
-export const Route = createFileRoute('/_marketplace/')({
+export const Route = createFileRoute("/_marketplace/")({
   pendingComponent: LoadingSpinner,
   loader: async () => {
     await Promise.all([
@@ -24,7 +31,7 @@ export const Route = createFileRoute('/_marketplace/')({
   },
   errorComponent: ({ error }) => {
     const router = useRouter();
-    
+
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-md text-center space-y-4">
@@ -33,12 +40,11 @@ export const Route = createFileRoute('/_marketplace/')({
             <h2 className="text-xl font-semibold">Unable to Load Store</h2>
           </div>
           <p className="text-gray-600">
-            {error.message || 'Failed to load the marketplace. Please check your connection and try again.'}
+            {error.message ||
+              "Failed to load the marketplace. Please check your connection and try again."}
           </p>
           <div className="flex gap-3 justify-center">
-            <Button onClick={() => router.invalidate()}>
-              Try Again
-            </Button>
+            <Button onClick={() => router.invalidate()}>Try Again</Button>
           </div>
         </div>
       </div>
@@ -50,6 +56,10 @@ export const Route = createFileRoute('/_marketplace/')({
 function MarketplaceHome() {
   const { addToCart } = useCart();
   const { favoriteIds, toggleFavorite } = useFavorites();
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: featuredData } = useSuspenseFeaturedProducts(8);
   const { data: collectionsData } = useSuspenseCollections();
@@ -57,28 +67,217 @@ function MarketplaceHome() {
   const featuredProducts = featuredData.products;
   const collections = collectionsData.collections;
 
+  const slides = [
+    {
+      badge: "New Collection",
+      title: "NEAR LEGION",
+      subtitle: "COLLECTION",
+      description:
+        "Exclusive merchandise celebrating the NEAR Protocol community",
+      buttonText: "Shop Collections",
+    },
+    {
+      badge: "Limited Edition",
+      title: "NEAR FOUNDATION",
+      subtitle: "ESSENTIALS",
+      description:
+        "Premium quality gear designed for builders and innovators of the decentralized web",
+      buttonText: "Explore Now",
+    },
+  ];
+
+  const nextSlide = () => {
+    if (!isAnimating) {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setCurrentSlide((prev) => (prev + 1) % slides.length);
+        setTimeout(() => setIsAnimating(false), 100);
+      }, 50);
+    }
+  };
+
+  const prevSlide = () => {
+    if (!isAnimating) {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+        setTimeout(() => setIsAnimating(false), 100);
+      }, 50);
+    }
+  };
+
+  useEffect(() => {
+    if (!isPaused) {
+      intervalRef.current = setInterval(() => {
+        nextSlide();
+      }, 8000); // Auto-scroll every 8 seconds
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isPaused, currentSlide]);
+
   return (
     <div>
-      <section className="relative bg-gradient-to-b from-[#012216] to-[#00ec97] text-white py-24 md:py-32 lg:py-40 overflow-hidden">
-        <div className="max-w-[1408px] mx-auto px-4 md:px-8">
-          <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-              NEAR Protocol
-              <br />
-              <span className="text-[#00ec97]">Official Merch</span>
-            </h1>
-            <p className="text-lg md:text-xl text-white/80 mb-8">
-              Show your support for the open web with exclusive NEAR Protocol
-              merchandise. Quality apparel and accessories for the community.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <Link to="/collections">
-                <Button size="lg" className="bg-white text-black hover:bg-white/90">
-                  Shop Collections
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
+      <section className="relative bg-gradient-to-b from-[#012216] to-[#00ec97] overflow-hidden">
+        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-12 md:py-20 lg:py-24">
+          <div
+            className="relative overflow-visible"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+          >
+            {slides.map((slide, index) => (
+              <div
+                key={index}
+                className={`w-full grid lg:grid-cols-2 gap-8 items-center ${
+                  index === currentSlide ? "block" : "hidden"
+                }`}
+              >
+                {/* Text Section with reveal animation */}
+                <div className="text-white space-y-6 z-10 overflow-hidden">
+                  <div
+                    className={`inline-block bg-white/10 backdrop-blur-sm px-4 py-2 text-sm text-white/80 mb-4 uppercase font-bold transition-all duration-700 ease-out ${
+                      !isAnimating
+                        ? "translate-y-0 opacity-100"
+                        : "-translate-y-full opacity-0"
+                    }`}
+                    style={{
+                      transitionTimingFunction:
+                        "cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    }}
+                  >
+                    {slide.badge}
+                  </div>
+                  <h1
+                    className={`text-5xl md:text-6xl lg:text-7xl font-bold transition-all duration-800 ease-out ${
+                      !isAnimating
+                        ? "translate-y-0 opacity-100"
+                        : "-translate-y-full opacity-0"
+                    }`}
+                    style={{
+                      transitionTimingFunction:
+                        "cubic-bezier(0.34, 1.56, 0.64, 1)",
+                      transitionDelay: "0.1s",
+                    }}
+                  >
+                    {slide.title}
+                    <br />
+                    <span className="">{slide.subtitle}</span>
+                  </h1>
+                  <p
+                    className={`text-lg md:text-xl text-white/80 my-8 transition-all duration-800 ease-out ${
+                      !isAnimating
+                        ? "translate-y-0 opacity-100"
+                        : "-translate-y-full opacity-0"
+                    }`}
+                    style={{
+                      transitionTimingFunction:
+                        "cubic-bezier(0.34, 1.56, 0.64, 1)",
+                      transitionDelay: "0.2s",
+                    }}
+                  >
+                    {slide.description}
+                  </p>
+                  <div
+                    className={`flex flex-wrap gap-4 transition-all duration-800 ease-out ${
+                      !isAnimating
+                        ? "translate-y-0 opacity-100"
+                        : "translate-y-full opacity-0"
+                    }`}
+                    style={{
+                      transitionTimingFunction:
+                        "cubic-bezier(0.34, 1.56, 0.64, 1)",
+                      transitionDelay: "0.3s",
+                    }}
+                  >
+                    <Link to="/collections">
+                      <button className="bg-white text-black px-8 py-3 hover:bg-white/90 transition-colors flex items-center font-medium rounded-none">
+                        {slide.buttonText}
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Image Section with zoom animation */}
+                <div className="hidden lg:block relative h-full min-h-[500px]">
+                  <div className="relative w-full h-full flex items-end justify-end overflow-hidden">
+                    {/* Large glowing orb with fill animation */}
+                    <div
+                      className={`absolute top-0 right-1/3 -translate-y-1/4 rounded-full bg-[#00ec97] blur-[120px] transition-all duration-800 ease-out ${
+                        !isAnimating
+                          ? "w-[500px] h-[500px] opacity-30"
+                          : "w-0 h-0 opacity-0"
+                      }`}
+                      style={{
+                        transitionTimingFunction:
+                          "cubic-bezier(0.34, 1.56, 0.64, 1)",
+                      }}
+                    />
+
+                    {/* Main image with zoom animation */}
+                    <div
+                      className={`relative z-10 transition-all duration-800 ease-out ${
+                        !isAnimating
+                          ? "scale-100 opacity-100"
+                          : "scale-75 opacity-0"
+                      }`}
+                      style={{
+                        transitionTimingFunction:
+                          "cubic-bezier(0.34, 1.56, 0.64, 1)",
+                      }}
+                    >
+                      <img
+                        src={manOnNearImage}
+                        alt="NEAR Protocol"
+                        className="w-auto h-auto max-w-[90%] max-h-[600px] object-contain object-bottom-right"
+                        style={{
+                          filter:
+                            "drop-shadow(0 35px 70px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 80px rgba(0, 236, 151, 0.3)) contrast(1.1) brightness(1.05)",
+                        }}
+                      />
+                    </div>
+
+                    {/* Grid overlay for tech feel */}
+                    <div
+                      className="absolute inset-0 opacity-10"
+                      style={{
+                        backgroundImage:
+                          "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+                        backgroundSize: "50px 50px",
+                      }}
+                    />
+
+                    {/* Animated scan line */}
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#00ec97] to-transparent animate-scan" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-end gap-6 mt-8 relative z-20">
+            <button
+              onClick={prevSlide}
+              type="button"
+              className="p-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded-none cursor-pointer"
+              aria-label="Previous"
+            >
+              <ChevronLeft className="h-5 w-5 text-white" aria-hidden="true" />
+            </button>
+            <button
+              onClick={nextSlide}
+              type="button"
+              className="p-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded-none cursor-pointer"
+              aria-label="Next"
+            >
+              <ChevronRight className="h-5 w-5 text-white" aria-hidden="true" />
+            </button>
           </div>
         </div>
         <div className="absolute top-0 right-0 w-1/2 h-full opacity-20">
@@ -89,7 +288,9 @@ function MarketplaceHome() {
       <section className="py-16 md:py-24">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold">Shop by Collection</h2>
+            <h2 className="text-2xl md:text-3xl font-bold">
+              Shop by Collection
+            </h2>
             <Link
               to="/collections"
               className="text-sm font-medium hover:text-[#00ec97] transition-colors flex items-center gap-1"
@@ -99,7 +300,8 @@ function MarketplaceHome() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {collections.map((collection) => {
-              const category = collection.slug.charAt(0).toUpperCase() + collection.slug.slice(1) as ProductCategory;
+              const category = (collection.slug.charAt(0).toUpperCase() +
+                collection.slug.slice(1)) as ProductCategory;
               return (
                 <Link
                   key={collection.slug}
@@ -121,7 +323,9 @@ function MarketplaceHome() {
       <section className="py-16 md:py-24 bg-[#f3f3f5]">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold">Featured Products</h2>
+            <h2 className="text-2xl md:text-3xl font-bold">
+              Featured Products
+            </h2>
             <Link
               to="/search"
               className="text-sm font-medium hover:text-[#00ec97] transition-colors flex items-center gap-1"
@@ -149,8 +353,8 @@ function MarketplaceHome() {
             Join the NEAR Community
           </h2>
           <p className="text-[#717182] max-w-xl mx-auto mb-8">
-            Be part of the open web movement. Follow us for updates, exclusive drops,
-            and community events.
+            Be part of the open web movement. Follow us for updates, exclusive
+            drops, and community events.
           </p>
           <div className="flex justify-center gap-4">
             <Button variant="outline" className="border-neutral-950">
