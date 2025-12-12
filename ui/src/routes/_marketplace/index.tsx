@@ -9,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/marketplace/product-card";
 import { LoadingSpinner } from "@/components/loading";
+import { SizeSelectionModal } from "@/components/marketplace/size-selection-modal";
+import { CartSidebar } from "@/components/marketplace/cart-sidebar";
 import { useCart } from "@/hooks/use-cart";
 import { useFavorites } from "@/hooks/use-favorites";
 import {
@@ -17,9 +19,14 @@ import {
   productLoaders,
   collectionLoaders,
   type ProductCategory,
+  type Product,
 } from "@/integrations/marketplace-api";
 import { queryClient } from "@/utils/orpc";
 import manOnNearImage from "@/assets/images/pngs/man_on_near.png";
+import menCollectionsImage from "@/assets/images/pngs/men_collections.avif";
+import womenCollectionsImage from "@/assets/images/pngs/women_collections.avif";
+import nearLegionImage from "@/assets/images/pngs/near_legion.avif";
+import accessoriesImage from "@/assets/images/pngs/accessories.avif";
 
 export const Route = createFileRoute("/_marketplace/")({
   pendingComponent: LoadingSpinner,
@@ -59,6 +66,13 @@ function MarketplaceHome() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<
+    ProductCategory | "All"
+  >("All");
+  const [sizeModalProduct, setSizeModalProduct] = useState<Product | null>(
+    null
+  );
+  const [isCartSidebarOpen, setIsCartSidebarOpen] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: featuredData } = useSuspenseFeaturedProducts(8);
@@ -66,6 +80,24 @@ function MarketplaceHome() {
 
   const featuredProducts = featuredData.products;
   const collections = collectionsData.collections;
+
+  // Filter products by selected category
+  const filteredProducts =
+    selectedCategory === "All"
+      ? featuredProducts
+      : featuredProducts.filter(
+          (product) => product.category === selectedCategory
+        );
+
+  const handleQuickAdd = (product: Product) => {
+    setSizeModalProduct(product);
+  };
+
+  const handleAddToCartFromModal = (productId: string, size: string) => {
+    addToCart(productId, size);
+    setSizeModalProduct(null);
+    setIsCartSidebarOpen(true);
+  };
 
   const slides = [
     {
@@ -285,33 +317,69 @@ function MarketplaceHome() {
         </div>
       </section>
 
-      <section className="py-16 md:py-24">
-        <div className="max-w-[1408px] mx-auto px-4 md:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold">
-              Shop by Collection
-            </h2>
-            <Link
-              to="/collections"
-              className="text-sm font-medium hover:text-[#00ec97] transition-colors flex items-center gap-1"
-            >
-              View All <ArrowRight className="h-4 w-4" />
-            </Link>
+      {/* == Collections Section == */}
+
+      <section className=" ">
+        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-12 md:py-20 lg:py-24">
+          <div className="flex flex-col items-center mb-8">
+            <p className="mb-4 font-bold text-xl ">Shop by Collection</p>
+            <p className="text-[#717182] ">
+              Explore our curated collections of premium NEAR Protocol
+              merchandise
+            </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid md:grid-cols-2 gap-6">
             {collections.map((collection) => {
-              const category = (collection.slug.charAt(0).toUpperCase() +
-                collection.slug.slice(1)) as ProductCategory;
+              // Map collection slugs to images
+              const collectionImages: Record<string, string> = {
+                men: menCollectionsImage,
+                women: womenCollectionsImage,
+                exclusives: nearLegionImage,
+                accessories: accessoriesImage,
+              };
+
+              // Map collection slugs to product counts (placeholder - you may want to fetch this dynamically)
+              const collectionCounts: Record<string, number> = {
+                men: 4,
+                women: 4,
+                exclusives: 4,
+                accessories: 7,
+              };
+
+              const imageSrc =
+                collectionImages[collection.slug] || menCollectionsImage;
+              const productCount = collectionCounts[collection.slug] || 0;
+
               return (
                 <Link
                   key={collection.slug}
                   to="/collections/$collection"
                   params={{ collection: collection.slug }}
-                  className="group relative aspect-square rounded-[16px] overflow-hidden bg-[#f3f3f5]"
+                  className="group relative bg-[#ececf0] overflow-hidden border border-[rgba(0,0,0,0.1)] cursor-pointer h-[400px] md:h-[520px]"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-4 left-4 text-white">
-                    <h3 className="font-semibold text-lg">{collection.name}</h3>
+                  <div className="absolute inset-0">
+                    <img
+                      src={imageSrc}
+                      alt={collection.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[rgba(0,0,0,0.6)] to-[rgba(0,0,0,0)]" />
+                  <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <h3 className="text-4xl mb-2">{collection.name}</h3>
+                        <p className="text-white/80">{productCount} Products</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="p-2 bg-white/10 backdrop-blur-sm group-hover:bg-white/20 transition-colors"
+                        aria-label={`View ${collection.name} collection`}
+                        onClick={(e) => e.preventDefault()}
+                      >
+                        <ArrowRight className="size-6" aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
                 </Link>
               );
@@ -319,35 +387,73 @@ function MarketplaceHome() {
           </div>
         </div>
       </section>
+      {/* == End Collections Section == */}
 
-      <section className="py-16 md:py-24 bg-[#f3f3f5]">
-        <div className="max-w-[1408px] mx-auto px-4 md:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold">
-              Featured Products
-            </h2>
-            <Link
-              to="/search"
-              className="text-sm font-medium hover:text-[#00ec97] transition-colors flex items-center gap-1"
+      {/* == Products Section == */}
+
+      <section
+        className="py-16 md:py-20 border-t border-[rgba(0,0,0,0.1)]"
+        id="products"
+      >
+        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
+          <div className="flex flex-wrap gap-2 justify-center mb-12">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("All")}
+              className={
+                selectedCategory === "All"
+                  ? "px-4 py-2 border transition-colors bg-neutral-950 text-white border-neutral-950"
+                  : "px-4 py-2 border transition-colors bg-white text-neutral-950 border-[rgba(0,0,0,0.1)] hover:border-neutral-950"
+              }
             >
-              View All <ArrowRight className="h-4 w-4" />
-            </Link>
+              All
+            </button>
+            {(
+              ["Men", "Women", "Exclusives", "Accessories"] as ProductCategory[]
+            ).map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => setSelectedCategory(category)}
+                className={
+                  selectedCategory === category
+                    ? "px-4 py-2 border transition-colors bg-neutral-950 text-white border-neutral-950"
+                    : "px-4 py-2 border transition-colors bg-white text-neutral-950 border-[rgba(0,0,0,0.1)] hover:border-neutral-950"
+                }
+              >
+                {category}
+              </button>
+            ))}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {featuredProducts.map((product) => (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 isFavorite={favoriteIds.includes(product.id)}
                 onToggleFavorite={toggleFavorite}
-                onAddToCart={addToCart}
+                onQuickAdd={handleQuickAdd}
               />
             ))}
           </div>
         </div>
       </section>
 
-      <section className="py-16 md:py-24">
+      {/* == End Products Section == */}
+
+      <SizeSelectionModal
+        product={sizeModalProduct}
+        isOpen={!!sizeModalProduct}
+        onClose={() => setSizeModalProduct(null)}
+        onAddToCart={handleAddToCartFromModal}
+      />
+
+      <CartSidebar
+        isOpen={isCartSidebarOpen}
+        onClose={() => setIsCartSidebarOpen(false)}
+      />
+
+      {/* <section className="py-16 md:py-24 border-t border-[rgba(0,0,0,0.1)]">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 text-center">
           <h2 className="text-2xl md:text-3xl font-bold mb-4">
             Join the NEAR Community
@@ -365,7 +471,7 @@ function MarketplaceHome() {
             </Button>
           </div>
         </div>
-      </section>
+      </section> */}
     </div>
   );
 }
