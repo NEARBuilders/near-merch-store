@@ -43,9 +43,12 @@ export async function setupTestEnvironment(): Promise<TestContext> {
   const nftAccountId = `nft.${rootAccountId}`;
 
   console.log(`📦 Deploying NFT contract to ${nftAccountId}...`);
-
-  // Read the compiled WASM (from new cargo near build output location)
-  const nftWasmPath = join(__dirname, "../nft/target/near/nft_contract.wasm");
+  
+  // Read the compiled WASM
+  const nftWasmPath = join(
+    __dirname,
+    "../nft/target/near/nft_contract.wasm"
+  );
   const nftWasm = readFileSync(nftWasmPath);
 
   // Create account and deploy
@@ -76,7 +79,7 @@ export async function setupTestEnvironment(): Promise<TestContext> {
     .functionCall(
       nftAccountId,
       "new_default_meta",
-      { owner_id: rootAccountId },
+      { owner_id: nftAccountId },
       { gas: "30 Tgas", attachedDeposit: "0 NEAR" }
     )
     .send();
@@ -124,7 +127,7 @@ export async function setupTestEnvironment(): Promise<TestContext> {
     .functionCall(
       marketplaceAccountId,
       "new",
-      { owner_id: rootAccountId },
+      { owner_id: marketplaceAccountId },
       { gas: "30 Tgas", attachedDeposit: "0 NEAR" }
     )
     .send();
