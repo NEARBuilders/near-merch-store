@@ -1,79 +1,81 @@
-import { Link } from '@tanstack/react-router';
-import { Heart, ShoppingBag } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { type Product } from '@/integrations/marketplace-api';
-import { cn } from '@/lib/utils';
+import { Link } from "@tanstack/react-router";
+import { Heart, Plus } from "lucide-react";
+import { type Product } from "@/integrations/marketplace-api";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface ProductCardProps {
   product: Product;
   isFavorite: boolean;
   onToggleFavorite: (productId: string) => void;
-  onAddToCart: (productId: string) => void;
+  onQuickAdd: (product: Product) => void;
 }
 
 export function ProductCard({
   product,
   isFavorite,
   onToggleFavorite,
-  onAddToCart,
+  onQuickAdd,
 }: ProductCardProps) {
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsAnimating(true);
+    onToggleFavorite(product.id);
+    setTimeout(() => setIsAnimating(false), 600);
+  };
+
   return (
-    <div className="group relative flex flex-col">
-      <Link
-        to="/products/$productId"
-        params={{ productId: product.id }}
-        className="relative aspect-square overflow-hidden rounded-[8px] bg-[#f3f3f5]"
-      >
+    <Link
+      to="/products/$productId"
+      params={{ productId: product.id }}
+      className="group bg-white border border-[rgba(0,0,0,0.1)] overflow-hidden cursor-pointer"
+    >
+      <div className="relative bg-[#ececf0] aspect-square overflow-hidden">
         <img
           src={product.image}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-full object-top object-cover group-hover:scale-105 transition-all duration-300"
         />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-      </Link>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={(e) => {
-          e.preventDefault();
-          onToggleFavorite(product.id);
-        }}
-        className={cn(
-          'absolute top-2 right-2 h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow-sm',
-          isFavorite && 'text-red-500'
-        )}
-      >
-        <Heart className={cn('h-4 w-4', isFavorite && 'fill-current')} />
-      </Button>
-
-      <div className="mt-3 flex-1">
+        <button
+          type="button"
+          onClick={handleToggleFavorite}
+          className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm hover:bg-white transition-all z-10"
+          aria-label="Add to favorites"
+        >
+          <Heart
+            className={cn(
+              "size-4 transition-all duration-300 cursor-pointer",
+              isFavorite ? "fill-red-500 stroke-red-500" : "stroke-black",
+              isAnimating && "animate-heart-pop"
+            )}
+            aria-hidden="true"
+          />
+        </button>
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center p-6 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onQuickAdd(product);
+            }}
+            className="bg-neutral-950 text-white px-6 py-2 flex items-center gap-2 hover:bg-neutral-800 transition-colors"
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            QUICK ADD
+          </button>
+        </div>
+      </div>
+      <div className="p-4">
         <p className="text-xs text-[#717182] uppercase tracking-wider mb-1">
           {product.category}
         </p>
-        <Link
-          to="/products/$productId"
-          params={{ productId: product.id }}
-          className="font-medium text-sm line-clamp-2 hover:text-[#00ec97] transition-colors"
-        >
-          {product.name}
-        </Link>
+        <h3 className="text-neutral-950 mb-2">{product.name}</h3>
+        <p className="text-neutral-950">${product.price}</p>
       </div>
-
-      <div className="mt-2 flex items-center justify-between">
-        <span className="font-semibold">${product.price}</span>
-        <Button
-          size="sm"
-          onClick={(e) => {
-            e.preventDefault();
-            onAddToCart(product.id);
-          }}
-          className="bg-neutral-950 hover:bg-neutral-800 text-white h-8 px-3 text-xs"
-        >
-          <ShoppingBag className="h-3.5 w-3.5 mr-1.5" />
-          Add
-        </Button>
-      </div>
-    </div>
+    </Link>
   );
 }
