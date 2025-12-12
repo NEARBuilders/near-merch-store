@@ -107,6 +107,9 @@ if (isProduction) {
 
 export default defineConfig({
   plugins,
+  html: {
+    template: './index.html',
+  },
   source: {
     entry: {
       index: './src/main.tsx',
@@ -119,10 +122,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': './src',
+      '@/public': './public',
     },
-  },
-  html: {
-    template: './index.html',
   },
   dev: {
     lazyCompilation: false,
@@ -177,5 +178,8 @@ export default defineConfig({
     filename: {
       css: 'static/css/[name].css',
     },
+    copy: [
+      { from: 'public', to: './' }
+    ],
   },
 });

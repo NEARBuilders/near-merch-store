@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { ArrowLeft, Heart, Plus, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/loading';
+import { ProductSizeDialog } from '@/components/marketplace/collection/product-size-dialog';
+import { ShoppingCartDrawer } from '@/components/marketplace/collection/shopping-cart-drawer';
 import { useCart } from '@/hooks/use-cart';
 import { useFavorites } from '@/hooks/use-favorites';
 import { cn } from '@/lib/utils';
@@ -12,6 +14,10 @@ import {
   type Product,
 } from '@/integrations/marketplace-api';
 import { queryClient } from '@/utils/orpc';
+import menCollections from "@/public/images/menCollection.png";
+import womenCollections from "@/public/images/womenCollection.png";
+import LegionImage  from "@/public/images/accessories.png";
+import accessoriesCollection from "@/public/images/legionCollection.png";
 
 export const Route = createFileRoute('/_marketplace/collections/$collection')({
   pendingComponent: LoadingSpinner,
@@ -75,7 +81,7 @@ const collectionMetadata: Record<string, {
     ],
   },
   exclusives: {
-    title: 'NEAR Legion Collection',
+    title: ' Accessories',
     description: "Limited edition designs created in collaboration with artists. Once they're gone, they're gone forever.",
     features: [
       'Limited Edition Items',
@@ -85,7 +91,7 @@ const collectionMetadata: Record<string, {
     ],
   },
   accessories: {
-    title: 'Accessories',
+    title: 'NEAR Legion Collection',
     description: 'Complete your look with our curated selection. From everyday essentials to statement pieces.',
     features: [
       'Functional & Stylish',
@@ -96,14 +102,33 @@ const collectionMetadata: Record<string, {
   },
 };
 
+const collectionImages: Record<string, string> = {
+  men: menCollections,
+  women: womenCollections,
+  exclusives: LegionImage,
+  accessories: accessoriesCollection,
+};
+
 function CollectionDetailPage() {
   const { collection: collectionSlug } = Route.useParams();
   const { addToCart } = useCart();
   const { favoriteIds, toggleFavorite } = useFavorites();
+  const [sizeModalProduct, setSizeModalProduct] = useState<Product | null>(null);
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
 
   const { data } = useSuspenseCollection(collectionSlug);
   const { collection, products } = data;
   const metadata = collectionMetadata[collectionSlug];
+
+  const handleQuickAdd = (product: Product) => {
+    setSizeModalProduct(product);
+  };
+
+  const handleAddToCartFromModal = (productId: string, size: string) => {
+    addToCart(productId, size);
+    setSizeModalProduct(null);
+    setIsCartDrawerOpen(true);
+  };
 
   if (!collection || !metadata) {
     return (
@@ -135,9 +160,11 @@ function CollectionDetailPage() {
       <div className="border-b border-[rgba(0,0,0,0.1)]">
         <div className="grid md:grid-cols-2">
           <div className="bg-[#ececf0] h-[400px] md:h-[529px] overflow-hidden">
-            <div className="w-full h-full bg-gradient-to-br from-[#ececf0] to-[#d4d4d8] flex items-center justify-center">
-              <span className="text-8xl opacity-20">{collection.name.charAt(0)}</span>
-            </div>
+            <img
+              src={collectionImages[collectionSlug] || menCollections}
+              alt={collection.name}
+              className="w-full h-full object-cover"
+            />
           </div>
 
           <div className="border-l border-[rgba(0,0,0,0.1)] p-8 md:p-16 flex flex-col justify-center">
@@ -190,7 +217,7 @@ function CollectionDetailPage() {
                 product={product}
                 isFavorite={favoriteIds.includes(product.id)}
                 onToggleFavorite={toggleFavorite}
-                onAddToCart={addToCart}
+                onQuickAdd={handleQuickAdd}
               />
             ))}
           </div>
@@ -212,6 +239,18 @@ function CollectionDetailPage() {
           </Link>
         </div>
       </section>
+
+      <ProductSizeDialog
+        product={sizeModalProduct}
+        isOpen={!!sizeModalProduct}
+        onClose={() => setSizeModalProduct(null)}
+        onAddToCart={handleAddToCartFromModal}
+      />
+
+      <ShoppingCartDrawer
+        isOpen={isCartDrawerOpen}
+        onClose={() => setIsCartDrawerOpen(false)}
+      />
     </div>
   );
 }
@@ -220,14 +259,14 @@ interface CollectionProductCardProps {
   product: Product;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
-  onAddToCart: (id: string) => void;
+  onQuickAdd: (product: Product) => void;
 }
 
 function CollectionProductCard({
   product,
   isFavorite,
   onToggleFavorite,
-  onAddToCart,
+  onQuickAdd,
 }: CollectionProductCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -269,7 +308,7 @@ function CollectionProductCard({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onAddToCart(product.id);
+                onQuickAdd(product);
               }}
               className="bg-neutral-950 text-white px-6 py-2 flex items-center gap-2 hover:bg-neutral-800 transition-colors tracking-[-0.48px] text-sm"
             >

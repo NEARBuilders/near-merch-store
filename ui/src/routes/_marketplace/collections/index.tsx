@@ -7,6 +7,10 @@ import {
   collectionLoaders,
 } from '@/integrations/marketplace-api';
 import { queryClient } from '@/utils/orpc';
+import menCollections from "@/public/images/menCollection.png";
+import womenCollections from "@/public/images/womenCollection.png";
+import LegionImage from "@/public/images/legionCollection.png";
+import accessories from "@/public/images/accessories.png";
 
 export const Route = createFileRoute('/_marketplace/collections/')({
   pendingComponent: LoadingSpinner,
@@ -48,23 +52,27 @@ const collectionData = {
   men: {
     title: "Men's Collection",
     description: 'Premium fits designed specifically for men. Classic essentials to modern oversized styles.',
-    image: '/images/collection-men.png',
+    image: menCollections,
+    productCount: 4,
   },
   women: {
     title: "Women's Collection",
     description: 'Tailored fits designed for women. Comfortable, stylish, and sustainably made.',
-    image: '/images/collection-women.png',
+    image: womenCollections,
+    productCount: 4,
   },
   exclusives: {
-    title: 'NEAR Legion Collection',
+    title: 'Accessories',
     description: "Limited edition designs created in collaboration with artists. Once they're gone, they're gone.",
-    image: '/images/collection-exclusives.png',
-    badge: 'Limited',
+    image: accessories ,
+    productCount: 7,
   },
   accessories: {
-    title: 'Accessories',
+    title: 'NEAR Legion Collection',
     description: 'Complete your look with our curated selection. From everyday essentials to statement pieces.',
-    image: '/images/collection-accessories.png',
+    image:  LegionImage,
+    badge: 'Limited',
+    productCount: 3,
   },
 } as const;
 
@@ -99,9 +107,11 @@ function CollectionsPage() {
                 className="border border-[rgba(0,0,0,0.1)] overflow-hidden cursor-pointer hover:shadow-lg transition-shadow group"
               >
                 <div className="bg-[#ececf0] h-[400px] md:h-[517.5px] overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-[#ececf0] to-[#d4d4d8] flex items-center justify-center">
-                    <span className="text-6xl opacity-30">{collection.name.charAt(0)}</span>
-                  </div>
+                  <img
+                    src={data.image}
+                    alt={collection.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="border-t border-[rgba(0,0,0,0.1)] p-6 space-y-3">
                   <div className="flex items-center gap-2">
@@ -116,7 +126,7 @@ function CollectionsPage() {
                     {data.description}
                   </p>
                   <div className="flex items-center justify-between">
-                    <p className="text-[#717182] text-sm tracking-[-0.48px]">{collection.description}</p>
+                    <p className="text-[#717182] text-sm tracking-[-0.48px]">{data.productCount} Products</p>
                     <span className="px-3 py-2 group-hover:bg-gray-100 transition-colors tracking-[-0.48px] text-sm">
                       Explore
                     </span>

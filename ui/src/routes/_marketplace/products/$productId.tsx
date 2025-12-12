@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { ArrowLeft, Star, Minus, Plus, Heart, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/loading';
+import { ProductSizeDialog } from '@/components/marketplace/collection/product-size-dialog';
+import { ShoppingCartDrawer } from '@/components/marketplace/collection/shopping-cart-drawer';
 import { useCart } from '@/hooks/use-cart';
 import { useFavorites } from '@/hooks/use-favorites';
 import { cn } from '@/lib/utils';
@@ -62,6 +64,8 @@ function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerImageIndex, setViewerImageIndex] = useState(0);
+  const [sizeModalProduct, setSizeModalProduct] = useState<Product | null>(null);
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
 
   const { data } = useSuspenseProduct(productId);
   const product = data.product;
@@ -85,6 +89,16 @@ function ProductDetailPage() {
   const handleImageClick = (index: number) => {
     setViewerImageIndex(index);
     setViewerOpen(true);
+  };
+
+  const handleQuickAdd = (product: Product) => {
+    setSizeModalProduct(product);
+  };
+
+  const handleAddToCartFromModal = (productId: string, size: string) => {
+    addToCart(productId, size);
+    setSizeModalProduct(null);
+    setIsCartDrawerOpen(true);
   };
 
   return (
@@ -289,7 +303,7 @@ function ProductDetailPage() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          addToCart(relatedProduct.id);
+                          handleQuickAdd(relatedProduct);
                         }}
                         className="bg-neutral-950 text-white px-4 py-2 text-sm tracking-[-0.48px] flex items-center gap-2"
                       >
@@ -317,6 +331,18 @@ function ProductDetailPage() {
           </div>
         )}
       </div>
+
+      <ProductSizeDialog
+        product={sizeModalProduct}
+        isOpen={!!sizeModalProduct}
+        onClose={() => setSizeModalProduct(null)}
+        onAddToCart={handleAddToCartFromModal}
+      />
+
+      <ShoppingCartDrawer
+        isOpen={isCartDrawerOpen}
+        onClose={() => setIsCartDrawerOpen(false)}
+      />
     </div>
   );
 }
