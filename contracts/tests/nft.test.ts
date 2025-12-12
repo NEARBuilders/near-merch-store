@@ -1,5 +1,4 @@
 import { describe, it, beforeAll, afterAll, expect } from "bun:test";
-// @ts-ignore - bun:test types
 import { Near, generateKey } from "near-kit";
 import { setupTestEnvironment, teardownTestEnvironment, type TestContext } from "./setup";
 
@@ -10,18 +9,15 @@ let aliceAccountId: string;
 describe("NFT Contract", () => {
   beforeAll(async () => {
     ctx = await setupTestEnvironment();
-    
+
     // Create Alice account for testing
     const aliceKey = generateKey();
     aliceAccountId = `alice.${ctx.rootAccountId}`;
-    
+
     console.log(`Creating test account: ${aliceAccountId}`);
-    
+
     aliceNear = new Near({
-      network: {
-        networkId: "sandbox",
-        rpcUrl: ctx.sandbox.rpcUrl,
-      },
+      network: ctx.sandbox,
       privateKey: aliceKey.secretKey,
       defaultSignerId: aliceAccountId,
       defaultWaitUntil: "FINAL",
@@ -34,13 +30,13 @@ describe("NFT Contract", () => {
       .transfer(aliceAccountId, "50 NEAR")
       .addKey(aliceKey.publicKey.toString(), { type: "fullAccess" })
       .send();
-  });
+  }, 120000);
 
   afterAll(async () => {
     if (ctx) {
       await teardownTestEnvironment(ctx);
     }
-  });
+  }, 30000);
 
   describe("Contract Initialization", () => {
     it("should have correct metadata", async () => {
@@ -168,4 +164,3 @@ describe("NFT Contract", () => {
     });
   });
 });
-
