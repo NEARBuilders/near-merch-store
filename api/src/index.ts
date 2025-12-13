@@ -3,25 +3,11 @@ import { Effect, Layer } from 'every-plugin/effect';
 import { z } from 'every-plugin/zod';
 import { contract } from './contract';
 import { createMarketplaceRuntime } from './runtime';
-import type { OrderStatus, TrackingInfo } from './schema';
+import { ReturnAddressSchema, type OrderStatus, type TrackingInfo } from './schema';
 import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStoreLive } from './store';
 export * from './schema';
-
-export const ReturnAddressSchema = z.object({
-  firstName: z.string(),
-  lastName: z.string(),
-  companyName: z.string().optional(),
-  addressLine1: z.string(),
-  addressLine2: z.string().optional(),
-  city: z.string(),
-  state: z.string(),
-  postCode: z.string(),
-  country: z.string(),
-  email: z.string(),
-  phone: z.string().optional(),
-});
 
 export default createPlugin({
   variables: z.object({

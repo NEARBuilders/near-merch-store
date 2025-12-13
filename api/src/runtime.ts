@@ -1,22 +1,9 @@
 import { createPluginRuntime } from 'every-plugin';
+import { ContractRouterClient } from 'every-plugin/orpc';
+import { FulfillmentContract } from './services/fulfillment';
 import GelatoPlugin from './services/fulfillment/gelato';
 import PrintfulPlugin from './services/fulfillment/printful';
-import { ContractRouterClient, RouterClient } from 'every-plugin/orpc';
-import { FulfillmentContract } from './services/fulfillment';
-
-interface ReturnAddress {
-  firstName: string;
-  lastName: string;
-  companyName?: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state: string;
-  postCode: string;
-  country: string;
-  email: string;
-  phone?: string;
-}
+import { ReturnAddress } from './schema';
 
 export interface FulfillmentConfig {
   printful?: {

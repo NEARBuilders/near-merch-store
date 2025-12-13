@@ -1,85 +1,27 @@
 import { z } from 'every-plugin/zod';
 
-export const ConnectInputSchema = z.object({
-  accountId: z
-    .string()
-    .min(1, 'Account ID is required')
-    .describe('The account ID to ensure storage deposit for'),
-});
-
-export const ConnectOutputSchema = z.object({
-  accountId: z.string().describe('The account ID that was connected'),
-  hasStorage: z.boolean().describe('Whether the account already had storage'),
-  depositTxHash: z
-    .string()
-    .optional()
-    .describe('Transaction hash if a deposit was made'),
-});
-
-export const PublishInputSchema = z.object({
-  payload: z
-    .string()
-    .min(1, 'Payload is required')
-    .describe('Base64 encoded signed delegate action'),
-});
-
-export const PublishOutputSchema = z.object({
-  hash: z.string().describe('Transaction hash'),
-});
-
-export type ConnectInput = z.infer<typeof ConnectInputSchema>;
-export type ConnectOutput = z.infer<typeof ConnectOutputSchema>;
-export type PublishInput = z.infer<typeof PublishInputSchema>;
-export type PublishOutput = z.infer<typeof PublishOutputSchema>;
-
 export const ProductCategorySchema = z.enum(['Men', 'Women', 'Accessories', 'Exclusives']);
 
-export const FulfillmentProviderSchema = z.enum(['printful', 'gelato', 'manual']);
+export const VariantAttributesSchema = z.object({
+  size: z.string().optional(),
+  color: z.string().optional(),
+  colorCode: z.string().optional(),
+}).catchall(z.union([z.string(), z.number(), z.boolean()]));
 
 export const FulfillmentConfigSchema = z.object({
-  printfulVariantId: z.number().optional(),
-  printfulSyncVariantId: z.number().optional(),
-  printfulProductId: z.number().optional(),
-  gelatoProductUid: z.string().optional(),
-  fileUrl: z.string().nullable().optional(),
+  externalVariantId: z.string().nullable().optional(),
+  externalProductId: z.string().nullable().optional(),
+  designFileUrl: z.string().nullable().optional(),
+  providerData: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const ProductImageTypeSchema = z.enum(['primary', 'mockup', 'preview', 'detail', 'catalog']);
 
-export const MockupStyleSchema = z.enum([
-  'Lifestyle',
-  'Lifestyle 2',
-  'Lifestyle 3',
-  'Flat',
-  'Flat 2',
-  'On Figure',
-  'On Hanger',
-  'Closeup',
-  'Back',
-  'Front',
-  'Left',
-  'Right',
-  '3/4 Front',
-  '3/4 Back',
-]);
-
-export const MockupPlacementSchema = z.enum([
-  'front',
-  'back',
-  'left',
-  'right',
-  'front_large',
-  'back_large',
-  'label_outside',
-  'sleeve_left',
-  'sleeve_right',
-]);
-
 export const MockupConfigSchema = z.object({
-  styles: z.array(MockupStyleSchema).default(['Lifestyle', 'Flat']),
-  placements: z.array(MockupPlacementSchema).default(['front']),
-  format: z.enum(['jpg', 'png']).default('jpg'),
-  generateOnSync: z.boolean().default(true),
+  styles: z.array(z.string()).optional(),
+  placements: z.array(z.string()).optional(),
+  format: z.enum(['jpg', 'png']).optional(),
+  generateOnSync: z.boolean().optional(),
 });
 
 export const ProductImageSchema = z.object({
@@ -88,8 +30,20 @@ export const ProductImageSchema = z.object({
   type: ProductImageTypeSchema,
   placement: z.string().optional(),
   style: z.string().optional(),
-  variantId: z.string().optional(),
+  variantIds: z.array(z.string()).optional(),
   order: z.number().default(0),
+});
+
+export const ProductVariantSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  sku: z.string().optional(),
+  price: z.number(),
+  currency: z.string().default('USD'),
+  attributes: VariantAttributesSchema.optional(),
+  externalVariantId: z.string().optional(),
+  fulfillmentConfig: FulfillmentConfigSchema.optional(),
+  inStock: z.boolean().default(true),
 });
 
 export const ProductSchema = z.object({
@@ -99,12 +53,15 @@ export const ProductSchema = z.object({
   price: z.number(),
   currency: z.string().default('USD'),
   category: ProductCategorySchema,
+  brand: z.string().optional(),
+  productType: z.string().optional(),
   images: z.array(ProductImageSchema).default([]),
   primaryImage: z.string().optional(),
-  fulfillmentProvider: FulfillmentProviderSchema.default('manual'),
-  fulfillmentConfig: FulfillmentConfigSchema.optional(),
+  variants: z.array(ProductVariantSchema).default([]),
+  fulfillmentProvider: z.string().default('manual'),
+  externalProductId: z.string().optional(),
+  source: z.string().optional(),
   mockupConfig: MockupConfigSchema.optional(),
-  sourceProductId: z.string().optional(),
   collectionIds: z.array(z.string()).optional(),
 });
 
@@ -112,18 +69,18 @@ export const CollectionSchema = z.object({
   slug: z.string(),
   name: z.string(),
   description: z.string().optional(),
+  image: z.string().optional(),
 });
 
 export type Product = z.infer<typeof ProductSchema>;
+export type ProductVariant = z.infer<typeof ProductVariantSchema>;
 export type ProductCategory = z.infer<typeof ProductCategorySchema>;
 export type ProductImage = z.infer<typeof ProductImageSchema>;
 export type ProductImageType = z.infer<typeof ProductImageTypeSchema>;
-export type MockupStyle = z.infer<typeof MockupStyleSchema>;
-export type MockupPlacement = z.infer<typeof MockupPlacementSchema>;
 export type MockupConfig = z.infer<typeof MockupConfigSchema>;
 export type Collection = z.infer<typeof CollectionSchema>;
-export type FulfillmentProvider = z.infer<typeof FulfillmentProviderSchema>;
 export type FulfillmentConfig = z.infer<typeof FulfillmentConfigSchema>;
+export type VariantAttributes = z.infer<typeof VariantAttributesSchema>;
 
 export const ShippingAddressSchema = z.object({
   companyName: z.string().optional(),
@@ -164,22 +121,35 @@ export const TrackingInfoSchema = z.object({
   fulfillmentFacilityId: z.string().optional(),
 });
 
+export const OrderItemSchema = z.object({
+  id: z.string(),
+  orderId: z.string(),
+  productId: z.string(),
+  variantId: z.string().optional(),
+  productName: z.string(),
+  variantName: z.string().optional(),
+  quantity: z.number(),
+  unitPrice: z.number(),
+  attributes: VariantAttributesSchema.optional(),
+  fulfillmentProvider: z.string().optional(),
+  fulfillmentConfig: FulfillmentConfigSchema.optional(),
+});
+
 export const OrderSchema = z.object({
   id: z.string(),
   userId: z.string(),
-  productId: z.string(),
-  productName: z.string(),
-  quantity: z.number(),
+  status: OrderStatusSchema,
   totalAmount: z.number(),
   currency: z.string(),
-  status: OrderStatusSchema,
   checkoutSessionId: z.string().optional(),
   checkoutProvider: z.enum(['stripe', 'near']).optional(),
+  shippingMethod: z.string().optional(),
+  shippingAddress: ShippingAddressSchema.optional(),
   fulfillmentOrderId: z.string().optional(),
   fulfillmentReferenceId: z.string().optional(),
-  shippingAddress: ShippingAddressSchema.optional(),
   trackingInfo: z.array(TrackingInfoSchema).optional(),
   deliveryEstimate: DeliveryEstimateSchema.optional(),
+  items: z.array(OrderItemSchema).default([]),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -188,11 +158,15 @@ export type ShippingAddress = z.infer<typeof ShippingAddressSchema>;
 export type DeliveryEstimate = z.infer<typeof DeliveryEstimateSchema>;
 export type OrderStatus = z.infer<typeof OrderStatusSchema>;
 export type TrackingInfo = z.infer<typeof TrackingInfoSchema>;
+export type OrderItem = z.infer<typeof OrderItemSchema>;
 export type Order = z.infer<typeof OrderSchema>;
 
 export const CreateCheckoutInputSchema = z.object({
-  productId: z.string(),
-  quantity: z.number().int().positive().default(1),
+  items: z.array(z.object({
+    productId: z.string(),
+    variantId: z.string().optional(),
+    quantity: z.number().int().positive().default(1),
+  })),
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
 });
@@ -211,3 +185,7 @@ export const WebhookResponseSchema = z.object({
 });
 
 export type WebhookResponse = z.infer<typeof WebhookResponseSchema>;
+
+export const ReturnAddressSchema = ShippingAddressSchema;
+
+export type ReturnAddress = z.infer<typeof ReturnAddressSchema>;

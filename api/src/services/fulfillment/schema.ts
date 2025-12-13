@@ -61,12 +61,15 @@ export const ProviderVariantSchema = z.object({
   retailPrice: z.number(),
   currency: z.string(),
   sku: z.string().optional(),
+  size: z.string().optional(),
+  color: z.string().optional(),
+  colorCode: z.string().optional(),
   catalogVariantId: z.number().optional(),
   catalogProductId: z.number().optional(),
   files: z.array(z.object({
     id: z.number().optional(),
     type: z.string(),
-    url: z.string(),
+    url: z.string().nullable(),
     previewUrl: z.string().nullable().optional(),
   })).optional(),
 });

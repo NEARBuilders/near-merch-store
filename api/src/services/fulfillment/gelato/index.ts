@@ -3,7 +3,7 @@ import { Effect } from 'every-plugin/effect';
 import { z } from 'every-plugin/zod';
 import { FulfillmentContract } from '../contract';
 import { GelatoService } from './service';
-import { ReturnAddressSchema } from '@/index';
+import { ReturnAddressSchema } from '../../../schema';
 
 export default createPlugin({
   variables: z.object({
@@ -25,8 +25,6 @@ export default createPlugin({
         config.secrets.GELATO_WEBHOOK_SECRET,
         config.variables.returnAddress
       );
-
-      yield* service.ping();
 
       console.log('[Gelato Plugin] Initialized successfully');
 

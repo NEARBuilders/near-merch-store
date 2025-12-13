@@ -159,7 +159,7 @@ function SearchProductCard({
       >
         <div className="relative bg-[#ececf0] aspect-square overflow-hidden">
           <img
-            src={product.image}
+            src={product.primaryImage}
             alt={product.name}
             className="w-full h-full object-cover"
           />

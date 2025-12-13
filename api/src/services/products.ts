@@ -1,8 +1,8 @@
 import { Context, Effect, Layer } from 'every-plugin/effect';
 import type { MarketplaceRuntime, FulfillmentProvider } from '../runtime';
-import type { Collection, Product, ProductCategory, ProductImage } from '../schema';
-import { ProductStore, type ProductWithImages } from '../store';
-import type { ProviderProduct, ProviderVariant } from './fulfillment/schema';
+import type { Collection, Product, ProductCategory, ProductImage, FulfillmentConfig } from '../schema';
+import { ProductStore, type ProductWithImages, type ProductVariantInput } from '../store';
+import type { ProviderProduct } from './fulfillment/schema';
 
 export const COLLECTIONS: Collection[] = [
   { slug: 'men', name: 'Men', description: "Men's apparel and accessories" },
@@ -57,48 +57,81 @@ export class ProductService extends Context.Tag('ProductService')<
   }
 >() {}
 
-function transformVariantToProduct(
+function transformProviderProduct(
   providerName: string,
-  product: ProviderProduct,
-  variant: ProviderVariant
+  product: ProviderProduct
 ): ProductWithImages {
   const images: ProductImage[] = [];
   const thumbnailUrl = product.thumbnailUrl;
 
   if (thumbnailUrl) {
     images.push({
-      id: `catalog-${variant.id}`,
+      id: `catalog-${product.sourceId}`,
       url: thumbnailUrl,
       type: 'catalog',
       order: 0,
     });
   }
 
+  const firstVariant = product.variants[0];
+  const basePrice = product.variants.length > 0 
+    ? Math.min(...product.variants.map(v => v.retailPrice))
+    : 0;
+  
+  const baseCurrency = firstVariant?.currency || 'USD';
+
+  const variants: ProductVariantInput[] = product.variants.map((variant) => {
+    const fulfillmentConfig: FulfillmentConfig = {
+      externalVariantId: variant.id,
+      externalProductId: String(product.sourceId),
+      designFileUrl: variant.files?.[0]?.url || null,
+      providerData: providerName === 'printful' 
+        ? { 
+            syncVariantId: parseInt(variant.id), 
+            catalogVariantId: variant.catalogVariantId,
+            catalogProductId: variant.catalogProductId,
+          }
+        : providerName === 'gelato'
+        ? { productUid: String(product.sourceId) }
+        : {},
+    };
+
+    return {
+      id: `${providerName}-variant-${variant.id}`,
+      name: variant.name || 'One Size',
+      sku: variant.sku,
+      price: variant.retailPrice,
+      currency: variant.currency,
+      attributes: {
+        size: variant.size || 'One Size',
+        ...(variant.color && { color: variant.color }),
+        ...(variant.colorCode && { colorCode: variant.colorCode }),
+      },
+      externalVariantId: variant.id,
+      fulfillmentConfig,
+      inStock: true,
+    };
+  });
+
   return {
-    id: `${providerName}-${variant.id}`,
-    name: variant.name || product.name,
-    description: product.description || product.name,
-    price: variant.retailPrice,
-    currency: variant.currency,
+    id: `${providerName}-product-${product.sourceId}`,
+    name: product.name,
+    description: product.description || undefined,
+    price: basePrice,
+    currency: baseCurrency,
     category: 'Exclusives',
     images,
     primaryImage: thumbnailUrl,
-    fulfillmentProvider: providerName as 'printful' | 'gelato' | 'manual',
-    fulfillmentConfig: {
-      printfulSyncVariantId: providerName === 'printful' ? parseInt(variant.id) : undefined,
-      printfulVariantId: variant.catalogVariantId,
-      printfulProductId: variant.catalogProductId,
-      gelatoProductUid: providerName === 'gelato' ? String(product.sourceId) : undefined,
-      fileUrl: variant.files?.[0]?.url || null,
-    },
+    variants,
+    fulfillmentProvider: providerName,
+    externalProductId: String(product.sourceId),
+    source: providerName,
     mockupConfig: {
       styles: ['Lifestyle', 'Flat'],
       placements: ['front'],
       format: 'jpg',
       generateOnSync: true,
     },
-    sourceProductId: String(product.sourceId),
-    source: providerName,
   };
 }
 
@@ -109,6 +142,27 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
       const store = yield* ProductStore;
       const { providers } = runtime;
 
+      const extractValidationIssues = (err: unknown): string | null => {
+        const error = err as Record<string, unknown>;
+        
+        if (error?.issues && Array.isArray(error.issues)) {
+          return error.issues
+            .map((issue: { path?: string[]; message?: string }) => 
+              `  - ${issue.path?.join('.') || '?'}: ${issue.message || 'unknown'}`)
+            .join('\n');
+        }
+        
+        const cause = error?.cause as Record<string, unknown> | undefined;
+        if (cause?.issues && Array.isArray(cause.issues)) {
+          return cause.issues
+            .map((issue: { path?: string[]; message?: string }) => 
+              `  - ${issue.path?.join('.') || '?'}: ${issue.message || 'unknown'}`)
+            .join('\n');
+        }
+        
+        return null;
+      };
+
       const syncFromProvider = (
         provider: FulfillmentProvider
       ): Effect.Effect<number, Error> =>
@@ -117,7 +171,17 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
           const { products } = yield* Effect.tryPromise({
             try: () => provider.client.getProducts({ limit: 100, offset: 0 }),
-            catch: (e) => new Error(`Failed to fetch products from ${provider.name}: ${e}`),
+            catch: (e) => {
+              const issues = extractValidationIssues(e);
+              if (issues) {
+                console.error(`[ProductSync] Validation error from ${provider.name}:`);
+                console.error(issues);
+                return new Error(`Validation failed for ${provider.name}:\n${issues}`);
+              }
+              
+              const errorMessage = e instanceof Error ? e.message : String(e);
+              return new Error(`Failed to fetch products from ${provider.name}: ${errorMessage}`);
+            },
           });
 
           console.log(`[ProductSync] Found ${products.length} products from ${provider.name}`);
@@ -125,21 +189,17 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
           let syncedCount = 0;
 
           for (const product of products) {
-            for (const variant of product.variants) {
-              try {
-                const localProduct = transformVariantToProduct(provider.name, product, variant);
-                yield* store.upsert(localProduct);
-                syncedCount++;
-              } catch (error) {
-                console.error(
-                  `[ProductSync] Failed to sync variant ${variant.id} from ${provider.name}:`,
-                  error
-                );
-              }
+            try {
+              const localProduct = transformProviderProduct(provider.name, product);
+              yield* store.upsert(localProduct);
+              syncedCount++;
+              console.log(`[ProductSync] Synced product: ${localProduct.name} with ${localProduct.variants.length} variants`);
+            } catch (error) {
+              console.error(`[ProductSync] Failed to sync product ${product.id}:`, error);
             }
           }
 
-          console.log(`[ProductSync] Completed ${provider.name} sync: ${syncedCount} variants`);
+          console.log(`[ProductSync] Completed ${provider.name} sync: ${syncedCount} products`);
           return syncedCount;
         });
 

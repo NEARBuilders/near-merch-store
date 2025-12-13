@@ -64,7 +64,7 @@ export function SizeSelectionModal({
           <div className="flex gap-4 mb-6">
             <div className="bg-[#ececf0] rounded size-20 shrink-0 overflow-hidden">
               <img
-                src={product.image}
+                src={product.primaryImage}
                 alt={product.name}
                 className="w-full h-full object-cover"
               />

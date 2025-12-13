@@ -5,6 +5,7 @@ export {
   ProductStoreLive,
   type ProductCriteria,
   type ProductWithImages,
+  type ProductVariantInput,
 } from "./products";
 
 export {

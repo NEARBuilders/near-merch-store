@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { eq, desc } from "drizzle-orm";
 import * as schema from "../db/schema";
-import type { OrderStatus, ShippingAddress, TrackingInfo, DeliveryEstimate } from "../schema";
+import type { OrderStatus, ShippingAddress, TrackingInfo, DeliveryEstimate, FulfillmentConfig, VariantAttributes, OrderItem } from "../schema";
 import { Database } from "./database";
 
 export interface OrderWithItems {
@@ -12,9 +12,10 @@ export interface OrderWithItems {
   currency: string;
   checkoutSessionId?: string;
   checkoutProvider?: 'stripe' | 'near';
+  shippingMethod?: string;
+  shippingAddress?: ShippingAddress;
   fulfillmentOrderId?: string;
   fulfillmentReferenceId?: string;
-  shippingAddress?: ShippingAddress;
   trackingInfo?: TrackingInfo[];
   deliveryEstimate?: DeliveryEstimate;
   createdAt: string;
@@ -22,25 +23,24 @@ export interface OrderWithItems {
   items: OrderItem[];
 }
 
-export interface OrderItem {
-  id: string;
-  orderId: string;
+export interface CreateOrderItemInput {
   productId: string;
+  variantId?: string;
   productName: string;
+  variantName?: string;
   quantity: number;
   unitPrice: number;
+  attributes?: VariantAttributes;
+  fulfillmentProvider?: string;
+  fulfillmentConfig?: FulfillmentConfig;
 }
 
 export interface CreateOrderInput {
   userId: string;
-  items: Array<{
-    productId: string;
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-  }>;
+  items: CreateOrderItemInput[];
   totalAmount: number;
   currency: string;
+  shippingMethod?: string;
 }
 
 export class OrderStore extends Context.Tag("OrderStore")<
@@ -75,9 +75,14 @@ export const OrderStoreLive = Layer.effect(
         id: item.id,
         orderId: item.orderId,
         productId: item.productId,
+        variantId: item.variantId || undefined,
         productName: item.productName,
+        variantName: item.variantName || undefined,
         quantity: item.quantity,
         unitPrice: item.unitPrice / 100,
+        attributes: item.attributes || undefined,
+        fulfillmentProvider: item.fulfillmentProvider || undefined,
+        fulfillmentConfig: item.fulfillmentConfig || undefined,
       }));
     };
 
@@ -92,11 +97,12 @@ export const OrderStoreLive = Layer.effect(
         currency: row.currency,
         checkoutSessionId: row.checkoutSessionId || undefined,
         checkoutProvider: row.checkoutProvider as 'stripe' | 'near' | undefined,
+        shippingMethod: row.shippingMethod || undefined,
+        shippingAddress: row.shippingAddress || undefined,
         fulfillmentOrderId: row.fulfillmentOrderId || undefined,
         fulfillmentReferenceId: row.fulfillmentReferenceId || undefined,
-        shippingAddress: row.shippingAddress ? JSON.parse(row.shippingAddress) : undefined,
-        trackingInfo: row.trackingInfo ? JSON.parse(row.trackingInfo) : undefined,
-        deliveryEstimate: row.deliveryEstimate ? JSON.parse(row.deliveryEstimate) : undefined,
+        trackingInfo: row.trackingInfo || undefined,
+        deliveryEstimate: row.deliveryEstimate || undefined,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
         items,
@@ -131,6 +137,7 @@ export const OrderStoreLive = Layer.effect(
               status: 'pending',
               totalAmount: Math.round(input.totalAmount * 100),
               currency: input.currency,
+              shippingMethod: input.shippingMethod || null,
               fulfillmentReferenceId,
               createdAt: now,
               updatedAt: now,
@@ -142,9 +149,14 @@ export const OrderStoreLive = Layer.effect(
                   id: `${orderId}-item-${index}`,
                   orderId,
                   productId: item.productId,
+                  variantId: item.variantId || null,
                   productName: item.productName,
+                  variantName: item.variantName || null,
                   quantity: item.quantity,
                   unitPrice: Math.round(item.unitPrice * 100),
+                  attributes: item.attributes || null,
+                  fulfillmentProvider: item.fulfillmentProvider || null,
+                  fulfillmentConfig: item.fulfillmentConfig || null,
                   createdAt: now,
                 }))
               );
@@ -275,7 +287,7 @@ export const OrderStoreLive = Layer.effect(
             await db
               .update(schema.orders)
               .set({
-                shippingAddress: JSON.stringify(shippingAddress),
+                shippingAddress,
                 updatedAt: new Date(),
               })
               .where(eq(schema.orders.id, orderId));
@@ -316,7 +328,7 @@ export const OrderStoreLive = Layer.effect(
             await db
               .update(schema.orders)
               .set({
-                trackingInfo: JSON.stringify(trackingInfo),
+                trackingInfo,
                 status: 'shipped',
                 updatedAt: new Date(),
               })
@@ -337,7 +349,7 @@ export const OrderStoreLive = Layer.effect(
             await db
               .update(schema.orders)
               .set({
-                deliveryEstimate: JSON.stringify(deliveryEstimate),
+                deliveryEstimate,
                 updatedAt: new Date(),
               })
               .where(eq(schema.orders.id, orderId));
@@ -353,3 +365,5 @@ export const OrderStoreLive = Layer.effect(
     };
   })
 );
+
+export type { OrderItem };

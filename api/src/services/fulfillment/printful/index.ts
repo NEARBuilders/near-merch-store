@@ -30,8 +30,6 @@ export default createPlugin({
         config.secrets.PRINTFUL_STORE_ID
       );
 
-      yield* service.ping();
-
       console.log('[Printful Plugin] Initialized successfully');
 
       return {

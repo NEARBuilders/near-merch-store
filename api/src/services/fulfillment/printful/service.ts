@@ -35,6 +35,17 @@ interface PrintfulSyncVariant {
   }>;
 }
 
+interface PrintfulCatalogVariant {
+  id: number;
+  catalog_product_id: number;
+  name: string;
+  size: string;
+  color: string;
+  color_code: string;
+  color_code2: string | null;
+  image: string;
+}
+
 interface PrintfulShipmentV2 {
   id: number;
   carrier: string;
@@ -101,21 +112,6 @@ export class PrintfulService {
     return headers;
   }
 
-  ping() {
-    return Effect.tryPromise({
-      try: async () => {
-        const response = await fetch(`${this.baseUrl}/store`, {
-          headers: this.getHeaders(),
-        });
-        if (!response.ok) {
-          throw new Error(`Printful API error: ${response.status}`);
-        }
-        return true;
-      },
-      catch: (e) => new Error(`Printful ping failed: ${e instanceof Error ? e.message : String(e)}`),
-    });
-  }
-
   getSyncProducts() {
     return Effect.tryPromise({
       try: async () => {
@@ -167,7 +163,9 @@ export class PrintfulService {
 
       for (const syncProduct of syncProducts.slice(options.offset || 0, (options.offset || 0) + (options.limit || 50))) {
         const { sync_product, sync_variants } = yield* this.getSyncProduct(syncProduct.id);
-        products.push(this.transformSyncProduct(sync_product, sync_variants));
+        const catalogVariantIds = sync_variants.map(v => v.variant_id).filter(Boolean);
+        const catalogVariants = yield* this.getCatalogVariants(catalogVariantIds);
+        products.push(this.transformSyncProduct(sync_product, sync_variants, catalogVariants));
       }
 
       return { products, total: syncProducts.length };
@@ -178,31 +176,76 @@ export class PrintfulService {
     return Effect.gen(this, function* () {
       const numericId = parseInt(id.replace('printful-', ''), 10);
       const { sync_product, sync_variants } = yield* this.getSyncProduct(numericId);
-      return { product: this.transformSyncProduct(sync_product, sync_variants) };
+      const catalogVariantIds = sync_variants.map(v => v.variant_id).filter(Boolean);
+      const catalogVariants = yield* this.getCatalogVariants(catalogVariantIds);
+      return { product: this.transformSyncProduct(sync_product, sync_variants, catalogVariants) };
     });
   }
 
-  private transformSyncProduct(syncProduct: PrintfulSyncProduct, syncVariants: PrintfulSyncVariant[]): ProviderProduct {
+  getCatalogVariant(variantId: number) {
+    return Effect.tryPromise({
+      try: async () => {
+        const response = await fetch(`${this.v2BaseUrl}/catalog-variants/${variantId}`, {
+          headers: this.getHeaders(),
+        });
+
+        if (!response.ok) {
+          return null;
+        }
+
+        const result = (await response.json()) as { data: PrintfulCatalogVariant };
+        return result.data;
+      },
+      catch: () => null,
+    });
+  }
+
+  getCatalogVariants(variantIds: number[]) {
+    return Effect.gen(this, function* () {
+      const catalogVariantMap = new Map<number, PrintfulCatalogVariant>();
+      
+      for (const variantId of variantIds) {
+        const catalogVariant = yield* this.getCatalogVariant(variantId);
+        if (catalogVariant) {
+          catalogVariantMap.set(variantId, catalogVariant);
+        }
+      }
+      
+      return catalogVariantMap;
+    });
+  }
+
+  private transformSyncProduct(
+    syncProduct: PrintfulSyncProduct, 
+    syncVariants: PrintfulSyncVariant[],
+    catalogVariants?: Map<number, PrintfulCatalogVariant>
+  ): ProviderProduct {
     return {
       id: `printful-${syncProduct.id}`,
       sourceId: syncProduct.id,
       name: syncProduct.name,
       thumbnailUrl: syncProduct.thumbnail_url || undefined,
-      variants: syncVariants.map((variant) => ({
-        id: `printful-variant-${variant.id}`,
-        externalId: variant.external_id,
-        name: variant.name || syncProduct.name,
-        retailPrice: variant.retail_price ? parseFloat(variant.retail_price) : 0,
-        currency: variant.currency || 'USD',
-        catalogVariantId: variant.variant_id,
-        catalogProductId: variant.product.product_id,
-        files: variant.files?.map((f) => ({
-          id: f.id,
-          type: f.type,
-          url: f.url,
-          previewUrl: f.preview_url,
-        })),
-      })),
+      variants: syncVariants.map((variant) => {
+        const catalogVariant = catalogVariants?.get(variant.variant_id);
+        return {
+          id: `printful-variant-${variant.id}`,
+          externalId: variant.external_id,
+          name: variant.name || syncProduct.name,
+          retailPrice: variant.retail_price ? parseFloat(variant.retail_price) : 0,
+          currency: variant.currency || 'USD',
+          size: catalogVariant?.size,
+          color: catalogVariant?.color,
+          colorCode: catalogVariant?.color_code,
+          catalogVariantId: variant.variant_id,
+          catalogProductId: variant.product.product_id,
+          files: variant.files?.map((f) => ({
+            id: f.id,
+            type: f.type,
+            url: f.url,
+            previewUrl: f.preview_url,
+          })),
+        };
+      }),
     };
   }
 

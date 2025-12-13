@@ -170,24 +170,7 @@ export class GelatoService {
       email: 'returns@example.com',
     };
   }
-
-  ping() {
-    return Effect.tryPromise({
-      try: async () => {
-        const response = await fetch(`${this.baseUrl}/orders:search`, {
-          method: 'POST',
-          headers: this.getHeaders(),
-          body: JSON.stringify({ limit: 1 }),
-        });
-        if (!response.ok && response.status !== 404) {
-          throw new Error(`Gelato API error: ${response.status}`);
-        }
-        return true;
-      },
-      catch: (e) => new Error(`Gelato ping failed: ${e instanceof Error ? e.message : String(e)}`),
-    });
-  }
-
+  
   getProducts(_options: { limit?: number; offset?: number } = {}) {
     return Effect.succeed({
       products: [] as ProviderProduct[],
