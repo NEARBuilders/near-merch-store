@@ -77,7 +77,7 @@
       "name": "marketplace_ui",
       "version": "0.1.0",
       "dependencies": {
-        "@hot-labs/near-connect": "^0.6.11",
+        "@hot-labs/near-connect": "^0.6.x",
         "@orpc/client": "^1.12.2",
         "@orpc/contract": "^1.12.2",
         "@orpc/react-query": "^1.12.2",
@@ -96,22 +96,23 @@
         "@radix-ui/react-slot": "^1.2.4",
         "@radix-ui/react-tabs": "^1.1.13",
         "@tanstack/react-devtools": "^0.7.11",
-        "@tanstack/react-query": "^5.90.11",
+        "@tanstack/react-query": "^5.x",
         "@tanstack/react-query-devtools": "^5.91.1",
-        "@tanstack/react-router": "^1.139.14",
+        "@tanstack/react-router": "^1.x",
         "@tanstack/react-router-devtools": "^1.139.14",
         "better-auth": "^1.4.5",
         "better-near-auth": "^0.3.1",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "lucide-react": "^0.544.0",
-        "near-kit": "^0.6.2",
+        "near-kit": "^0.6.x",
         "next-themes": "^0.4.6",
-        "react": "^19.2.0",
-        "react-dom": "^19.2.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
         "sonner": "^2.0.7",
         "tailwind-merge": "^3.4.0",
         "tw-animate-css": "^1.4.0",
+        "zustand": "^5.0.9",
       },
       "devDependencies": {
         "@module-federation/enhanced": "^0.21.6",
@@ -1940,6 +1941,8 @@
     "zephyr-xpack-internal": ["zephyr-xpack-internal@0.1.2", "", { "dependencies": { "@module-federation/automatic-vendor-federation": "^1.2.1", "is-ci": "^4.1.0", "tslib": "^2.8.1", "zephyr-agent": "0.1.2", "zephyr-edge-contract": "0.1.2" } }, "sha512-PFWwQ/2RQSY+UkLw1zJOhFbk5Ge0BXl+emI+BokQLesG5XH066BvtcNtZa/kMTMl78zkAvsswztSEUIJ9AM68Q=="],
 
     "zod": ["zod@4.1.13", "", {}, "sha512-AvvthqfqrAhNH9dnfmrfKzX5upOdjUVJYFqNSlkmGf64gRaTzlPwz99IHYnVs28qYAybvAlBV+H7pn0saFY4Ig=="],
+
+    "zustand": ["zustand@5.0.9", "", { "peerDependencies": { "@types/react": ">=18.0.0", "immer": ">=9.0.6", "react": ">=18.0.0", "use-sync-external-store": ">=1.2.0" }, "optionalPeers": ["@types/react", "immer", "react", "use-sync-external-store"] }, "sha512-ALBtUj0AfjJt3uNRQoL1tL2tMvj6Gp/6e39dnfT6uzpelGru8v1tPOGBzayOWbPJvujM8JojDk3E1LxeFisBNg=="],
 
     "@babel/core/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
 
