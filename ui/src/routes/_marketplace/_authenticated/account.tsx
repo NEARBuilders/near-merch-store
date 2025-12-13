@@ -33,7 +33,7 @@ function MyAccountPage() {
   const userEmail = session?.user?.email || 'No email';
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-background min-h-screen">
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-8">
         <Link to="/" className="text-sm hover:underline mb-8 inline-block">
           ← Back to Store
@@ -281,9 +281,9 @@ function ConnectedAccounts() {
     }
   };
 
-  const isProviderLinked = (providerId: string) => 
+  const isProviderLinked = (providerId: string) =>
     Array.isArray(linkedAccounts) && linkedAccounts.some((a) => a.providerId === providerId);
-  const primaryAccount = Array.isArray(linkedAccounts) 
+  const primaryAccount = Array.isArray(linkedAccounts)
     ? (linkedAccounts.find((acc) => acc.providerId === 'siwn') || linkedAccounts[0])
     : null;
 
@@ -305,7 +305,7 @@ function ConnectedAccounts() {
           {linkedAccounts.map((account) => (
             <div
               key={account.providerId || account.accountId}
-              className={`p-4 flex items-center justify-between ${account === primaryAccount ? 'bg-[#d4fced] border border-[#00ec97]' : 'bg-white border border-[rgba(0,0,0,0.1)]'}`}
+              className={`p-4 flex items-center justify-between ${account === primaryAccount ? 'bg-[#d4fced] border border-[#00ec97]' : 'bg-card border border-border'}`}
             >
               <div className="flex items-center gap-3">
                 <div className={`size-10 flex items-center justify-center ${account.providerId === 'siwn' ? 'bg-[#00ec97]' : account.providerId === 'github' ? 'bg-[#030213]' : ''}`}>
@@ -357,7 +357,7 @@ function ConnectedAccounts() {
         <p className="text-sm text-[#717182] mb-4">Add New Account</p>
 
         {!isProviderLinked('siwn') && (
-          <div className="bg-white border border-[rgba(0,0,0,0.1)] mb-3 p-4 flex items-center justify-between">
+          <div className="bg-card border border-border mb-3 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-[#00ec97] size-10 flex items-center justify-center">
                 <svg className="size-5" viewBox="0 0 24 24" fill="none">
@@ -380,7 +380,7 @@ function ConnectedAccounts() {
         )}
 
         {!isProviderLinked('google') && (
-          <div className="bg-white border border-[rgba(0,0,0,0.1)] mb-3 p-4 flex items-center justify-between">
+          <div className="bg-card border border-border mb-3 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="size-10 flex items-center justify-center">
                 <svg className="size-6" viewBox="0 0 24 24">
@@ -403,7 +403,7 @@ function ConnectedAccounts() {
         )}
 
         {!isProviderLinked('github') && (
-          <div className="bg-white border border-[rgba(0,0,0,0.1)] p-4 flex items-center justify-between">
+          <div className="bg-card border border-border p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-[#030213] size-10 flex items-center justify-center">
                 <svg className="size-5 text-white" fill="currentColor" viewBox="0 0 20 20">

@@ -23,7 +23,7 @@ function StripeCheckoutPage() {
     mutationFn: async () => {
       const firstItem = cartItems[0];
       if (!firstItem) throw new Error('Cart is empty');
-      
+
       const result = await apiClient.createCheckout({
         productId: firstItem.productId,
         quantity: firstItem.quantity,
@@ -66,7 +66,7 @@ function StripeCheckoutPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen font-sans">
+    <div className="bg-background min-h-screen font-sans">
       <div className="border-b border-[rgba(0,0,0,0.1)]">
         <div className="max-w-[800px] mx-auto px-8 py-4">
           <Link to="/checkout" className="flex items-center gap-2 hover:opacity-70 transition-opacity">

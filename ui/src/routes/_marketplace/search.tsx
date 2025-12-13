@@ -38,7 +38,7 @@ function SearchPage() {
   const { q, category } = Route.useSearch();
   const { addToCart } = useCart();
   const { favoriteIds, toggleFavorite } = useFavorites();
-  
+
   const [activeFilter, setActiveFilter] = useState<string>(category || 'All');
   const [sortBy, setSortBy] = useState<SortOption>('Featured');
 
@@ -85,7 +85,7 @@ function SearchPage() {
                   'px-4 py-2 border transition-colors tracking-[-0.48px]',
                   activeFilter === filter
                     ? 'bg-neutral-950 text-white border-neutral-950'
-                    : 'bg-white text-neutral-950 border-[rgba(0,0,0,0.1)] hover:border-neutral-950'
+                    : 'bg-card text-foreground border-border hover:border-foreground'
                 )}
               >
                 {filter}
@@ -98,7 +98,7 @@ function SearchPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="border border-[rgba(0,0,0,0.1)] px-4 py-2 bg-white text-neutral-950 cursor-pointer hover:border-neutral-950 transition-colors"
+              className="border border-border px-4 py-2 bg-card text-foreground cursor-pointer hover:border-foreground transition-colors"
             >
               {SORT_OPTIONS.map((option) => (
                 <option key={option}>{option}</option>
@@ -148,7 +148,7 @@ function SearchProductCard({
 
   return (
     <div
-      className="group bg-white border border-[rgba(0,0,0,0.1)] overflow-hidden cursor-pointer"
+      className="group bg-card border border-border overflow-hidden cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -170,7 +170,7 @@ function SearchProductCard({
               e.stopPropagation();
               onToggleFavorite(product.id);
             }}
-            className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm hover:bg-white transition-all z-10"
+            className="absolute top-2 right-2 p-2 bg-background/80 backdrop-blur-sm hover:bg-background transition-all z-10"
             aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           >
             <Heart

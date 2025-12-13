@@ -86,8 +86,8 @@ function MarketplaceHome() {
     selectedCategory === "All"
       ? featuredProducts
       : featuredProducts.filter(
-          (product) => product.category === selectedCategory
-        );
+        (product) => product.category === selectedCategory
+      );
 
   const handleQuickAdd = (product: Product) => {
     setSizeModalProduct(product);
@@ -159,7 +159,7 @@ function MarketplaceHome() {
   return (
     <div>
       <section className="relative bg-gradient-to-b from-[#012216] to-[#00ec97] overflow-hidden">
-        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-12 md:py-20 lg:py-24">
+        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-8 md:py-20 lg:py-24">
           <div
             className="relative overflow-visible"
             onMouseEnter={() => setIsPaused(true)}
@@ -168,18 +168,16 @@ function MarketplaceHome() {
             {slides.map((slide, index) => (
               <div
                 key={index}
-                className={`w-full grid lg:grid-cols-2 gap-8 items-center ${
-                  index === currentSlide ? "block" : "hidden"
-                }`}
+                className={`w-full grid lg:grid-cols-2 gap-8 items-center ${index === currentSlide ? "block" : "hidden"
+                  }`}
               >
                 {/* Text Section with reveal animation */}
                 <div className="text-white space-y-6 z-10 overflow-hidden">
                   <div
-                    className={`inline-block bg-white/10 backdrop-blur-sm px-4 py-2 text-sm text-white/80 mb-4 uppercase font-bold transition-all duration-700 ease-out ${
-                      !isAnimating
-                        ? "translate-y-0 opacity-100"
-                        : "-translate-y-full opacity-0"
-                    }`}
+                    className={`inline-block bg-white/10 backdrop-blur-sm px-4 py-2 text-sm text-white/80 mb-4 uppercase font-bold transition-all duration-700 ease-out ${!isAnimating
+                      ? "translate-y-0 opacity-100"
+                      : "-translate-y-full opacity-0"
+                      }`}
                     style={{
                       transitionTimingFunction:
                         "cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -188,11 +186,10 @@ function MarketplaceHome() {
                     {slide.badge}
                   </div>
                   <h1
-                    className={`text-5xl md:text-6xl lg:text-7xl font-bold transition-all duration-800 ease-out ${
-                      !isAnimating
-                        ? "translate-y-0 opacity-100"
-                        : "-translate-y-full opacity-0"
-                    }`}
+                    className={`text-4xl md:text-5xl lg:text-7xl font-bold transition-all duration-800 ease-out ${!isAnimating
+                      ? "translate-y-0 opacity-100"
+                      : "-translate-y-full opacity-0"
+                      }`}
                     style={{
                       transitionTimingFunction:
                         "cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -201,14 +198,13 @@ function MarketplaceHome() {
                   >
                     {slide.title}
                     <br />
-                    <span className="">{slide.subtitle}</span>
+                    <span className="text-3xl md:text-5xl lg:text-6xl">{slide.subtitle}</span>
                   </h1>
                   <p
-                    className={`text-lg md:text-xl text-white/80 my-8 transition-all duration-800 ease-out ${
-                      !isAnimating
-                        ? "translate-y-0 opacity-100"
-                        : "-translate-y-full opacity-0"
-                    }`}
+                    className={`text-lg md:text-xl text-white/80 my-8 transition-all duration-800 ease-out ${!isAnimating
+                      ? "translate-y-0 opacity-100"
+                      : "-translate-y-full opacity-0"
+                      }`}
                     style={{
                       transitionTimingFunction:
                         "cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -218,11 +214,10 @@ function MarketplaceHome() {
                     {slide.description}
                   </p>
                   <div
-                    className={`flex flex-wrap gap-4 transition-all duration-800 ease-out ${
-                      !isAnimating
-                        ? "translate-y-0 opacity-100"
-                        : "translate-y-full opacity-0"
-                    }`}
+                    className={`flex flex-wrap gap-4 transition-all duration-800 ease-out ${!isAnimating
+                      ? "translate-y-0 opacity-100"
+                      : "translate-y-full opacity-0"
+                      }`}
                     style={{
                       transitionTimingFunction:
                         "cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -230,7 +225,7 @@ function MarketplaceHome() {
                     }}
                   >
                     <Link to="/collections">
-                      <button className="bg-white text-black px-8 py-3 hover:bg-white/90 transition-colors flex items-center font-medium rounded-none">
+                      <button className="bg-white text-black px-8 py-3 hover:bg-white/90 transition-colors flex items-center font-medium rounded-none tracking-[-0.48px]">
                         {slide.buttonText}
                       </button>
                     </Link>
@@ -242,11 +237,10 @@ function MarketplaceHome() {
                   <div className="relative w-full h-full flex items-end justify-end overflow-hidden">
                     {/* Large glowing orb with fill animation */}
                     <div
-                      className={`absolute top-0 right-1/3 -translate-y-1/4 rounded-full bg-[#00ec97] blur-[120px] transition-all duration-800 ease-out ${
-                        !isAnimating
-                          ? "w-[500px] h-[500px] opacity-30"
-                          : "w-0 h-0 opacity-0"
-                      }`}
+                      className={`absolute top-0 right-1/3 -translate-y-1/4 rounded-full bg-[#00ec97] blur-[120px] transition-all duration-800 ease-out ${!isAnimating
+                        ? "w-[500px] h-[500px] opacity-30"
+                        : "w-0 h-0 opacity-0"
+                        }`}
                       style={{
                         transitionTimingFunction:
                           "cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -255,11 +249,10 @@ function MarketplaceHome() {
 
                     {/* Main image with zoom animation */}
                     <div
-                      className={`relative z-10 transition-all duration-800 ease-out ${
-                        !isAnimating
-                          ? "scale-100 opacity-100"
-                          : "scale-75 opacity-0"
-                      }`}
+                      className={`relative z-10 transition-all duration-800 ease-out ${!isAnimating
+                        ? "scale-100 opacity-100"
+                        : "scale-75 opacity-0"
+                        }`}
                       style={{
                         transitionTimingFunction:
                           "cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -293,22 +286,22 @@ function MarketplaceHome() {
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-end gap-6 mt-8 relative z-20">
+          <div className="flex items-center justify-end gap-3 mt-8 relative z-20">
             <button
               onClick={prevSlide}
               type="button"
-              className="p-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded-none cursor-pointer"
+              className="group flex items-center justify-center w-12 h-12 rounded-full border border-white/20 bg-black/20 backdrop-blur-md hover:bg-white hover:text-black hover:border-white transition-all duration-300 cursor-pointer"
               aria-label="Previous"
             >
-              <ChevronLeft className="h-5 w-5 text-white" aria-hidden="true" />
+              <ChevronLeft className="h-5 w-5 text-white group-hover:text-black transition-colors" aria-hidden="true" />
             </button>
             <button
               onClick={nextSlide}
               type="button"
-              className="p-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors rounded-none cursor-pointer"
+              className="group flex items-center justify-center w-12 h-12 rounded-full border border-white/20 bg-black/20 backdrop-blur-md hover:bg-white hover:text-black hover:border-white transition-all duration-300 cursor-pointer"
               aria-label="Next"
             >
-              <ChevronRight className="h-5 w-5 text-white" aria-hidden="true" />
+              <ChevronRight className="h-5 w-5 text-white group-hover:text-black transition-colors" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -321,9 +314,9 @@ function MarketplaceHome() {
 
       <section className=" ">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-12 md:py-20 lg:py-24">
-          <div className="flex flex-col items-center mb-8">
-            <p className="mb-4 font-bold text-xl ">Shop by Collection</p>
-            <p className="text-[#717182] ">
+          <div className="flex flex-col items-center mb-12 text-center">
+            <h2 className="mb-4 font-bold text-3xl md:text-4xl tracking-tight">Shop by Collection</h2>
+            <p className="text-muted-foreground text-lg max-w-2xl">
               Explore our curated collections of premium NEAR Protocol
               merchandise
             </p>
@@ -355,7 +348,7 @@ function MarketplaceHome() {
                   key={collection.slug}
                   to="/collections/$collection"
                   params={{ collection: collection.slug }}
-                  className="group relative bg-[#ececf0] overflow-hidden border border-[rgba(0,0,0,0.1)] cursor-pointer h-[400px] md:h-[520px]"
+                  className="group relative bg-muted overflow-hidden border border-border cursor-pointer h-[400px] md:h-[520px]"
                 >
                   <div className="absolute inset-0">
                     <img
@@ -392,7 +385,7 @@ function MarketplaceHome() {
       {/* == Products Section == */}
 
       <section
-        className="py-16 md:py-20 border-t border-[rgba(0,0,0,0.1)]"
+        className="py-16 md:py-20 border-t border-border"
         id="products"
       >
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
@@ -402,8 +395,8 @@ function MarketplaceHome() {
               onClick={() => setSelectedCategory("All")}
               className={
                 selectedCategory === "All"
-                  ? "px-4 py-2 border transition-colors bg-neutral-950 text-white border-neutral-950"
-                  : "px-4 py-2 border transition-colors bg-white text-neutral-950 border-[rgba(0,0,0,0.1)] hover:border-neutral-950"
+                  ? "px-4 py-2 border transition-colors bg-primary text-primary-foreground border-primary"
+                  : "px-4 py-2 border transition-colors bg-background text-foreground border-border hover:border-primary"
               }
             >
               All
@@ -417,8 +410,8 @@ function MarketplaceHome() {
                 onClick={() => setSelectedCategory(category)}
                 className={
                   selectedCategory === category
-                    ? "px-4 py-2 border transition-colors bg-neutral-950 text-white border-neutral-950"
-                    : "px-4 py-2 border transition-colors bg-white text-neutral-950 border-[rgba(0,0,0,0.1)] hover:border-neutral-950"
+                    ? "px-4 py-2 border transition-colors bg-primary text-primary-foreground border-primary"
+                    : "px-4 py-2 border transition-colors bg-background text-foreground border-border hover:border-primary"
                 }
               >
                 {category}
