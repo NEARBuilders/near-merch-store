@@ -30,7 +30,7 @@ function CheckoutPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-background min-h-screen">
       <div className="border-b border-[rgba(0,0,0,0.1)]">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
           <Link
