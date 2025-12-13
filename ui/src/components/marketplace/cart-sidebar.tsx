@@ -58,7 +58,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                   >
                     <div className="bg-[#ececf0] rounded size-20 shrink-0 overflow-hidden">
                       <img
-                        src={item.product.image}
+                        src={item.product.primaryImage}
                         alt={item.product.name}
                         className="w-full h-full object-cover"
                       />

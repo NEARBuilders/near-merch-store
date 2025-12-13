@@ -1,7 +1,8 @@
 import { Context, Effect, Layer } from 'every-plugin/effect';
-import type { Product, ProductCategory, Collection } from '../schema';
-import type { PrintfulFulfillmentService } from './fulfillment';
-import { ProductStore } from '../store';
+import type { MarketplaceRuntime, FulfillmentProvider } from '../runtime';
+import type { Collection, Product, ProductCategory, ProductImage, FulfillmentConfig } from '../schema';
+import { ProductStore, type ProductWithImages, type ProductVariantInput } from '../store';
+import type { ProviderProduct } from './fulfillment/schema';
 
 export const COLLECTIONS: Collection[] = [
   { slug: 'men', name: 'Men', description: "Men's apparel and accessories" },
@@ -24,64 +25,181 @@ function getCollectionBySlug(slug: string): Collection | undefined {
   return COLLECTIONS.find((c) => c.slug === slug);
 }
 
-export class ProductService extends Context.Tag("ProductService")<
+export class ProductService extends Context.Tag('ProductService')<
   ProductService,
   {
-    readonly getProducts: (options: { category?: ProductCategory; limit?: number; offset?: number }) => Effect.Effect<{ products: Product[]; total: number }, Error>;
+    readonly getProducts: (options: {
+      category?: ProductCategory;
+      limit?: number;
+      offset?: number;
+    }) => Effect.Effect<{ products: Product[]; total: number }, Error>;
     readonly getProduct: (id: string) => Effect.Effect<{ product: Product }, Error>;
-    readonly searchProducts: (options: { query: string; category?: ProductCategory; limit?: number }) => Effect.Effect<{ products: Product[] }, Error>;
+    readonly searchProducts: (options: {
+      query: string;
+      category?: ProductCategory;
+      limit?: number;
+    }) => Effect.Effect<{ products: Product[] }, Error>;
     readonly getFeaturedProducts: (limit?: number) => Effect.Effect<{ products: Product[] }, Error>;
     readonly getCollections: () => Effect.Effect<{ collections: Collection[] }, Error>;
-    readonly getCollection: (slug: string) => Effect.Effect<{ collection: Collection; products: Product[] }, Error>;
+    readonly getCollection: (
+      slug: string
+    ) => Effect.Effect<{ collection: Collection; products: Product[] }, Error>;
     readonly sync: () => Effect.Effect<{ status: string; count: number }, Error>;
-    readonly getSyncStatus: () => Effect.Effect<{
-      status: 'idle' | 'running' | 'error';
-      lastSuccessAt: number | null;
-      lastErrorAt: number | null;
-      errorMessage: string | null;
-    }, Error>;
+    readonly getSyncStatus: () => Effect.Effect<
+      {
+        status: 'idle' | 'running' | 'error';
+        lastSuccessAt: number | null;
+        lastErrorAt: number | null;
+        errorMessage: string | null;
+      },
+      Error
+    >;
   }
 >() {}
 
-export const ProductServiceLive = (printfulService: PrintfulFulfillmentService | null) =>
+function transformProviderProduct(
+  providerName: string,
+  product: ProviderProduct
+): ProductWithImages {
+  const images: ProductImage[] = [];
+  const thumbnailUrl = product.thumbnailUrl;
+
+  if (thumbnailUrl) {
+    images.push({
+      id: `catalog-${product.sourceId}`,
+      url: thumbnailUrl,
+      type: 'catalog',
+      order: 0,
+    });
+  }
+
+  const firstVariant = product.variants[0];
+  const basePrice = product.variants.length > 0 
+    ? Math.min(...product.variants.map(v => v.retailPrice))
+    : 0;
+  
+  const baseCurrency = firstVariant?.currency || 'USD';
+
+  const variants: ProductVariantInput[] = product.variants.map((variant) => {
+    const fulfillmentConfig: FulfillmentConfig = {
+      externalVariantId: variant.id,
+      externalProductId: String(product.sourceId),
+      designFileUrl: variant.files?.[0]?.url || null,
+      providerData: providerName === 'printful' 
+        ? { 
+            syncVariantId: parseInt(variant.id), 
+            catalogVariantId: variant.catalogVariantId,
+            catalogProductId: variant.catalogProductId,
+          }
+        : providerName === 'gelato'
+        ? { productUid: String(product.sourceId) }
+        : {},
+    };
+
+    return {
+      id: `${providerName}-variant-${variant.id}`,
+      name: variant.name || 'One Size',
+      sku: variant.sku,
+      price: variant.retailPrice,
+      currency: variant.currency,
+      attributes: {
+        size: variant.size || 'One Size',
+        ...(variant.color && { color: variant.color }),
+        ...(variant.colorCode && { colorCode: variant.colorCode }),
+      },
+      externalVariantId: variant.id,
+      fulfillmentConfig,
+      inStock: true,
+    };
+  });
+
+  return {
+    id: `${providerName}-product-${product.sourceId}`,
+    name: product.name,
+    description: product.description || undefined,
+    price: basePrice,
+    currency: baseCurrency,
+    category: 'Exclusives',
+    images,
+    primaryImage: thumbnailUrl,
+    variants,
+    fulfillmentProvider: providerName,
+    externalProductId: String(product.sourceId),
+    source: providerName,
+    mockupConfig: {
+      styles: ['Lifestyle', 'Flat'],
+      placements: ['front'],
+      format: 'jpg',
+      generateOnSync: true,
+    },
+  };
+}
+
+export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
   Layer.effect(
     ProductService,
     Effect.gen(function* () {
       const store = yield* ProductStore;
+      const { providers } = runtime;
 
-      const syncFromPrintful = (): Effect.Effect<number, Error> =>
+      const extractValidationIssues = (err: unknown): string | null => {
+        const error = err as Record<string, unknown>;
+        
+        if (error?.issues && Array.isArray(error.issues)) {
+          return error.issues
+            .map((issue: { path?: string[]; message?: string }) => 
+              `  - ${issue.path?.join('.') || '?'}: ${issue.message || 'unknown'}`)
+            .join('\n');
+        }
+        
+        const cause = error?.cause as Record<string, unknown> | undefined;
+        if (cause?.issues && Array.isArray(cause.issues)) {
+          return cause.issues
+            .map((issue: { path?: string[]; message?: string }) => 
+              `  - ${issue.path?.join('.') || '?'}: ${issue.message || 'unknown'}`)
+            .join('\n');
+        }
+        
+        return null;
+      };
+
+      const syncFromProvider = (
+        provider: FulfillmentProvider
+      ): Effect.Effect<number, Error> =>
         Effect.gen(function* () {
-          if (!printfulService) {
-            console.log('[ProductSync] No Printful service configured, skipping sync');
-            return 0;
-          }
+          console.log(`[ProductSync] Starting sync from ${provider.name}...`);
 
-          console.log('[ProductSync] Starting Printful sync...');
-          const syncProducts = yield* printfulService.getSyncProducts();
-          console.log(`[ProductSync] Found ${syncProducts.length} Printful sync products`);
+          const { products } = yield* Effect.tryPromise({
+            try: () => provider.client.getProducts({ limit: 100, offset: 0 }),
+            catch: (e) => {
+              const issues = extractValidationIssues(e);
+              if (issues) {
+                console.error(`[ProductSync] Validation error from ${provider.name}:`);
+                console.error(issues);
+                return new Error(`Validation failed for ${provider.name}:\n${issues}`);
+              }
+              
+              const errorMessage = e instanceof Error ? e.message : String(e);
+              return new Error(`Failed to fetch products from ${provider.name}: ${errorMessage}`);
+            },
+          });
+
+          console.log(`[ProductSync] Found ${products.length} products from ${provider.name}`);
 
           let syncedCount = 0;
 
-          for (const syncProduct of syncProducts) {
+          for (const product of products) {
             try {
-              const { sync_product, sync_variants } = yield* printfulService.getSyncProduct(syncProduct.id);
-              const products = printfulService.transformSyncProductToProduct(sync_product, sync_variants);
-
-              for (const product of products) {
-                yield* store.upsert({
-                  ...product,
-                  source: 'printful',
-                });
-                syncedCount++;
-              }
-
-              console.log(`[ProductSync] Synced ${products.length} variants from product ${syncProduct.id}`);
+              const localProduct = transformProviderProduct(provider.name, product);
+              yield* store.upsert(localProduct);
+              syncedCount++;
+              console.log(`[ProductSync] Synced product: ${localProduct.name} with ${localProduct.variants.length} variants`);
             } catch (error) {
-              console.error(`[ProductSync] Failed to sync Printful product ${syncProduct.id}:`, error);
+              console.error(`[ProductSync] Failed to sync product ${product.id}:`, error);
             }
           }
 
-          console.log(`[ProductSync] Completed Printful sync: ${syncedCount} products`);
+          console.log(`[ProductSync] Completed ${provider.name} sync: ${syncedCount} products`);
           return syncedCount;
         });
 
@@ -114,8 +232,7 @@ export const ProductServiceLive = (printfulService: PrintfulFulfillmentService |
             return { products: result.products };
           }),
 
-        getCollections: () =>
-          Effect.succeed({ collections: COLLECTIONS }),
+        getCollections: () => Effect.succeed({ collections: COLLECTIONS }),
 
         getCollection: (slug) =>
           Effect.gen(function* () {
@@ -134,12 +251,22 @@ export const ProductServiceLive = (printfulService: PrintfulFulfillmentService |
 
         sync: () =>
           Effect.gen(function* () {
+            if (providers.length === 0) {
+              console.log('[ProductSync] No providers configured, skipping sync');
+              return { status: 'completed', count: 0 };
+            }
+
             yield* store.setSyncStatus('products', 'running', null, null, null);
 
             try {
-              const count = yield* syncFromPrintful();
+              const results = yield* Effect.all(
+                providers.map((p) => syncFromProvider(p)),
+                { concurrency: 'unbounded' }
+              );
+
+              const totalCount = results.reduce((sum, count) => sum + count, 0);
               yield* store.setSyncStatus('products', 'idle', new Date(), null, null);
-              return { status: 'completed', count };
+              return { status: 'completed', count: totalCount };
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : String(error);
               yield* store.setSyncStatus('products', 'error', null, new Date(), errorMessage);

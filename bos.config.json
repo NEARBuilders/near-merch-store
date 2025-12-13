@@ -21,14 +21,12 @@
       "plugins": {
         "marketplace-api": {
           "development": "http://localhost:3014",
-          "production": "https://elliot-braem-1143-marketplace-api-near-merch-stor-c0aea0c3a-ze.zephyrcloud.app",
+          "production": "https://elliot-braem-1145-marketplace-api-near-merch-stor-8eb8d8dd8-ze.zephyrcloud.app",
           "variables": {
             "network": "mainnet",
             "contractId": "social.near"
           },
           "secrets": {
-            "RELAYER_ACCOUNT_ID": "{{RELAYER_ACCOUNT_ID}}",
-            "RELAYER_PRIVATE_KEY": "{{RELAYER_PRIVATE_KEY}}",
             "STRIPE_SECRET_KEY": "{{STRIPE_SECRET_KEY}}",
             "STRIPE_WEBHOOK_SECRET": "{{STRIPE_WEBHOOK_SECRET}}",
             "PRINTFUL_API_KEY": "{{PRINTFUL_API_KEY}}",

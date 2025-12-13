@@ -1,44 +1,16 @@
 import { oc } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import {
-  ConnectInputSchema,
-  ConnectOutputSchema,
-  PublishInputSchema,
-  PublishOutputSchema,
-  ProductSchema,
-  ProductCategorySchema,
   CollectionSchema,
-  OrderSchema,
   CreateCheckoutInputSchema,
   CreateCheckoutOutputSchema,
-  WebhookResponseSchema,
+  OrderSchema,
+  ProductCategorySchema,
+  ProductSchema,
+  WebhookResponseSchema
 } from './schema';
 
 export const contract = oc.router({
-  connect: oc
-    .route({
-      method: 'POST',
-      path: '/connect',
-      summary: 'Connect to contract',
-      description:
-        'Ensures the account has storage deposit on the contract. If not, makes a deposit on behalf of the user.',
-      tags: ['Relayer'],
-    })
-    .input(ConnectInputSchema)
-    .output(ConnectOutputSchema),
-
-  publish: oc
-    .route({
-      method: 'POST',
-      path: '/publish',
-      summary: 'Publish a signed delegate action',
-      description:
-        'Submits a signed delegate action (meta-transaction) to the network. Used for gasless social posts and profile updates.',
-      tags: ['Relayer'],
-    })
-    .input(PublishInputSchema)
-    .output(PublishOutputSchema),
-
   ping: oc
     .route({
       method: 'GET',
@@ -200,6 +172,17 @@ export const contract = oc.router({
     .input(z.object({ id: z.string() }))
     .output(z.object({ order: OrderSchema })),
 
+  getOrderByCheckoutSession: oc
+    .route({
+      method: 'GET',
+      path: '/orders/by-session/{sessionId}',
+      summary: 'Get order by checkout session ID',
+      description: 'Returns an order by its Stripe checkout session ID.',
+      tags: ['Orders'],
+    })
+    .input(z.object({ sessionId: z.string() }))
+    .output(z.object({ order: OrderSchema.nullable() })),
+
   stripeWebhook: oc
     .route({
       method: 'POST',
@@ -216,18 +199,34 @@ export const contract = oc.router({
     )
     .output(WebhookResponseSchema),
 
-  fulfillmentWebhook: oc
+  printfulWebhook: oc
     .route({
       method: 'POST',
-      path: '/webhooks/fulfillment',
-      summary: 'Fulfillment webhook',
-      description: 'Handles fulfillment provider webhook events (Gelato).',
+      path: '/webhooks/printful',
+      summary: 'Printful webhook',
+      description: 'Handles Printful webhook events for order status updates.',
       tags: ['Webhooks'],
     })
     .input(
       z.object({
         body: z.string(),
-        signature: z.string(),
+        signature: z.string().optional(),
+      })
+    )
+    .output(WebhookResponseSchema),
+
+  gelatoWebhook: oc
+    .route({
+      method: 'POST',
+      path: '/webhooks/gelato',
+      summary: 'Gelato webhook',
+      description: 'Handles Gelato webhook events for order status updates.',
+      tags: ['Webhooks'],
+    })
+    .input(
+      z.object({
+        body: z.string(),
+        signature: z.string().optional(),
       })
     )
     .output(WebhookResponseSchema),

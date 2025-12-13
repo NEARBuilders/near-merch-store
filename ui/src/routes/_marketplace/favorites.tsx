@@ -60,7 +60,7 @@ function FavoritesPage() {
                 >
                   <div className="w-full aspect-square bg-[#ececf0] overflow-hidden">
                     <img
-                      src={product.image}
+                      src={product.primaryImage}
                       alt={product.name}
                       className="w-full h-full object-cover"
                     />

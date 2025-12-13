@@ -43,6 +43,7 @@ export {
   useSuspenseOrders,
   useOrder,
   useSuspenseOrder,
+  useOrderByCheckoutSession,
   orderLoaders,
   type Order,
 } from './orders';

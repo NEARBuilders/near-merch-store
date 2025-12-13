@@ -236,9 +236,6 @@ export const auth = betterAuth({
   plugins: [
     nearAuth({
       network: 'mainnet',
-      // Optional: custom relayer for meta-transactions
-      relayerAccountId: process.env.RELAYER_ACCOUNT_ID,
-      relayerPrivateKey: process.env.RELAYER_PRIVATE_KEY
     })
   ]
 });

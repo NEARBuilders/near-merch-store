@@ -119,6 +119,4 @@ Each domain can be its own plugin with independent:
 - `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
 - `PRINTFUL_API_KEY` - Printful API key
 - `GELATO_API_KEY` - Gelato API key
-- `RELAYER_ACCOUNT_ID` - NEAR relayer account
-- `RELAYER_PRIVATE_KEY` - NEAR relayer private key
 - `DATABASE_URL` - SQLite database URL

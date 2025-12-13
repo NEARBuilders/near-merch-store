@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { CheckCircle, Mail, Package, Truck } from 'lucide-react';
+import { CheckCircle, Mail, Package, Truck, Loader2, ExternalLink } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
+import { useOrderByCheckoutSession, type Order } from '@/integrations/marketplace-api/orders';
+import { useCart } from '@/hooks/use-cart';
+import { useEffect } from 'react';
 
 type SearchParams = {
   orderNumber?: string;
@@ -17,12 +20,56 @@ export const Route = createFileRoute('/_marketplace/order-confirmation')({
   component: OrderConfirmationPage,
 });
 
-function OrderConfirmationPage() {
-  const { orderNumber, email, session_id } = Route.useSearch();
-  const { data: session } = authClient.useSession();
+const statusLabels: Record<string, string> = {
+  pending: 'Pending',
+  paid: 'Payment Received',
+  processing: 'Processing',
+  printing: 'Printing',
+  shipped: 'Shipped',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
 
-  const displayOrderNumber = orderNumber || session_id?.substring(0, 20) || 'NEAR-XXXXX-XXXXXXXX';
-  const displayEmail = email || session?.user?.email || 'customer@example.com';
+const shouldPollStatus = (status?: string) => {
+  return status && ['pending', 'paid', 'processing', 'printing'].includes(status);
+};
+
+function OrderConfirmationPage() {
+  const { session_id } = Route.useSearch();
+  const { data: session } = authClient.useSession();
+  const { clearCart } = useCart();
+
+  const {
+    data: orderData,
+    isLoading,
+    isError,
+  } = useOrderByCheckoutSession(session_id, {
+    refetchInterval: (query) => {
+      const status = query.state.data?.order?.status;
+      return shouldPollStatus(status) ? 5000 : false;
+    },
+  });
+
+  const order = orderData?.order;
+
+  useEffect(() => {
+    if (order && order.status !== 'pending') {
+      clearCart();
+    }
+  }, [order?.status]);
+
+  const displayEmail = order?.shippingAddress?.email || session?.user?.email || 'customer@example.com';
+
+  if (isLoading) {
+    return (
+      <div className="bg-white min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <Loader2 className="size-8 animate-spin text-[#717182] mb-4" />
+          <p className="text-[#717182]">Loading order details...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white min-h-screen">
@@ -52,12 +99,96 @@ function OrderConfirmationPage() {
         </p>
 
         <div className="border border-[rgba(0,0,0,0.1)] p-6 space-y-6">
-          <div>
-            <h3 className="text-lg font-medium mb-2">Order Reference</h3>
-            <p className="text-base text-[#717182] font-mono break-all">{displayOrderNumber}</p>
-          </div>
+          {order && (
+            <>
+              <div>
+                <h3 className="text-lg font-medium mb-2">Order Details</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[#717182]">Order ID</span>
+                    <span className="font-mono">{order.id.substring(0, 8)}...</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#717182]">Status</span>
+                    <span className={`font-medium ${
+                      order.status === 'shipped' || order.status === 'delivered' 
+                        ? 'text-green-600' 
+                        : order.status === 'cancelled' 
+                        ? 'text-red-600'
+                        : 'text-neutral-900'
+                    }`}>
+                      {statusLabels[order.status] || order.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#717182]">Product</span>
+                    <span>{order.productName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#717182]">Quantity</span>
+                    <span>{order.quantity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#717182]">Total</span>
+                    <span className="font-medium">${order.totalAmount.toFixed(2)} {order.currency}</span>
+                  </div>
+                </div>
+              </div>
 
-          <div className="h-px bg-[rgba(0,0,0,0.1)]" />
+              <div className="h-px bg-[rgba(0,0,0,0.1)]" />
+            </>
+          )}
+
+          {order?.trackingInfo && order.trackingInfo.length > 0 && (
+            <>
+              <div>
+                <h3 className="text-base font-medium mb-3">Tracking Information</h3>
+                <div className="space-y-3">
+                  {order.trackingInfo.map((tracking, index) => (
+                    <div key={index} className="bg-[#f6f6f6] p-4 rounded">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm font-medium">{tracking.shipmentMethodName}</p>
+                          <p className="text-sm text-[#717182] font-mono">{tracking.trackingCode}</p>
+                        </div>
+                        {tracking.trackingUrl && (
+                          <a
+                            href={tracking.trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-sm text-[#00ec97] hover:underline"
+                          >
+                            Track <ExternalLink className="size-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-px bg-[rgba(0,0,0,0.1)]" />
+            </>
+          )}
+
+          {order?.shippingAddress && (
+            <>
+              <div>
+                <h3 className="text-base font-medium mb-3">Shipping Address</h3>
+                <div className="text-sm text-[#717182] space-y-1">
+                  <p className="text-neutral-900">{order.shippingAddress.firstName} {order.shippingAddress.lastName}</p>
+                  <p>{order.shippingAddress.addressLine1}</p>
+                  {order.shippingAddress.addressLine2 && <p>{order.shippingAddress.addressLine2}</p>}
+                  <p>
+                    {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postCode}
+                  </p>
+                  <p>{order.shippingAddress.country}</p>
+                </div>
+              </div>
+
+              <div className="h-px bg-[rgba(0,0,0,0.1)]" />
+            </>
+          )}
 
           <div className="flex gap-4">
             <div className="size-10 bg-[#ececf0] rounded-full flex items-center justify-center flex-shrink-0">
@@ -93,7 +224,12 @@ function OrderConfirmationPage() {
                 </div>
                 <div>
                   <h4 className="text-base mb-1">Shipping & Delivery</h4>
-                  <p className="text-sm text-[#717182] leading-5">You'll receive tracking information once your order ships. Standard delivery takes 5-7 business days.</p>
+                  <p className="text-sm text-[#717182] leading-5">
+                    {order?.deliveryEstimate 
+                      ? `Expected delivery: ${new Date(order.deliveryEstimate.minDeliveryDate).toLocaleDateString()} - ${new Date(order.deliveryEstimate.maxDeliveryDate).toLocaleDateString()}`
+                      : "You'll receive tracking information once your order ships. Standard delivery takes 5-7 business days."
+                    }
+                  </p>
                 </div>
               </div>
             </div>

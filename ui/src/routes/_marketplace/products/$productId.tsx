@@ -1,30 +1,28 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { useState } from 'react';
-import { ArrowLeft, Star, Minus, Plus, Heart, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { LoadingSpinner } from '@/components/loading';
-import { useCart } from '@/hooks/use-cart';
-import { useFavorites } from '@/hooks/use-favorites';
-import { cn } from '@/lib/utils';
-import { ImageViewer } from '@/components/marketplace/image-viewer';
+import { LoadingSpinner } from "@/components/loading";
+import { ImageViewer } from "@/components/marketplace/image-viewer";
+import { Button } from "@/components/ui/button";
+import { useCart } from "@/hooks/use-cart";
+import { useFavorites } from "@/hooks/use-favorites";
 import {
-  useSuspenseProduct,
-  useProducts,
   productLoaders,
-  SIZES,
   requiresSize,
-  type Product,
-} from '@/integrations/marketplace-api';
-import { queryClient } from '@/utils/orpc';
+  useProducts,
+  useSuspenseProduct
+} from "@/integrations/marketplace-api";
+import { cn } from "@/lib/utils";
+import { queryClient } from "@/utils/orpc";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { AlertCircle, ArrowLeft, Heart, Minus, Plus } from "lucide-react";
+import { useState } from "react";
 
-export const Route = createFileRoute('/_marketplace/products/$productId')({
+export const Route = createFileRoute("/_marketplace/products/$productId")({
   pendingComponent: LoadingSpinner,
   loader: async ({ params }) => {
     await queryClient.ensureQueryData(productLoaders.detail(params.productId));
   },
   errorComponent: ({ error }) => {
     const router = useRouter();
-    
+
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-md text-center space-y-4">
@@ -33,15 +31,14 @@ export const Route = createFileRoute('/_marketplace/products/$productId')({
             <h2 className="text-xl font-semibold">Unable to Load Product</h2>
           </div>
           <p className="text-gray-600">
-            {error.message || 'Failed to load product details. Please check your connection and try again.'}
+            {error.message ||
+              "Failed to load product details. Please check your connection and try again."}
           </p>
           <div className="flex gap-3 justify-center">
-            <Button onClick={() => router.invalidate()}>
-              Try Again
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => router.navigate({ to: '/' })}
+            <Button onClick={() => router.invalidate()}>Try Again</Button>
+            <Button
+              variant="outline"
+              onClick={() => router.navigate({ to: "/" })}
             >
               Go Home
             </Button>
@@ -57,26 +54,41 @@ function ProductDetailPage() {
   const { productId } = Route.useParams();
   const { addToCart } = useCart();
   const { favoriteIds, toggleFavorite } = useFavorites();
-  
-  const [selectedSize, setSelectedSize] = useState('M');
-  const [quantity, setQuantity] = useState(1);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerImageIndex, setViewerImageIndex] = useState(0);
 
   const { data } = useSuspenseProduct(productId);
   const product = data.product;
 
-  const { data: relatedData } = useProducts({ category: product.category, limit: 4 });
+  const availableVariants = product.variants || [];
+  const hasVariants = availableVariants.length > 0;
+  const defaultVariant = availableVariants[0];
+
+  const [selectedVariantId, setSelectedVariantId] = useState(defaultVariant?.id || "");
+  const [quantity, setQuantity] = useState(1);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerImageIndex, setViewerImageIndex] = useState(0);
+
+  const selectedVariant = availableVariants.find(v => v.id === selectedVariantId) || defaultVariant;
+  const displayPrice = selectedVariant?.price || product.price;
+
+  const { data: relatedData } = useProducts({
+    category: product.category,
+    limit: 4,
+  });
   const relatedProducts = (relatedData?.products ?? [])
     .filter((p) => p.id !== product.id)
     .slice(0, 3);
 
-  const productImages = [product.image, product.image, product.image, product.image];
+  const productImages =
+    product.images.length > 0
+      ? product.images.map((img) => img.url)
+      : product.primaryImage
+        ? [product.primaryImage]
+        : [];
   const isFavorite = favoriteIds.includes(product.id);
-  const needsSize = requiresSize(product.category);
+  const needsSize = requiresSize(product.category) && hasVariants;
 
   const handleAddToCart = () => {
-    const size = needsSize ? selectedSize : 'N/A';
+    const size = selectedVariant?.attributes?.size || selectedVariant?.name || "N/A";
     for (let i = 0; i < quantity; i++) {
       addToCart(product.id, size);
     }
@@ -113,11 +125,19 @@ function ProductDetailPage() {
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <div className="w-full">
-            <div className="grid grid-cols-2 gap-4 aspect-square">
+            <div className={cn(
+              "gap-4",
+              productImages.length === 1 
+                ? "flex" 
+                : "grid grid-cols-2 aspect-square"
+            )}>
               {productImages.map((img, i) => (
                 <div
                   key={i}
-                  className="bg-[#ececf0] w-full h-full overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                  className={cn(
+                    "bg-[#ececf0] overflow-hidden cursor-pointer hover:opacity-90 transition-opacity",
+                    productImages.length === 1 ? "w-full aspect-square" : "w-full h-full"
+                  )}
                   onClick={() => handleImageClick(i)}
                 >
                   <img
@@ -133,65 +153,55 @@ function ProductDetailPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="inline-block border border-[rgba(0,0,0,0.1)] px-2 py-1">
-                <span className="text-xs tracking-[-0.48px]">{product.category}</span>
+                <span className="text-xs tracking-[-0.48px]">
+                  {product.category}
+                </span>
               </div>
               <button
                 onClick={() => toggleFavorite(product.id)}
                 className="p-2 hover:bg-gray-100 transition-colors"
-                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                aria-label={
+                  isFavorite ? "Remove from favorites" : "Add to favorites"
+                }
               >
-                <Heart className={cn('size-5', isFavorite && 'fill-black')} />
+                <Heart className={cn("size-5", isFavorite && "fill-black")} />
               </button>
             </div>
 
-            <h1 className="text-2xl font-medium tracking-[-0.48px]">{product.name}</h1>
+            <h1 className="text-2xl font-medium tracking-[-0.48px]">
+              {product.name}
+            </h1>
 
-            <div className="flex items-center gap-2">
-              <div className="flex items-center">
-                {[...Array(4)].map((_, i) => (
-                  <Star key={i} className="size-4 fill-black stroke-black" />
-                ))}
-                <div className="relative size-4">
-                  <Star className="size-4 fill-transparent stroke-[#717182]" />
-                  <div className="absolute inset-0 overflow-hidden w-[80%]">
-                    <Star className="size-4 fill-black stroke-black" />
-                  </div>
-                </div>
-              </div>
-              <span className="text-[#717182] text-sm tracking-[-0.48px]">
-                4.8 (127 reviews)
-              </span>
-            </div>
+            <span className="text-lg tracking-[-0.48px]">
+              ${displayPrice}
+            </span>
 
-            <div className="flex items-baseline gap-3">
-              <span className="text-lg tracking-[-0.48px]">${product.price}</span>
-              <span className="text-[#717182] text-sm tracking-[-0.48px]">
-                Free shipping on orders over $50
-              </span>
-            </div>
-
-            <p className="text-[#717182] tracking-[-0.48px] leading-6">
-              {product.description || 'Premium heavyweight hoodie featuring the iconic NEAR Protocol logo. Made from 100% organic cotton for ultimate comfort and sustainability.'}
-            </p>
+            {product.description && (
+              <p className="text-[#717182] tracking-[-0.48px] leading-6">
+                {product.description}
+              </p>
+            )}
 
             <div className="h-px bg-[rgba(0,0,0,0.1)]" />
 
             {needsSize && (
               <div className="space-y-3">
                 <label className="block tracking-[-0.48px]">Size</label>
-                <div className="flex gap-2">
-                  {SIZES.map((size) => (
+                <div className="flex flex-wrap gap-2">
+                  {availableVariants.map((variant) => (
                     <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
+                      key={variant.id}
+                      onClick={() => setSelectedVariantId(variant.id)}
+                      disabled={!variant.inStock}
                       className={cn(
-                        'px-4 py-2 tracking-[-0.48px] transition-colors',
-                        selectedSize === size
-                          ? 'bg-neutral-950 text-white'
-                          : 'bg-white border border-[rgba(0,0,0,0.1)] hover:bg-gray-50'
+                        "px-4 py-2 tracking-[-0.48px] transition-colors",
+                        selectedVariantId === variant.id
+                          ? "bg-neutral-950 text-white"
+                          : "bg-white border border-[rgba(0,0,0,0.1)] hover:bg-gray-50",
+                        !variant.inStock && "opacity-50 cursor-not-allowed line-through"
                       )}
                     >
-                      {size}
+                      {variant.attributes?.size || variant.name}
                     </button>
                   ))}
                 </div>
@@ -223,48 +233,19 @@ function ProductDetailPage() {
             <Button
               onClick={handleAddToCart}
               className="w-full bg-neutral-950 hover:bg-neutral-800"
+              disabled={needsSize && !selectedVariant}
             >
-              Add to Cart - ${(product.price * quantity).toFixed(2)}
+              Add to Cart - ${(displayPrice * quantity).toFixed(2)}
             </Button>
-
-            <div className="h-px bg-[rgba(0,0,0,0.1)]" />
-
-            <div className="space-y-2">
-              <h4 className="tracking-[-0.48px] font-medium">Features</h4>
-              <ul className="space-y-1 text-[#717182] text-sm tracking-[-0.48px]">
-                <li className="flex gap-2">
-                  <span>•</span>
-                  <span>100% organic cotton fleece</span>
-                </li>
-                <li className="flex gap-2">
-                  <span>•</span>
-                  <span>Heavyweight 350GSM fabric</span>
-                </li>
-                <li className="flex gap-2">
-                  <span>•</span>
-                  <span>Screen-printed NEAR logo</span>
-                </li>
-                <li className="flex gap-2">
-                  <span>•</span>
-                  <span>Kangaroo pocket with hidden zip</span>
-                </li>
-                <li className="flex gap-2">
-                  <span>•</span>
-                  <span>Ribbed cuffs and hem</span>
-                </li>
-                <li className="flex gap-2">
-                  <span>•</span>
-                  <span>Unisex fit</span>
-                </li>
-              </ul>
-            </div>
           </div>
         </div>
 
         {relatedProducts.length > 0 && (
           <div className="mt-24 space-y-8">
             <div className="space-y-2">
-              <h2 className="text-xl font-medium tracking-[-0.48px]">You Might Also Like</h2>
+              <h2 className="text-xl font-medium tracking-[-0.48px]">
+                You Might Also Like
+              </h2>
               <p className="text-[#717182] tracking-[-0.48px]">
                 Explore more from our collection
               </p>
@@ -280,7 +261,7 @@ function ProductDetailPage() {
                 >
                   <div className="bg-[#ececf0] aspect-square overflow-hidden relative">
                     <img
-                      src={relatedProduct.image}
+                      src={relatedProduct.primaryImage}
                       alt={relatedProduct.name}
                       className="w-full h-full object-cover"
                     />
@@ -308,7 +289,9 @@ function ProductDetailPage() {
                           {relatedProduct.name}
                         </h3>
                       </div>
-                      <span className="tracking-[-0.48px]">${relatedProduct.price}</span>
+                      <span className="tracking-[-0.48px]">
+                        ${relatedProduct.price}
+                      </span>
                     </div>
                   </div>
                 </Link>

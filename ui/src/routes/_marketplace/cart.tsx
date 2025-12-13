@@ -44,7 +44,7 @@ function CartPage() {
                   <div key={item.productId} className="py-6 flex gap-4 items-start">
                     <div className="bg-[#ececf0] rounded size-24 shrink-0 overflow-hidden">
                       <img
-                        src={item.product.image}
+                        src={item.product.primaryImage}
                         alt={item.product.name}
                         className="w-full h-full object-cover"
                       />
