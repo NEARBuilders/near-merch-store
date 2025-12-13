@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Search, Heart, ShoppingBag, User, Menu, X, LogIn } from "lucide-react";
+import { Search, Heart, ShoppingCart, User, Menu, X, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -114,7 +114,7 @@ export function MarketplaceHeader() {
 
             <Link to="/cart">
               <Button variant="ghost" size="icon" className="relative">
-                <ShoppingBag className="h-5 w-5" />
+                <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-[#00ec97] text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
                     {cartCount}

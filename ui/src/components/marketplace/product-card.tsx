@@ -7,7 +7,7 @@ import { useState } from "react";
 interface ProductCardProps {
   product: Product;
   isFavorite: boolean;
-  onToggleFavorite: (productId: string) => void;
+  onToggleFavorite: (productId: string, productName: string) => void;
   onQuickAdd: (product: Product) => void;
 }
 
@@ -23,7 +23,7 @@ export function ProductCard({
     e.preventDefault();
     e.stopPropagation();
     setIsAnimating(true);
-    onToggleFavorite(product.id);
+    onToggleFavorite(product.id, product.name);
     setTimeout(() => setIsAnimating(false), 600);
   };
 

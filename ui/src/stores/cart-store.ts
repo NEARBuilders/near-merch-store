@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { CartItem } from "@/integrations/marketplace-api";
+import { toast } from "sonner";
 
 const CART_STORAGE_KEY = "marketplace-cart";
 
@@ -86,6 +87,7 @@ export const useCartStore = create<CartState>()(
       removeItem: (productId: string) => {
         set((state) => {
           const { [productId]: _, ...rest } = state.items;
+          toast.success("Removed from cart");
           return { items: rest };
         });
       },

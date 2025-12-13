@@ -134,7 +134,7 @@ function SearchPage() {
 interface SearchProductCardProps {
   product: Product;
   isFavorite: boolean;
-  onToggleFavorite: (id: string) => void;
+  onToggleFavorite: (id: string, name: string) => void;
   onAddToCart: (id: string) => void;
 }
 
@@ -168,7 +168,7 @@ function SearchProductCard({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onToggleFavorite(product.id);
+              onToggleFavorite(product.id, product.name);
             }}
             className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm hover:bg-white transition-all z-10"
             aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}

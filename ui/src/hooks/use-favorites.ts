@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useProductsByIds, type Product } from '@/integrations/marketplace-api';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useProductsByIds } from '@/integrations/marketplace-api';
+import { toast } from 'sonner';
 
 const FAVORITES_STORAGE_KEY = 'marketplace-favorites';
 
@@ -9,6 +10,7 @@ export function useFavorites() {
     const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
     return stored ? JSON.parse(stored) : [];
   });
+  const lastToastRef = useRef<{ productId: string; timestamp: number } | null>(null);
 
   useEffect(() => {
     localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favoriteIds));
@@ -16,18 +18,40 @@ export function useFavorites() {
 
   const { data: favorites, isLoading } = useProductsByIds(favoriteIds);
 
-  const toggleFavorite = useCallback((productId: string) => {
+  const toggleFavorite = useCallback((productId: string, productName?: string) => {
+    const now = Date.now();
+    const shouldShowToast = 
+      !lastToastRef.current || 
+      lastToastRef.current.productId !== productId || 
+      now - lastToastRef.current.timestamp > 100;
+
     setFavoriteIds((prev) => {
-      if (prev.includes(productId)) {
-        return prev.filter((id) => id !== productId);
+      const isCurrentlyFavorite = prev.includes(productId);
+      if (!isCurrentlyFavorite && productName && shouldShowToast) {
+        lastToastRef.current = { productId, timestamp: now };
+        toast.success(`${productName} added to favorites!`);
       }
-      return [...prev, productId];
+      if (isCurrentlyFavorite) {
+        return prev.filter((id) => id !== productId);
+      } else {
+        return [...prev, productId];
+      }
     });
   }, []);
 
-  const addFavorite = useCallback((productId: string) => {
+  const addFavorite = useCallback((productId: string, productName?: string) => {
+    const now = Date.now();
+    const shouldShowToast = 
+      !lastToastRef.current || 
+      lastToastRef.current.productId !== productId || 
+      now - lastToastRef.current.timestamp > 100;
+
     setFavoriteIds((prev) => {
       if (prev.includes(productId)) return prev;
+      if (productName && shouldShowToast) {
+        lastToastRef.current = { productId, timestamp: now };
+        toast.success(`${productName} added to favorites!`);
+      }
       return [...prev, productId];
     });
   }, []);

@@ -31,7 +31,7 @@ export function App() {
     <StrictMode>
       <TanStackQueryProvider.Provider {...TanStackQueryProviderContext}>
         <RouterProvider router={router} />
-        <Toaster position="top-center" richColors closeButton />
+        <Toaster position="bottom-right" closeButton />
       </TanStackQueryProvider.Provider>
     </StrictMode>
   );
