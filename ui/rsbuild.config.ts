@@ -126,6 +126,9 @@ export default defineConfig({
       "@/public": "./public",
     },
   },
+  html: {
+    template: "./index.html",
+  },
   dev: {
     lazyCompilation: false,
     progressBar: false,
