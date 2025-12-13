@@ -1,0 +1,26 @@
+{
+  "name": "near-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy:local": "bun run scripts/deploy-local.ts",
+    "stop:local": "bun run scripts/stop-sandbox.ts",
+    "deploy:testnet": "NODE_ENV=testnet bun run scripts/deploy.ts",
+    "deploy:mainnet": "NODE_ENV=mainnet bun run scripts/deploy.ts",
+    "build:nft": "cd nft && cargo near build",
+    "build:marketplace": "cd marketplace && cargo near build",
+    "build:all": "bun run build:nft && bun run build:marketplace",
+    "test": "bun test",
+    "test:nft": "bun test tests/nft.test.ts",
+    "test:marketplace": "bun test tests/marketplace.test.ts"
+  },
+  "dependencies": {
+    "near-kit": "^0.6.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3",
+    "bun-types": "latest"
+  }
+}
