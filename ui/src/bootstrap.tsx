@@ -1,4 +1,5 @@
 import { StrictMode } from 'react';
+import { ThemeProvider } from 'next-themes';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { Toaster } from 'sonner';
 
@@ -30,8 +31,10 @@ export function App() {
   return (
     <StrictMode>
       <TanStackQueryProvider.Provider {...TanStackQueryProviderContext}>
-        <RouterProvider router={router} />
-        <Toaster position="top-center" richColors closeButton />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <RouterProvider router={router} />
+          <Toaster position="top-center" richColors closeButton />
+        </ThemeProvider>
       </TanStackQueryProvider.Provider>
     </StrictMode>
   );

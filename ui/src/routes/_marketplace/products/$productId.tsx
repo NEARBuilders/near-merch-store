@@ -35,10 +35,12 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
               "Failed to load product details. Please check your connection and try again."}
           </p>
           <div className="flex gap-3 justify-center">
-            <Button onClick={() => router.invalidate()}>Try Again</Button>
+            <Button onClick={() => router.invalidate()}>
+              Try Again
+            </Button>
             <Button
               variant="outline"
-              onClick={() => router.navigate({ to: "/" })}
+              onClick={() => router.navigate({ to: '/' })}
             >
               Go Home
             </Button>
@@ -100,7 +102,7 @@ function ProductDetailPage() {
   };
 
   return (
-    <div className="bg-white w-full min-h-screen">
+    <div className="bg-background w-full min-h-screen">
       {viewerOpen && (
         <ImageViewer
           images={productImages}
@@ -110,7 +112,7 @@ function ProductDetailPage() {
         />
       )}
 
-      <div className="border-b border-[rgba(0,0,0,0.1)]">
+      <div className="border-b border-border">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
           <Link
             to="/"
@@ -122,7 +124,7 @@ function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-12">
+      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-8 md:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <div className="w-full">
             <div className={cn(
@@ -145,26 +147,26 @@ function ProductDetailPage() {
                     alt={product.name}
                     className="w-full h-full object-cover"
                   />
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-black/10">
+                <span className="bg-background/80 backdrop-blur text-foreground px-4 py-2 rounded-full text-sm font-medium">Click to zoom</span>
+              </div>
                 </div>
               ))}
             </div>
+            {/* Mobile: Click already opens modal. */}
           </div>
 
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <div className="inline-block border border-[rgba(0,0,0,0.1)] px-2 py-1">
-                <span className="text-xs tracking-[-0.48px]">
-                  {product.category}
-                </span>
+              <div className="inline-block border border-border px-2 py-1">
+                <span className="text-xs tracking-[-0.48px]">{product.category}</span>
               </div>
               <button
                 onClick={() => toggleFavorite(product.id)}
-                className="p-2 hover:bg-gray-100 transition-colors"
-                aria-label={
-                  isFavorite ? "Remove from favorites" : "Add to favorites"
-                }
+                className="p-2 hover:bg-muted transition-colors"
+                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
               >
-                <Heart className={cn("size-5", isFavorite && "fill-black")} />
+                <Heart className={cn('size-5', isFavorite && 'fill-primary')} />
               </button>
             </div>
 
@@ -196,8 +198,8 @@ function ProductDetailPage() {
                       className={cn(
                         "px-4 py-2 tracking-[-0.48px] transition-colors",
                         selectedVariantId === variant.id
-                          ? "bg-neutral-950 text-white"
-                          : "bg-white border border-[rgba(0,0,0,0.1)] hover:bg-gray-50",
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-card border border-border hover:bg-accent'
                         !variant.inStock && "opacity-50 cursor-not-allowed line-through"
                       )}
                     >
@@ -210,7 +212,7 @@ function ProductDetailPage() {
 
             <div className="space-y-3">
               <label className="block tracking-[-0.48px]">Quantity</label>
-              <div className="flex items-center gap-3 border border-[rgba(0,0,0,0.1)] rounded w-fit px-1 py-1">
+              <div className="flex items-center gap-3 border border-border rounded w-fit px-1 py-1">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
@@ -232,7 +234,7 @@ function ProductDetailPage() {
 
             <Button
               onClick={handleAddToCart}
-              className="w-full bg-neutral-950 hover:bg-neutral-800"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
               disabled={needsSize && !selectedVariant}
             >
               Add to Cart - ${(displayPrice * quantity).toFixed(2)}
@@ -243,10 +245,8 @@ function ProductDetailPage() {
         {relatedProducts.length > 0 && (
           <div className="mt-24 space-y-8">
             <div className="space-y-2">
-              <h2 className="text-xl font-medium tracking-[-0.48px]">
-                You Might Also Like
-              </h2>
-              <p className="text-[#717182] tracking-[-0.48px]">
+              <h2 className="text-xl font-medium tracking-[-0.48px]">You Might Also Like</h2>
+              <p className="text-muted-foreground tracking-[-0.48px]">
                 Explore more from our collection
               </p>
             </div>
@@ -257,9 +257,9 @@ function ProductDetailPage() {
                   key={relatedProduct.id}
                   to="/products/$productId"
                   params={{ productId: relatedProduct.id }}
-                  className="border border-[rgba(0,0,0,0.1)] overflow-hidden group"
+                  className="border border-border overflow-hidden group"
                 >
-                  <div className="bg-[#ececf0] aspect-square overflow-hidden relative">
+                  <div className="bg-muted aspect-square overflow-hidden relative">
                     <img
                       src={relatedProduct.primaryImage}
                       alt={relatedProduct.name}
@@ -272,17 +272,17 @@ function ProductDetailPage() {
                           e.stopPropagation();
                           addToCart(relatedProduct.id);
                         }}
-                        className="bg-neutral-950 text-white px-4 py-2 text-sm tracking-[-0.48px] flex items-center gap-2"
+                        className="bg-primary text-primary-foreground px-4 py-2 text-sm tracking-[-0.48px] flex items-center gap-2"
                       >
                         <Plus className="size-4" />
                         QUICK ADD
                       </button>
                     </div>
                   </div>
-                  <div className="p-4 border-t border-[rgba(0,0,0,0.1)]">
+                  <div className="p-4 border-t border-border">
                     <div className="flex justify-between items-start">
                       <div className="space-y-1">
-                        <p className="text-[#717182] text-xs uppercase tracking-wider">
+                        <p className="text-muted-foreground text-xs uppercase tracking-wider">
                           {relatedProduct.category}
                         </p>
                         <h3 className="text-sm tracking-[-0.48px]">
