@@ -58,7 +58,7 @@ function CheckoutPage() {
                   <div key={item.productId} className="flex gap-4">
                     <div className="size-20 bg-[#ececf0] border border-[rgba(0,0,0,0.1)] flex-shrink-0 overflow-hidden">
                       <img
-                        src={item.product.image}
+                        src={item.product.primaryImage}
                         alt={item.product.name}
                         className="size-full object-cover"
                       />

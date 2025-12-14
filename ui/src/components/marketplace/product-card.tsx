@@ -35,7 +35,7 @@ export function ProductCard({
     >
       <div className="relative bg-muted aspect-square overflow-hidden">
         <img
-          src={product.image}
+          src={product.primaryImage}
           alt={product.name}
           className="w-full h-full object-top object-cover group-hover:scale-105 transition-all duration-300"
         />

@@ -103,7 +103,16 @@ async function startServer() {
   apiApp.post('/api/webhooks/fulfillment', async (c) => {
     const req = c.req.raw;
     const body = await c.req.text();
-    const signature = c.req.header('x-gelato-signature') || '';
+    // Gelato uses x-gelato-signature
+    let signature = c.req.header('x-gelato-signature') || '';
+    
+    // Check if it's a Printful webhook (different signature header)
+    // Printful V2 uses x-pf-webhook-signature
+    const printfulSignature = c.req.header('x-pf-webhook-signature');
+    if (printfulSignature) {
+        signature = printfulSignature;
+    }
+
     const context = await createContext(req);
 
     const result = await apiHandler.handle(

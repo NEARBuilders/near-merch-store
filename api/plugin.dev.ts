@@ -12,8 +12,6 @@ export default {
       contractId: "social.near",
     },
     secrets: {
-      RELAYER_ACCOUNT_ID: process.env.RELAYER_ACCOUNT_ID!,
-      RELAYER_PRIVATE_KEY: process.env.RELAYER_PRIVATE_KEY!,
       STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
       STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
       GELATO_API_KEY: process.env.GELATO_API_KEY,

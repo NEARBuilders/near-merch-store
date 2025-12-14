@@ -244,7 +244,7 @@ function CollectionProductCard({
         className="block"
       >
         <div className="relative bg-muted aspect-square overflow-hidden">
-          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+          <img src={product.primaryImage} alt={product.name} className="w-full h-full object-cover" />
 
           <button
             onClick={(e) => {

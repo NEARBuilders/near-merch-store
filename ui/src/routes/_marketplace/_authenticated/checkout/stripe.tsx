@@ -21,12 +21,13 @@ function StripeCheckoutPage() {
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
-      const firstItem = cartItems[0];
-      if (!firstItem) throw new Error('Cart is empty');
+      if (cartItems.length === 0) throw new Error('Cart is empty');
 
       const result = await apiClient.createCheckout({
-        productId: firstItem.productId,
-        quantity: firstItem.quantity,
+        items: cartItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
         successUrl: `${window.location.origin}/order-confirmation`,
         cancelUrl: `${window.location.origin}/checkout`,
       });
@@ -85,7 +86,7 @@ function StripeCheckoutPage() {
               {cartItems.map((item) => (
                 <div key={item.productId} className="flex gap-3">
                   <div className="size-12 bg-[#ececf0] flex-shrink-0 overflow-hidden">
-                    <img src={item.product.image} alt={item.product.name} className="size-full object-cover" />
+                    <img src={item.product.primaryImage} alt={item.product.name} className="size-full object-cover" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm">{item.product.name}</p>
