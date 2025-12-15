@@ -22,11 +22,12 @@ function StripeCheckoutPage() {
   const checkoutMutation = useMutation({
     mutationFn: async () => {
       if (cartItems.length === 0) throw new Error('Cart is empty');
-      
+
       const result = await apiClient.createCheckout({
         items: cartItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
+          size: item.size,
         })),
         successUrl: `${window.location.origin}/order-confirmation`,
         cancelUrl: `${window.location.origin}/checkout`,
@@ -67,7 +68,7 @@ function StripeCheckoutPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen font-sans">
+    <div className="bg-background min-h-screen font-sans">
       <div className="border-b border-[rgba(0,0,0,0.1)]">
         <div className="max-w-[800px] mx-auto px-8 py-4">
           <Link to="/checkout" className="flex items-center gap-2 hover:opacity-70 transition-opacity">

@@ -110,13 +110,12 @@ function OrderConfirmationPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#717182]">Status</span>
-                    <span className={`font-medium ${
-                      order.status === 'shipped' || order.status === 'delivered' 
-                        ? 'text-green-600' 
-                        : order.status === 'cancelled' 
-                        ? 'text-red-600'
-                        : 'text-neutral-900'
-                    }`}>
+                    <span className={`font-medium ${order.status === 'shipped' || order.status === 'delivered'
+                        ? 'text-green-600'
+                        : order.status === 'cancelled'
+                          ? 'text-red-600'
+                          : 'text-neutral-900'
+                      }`}>
                       {statusLabels[order.status] || order.status}
                     </span>
                   </div>
@@ -225,7 +224,7 @@ function OrderConfirmationPage() {
                 <div>
                   <h4 className="text-base mb-1">Shipping & Delivery</h4>
                   <p className="text-sm text-[#717182] leading-5">
-                    {order?.deliveryEstimate 
+                    {order?.deliveryEstimate
                       ? `Expected delivery: ${new Date(order.deliveryEstimate.minDeliveryDate).toLocaleDateString()} - ${new Date(order.deliveryEstimate.maxDeliveryDate).toLocaleDateString()}`
                       : "You'll receive tracking information once your order ships. Standard delivery takes 5-7 business days."
                     }

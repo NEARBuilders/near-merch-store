@@ -41,7 +41,7 @@ export function SizeSelectionModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[480px] bg-white z-50 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] mx-4 p-0 border-0 rounded-none gap-0"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[480px] bg-background z-50 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] mx-4 p-0 border-0 rounded-none gap-0"
         showCloseButton={false}
       >
         <div className="border-b border-[rgba(0,0,0,0.1)] px-6 py-4 flex items-start justify-between">
@@ -91,11 +91,10 @@ export function SizeSelectionModal({
                   key={size}
                   type="button"
                   onClick={() => setSelectedSize(size)}
-                  className={`h-12 border transition-colors tracking-[-0.48px] text-[14px] ${
-                    selectedSize === size
-                      ? "border-neutral-950 bg-neutral-950 text-white"
-                      : "border-[rgba(0,0,0,0.1)] bg-white text-neutral-950 hover:border-neutral-950"
-                  }`}
+                  className={`h-12 border transition-colors tracking-[-0.48px] text-[14px] ${selectedSize === size
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground hover:border-foreground"
+                    }`}
                 >
                   {size}
                 </button>
@@ -106,14 +105,14 @@ export function SizeSelectionModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-10 border border-[rgba(0,0,0,0.1)] bg-white text-neutral-950 tracking-[-0.48px] text-[14px] hover:bg-[#f3f3f5] transition-colors"
+              className="flex-1 h-10 border border-border bg-card text-foreground tracking-[-0.48px] text-[14px] hover:bg-accent transition-colors"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleAddToCart}
-              className="flex-1 h-10 bg-neutral-950 text-white tracking-[-0.48px] text-[14px] hover:bg-neutral-800 transition-colors"
+              className="flex-1 h-10 bg-primary text-primary-foreground tracking-[-0.48px] text-[14px] hover:bg-primary/90 transition-colors"
             >
               Add to Cart
             </button>

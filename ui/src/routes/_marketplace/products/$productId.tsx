@@ -100,7 +100,7 @@ function ProductDetailPage() {
   };
 
   return (
-    <div className="bg-white w-full min-h-screen">
+    <div className="bg-background w-full min-h-screen">
       {viewerOpen && (
         <ImageViewer
           images={productImages}
@@ -110,7 +110,7 @@ function ProductDetailPage() {
         />
       )}
 
-      <div className="border-b border-[rgba(0,0,0,0.1)]">
+      <div className="border-b border-border">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
           <Link
             to="/"
@@ -127,15 +127,15 @@ function ProductDetailPage() {
           <div className="w-full">
             <div className={cn(
               "gap-4",
-              productImages.length === 1 
-                ? "flex" 
+              productImages.length === 1
+                ? "flex"
                 : "grid grid-cols-2 aspect-square"
             )}>
               {productImages.map((img, i) => (
                 <div
                   key={i}
                   className={cn(
-                    "bg-[#ececf0] overflow-hidden cursor-pointer hover:opacity-90 transition-opacity",
+                    "bg-muted overflow-hidden cursor-pointer hover:opacity-90 transition-opacity",
                     productImages.length === 1 ? "w-full aspect-square" : "w-full h-full"
                   )}
                   onClick={() => handleImageClick(i)}
@@ -152,7 +152,7 @@ function ProductDetailPage() {
 
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <div className="inline-block border border-[rgba(0,0,0,0.1)] px-2 py-1">
+              <div className="inline-block border border-border px-2 py-1">
                 <span className="text-xs tracking-[-0.48px]">
                   {product.category}
                 </span>
@@ -182,7 +182,7 @@ function ProductDetailPage() {
               </p>
             )}
 
-            <div className="h-px bg-[rgba(0,0,0,0.1)]" />
+            <div className="h-px bg-border" />
 
             {needsSize && (
               <div className="space-y-3">
@@ -196,8 +196,8 @@ function ProductDetailPage() {
                       className={cn(
                         "px-4 py-2 tracking-[-0.48px] transition-colors",
                         selectedVariantId === variant.id
-                          ? "bg-neutral-950 text-white"
-                          : "bg-white border border-[rgba(0,0,0,0.1)] hover:bg-gray-50",
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background border border-border hover:bg-muted",
                         !variant.inStock && "opacity-50 cursor-not-allowed line-through"
                       )}
                     >
@@ -210,7 +210,7 @@ function ProductDetailPage() {
 
             <div className="space-y-3">
               <label className="block tracking-[-0.48px]">Quantity</label>
-              <div className="flex items-center gap-3 border border-[rgba(0,0,0,0.1)] rounded w-fit px-1 py-1">
+              <div className="flex items-center gap-3 border border-border rounded w-fit px-1 py-1">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
@@ -232,7 +232,7 @@ function ProductDetailPage() {
 
             <Button
               onClick={handleAddToCart}
-              className="w-full bg-neutral-950 hover:bg-neutral-800"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={needsSize && !selectedVariant}
             >
               Add to Cart - ${(displayPrice * quantity).toFixed(2)}
@@ -257,7 +257,7 @@ function ProductDetailPage() {
                   key={relatedProduct.id}
                   to="/products/$productId"
                   params={{ productId: relatedProduct.id }}
-                  className="border border-[rgba(0,0,0,0.1)] overflow-hidden group"
+                  className="border border-border overflow-hidden group"
                 >
                   <div className="bg-[#ececf0] aspect-square overflow-hidden relative">
                     <img
@@ -272,14 +272,14 @@ function ProductDetailPage() {
                           e.stopPropagation();
                           addToCart(relatedProduct.id);
                         }}
-                        className="bg-neutral-950 text-white px-4 py-2 text-sm tracking-[-0.48px] flex items-center gap-2"
+                        className="bg-primary text-primary-foreground px-4 py-2 text-sm tracking-[-0.48px] flex items-center gap-2"
                       >
                         <Plus className="size-4" />
                         QUICK ADD
                       </button>
                     </div>
                   </div>
-                  <div className="p-4 border-t border-[rgba(0,0,0,0.1)]">
+                  <div className="p-4 border-t border-border">
                     <div className="flex justify-between items-start">
                       <div className="space-y-1">
                         <p className="text-[#717182] text-xs uppercase tracking-wider">

@@ -17,7 +17,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent
         side="right"
-        className="fixed right-0 top-0 h-full w-full max-w-[512px] sm:max-w-[512px] bg-white z-50 flex flex-col shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] p-0"
+        className="fixed right-0 top-0 h-full w-full max-w-[512px] sm:max-w-[512px] bg-background z-50 flex flex-col shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1),0px_4px_6px_-4px_rgba(0,0,0,0.1)] p-0"
         hideCloseButton={true}
       >
         <div className="border-b border-[rgba(0,0,0,0.1)] px-4 py-4">
@@ -34,13 +34,13 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
               <X className="size-4" aria-hidden="true" />
             </button>
           </div>
-          <p className="text-[#717182] text-[14px] tracking-[-0.48px]">
+          <p className="text-muted-foreground text-[14px] tracking-[-0.48px]">
             Review your items and proceed to checkout
           </p>
         </div>
         <div className="flex-1 overflow-y-auto px-4">
           {cartItems.length === 0 ? (
-            <div className="py-8 text-center text-[#717182]">
+            <div className="py-8 text-center text-muted-foreground">
               <p className="text-[14px] tracking-[-0.48px]">
                 Your cart is empty
               </p>
@@ -56,20 +56,20 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                     key={item.productId}
                     className="py-4 flex gap-4 items-start"
                   >
-                    <div className="bg-[#ececf0] rounded size-20 shrink-0 overflow-hidden">
+                    <div className="bg-muted rounded size-20 shrink-0 overflow-hidden">
                       <img
                         src={item.product.primaryImage}
                         alt={item.product.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-1">
-                        <div className="flex-1 min-w-0 pr-2">
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div className="flex items-start justify-between mb-1 gap-2">
+                        <div className="flex-1 min-w-0">
                           <h3 className="text-[16px] tracking-[-0.48px] truncate">
                             {item.product.name}
                           </h3>
-                          <p className="text-[#717182] text-[14px] tracking-[-0.48px] mt-1">
+                          <p className="text-muted-foreground text-[14px] tracking-[-0.48px] mt-1">
                             {item.product.category}
                           </p>
                         </div>
@@ -82,49 +82,51 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                           <X className="size-4" aria-hidden="true" />
                         </button>
                       </div>
-                      <div className="relative inline-block mt-3">
-                        <select
-                          value={item.size}
-                          onChange={(e) =>
-                            updateSize(item.productId, e.target.value)
-                          }
-                          className="appearance-none bg-[#f3f3f5] border-none h-9 px-3.5 pr-9 text-[14px] tracking-[-0.48px] cursor-pointer rounded"
-                        >
-                          {availableSizes.map((size) => (
-                            <option key={size} value={size}>
-                              {size}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          className="size-4 text-[#717182] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"
-                          aria-hidden="true"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center border border-[rgba(0,0,0,0.1)] rounded h-[34px]">
+                      {item.size !== 'N/A' && (
+                        <div className="relative mt-3 w-fit max-w-full">
+                          <select
+                            value={item.size}
+                            onChange={(e) =>
+                              updateSize(item.productId, e.target.value)
+                            }
+                            className="appearance-none bg-muted text-foreground border-none h-9 pl-3.5 pr-8 text-[14px] tracking-[-0.48px] cursor-pointer rounded w-full"
+                          >
+                            {availableSizes.map((size) => (
+                              <option key={size} value={size}>
+                                {size}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown
+                            className="size-4 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"
+                            aria-hidden="true"
+                          />
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between mt-auto pt-2 gap-2 flex-wrap">
+                        <div className="flex items-center border border-border rounded h-[34px]">
                           <button
                             type="button"
                             onClick={() => updateQuantity(item.productId, -1)}
                             disabled={item.quantity <= 1}
-                            className="size-8 flex items-center justify-center disabled:opacity-50"
+                            className="size-8 flex items-center justify-center disabled:opacity-50 hover:bg-muted transition-colors"
                             aria-label="Decrease quantity"
                           >
                             <Minus className="size-4" aria-hidden="true" />
                           </button>
-                          <span className="w-8 text-center text-[16px] tracking-[-0.48px]">
+                          <span className="w-8 text-center text-[14px] font-medium tracking-[-0.48px]">
                             {item.quantity}
                           </span>
                           <button
                             type="button"
                             onClick={() => updateQuantity(item.productId, 1)}
-                            className="size-8 flex items-center justify-center"
+                            className="size-8 flex items-center justify-center hover:bg-muted transition-colors"
                             aria-label="Increase quantity"
                           >
                             <Plus className="size-4" aria-hidden="true" />
                           </button>
                         </div>
-                        <div className="text-[16px] tracking-[-0.48px]">
+                        <div className="text-[16px] font-medium tracking-[-0.48px] whitespace-nowrap">
                           ${(item.product.price * item.quantity).toFixed(2)}
                         </div>
                       </div>
@@ -146,11 +148,11 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
             <Link
               to="/checkout"
               onClick={onClose}
-              className="w-full bg-neutral-950 text-white h-9 flex items-center justify-center tracking-[-0.48px] text-[14px] hover:bg-neutral-800 transition-colors"
+              className="w-full bg-primary text-primary-foreground dark:bg-white dark:text-black dark:hover:bg-white/90 h-9 flex items-center justify-center tracking-[-0.48px] text-[14px] hover:bg-primary/90 transition-colors"
             >
               Checkout
             </Link>
-            <p className="text-[#717182] text-[12px] tracking-[-0.48px] text-center mt-4">
+            <p className="text-muted-foreground text-[12px] tracking-[-0.48px] text-center mt-4">
               Shipping and taxes calculated at checkout
             </p>
           </div>

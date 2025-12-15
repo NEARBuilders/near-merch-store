@@ -30,7 +30,7 @@ function CheckoutPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-background min-h-screen">
       <div className="border-b border-[rgba(0,0,0,0.1)]">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
           <Link
@@ -105,14 +105,14 @@ function CheckoutPage() {
               </div>
             </div>
 
-            <div className="mt-6 bg-[#f6f6f6] border border-[rgba(0,0,0,0.1)] p-4 flex items-center justify-between gap-4">
+            <div className="mt-6 bg-muted border border-border p-4 flex items-center justify-between gap-4">
               <span className="text-sm">Apply Discount Code</span>
               <input
                 type="text"
                 placeholder="Enter Code"
                 value={discountCode}
                 onChange={(e) => setDiscountCode(e.target.value)}
-                className="bg-white border border-[#dddddd] px-4 py-2 text-sm text-[#717182] placeholder:text-[#717182] outline-none focus:border-neutral-950 transition-colors w-60"
+                className="bg-background border border-border px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-neutral-950 transition-colors w-60"
               />
             </div>
           </div>
@@ -123,7 +123,7 @@ function CheckoutPage() {
             </h2>
 
             <div className="space-y-6">
-              <div className="w-full border border-neutral-200 p-6 text-left relative opacity-50 cursor-not-allowed">
+              <div className="w-full border border-border p-6 text-left relative opacity-50 cursor-not-allowed">
                 <div className="flex items-start gap-3">
                   <div className="size-10 bg-[#00ec97] flex items-center justify-center flex-shrink-0">
                     <svg className="size-6" fill="none" viewBox="0 0 24 24">
@@ -138,20 +138,20 @@ function CheckoutPage() {
                         COMING SOON
                       </span>
                     </div>
-                    <p className="text-xs text-[rgba(0,0,0,0.7)]">
+                    <p className="text-xs text-muted-foreground">
                       Recommended
                     </p>
                   </div>
                 </div>
 
-                <p className="text-sm text-[rgba(0,0,0,0.8)] mt-4">
+                <p className="text-sm text-muted-foreground mt-4">
                   Instant checkout with your NEAR wallet
                 </p>
               </div>
 
               <Link
                 to="/checkout/stripe"
-                className="block w-full border border-[rgba(0,0,0,0.1)] p-6 hover:border-neutral-950 transition-colors text-left"
+                className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left"
               >
                 <div className="flex items-start gap-3">
                   <div className="size-10 bg-[#d6d3ff] flex items-center justify-center flex-shrink-0">
