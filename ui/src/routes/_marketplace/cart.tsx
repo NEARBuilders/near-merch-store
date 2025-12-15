@@ -122,7 +122,7 @@ function CartPage() {
             </div>
 
             <div className="lg:col-span-1">
-              <div className="border border-border p-4 md:p-6 sticky top-24">
+              <div className="border border-border p-6 sticky top-24">
                 <h2 className="text-lg font-medium tracking-[-0.48px] mb-6">Order Summary</h2>
 
                 <div className="space-y-3 mb-6">
