@@ -11,7 +11,13 @@ import { queryClient } from '@/utils/orpc';
 export const Route = createFileRoute('/_marketplace/collections/')({
   pendingComponent: LoadingSpinner,
   loader: async () => {
-    await queryClient.ensureQueryData(collectionLoaders.list());
+    // Prefetch collection list + details so UI can show accurate counts without hardcoding.
+    const listData = await queryClient.ensureQueryData(collectionLoaders.list());
+    await Promise.all(
+      listData.collections.map((c) =>
+        queryClient.ensureQueryData(collectionLoaders.detail(c.slug))
+      )
+    );
   },
   errorComponent: ({ error }) => {
     const router = useRouter();
@@ -44,30 +50,6 @@ export const Route = createFileRoute('/_marketplace/collections/')({
   component: CollectionsPage,
 });
 
-const collectionData = {
-  men: {
-    title: "Men's Collection",
-    description: 'Premium fits designed specifically for men. Classic essentials to modern oversized styles.',
-    image: '/images/collection-men.png',
-  },
-  women: {
-    title: "Women's Collection",
-    description: 'Tailored fits designed for women. Comfortable, stylish, and sustainably made.',
-    image: '/images/collection-women.png',
-  },
-  exclusives: {
-    title: 'NEAR Legion Collection',
-    description: "Limited edition designs created in collaboration with artists. Once they're gone, they're gone.",
-    image: '/images/collection-exclusives.png',
-    badge: 'Limited',
-  },
-  accessories: {
-    title: 'Accessories',
-    description: 'Complete your look with our curated selection. From everyday essentials to statement pieces.',
-    image: '/images/collection-accessories.png',
-  },
-} as const;
-
 function CollectionsPage() {
   const { data: collectionsData } = useSuspenseCollections();
   const collections = collectionsData.collections;
@@ -88,9 +70,14 @@ function CollectionsPage() {
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {collections.map((collection) => {
-            const data = collectionData[collection.slug as keyof typeof collectionData];
-            if (!data) return null;
+            const imageSrc = collection.image || '/ui/src/assets/images/pngs/man_on_near.png';
 
+            // Product count comes from the prefetched detail query.
+            const detailData = queryClient.getQueryData(
+              collectionLoaders.detail(collection.slug).queryKey
+            ) as { products?: unknown[] } | undefined;
+            const productCount = detailData?.products?.length ?? 0;
+            
             return (
               <Link
                 key={collection.slug}
@@ -98,26 +85,30 @@ function CollectionsPage() {
                 params={{ collection: collection.slug }}
                 className="border border-border overflow-hidden cursor-pointer hover:shadow-lg transition-shadow group"
               >
-                <div className="bg-muted h-[400px] md:h-[517.5px] overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-muted to-muted/80 flex items-center justify-center">
-                    <span className="text-6xl opacity-30">{collection.name.charAt(0)}</span>
-                  </div>
+                <div className="bg-[#ececf0] h-[400px] md:h-[517.5px] overflow-hidden">
+                  <img
+                    src={imageSrc}
+                    alt={collection.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="border-t border-border p-6 space-y-3">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-medium tracking-[-0.48px]">{data.title}</h3>
-                    {'badge' in data && (
-                      <span className="border border-foreground px-2 py-0.5 text-xs tracking-[-0.48px]">
-                        {data.badge}
+                    <h3 className="text-lg font-medium tracking-[-0.48px]">{collection.name}</h3>
+                    {collection.badge && (
+                      <span className="border border-neutral-950 px-2 py-0.5 text-xs tracking-[-0.48px]">
+                        {collection.badge}
                       </span>
                     )}
                   </div>
-                  <p className="text-muted-foreground tracking-[-0.48px] leading-6">
-                    {data.description}
+                  <p className="text-[#717182] tracking-[-0.48px] leading-6">
+                    {collection.description || ''}
                   </p>
                   <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground text-sm tracking-[-0.48px]">{collection.description}</p>
-                    <span className="px-3 py-2 group-hover:bg-muted transition-colors tracking-[-0.48px] text-sm">
+                    <p className="text-[#717182] text-sm tracking-[-0.48px]">
+                      {productCount} Products
+                    </p>
+                    <span className="px-3 py-2 group-hover:bg-gray-100 transition-colors tracking-[-0.48px] text-sm">
                       Explore
                     </span>
                   </div>

@@ -33,7 +33,7 @@ export function App() {
       <TanStackQueryProvider.Provider {...TanStackQueryProviderContext}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <RouterProvider router={router} />
-          <Toaster position="top-center" richColors closeButton />
+          <Toaster position="bottom-right" richColors closeButton />
         </ThemeProvider>
       </TanStackQueryProvider.Provider>
     </StrictMode>

@@ -70,6 +70,8 @@ export const CollectionSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   image: z.string().optional(),
+  badge: z.string().optional(),
+  features: z.array(z.string()).optional(),
 });
 
 export type Product = z.infer<typeof ProductSchema>;

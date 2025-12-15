@@ -162,7 +162,7 @@ export const ProductStoreLive = Layer.effect(
               .from(schema.products)
               .where(whereClause);
 
-            const total = countResult?.count ?? 0;
+            const total = Number(countResult?.count ?? 0);
 
             const results = await db
               .select()

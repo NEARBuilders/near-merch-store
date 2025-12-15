@@ -5,13 +5,59 @@ import { ProductStore, type ProductWithImages, type ProductVariantInput } from '
 import type { ProviderProduct } from './fulfillment/schema';
 
 export const COLLECTIONS: Collection[] = [
-  { slug: 'men', name: 'Men', description: "Men's apparel and accessories" },
-  { slug: 'women', name: 'Women', description: "Women's apparel and accessories" },
-  { slug: 'accessories', name: 'Accessories', description: 'Bags, hats, and more' },
-  { slug: 'exclusives', name: 'Exclusives', description: 'Limited edition items' },
+  {
+    slug: 'men',
+    name: 'Men',
+    description: 'Premium fits designed specifically for men. Classic essentials to modern oversized styles.',
+    image: '/ui/src/assets/images/pngs/men_collections.avif',
+    features: [
+      'Regular & Oversized Fits',
+      'Premium 100% Cotton',
+      'Modern Minimalist Designs',
+      'Durable Construction',
+    ],
+  },
+  {
+    slug: 'women',
+    name: 'Women',
+    description: 'Tailored fits designed for women. Comfortable, stylish, and sustainably made.',
+    image: '/ui/src/assets/images/pngs/women_collections.avif',
+    features: [
+      'Fitted & Crop Styles',
+      'Premium Soft Fabrics',
+      'Versatile Designs',
+      'Sustainable Materials',
+    ],
+  },
+  {
+    slug: 'accessories',
+    name: 'Accessories',
+    description: 'Complete your look with our curated selection. From everyday essentials to statement pieces.',
+    image: '/ui/src/assets/images/pngs/accessories.avif',
+    badge: 'Limited',
+    features: [
+      'Functional & Stylish',
+      'Premium Materials',
+      'Versatile Designs',
+      'Perfect for Gifting',
+    ],
+  },
+  {
+    slug: 'exclusives',
+    name: 'Exclusives',
+    description: "Limited edition designs created in collaboration with artists. Once they're gone, they're gone.",
+    image: '/ui/src/assets/images/pngs/near_legion.avif',
+    features: [
+      'Limited Edition Items',
+      'Artist Collaborations',
+      'Unique Designs',
+      'Collectible Pieces',
+    ],
+  },
 ];
 
 function categoryFromSlug(slug: string): ProductCategory | undefined {
+  // UI routes use collection slugs; API/storage uses ProductCategory.
   const map: Record<string, ProductCategory> = {
     men: 'Men',
     women: 'Women',
