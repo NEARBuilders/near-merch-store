@@ -11,7 +11,7 @@ export const products = sqliteTable('products', {
   brand: text('brand'),
   productType: text('product_type'),
   options: text('options', { mode: 'json' }).$type<ProductOption[]>(),
-  primaryImage: text('primary_image'),
+  thumbnailImage: text('thumbnail_image'),
 
   fulfillmentProvider: text('fulfillment_provider').notNull(),
   externalProductId: text('external_product_id'),

@@ -41,7 +41,7 @@ export function useSuspenseProduct(id: string) {
   });
 }
 
-export function useFeaturedProducts(limit = 8) {
+export function useFeaturedProducts(limit = 12) {
   return useQuery({
     queryKey: productKeys.featured(limit),
     queryFn: () => apiClient.getFeaturedProducts({ limit }),
@@ -49,7 +49,7 @@ export function useFeaturedProducts(limit = 8) {
   });
 }
 
-export function useSuspenseFeaturedProducts(limit = 8) {
+export function useSuspenseFeaturedProducts(limit = 12) {
   return useSuspenseQuery({
     queryKey: productKeys.featured(limit),
     queryFn: () => apiClient.getFeaturedProducts({ limit }),
@@ -103,7 +103,7 @@ export function useProductsByIds(ids: string[]) {
 }
 
 export const productLoaders = {
-  featured: (limit = 8) => ({
+  featured: (limit = 12) => ({
     queryKey: productKeys.featured(limit),
     queryFn: () => apiClient.getFeaturedProducts({ limit }),
   }),

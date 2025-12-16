@@ -1,0 +1,1 @@
+ALTER TABLE `products` RENAME COLUMN "primary_image" TO "thumbnail_image";

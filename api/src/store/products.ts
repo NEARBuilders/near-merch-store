@@ -87,11 +87,12 @@ export const ProductStoreLive = Layer.effect(
         options: row.options || [],
         images,
         variants,
-        designFiles: [],
+        designFiles: [], // Will be populated from provider data
         fulfillmentProvider: row.fulfillmentProvider,
         externalProductId: row.externalProductId || undefined,
         source: row.source,
         tags: [],
+        thumbnailImage: row.thumbnailImage || undefined,
       };
     };
 
@@ -184,7 +185,7 @@ export const ProductStoreLive = Layer.effect(
                 brand: product.brand || null,
                 productType: product.productType || null,
                 options: product.options,
-                primaryImage: product.primaryImage || null,
+                thumbnailImage: product.thumbnailImage || null,
                 fulfillmentProvider: product.fulfillmentProvider,
                 externalProductId: product.externalProductId || null,
                 source: product.source,
@@ -202,7 +203,7 @@ export const ProductStoreLive = Layer.effect(
                   brand: product.brand || null,
                   productType: product.productType || null,
                   options: product.options,
-                  primaryImage: product.primaryImage || null,
+                  thumbnailImage: product.thumbnailImage || null,
                   fulfillmentProvider: product.fulfillmentProvider,
                   externalProductId: product.externalProductId || null,
                   source: product.source,

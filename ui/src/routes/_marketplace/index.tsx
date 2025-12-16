@@ -79,7 +79,7 @@ function MarketplaceHome() {
   const [isCartSidebarOpen, setIsCartSidebarOpen] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: featuredData } = useSuspenseFeaturedProducts(8);
+  const { data: featuredData } = useSuspenseFeaturedProducts(12);
   // const { data: collectionsData } = useSuspenseCollections(); // HIDDEN: Collections feature
 
   const featuredProducts = featuredData.products;
