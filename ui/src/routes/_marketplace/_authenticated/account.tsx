@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { authClient } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import { queryClient } from '@/utils/orpc';
+import { Social } from 'near-social-js';
 
 export const Route = createFileRoute('/_marketplace/_authenticated/account')({
   component: MyAccountPage,
@@ -178,6 +179,8 @@ function ConnectedAccounts() {
   const [isProcessingNear, setIsProcessingNear] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
   const [nearAccountId, setNearAccountId] = useState<string | null>(null);
+  const [nearProfile, setNearProfile] = useState<{ name?: string; image?: { ipfs_cid?: string } } | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   const fetchNearAccountId = () => setNearAccountId(authClient.near.getAccountId());
 
@@ -185,6 +188,35 @@ function ConnectedAccounts() {
     refreshAccounts();
     fetchNearAccountId();
   }, []);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!nearAccountId) {
+        setNearProfile(null);
+        return;
+      }
+
+      setIsLoadingProfile(true);
+      try {
+        const social = new Social({ network: 'mainnet' });
+        const profileData = await social.get({
+          keys: [`${nearAccountId}/profile/**`],
+        });
+        
+        if (profileData && profileData[nearAccountId]?.profile) {
+          setNearProfile(profileData[nearAccountId].profile);
+        } else {
+          setNearProfile(null);
+        }
+      } catch (error) {
+        setNearProfile(null);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchProfile();
+  }, [nearAccountId]);
 
   const refreshAccounts = async () => {
     try {
@@ -253,7 +285,6 @@ function ConnectedAccounts() {
         );
       }
     } catch (error) {
-      console.error('Failed to process NEAR action:', error);
       setIsProcessingNear(false);
       toast.error('Failed to process NEAR action');
     }
@@ -298,6 +329,41 @@ function ConnectedAccounts() {
           </div>
         </div>
       </div>
+
+      {nearAccountId && (
+        <div className="border border-[rgba(0,0,0,0.1)] p-6 mb-4 bg-card">
+          <div className="flex items-start gap-4">
+            {nearProfile?.image?.ipfs_cid ? (
+              <img
+                src={`https://ipfs.near.social/ipfs/${nearProfile.image.ipfs_cid}`}
+                alt={nearProfile.name || nearAccountId}
+                className="size-16 rounded-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="size-16 rounded-full bg-[#00ec97] flex items-center justify-center">
+                <svg className="size-8" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" fill="black" />
+                </svg>
+              </div>
+            )}
+            <div className="flex-1">
+              {isLoadingProfile ? (
+                <p className="text-sm text-[#717182]">Loading profile...</p>
+              ) : nearProfile?.name ? (
+                <>
+                  <h3 className="text-xl font-medium mb-1">{nearProfile.name}</h3>
+                  <p className="text-sm text-[#717182]">{nearAccountId}</p>
+                </>
+              ) : (
+                <p className="text-sm text-[#717182]">{nearAccountId}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {linkedAccounts.length > 0 && (
         <div className="border-t border-[rgba(0,0,0,0.1)] pt-4 space-y-3">
