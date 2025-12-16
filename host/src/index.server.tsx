@@ -2,7 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { StrictMode } from 'react';
 import Main from './main';
 import Components from './components';
-import NotFound from './not-found';
+import { NotFound } from './ui';
 
 const getRouteComponent = (pathname: string) => {
   switch (pathname) {

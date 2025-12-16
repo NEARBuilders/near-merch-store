@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "rsbuild build",
-    "preview": "NODE_ENV=production tsx server.ts",
+    "preview": "NODE_ENV=production BOS_CONFIG_PATH=../bos.config.json tsx server.ts",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",

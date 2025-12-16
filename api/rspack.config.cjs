@@ -10,15 +10,15 @@ function updateHostConfig(name, url) {
   try {
     const configPath = path.resolve(__dirname, "../bos.config.json");
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    
-    if (!config.app.api.plugins[name]) {
-      console.error(`   ❌ Plugin "${name}" not found in bos.config.json`);
+
+    if (config.app.api.name !== name) {
+      console.error(`   ❌ API "${name}" not found in bos.config.json`);
       return;
     }
-    
-    config.app.api.plugins[name].production = url;
+
+    config.app.api.production = url;
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
-    console.log(`   ✅ Updated bos.config.json: app.api.plugins.${name}.production`);
+    console.log(`   ✅ Updated bos.config.json: app.api.production`);
   } catch (err) {
     console.error("   ❌ Failed to update bos.config.json:", err.message);
   }
