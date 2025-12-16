@@ -1,8 +1,7 @@
+import { FavoriteButton } from "@/components/favorite-button";
 import { Link } from "@tanstack/react-router";
-import { Heart, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { type Product } from "@/integrations/marketplace-api";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
 
 interface ProductCardProps {
   product: Product;
@@ -17,16 +16,6 @@ export function ProductCard({
   onToggleFavorite,
   onQuickAdd,
 }: ProductCardProps) {
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  const handleToggleFavorite = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsAnimating(true);
-    onToggleFavorite(product.id, product.title);
-    setTimeout(() => setIsAnimating(false), 600);
-  };
-
   return (
     <Link
       to="/products/$productId"
@@ -39,21 +28,11 @@ export function ProductCard({
           alt={product.title}
           className="w-full h-full object-top object-cover group-hover:scale-105 transition-all duration-300"
         />
-        <button
-          type="button"
-          onClick={handleToggleFavorite}
-          className="absolute top-2 right-2 p-2 bg-background/80 backdrop-blur-sm hover:bg-background transition-all z-10"
-          aria-label="Add to favorites"
-        >
-          <Heart
-            className={cn(
-              "size-4 transition-all duration-300 cursor-pointer",
-              isFavorite ? "fill-red-500 stroke-red-500" : "stroke-foreground",
-              isAnimating && "animate-heart-pop"
-            )}
-            aria-hidden="true"
-          />
-        </button>
+        <FavoriteButton
+          isFavorite={isFavorite}
+          onToggle={() => onToggleFavorite(product.id, product.title)}
+        />
+
         <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center p-6 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
           <button
             type="button"

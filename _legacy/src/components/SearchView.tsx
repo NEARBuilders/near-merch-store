@@ -51,25 +51,25 @@ interface SearchViewProps {
 export function SearchView({ searchQuery, favorites, onToggleFavorite, onAddToCart, categoryFilter, onNavigateToProduct }: SearchViewProps) {
   const [activeFilter, setActiveFilter] = useState(categoryFilter || "All");
   const [sortBy, setSortBy] = useState("Featured");
-  
+
   // Update activeFilter when categoryFilter changes
   if (categoryFilter && activeFilter !== categoryFilter) {
     setActiveFilter(categoryFilter);
   }
-  
+
   const filters = ["All", "Men", "Women", "Exclusives", "Accessories"];
-  
+
   // Filter by search query
   const searchFilteredProducts = searchQuery
-    ? allProducts.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? allProducts.filter(p =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : allProducts;
 
   // Filter by category
-  const filteredProducts = activeFilter === "All" 
-    ? searchFilteredProducts 
+  const filteredProducts = activeFilter === "All"
+    ? searchFilteredProducts
     : searchFilteredProducts.filter(p => p.category === activeFilter);
 
   // Sort products
@@ -98,11 +98,10 @@ export function SearchView({ searchQuery, favorites, onToggleFavorite, onAddToCa
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
-                className={`px-4 py-2 border transition-colors ${
-                  activeFilter === filter
+                className={`px-4 py-2 border transition-colors ${activeFilter === filter
                     ? "bg-neutral-950 text-white border-neutral-950"
                     : "bg-white text-neutral-950 border-[rgba(0,0,0,0.1)] hover:border-neutral-950"
-                }`}
+                  }`}
               >
                 {filter}
               </button>
@@ -162,13 +161,13 @@ interface SearchProductCardProps {
   onNavigateToProduct?: (productId: number) => void;
 }
 
-function SearchProductCard({ 
-  id, 
-  category, 
-  name, 
-  price, 
-  image, 
-  isFavorite, 
+function SearchProductCard({
+  id,
+  category,
+  name,
+  price,
+  image,
+  isFavorite,
   onToggleFavorite,
   onAddToCart,
   onNavigateToProduct
@@ -176,7 +175,7 @@ function SearchProductCard({
   const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <div 
+    <div
       className="group bg-white border border-[rgba(0,0,0,0.1)] overflow-hidden cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -184,9 +183,9 @@ function SearchProductCard({
     >
       {/* Image Container */}
       <div className="relative bg-[#ececf0] aspect-square overflow-hidden">
-        <img 
-          src={image} 
-          alt={name} 
+        <img
+          src={image}
+          alt={name}
           className="w-full h-full object-cover"
         />
 
@@ -199,16 +198,15 @@ function SearchProductCard({
           className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm hover:bg-white transition-all z-10"
           aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
-          <Heart 
-            className={`size-4 ${isFavorite ? "fill-black stroke-black" : "stroke-black"}`} 
+          <Heart
+            className={`size-4 ${isFavorite ? "fill-black stroke-black" : "stroke-black"}`}
           />
         </button>
 
         {/* Quick Add Button */}
-        <div 
-          className={`absolute bottom-0 left-0 right-0 flex items-center justify-center p-6 transition-opacity duration-300 ${
-            isHovered ? "opacity-100" : "opacity-0"
-          }`}
+        <div
+          className={`absolute bottom-0 left-0 right-0 flex items-center justify-center p-6 transition-opacity duration-300 ${isHovered ? "opacity-100" : "opacity-0"
+            }`}
         >
           <button
             onClick={(e) => {
