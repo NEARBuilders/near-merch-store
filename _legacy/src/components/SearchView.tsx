@@ -99,8 +99,8 @@ export function SearchView({ searchQuery, favorites, onToggleFavorite, onAddToCa
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
                 className={`px-4 py-2 border transition-colors ${activeFilter === filter
-                    ? "bg-neutral-950 text-white border-neutral-950"
-                    : "bg-white text-neutral-950 border-[rgba(0,0,0,0.1)] hover:border-neutral-950"
+                  ? "bg-neutral-950 text-white border-neutral-950"
+                  : "bg-white text-neutral-950 border-[rgba(0,0,0,0.1)] hover:border-neutral-950"
                   }`}
               >
                 {filter}
