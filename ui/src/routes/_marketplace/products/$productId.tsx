@@ -108,8 +108,8 @@ function ProductDetailPage() {
   const needsSize = requiresSize(product.category) && hasVariants;
 
   const handleAddToCart = () => {
-    const size = getOptionValue(selectedVariant?.attributes || [], "size") 
-      || selectedVariant?.title 
+    const size = getOptionValue(selectedVariant?.attributes || [], "size")
+      || selectedVariant?.title
       || "N/A";
     for (let i = 0; i < quantity; i++) {
       addToCart(product.id, size);
@@ -180,7 +180,7 @@ function ProductDetailPage() {
                 </span>
               </div>
               <button
-                onClick={() => toggleFavorite(product.id)}
+                onClick={() => toggleFavorite(product.id, product.title)}
                 className="p-2 hover:bg-gray-100 transition-colors"
                 aria-label={
                   isFavorite ? "Remove from favorites" : "Add to favorites"
