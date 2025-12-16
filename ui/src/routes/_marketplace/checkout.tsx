@@ -2,6 +2,9 @@ import { useCart } from '@/hooks/use-cart';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ChevronLeft, CreditCard } from 'lucide-react';
 import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { apiClient } from '@/utils/orpc';
+import { toast } from 'sonner';
 
 export const Route = createFileRoute("/_marketplace/checkout")({
   component: CheckoutPage,
@@ -15,18 +18,38 @@ function CheckoutPage() {
   const total = subtotal + tax;
   const nearAmount = (total / 3.5).toFixed(2);
 
-  if (cartItems.length === 0) {
-    return (
-      <div className="bg-white min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-medium mb-4">Your cart is empty</h1>
-          <Link to="/" className="text-[#00ec97] hover:underline">
-            Continue Shopping
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const checkoutMutation = useMutation({
+    mutationFn: async () => {
+      if (cartItems.length === 0) throw new Error('Cart is empty');
+
+      const result = await apiClient.createCheckout({
+        items: cartItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          size: item.size,
+        })),
+        successUrl: `${window.location.origin}/order-confirmation`,
+        cancelUrl: `${window.location.origin}/checkout`,
+      });
+      return result;
+    },
+    onSuccess: (data) => {
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        toast.error('Failed to create checkout session');
+      }
+    },
+    onError: (error: Error) => {
+      toast.error('Checkout failed', {
+        description: error.message || 'Please try again later',
+      });
+    },
+  });
+
+  const handlePayWithCard = () => {
+    checkoutMutation.mutate();
+  };
 
   return (
     <div className="bg-background min-h-screen">
@@ -148,17 +171,24 @@ function CheckoutPage() {
                 </p>
               </div>
 
-              <Link
-                to="/checkout/stripe"
-                className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left"
+              <button
+                onClick={handlePayWithCard}
+                disabled={checkoutMutation.isPending}
+                className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-start gap-3">
                   <div className="size-10 bg-[#d6d3ff] flex items-center justify-center flex-shrink-0">
-                    <CreditCard className="size-6 text-[#635BFF]" />
+                    {checkoutMutation.isPending ? (
+                      <div className="animate-spin size-5 border-2 border-[#635BFF]/30 border-t-[#635BFF] rounded-full" />
+                    ) : (
+                      <CreditCard className="size-6 text-[#635BFF]" />
+                    )}
                   </div>
 
                   <div className="flex-1">
-                    <p className="text-base mb-1">Pay with Card</p>
+                    <p className="text-base mb-1">
+                      {checkoutMutation.isPending ? 'Redirecting...' : 'Pay with Card'}
+                    </p>
                     <div className="flex items-center gap-1 text-xs text-[#635bff]">
                       <span>Powered by</span>
                       <span className="font-semibold">stripe</span>
@@ -167,9 +197,12 @@ function CheckoutPage() {
                 </div>
 
                 <p className="text-sm text-[#717182] mt-4">
-                  Traditional checkout with credit card
+                  {checkoutMutation.isPending 
+                    ? 'Please wait...'
+                    : 'Traditional checkout with credit card'
+                  }
                 </p>
-              </Link>
+              </button>
             </div>
           </div>
         </div>
