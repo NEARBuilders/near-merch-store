@@ -5,32 +5,23 @@ import { Button } from '@/components/ui/button';
 import { authClient } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import { queryClient } from '@/utils/orpc';
-import { Social } from 'near-social-js';
+import { Social, type Profile } from 'near-social-js';
 import { ProfileLine } from '@/components/profile-line';
-
-type NearProfile = {
-  name?: string;
-  image?: { ipfs_cid?: string };
-} | null;
 
 export const Route = createFileRoute('/_marketplace/_authenticated/account')({
   loader: async () => {
-    const nearAccountId = authClient.near.getAccountId();
+    const accountId = authClient.near.getAccountId();
     
-    if (!nearAccountId) {
-      return { nearAccountId: null, nearProfile: null };
+    if (!accountId) {
+      return { accountId: null, profile: null };
     }
 
     try {
       const social = new Social({ network: 'mainnet' });
-      const profileData = await social.get({
-        keys: [`${nearAccountId}/profile/**`],
-      });
-      
-      const nearProfile: NearProfile = profileData?.[nearAccountId]?.profile || null;
-      return { nearAccountId, nearProfile };
+      const profile = await social.getProfile(accountId);
+      return { accountId, profile };
     } catch (error) {
-      return { nearAccountId, nearProfile: null };
+      return { accountId, profile: null };
     }
   },
   component: MyAccountPage,
@@ -198,14 +189,12 @@ function PaymentMethods() {
 }
 
 function ConnectedAccounts() {
-  const { nearAccountId, nearProfile } = Route.useLoaderData();
+  const { accountId, profile } = Route.useLoaderData();
   const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
   const [isLinkingGitHub, setIsLinkingGitHub] = useState(false);
   const [isProcessingNear, setIsProcessingNear] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
-
-  const fetchNearAccountId = () => authClient.near.getAccountId();
 
   useEffect(() => {
     refreshAccounts();
@@ -243,13 +232,12 @@ function ConnectedAccounts() {
   const handleNearAction = async () => {
     setIsProcessingNear(true);
     try {
-      if (!nearAccountId) {
+      if (!accountId) {
         await authClient.requestSignIn.near(
           { recipient: 'marketplace-demo.near' },
           {
             onSuccess: () => {
               setIsProcessingNear(false);
-              fetchNearAccountId();
             },
             onError: async (error: any) => {
               setIsProcessingNear(false);
@@ -272,7 +260,6 @@ function ConnectedAccounts() {
               toast.error(error.message || 'Failed to link NEAR account');
               setIsProcessingNear(false);
               await authClient.near.disconnect();
-              fetchNearAccountId();
             },
           }
         );
@@ -323,8 +310,8 @@ function ConnectedAccounts() {
         </div>
       </div>
 
-      {nearAccountId && (
-        <ProfileLine nearAccountId={nearAccountId} nearProfile={nearProfile} />
+      {accountId && (
+        <ProfileLine accountId={accountId} profile={profile} />
       )}
 
       {linkedAccounts.length > 0 && (
@@ -394,7 +381,7 @@ function ConnectedAccounts() {
               </div>
               <div>
                 <p className="text-sm">Link NEAR Account</p>
-                {nearAccountId && <p className="text-xs text-[#717182]">{nearAccountId}</p>}
+                {accountId && <p className="text-xs text-[#717182]">{accountId}</p>}
               </div>
             </div>
             <Button
@@ -402,7 +389,7 @@ function ConnectedAccounts() {
               disabled={isProcessingNear}
               className="bg-[#030213] hover:bg-[#1a1a2e] text-white text-xs h-8 px-4"
             >
-              {isProcessingNear ? (nearAccountId ? 'Linking...' : 'Connecting...') : nearAccountId ? 'Link' : 'Connect'}
+              {isProcessingNear ? (accountId ? 'Linking...' : 'Connecting...') : accountId ? 'Link' : 'Connect'}
             </Button>
           </div>
         )}

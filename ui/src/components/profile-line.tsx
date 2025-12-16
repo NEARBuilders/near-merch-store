@@ -1,19 +1,18 @@
+import type { Profile } from "near-social-js";
+
 type ProfileLineProps = {
-  nearAccountId: string;
-  nearProfile: {
-    name?: string;
-    image?: { ipfs_cid?: string };
-  } | null;
+  accountId: string;
+  profile: Profile | null;
 };
 
-export function ProfileLine({ nearAccountId, nearProfile }: ProfileLineProps) {
+export function ProfileLine({ accountId, profile }: ProfileLineProps) {
   return (
     <div className="border border-[rgba(0,0,0,0.1)] p-6 mb-4 bg-card">
       <div className="flex items-start gap-4">
-        {nearProfile?.image?.ipfs_cid ? (
+        {profile?.image?.ipfs_cid ? (
           <img
-            src={`https://ipfs.near.social/ipfs/${nearProfile.image.ipfs_cid}`}
-            alt={nearProfile.name || nearAccountId}
+            src={`https://ipfs.near.social/ipfs/${profile.image.ipfs_cid}`}
+            alt={profile.name || accountId}
             className="size-16 rounded-full object-cover"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
@@ -27,13 +26,13 @@ export function ProfileLine({ nearAccountId, nearProfile }: ProfileLineProps) {
           </div>
         )}
         <div className="flex-1">
-          {nearProfile?.name ? (
+          {profile?.name ? (
             <>
-              <h3 className="text-xl font-medium mb-1">{nearProfile.name}</h3>
-              <p className="text-sm text-[#717182]">{nearAccountId}</p>
+              <h3 className="text-xl font-medium mb-1">{profile.name}</h3>
+              <p className="text-sm text-[#717182]">{accountId}</p>
             </>
           ) : (
-            <p className="text-sm text-[#717182]">{nearAccountId}</p>
+            <p className="text-sm text-[#717182]">{accountId}</p>
           )}
         </div>
       </div>
