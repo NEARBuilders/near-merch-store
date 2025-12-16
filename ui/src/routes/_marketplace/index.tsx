@@ -82,18 +82,6 @@ function MarketplaceHome() {
   const slides = [
     {
       badge: "EXCLUSIVE",
-      title: "NEAR AI STYLES",
-      subtitle: "AVAILABLE",
-      description:
-        "New styles for NEAR AI",
-      buttonText: "Shop Items",
-      image: nearAiImage,
-      gradientFrom: "#001a3d",
-      gradientTo: "#0066cc",
-      glowColor: "#0066ff",
-    },
-    {
-      badge: "EXCLUSIVE",
       title: "NEW LEGION",
       subtitle: "MERCH LAUNCHED",
       description:
@@ -103,6 +91,18 @@ function MarketplaceHome() {
       gradientFrom: "#012216",
       gradientTo: "#00ec97",
       glowColor: "#00ec97",
+    },
+    {
+      badge: "EXCLUSIVE",
+      title: "NEAR AI STYLES",
+      subtitle: "AVAILABLE",
+      description:
+        "New styles for NEAR AI",
+      buttonText: "Shop Items",
+      image: nearAiImage,
+      gradientFrom: "#001a3d",
+      gradientTo: "#0066cc",
+      glowColor: "#0066ff",
     },
   ];
 
@@ -147,11 +147,12 @@ function MarketplaceHome() {
   return (
     <div>
       <section 
-        className="relative overflow-hidden transition-colors duration-500 min-h-[600px]"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
+        className="relative overflow-hidden transition-colors duration-500"
+        style={{
+          background: `linear-gradient(to bottom, ${slides[currentSlide].gradientFrom}, ${slides[currentSlide].gradientTo})`
+        }}
       >
-        {slides.map((slide, index) => (
+        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-8 md:py-20 lg:py-24">
           <div
             key={index}
             className={`absolute inset-0 transition-opacity duration-500 ${
@@ -192,56 +193,60 @@ function MarketplaceHome() {
                 >
                   {slide.badge}
                 </div>
-                <h1
-                  className={`text-4xl md:text-5xl lg:text-7xl font-bold transition-all duration-800 ease-out ${
-                    !isAnimating
-                      ? "translate-y-0 opacity-100"
-                      : "-translate-y-full opacity-0"
-                  }`}
-                  style={{
-                    transitionTimingFunction:
-                      "cubic-bezier(0.34, 1.56, 0.64, 1)",
-                    transitionDelay: "0.1s",
-                  }}
-                >
-                  {slide.title}
-                  <br />
-                  <span className="text-3xl md:text-5xl lg:text-6xl">
-                    {slide.subtitle}
-                  </span>
-                </h1>
-                <p
-                  className={`text-lg md:text-xl text-white/80 my-8 transition-all duration-800 ease-out ${
-                    !isAnimating
-                      ? "translate-y-0 opacity-100"
-                      : "-translate-y-full opacity-0"
-                  }`}
-                  style={{
-                    transitionTimingFunction:
-                      "cubic-bezier(0.34, 1.56, 0.64, 1)",
-                    transitionDelay: "0.2s",
-                  }}
-                >
-                  {slide.description}
-                </p>
-                <div
-                  className={`flex flex-wrap gap-4 transition-all duration-800 ease-out ${
-                    !isAnimating
-                      ? "translate-y-0 opacity-100"
-                      : "translate-y-full opacity-0"
-                  }`}
-                  style={{
-                    transitionTimingFunction:
-                      "cubic-bezier(0.34, 1.56, 0.64, 1)",
-                    transitionDelay: "0.3s",
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="px-6 py-3 bg-white text-black font-bold uppercase text-sm hover:bg-white/90 transition-colors"
-                  >
-                    {slide.buttonText}
-                  </button>
+
+                {/* Image Section with zoom animation */}
+                <div className="hidden lg:block relative h-full min-h-[500px]">
+                  <div className="relative w-full h-full flex items-end justify-end overflow-hidden">
+                    {/* Large glowing orb with fill animation */}
+                    <div
+                      className={`absolute top-0 right-1/3 -translate-y-1/4 rounded-full blur-[120px] transition-all duration-800 ease-out ${
+                        !isAnimating
+                          ? "w-[500px] h-[500px] opacity-30"
+                          : "w-0 h-0 opacity-0"
+                      }`}
+                      style={{
+                        backgroundColor: slide.glowColor,
+                        transitionTimingFunction:
+                          "cubic-bezier(0.34, 1.56, 0.64, 1)",
+                      }}
+                    />
+
+                    {/* Main image with zoom animation */}
+                    <div
+                      className={`relative z-10 transition-all duration-800 ease-out ${
+                        !isAnimating
+                          ? "scale-100 opacity-100"
+                          : "scale-75 opacity-0"
+                      }`}
+                      style={{
+                        transitionTimingFunction:
+                          "cubic-bezier(0.34, 1.56, 0.64, 1)",
+                      }}
+                    >
+                      <img
+                        src={slide.image}
+                        alt={slide.title}
+                        className="w-auto h-auto max-w-[90%] max-h-[600px] object-contain object-bottom-right"
+                        style={{
+                          filter:
+                            "drop-shadow(0 35px 70px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 80px rgba(0, 236, 151, 0.3)) contrast(1.1) brightness(1.05)",
+                        }}
+                      />
+                    </div>
+
+                    {/* Grid overlay for tech feel */}
+                    <div
+                      className="absolute inset-0 opacity-10"
+                      style={{
+                        backgroundImage:
+                          "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+                        backgroundSize: "50px 50px",
+                      }}
+                    />
+
+                    {/* Animated scan line */}
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#00ec97] to-transparent animate-scan" />
+                  </div>
                 </div>
               </div>
             </div>

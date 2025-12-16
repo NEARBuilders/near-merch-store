@@ -5,8 +5,25 @@ import { Button } from '@/components/ui/button';
 import { authClient } from '@/lib/auth-client';
 import { toast } from 'sonner';
 import { queryClient } from '@/utils/orpc';
+import { Social, type Profile } from 'near-social-js';
+import { ProfileLine } from '@/components/profile-line';
 
 export const Route = createFileRoute('/_marketplace/_authenticated/account')({
+  loader: async () => {
+    const accountId = authClient.near.getAccountId();
+    
+    if (!accountId) {
+      return { accountId: null, profile: null };
+    }
+
+    try {
+      const social = new Social({ network: 'mainnet' });
+      const profile = await social.getProfile(accountId);
+      return { accountId, profile };
+    } catch (error) {
+      return { accountId, profile: null };
+    }
+  },
   component: MyAccountPage,
 });
 
@@ -172,18 +189,15 @@ function PaymentMethods() {
 }
 
 function ConnectedAccounts() {
+  const { accountId, profile } = Route.useLoaderData();
   const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
   const [isLinkingGitHub, setIsLinkingGitHub] = useState(false);
   const [isProcessingNear, setIsProcessingNear] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
-  const [nearAccountId, setNearAccountId] = useState<string | null>(null);
-
-  const fetchNearAccountId = () => setNearAccountId(authClient.near.getAccountId());
 
   useEffect(() => {
     refreshAccounts();
-    fetchNearAccountId();
   }, []);
 
   const refreshAccounts = async () => {
@@ -218,13 +232,12 @@ function ConnectedAccounts() {
   const handleNearAction = async () => {
     setIsProcessingNear(true);
     try {
-      if (!nearAccountId) {
+      if (!accountId) {
         await authClient.requestSignIn.near(
           { recipient: 'marketplace-demo.near' },
           {
             onSuccess: () => {
               setIsProcessingNear(false);
-              fetchNearAccountId();
             },
             onError: async (error: any) => {
               setIsProcessingNear(false);
@@ -247,13 +260,11 @@ function ConnectedAccounts() {
               toast.error(error.message || 'Failed to link NEAR account');
               setIsProcessingNear(false);
               await authClient.near.disconnect();
-              fetchNearAccountId();
             },
           }
         );
       }
     } catch (error) {
-      console.error('Failed to process NEAR action:', error);
       setIsProcessingNear(false);
       toast.error('Failed to process NEAR action');
     }
@@ -298,6 +309,10 @@ function ConnectedAccounts() {
           </div>
         </div>
       </div>
+
+      {accountId && (
+        <ProfileLine accountId={accountId} profile={profile} />
+      )}
 
       {linkedAccounts.length > 0 && (
         <div className="border-t border-[rgba(0,0,0,0.1)] pt-4 space-y-3">
@@ -366,7 +381,7 @@ function ConnectedAccounts() {
               </div>
               <div>
                 <p className="text-sm">Link NEAR Account</p>
-                {nearAccountId && <p className="text-xs text-[#717182]">{nearAccountId}</p>}
+                {accountId && <p className="text-xs text-[#717182]">{accountId}</p>}
               </div>
             </div>
             <Button
@@ -374,7 +389,7 @@ function ConnectedAccounts() {
               disabled={isProcessingNear}
               className="bg-[#030213] hover:bg-[#1a1a2e] text-white text-xs h-8 px-4"
             >
-              {isProcessingNear ? (nearAccountId ? 'Linking...' : 'Connecting...') : nearAccountId ? 'Link' : 'Connect'}
+              {isProcessingNear ? (accountId ? 'Linking...' : 'Connecting...') : accountId ? 'Link' : 'Connect'}
             </Button>
           </div>
         )}
