@@ -1,5 +1,5 @@
-import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core";
-import type { VariantAttributes, FulfillmentConfig, MockupConfig } from '../schema';
+import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { Attribute, FulfillmentConfig, ProductOption } from '../schema';
 
 export const products = sqliteTable('products', {
   id: text('id').primaryKey(),
@@ -10,13 +10,14 @@ export const products = sqliteTable('products', {
   category: text('category').notNull(),
   brand: text('brand'),
   productType: text('product_type'),
+  options: text('options', { mode: 'json' }).$type<ProductOption[]>(),
   primaryImage: text('primary_image'),
-  
+
   fulfillmentProvider: text('fulfillment_provider').notNull(),
   externalProductId: text('external_product_id'),
   source: text('source').notNull(),
-  mockupConfig: text('mockup_config', { mode: 'json' }).$type<MockupConfig>(),
-  
+  lastSyncedAt: integer('last_synced_at', { mode: 'timestamp' }),
+
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 }, (table) => ([
@@ -48,11 +49,11 @@ export const productVariants = sqliteTable('product_variants', {
   sku: text('sku'),
   price: integer('price').notNull(),
   currency: text('currency').notNull().default('USD'),
-  
-  attributes: text('attributes', { mode: 'json' }).$type<VariantAttributes>(),
+
+  attributes: text('attributes', { mode: 'json' }).$type<Attribute[]>(),
   externalVariantId: text('external_variant_id'),
   fulfillmentConfig: text('fulfillment_config', { mode: 'json' }).$type<FulfillmentConfig>(),
-  
+
   inStock: integer('in_stock', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 }, (table) => ([
@@ -93,18 +94,18 @@ export const orders = sqliteTable('orders', {
   status: text('status').notNull().default('pending'),
   totalAmount: integer('total_amount').notNull(),
   currency: text('currency').notNull().default('USD'),
-  
+
   checkoutSessionId: text('checkout_session_id'),
   checkoutProvider: text('checkout_provider'),
-  
+
   shippingMethod: text('shipping_method'),
   shippingAddress: text('shipping_address', { mode: 'json' }).$type<ShippingAddress>(),
-  
+
   fulfillmentOrderId: text('fulfillment_order_id'),
   fulfillmentReferenceId: text('fulfillment_reference_id'),
   trackingInfo: text('tracking_info', { mode: 'json' }).$type<TrackingInfo[]>(),
   deliveryEstimate: text('delivery_estimate', { mode: 'json' }).$type<DeliveryEstimate>(),
-  
+
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 }, (table) => ([
@@ -119,17 +120,17 @@ export const orderItems = sqliteTable('order_items', {
   orderId: text('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
   productId: text('product_id').notNull(),
   variantId: text('variant_id'),
-  
+
   productName: text('product_name').notNull(),
   variantName: text('variant_name'),
-  
+
   quantity: integer('quantity').notNull(),
   unitPrice: integer('unit_price').notNull(),
-  
-  attributes: text('attributes', { mode: 'json' }).$type<VariantAttributes>(),
+
+  attributes: text('attributes', { mode: 'json' }).$type<Attribute[]>(),
   fulfillmentProvider: text('fulfillment_provider'),
   fulfillmentConfig: text('fulfillment_config', { mode: 'json' }).$type<FulfillmentConfig>(),
-  
+
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 }, (table) => ([
   index('order_items_order_idx').on(table.orderId),

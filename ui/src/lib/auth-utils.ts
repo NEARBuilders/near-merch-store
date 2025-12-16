@@ -8,8 +8,8 @@ export function getLinkedProviders(linkedAccounts: any[]): string[] {
 }
 
 export function handleAccountLinkRefresh(
-  componentState: any,
-  setLinkedAccounts: React.Dispatch<React.SetStateAction<any[]>>,
+  _componentState: any,
+  _setLinkedAccounts: React.Dispatch<React.SetStateAction<any[]>>,
   refreshAccounts: () => Promise<void>
 ) {
   refreshAccounts();

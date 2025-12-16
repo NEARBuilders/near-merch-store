@@ -4,9 +4,6 @@ import {
   ProviderProductSchema,
   FulfillmentOrderInputSchema,
   FulfillmentOrderSchema,
-  MockupStyleSchema,
-  MockupStyleInfoSchema,
-  MockupTaskResultSchema,
 } from './schema';
 
 export const FulfillmentContract = oc.router({
@@ -46,32 +43,6 @@ export const FulfillmentContract = oc.router({
     .route({ method: 'GET', path: '/orders/{id}' })
     .input(z.object({ id: z.string() }))
     .output(z.object({ order: FulfillmentOrderSchema })),
-
-  getMockupStyles: oc
-    .route({ method: 'GET', path: '/mockup-styles/{productId}' })
-    .input(z.object({ productId: z.coerce.number() }))
-    .output(z.object({
-      styles: z.array(MockupStyleInfoSchema),
-    })),
-
-  generateMockups: oc
-    .route({ method: 'POST', path: '/mockups' })
-    .input(z.object({
-      productId: z.number(),
-      variantIds: z.array(z.number()),
-      files: z.array(z.object({
-        placement: z.string(),
-        imageUrl: z.string().url(),
-      })),
-      styles: z.array(MockupStyleSchema).default(['Lifestyle', 'Flat']),
-      format: z.enum(['jpg', 'png']).default('jpg'),
-    }))
-    .output(z.object({ taskId: z.string() })),
-
-  getMockupResult: oc
-    .route({ method: 'GET', path: '/mockups/{taskId}' })
-    .input(z.object({ taskId: z.string() }))
-    .output(MockupTaskResultSchema),
 
   webhook: oc
     .route({ method: 'POST', path: '/webhook' })

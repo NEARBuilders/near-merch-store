@@ -1,157 +1,54 @@
 import { Effect } from 'every-plugin/effect';
 import crypto from 'crypto';
-import type { ProviderProduct, FulfillmentOrderInput, FulfillmentOrder, FulfillmentOrderStatus } from '../schema';
-
-interface PrintfulSyncProduct {
-  id: number;
-  external_id: string;
-  name: string;
-  variants: number;
-  synced: number;
-  thumbnail_url: string | null;
-  is_ignored: boolean;
-}
-
-interface PrintfulSyncVariant {
-  id: number;
-  external_id: string;
-  sync_product_id: number;
-  name: string;
-  synced: boolean;
-  variant_id: number;
-  retail_price: string | null;
-  currency: string;
-  product: {
-    variant_id: number;
-    product_id: number;
-    image: string;
-    name: string;
-  };
-  files: Array<{
-    id: number;
-    type: string;
-    url: string;
-    preview_url: string | null;
-  }>;
-}
-
-interface PrintfulCatalogVariant {
-  id: number;
-  catalog_product_id: number;
-  name: string;
-  size: string;
-  color: string;
-  color_code: string;
-  color_code2: string | null;
-  image: string;
-}
-
-interface PrintfulShipmentV2 {
-  id: number;
-  carrier: string;
-  service: string;
-  tracking_number: string;
-  tracking_url: string;
-  shipment_status: string;
-  shipped_at: string | null;
-  delivery_status: string;
-  delivered_at: string | null;
-  departure_address: {
-    country_name: string;
-    country_code: string;
-    state_code: string;
-  };
-  estimated_delivery: {
-    from_date: string;
-    to_date: string;
-    calculated_at: string;
-  } | null;
-  shipment_items: Array<{
-    id: number;
-    order_item_id: number;
-    order_item_external_id: string | null;
-    order_item_name: string;
-    quantity: number;
-  }>;
-  tracking_events: Array<{
-    triggered_at: string;
-    description: string;
-  }>;
-}
-
-const PRINTFUL_STATUS_MAP: Record<string, FulfillmentOrderStatus> = {
-  draft: 'draft',
-  pending: 'pending',
-  failed: 'failed',
-  canceled: 'cancelled',
-  cancelled: 'cancelled',
-  inprocess: 'processing',
-  onhold: 'onhold',
-  partial: 'shipped',
-  fulfilled: 'delivered',
-  inreview: 'pending',
-};
+import { 
+  CatalogItem, 
+  TechniqueEnum, 
+  MockupTaskCreation,
+  MockupGeneratorTask,
+  type Address, 
+  type Shipment, 
+  type Variant,
+  type MockupStyles
+} from 'printful-sdk-js-v2';
+import type {
+  ProviderProduct,
+  FulfillmentOrderInput,
+  FulfillmentOrder,
+  FulfillmentOrderStatus,
+  ProviderVariant
+} from '../schema';
+import type { ProductImage } from '../../../schema';
+import {
+  type PrintfulSyncProduct,
+  type PrintfulSyncVariant,
+  extractDesignFiles,
+  type MockupStyleInfo,
+  type MockupTaskResult,
+  type MockupResult
+} from './types';
+import { PrintfulClient } from './client';
 
 export class PrintfulService {
-  private baseUrl = 'https://api.printful.com';
-  private v2BaseUrl = 'https://api.printful.com/v2';
+  private client: PrintfulClient;
+  private apiKey: string;
+  private storeId: string;
 
-  constructor(
-    private readonly apiKey: string,
-    private readonly storeId?: string
-  ) {}
-
-  private getHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${this.apiKey}`,
-    };
-    if (this.storeId) {
-      headers['X-PF-Store-Id'] = this.storeId;
-    }
-    return headers;
+  constructor(apiKey: string, storeId: string, baseUrl = 'https://api.printful.com') {
+    this.client = new PrintfulClient(apiKey, storeId, baseUrl);
+    this.apiKey = apiKey;
+    this.storeId = storeId;
   }
 
   getSyncProducts() {
     return Effect.tryPromise({
-      try: async () => {
-        const response = await fetch(`${this.baseUrl}/store/products`, {
-          headers: this.getHeaders(),
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`Printful API error: ${response.status} - ${errorBody}`);
-        }
-
-        const result = (await response.json()) as { code: number; result: PrintfulSyncProduct[] };
-        return result.result;
-      },
+      try: () => this.client.getSyncProducts(),
       catch: (e) => new Error(`Failed to fetch Printful products: ${e instanceof Error ? e.message : String(e)}`),
     });
   }
 
   getSyncProduct(id: number | string) {
     return Effect.tryPromise({
-      try: async () => {
-        const response = await fetch(`${this.baseUrl}/store/products/${id}`, {
-          headers: this.getHeaders(),
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`Printful API error: ${response.status} - ${errorBody}`);
-        }
-
-        const result = (await response.json()) as {
-          code: number;
-          result: {
-            sync_product: PrintfulSyncProduct;
-            sync_variants: PrintfulSyncVariant[];
-          };
-        };
-        return result.result;
-      },
+      try: () => this.client.getSyncProduct(id),
       catch: (e) => new Error(`Failed to fetch Printful product: ${e instanceof Error ? e.message : String(e)}`),
     });
   }
@@ -160,12 +57,14 @@ export class PrintfulService {
     return Effect.gen(this, function* () {
       const syncProducts = yield* this.getSyncProducts();
       const products: ProviderProduct[] = [];
+      const start = options.offset || 0;
+      const end = start + (options.limit || 50);
 
-      for (const syncProduct of syncProducts.slice(options.offset || 0, (options.offset || 0) + (options.limit || 50))) {
+      for (const syncProduct of syncProducts.slice(start, end)) {
         const { sync_product, sync_variants } = yield* this.getSyncProduct(syncProduct.id);
         const catalogVariantIds = sync_variants.map(v => v.variant_id).filter(Boolean);
         const catalogVariants = yield* this.getCatalogVariants(catalogVariantIds);
-        products.push(this.transformSyncProduct(sync_product, sync_variants, catalogVariants));
+        products.push(this.transformProduct(sync_product, sync_variants, catalogVariants));
       }
 
       return { products, total: syncProducts.length };
@@ -178,143 +77,107 @@ export class PrintfulService {
       const { sync_product, sync_variants } = yield* this.getSyncProduct(numericId);
       const catalogVariantIds = sync_variants.map(v => v.variant_id).filter(Boolean);
       const catalogVariants = yield* this.getCatalogVariants(catalogVariantIds);
-      return { product: this.transformSyncProduct(sync_product, sync_variants, catalogVariants) };
+      return { product: this.transformProduct(sync_product, sync_variants, catalogVariants) };
     });
   }
 
   getCatalogVariant(variantId: number) {
     return Effect.tryPromise({
-      try: async () => {
-        const response = await fetch(`${this.v2BaseUrl}/catalog-variants/${variantId}`, {
-          headers: this.getHeaders(),
-        });
-
-        if (!response.ok) {
-          return null;
-        }
-
-        const result = (await response.json()) as { data: PrintfulCatalogVariant };
-        return result.data;
-      },
+      try: () => this.client.getCatalogVariant(variantId),
       catch: () => null,
     });
   }
 
   getCatalogVariants(variantIds: number[]) {
     return Effect.gen(this, function* () {
-      const catalogVariantMap = new Map<number, PrintfulCatalogVariant>();
-      
-      for (const variantId of variantIds) {
-        const catalogVariant = yield* this.getCatalogVariant(variantId);
-        if (catalogVariant) {
-          catalogVariantMap.set(variantId, catalogVariant);
-        }
+      const map = new Map<number, Variant>();
+      for (const id of variantIds) {
+        const variant = yield* this.getCatalogVariant(id);
+        if (variant) map.set(id, variant);
       }
-      
-      return catalogVariantMap;
+      return map;
     });
   }
 
-  private transformSyncProduct(
-    syncProduct: PrintfulSyncProduct, 
+  private transformProduct(
+    syncProduct: PrintfulSyncProduct,
     syncVariants: PrintfulSyncVariant[],
-    catalogVariants?: Map<number, PrintfulCatalogVariant>
+    catalogVariants: Map<number, Variant>
   ): ProviderProduct {
     return {
-      id: `printful-${syncProduct.id}`,
+      id: syncProduct.id,
       sourceId: syncProduct.id,
       name: syncProduct.name,
-      thumbnailUrl: syncProduct.thumbnail_url || undefined,
-      variants: syncVariants.map((variant) => {
-        const catalogVariant = catalogVariants?.get(variant.variant_id);
-        return {
-          id: `printful-variant-${variant.id}`,
-          externalId: variant.external_id,
-          name: variant.name || syncProduct.name,
-          retailPrice: variant.retail_price ? parseFloat(variant.retail_price) : 0,
-          currency: variant.currency || 'USD',
-          size: catalogVariant?.size,
-          color: catalogVariant?.color,
-          colorCode: catalogVariant?.color_code,
-          catalogVariantId: variant.variant_id,
-          catalogProductId: variant.product.product_id,
-          files: variant.files?.map((f) => ({
-            id: f.id,
-            type: f.type,
-            url: f.url,
-            previewUrl: f.preview_url,
-          })),
-        };
-      }),
+      thumbnailUrl: syncProduct.thumbnail_url ?? undefined,
+      variants: syncVariants.map(v => this.transformVariant(v, syncProduct.name, catalogVariants.get(v.variant_id))),
+    };
+  }
+
+  private transformVariant(
+    variant: PrintfulSyncVariant,
+    productName: string,
+    catalogVariant?: Variant
+  ): ProviderVariant {
+    const files = variant.files?.map(f => ({
+      id: f.id,
+      type: f.type,
+      url: f.url,
+      previewUrl: f.preview_url,
+    }));
+
+    return {
+      id: variant.id,
+      externalId: variant.external_id,
+      name: variant.name || productName,
+      retailPrice: variant.retail_price ? parseFloat(variant.retail_price) : 0,
+      currency: variant.currency || 'USD',
+      size: catalogVariant?.size,
+      color: catalogVariant?.color ?? undefined,
+      colorCode: catalogVariant?.color_code ?? undefined,
+      catalogVariantId: variant.variant_id,
+      catalogProductId: variant.product.product_id,
+      files,
+      designFiles: extractDesignFiles(files),
     };
   }
 
   createOrder(input: FulfillmentOrderInput, confirm = false) {
     return Effect.tryPromise({
       try: async () => {
-        const orderData = {
+        const recipient: Address = {
+          name: input.recipient.name,
+          company: input.recipient.company,
+          address1: input.recipient.address1,
+          address2: input.recipient.address2,
+          city: input.recipient.city,
+          state_code: input.recipient.stateCode,
+          country_code: input.recipient.countryCode,
+          zip: input.recipient.zip,
+          phone: input.recipient.phone,
+          email: input.recipient.email,
+        };
+
+        const orderItems: CatalogItem[] = input.items.map(item => ({
+          source: CatalogItem.source.CATALOG,
+          catalog_variant_id: item.variantId ?? 0,
+          quantity: item.quantity,
+          placements: item.files
+            ?.filter(f => f.placement)
+            .map(f => ({
+              placement: f.placement!,
+              technique: TechniqueEnum.DTG,
+              layers: [{ type: 'file', url: f.url }],
+            })),
+        }));
+
+        const result = await this.client.createOrder({
           external_id: input.externalId,
-          recipient: {
-            name: input.recipient.name,
-            company: input.recipient.company,
-            address1: input.recipient.address1,
-            address2: input.recipient.address2,
-            city: input.recipient.city,
-            state_code: input.recipient.stateCode,
-            country_code: input.recipient.countryCode,
-            zip: input.recipient.zip,
-            phone: input.recipient.phone,
-            email: input.recipient.email,
-          },
-          order_items: input.items.map((item) => {
-            const orderItem: Record<string, unknown> = {
-              source: 'catalog',
-              quantity: item.quantity,
-            };
-
-            if (item.variantId) {
-              orderItem.catalog_variant_id = item.variantId;
-            }
-            if (item.externalVariantId) {
-              orderItem.sync_variant_id = parseInt(item.externalVariantId.replace('printful-variant-', ''), 10);
-            }
-            if (item.files && item.files.length > 0) {
-              orderItem.placements = item.files.map((f) => ({
-                placement: f.placement || 'front',
-                technique: 'dtg',
-                layers: [{ type: 'file', url: f.url }],
-              }));
-            }
-
-            return orderItem;
-          }),
-        };
-
-        const response = await fetch(`${this.v2BaseUrl}/orders`, {
-          method: 'POST',
-          headers: this.getHeaders(),
-          body: JSON.stringify(orderData),
+          recipient,
+          order_items: orderItems,
         });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`Printful order creation failed: ${response.status} - ${errorBody}`);
-        }
-
-        const result = (await response.json()) as {
-          data: { id: number; external_id: string | null; status: string };
-        };
-
-        const orderId = result.data.id;
-
-        if (confirm) {
-          await fetch(`${this.v2BaseUrl}/orders/${orderId}/confirmation`, {
-            method: 'POST',
-            headers: this.getHeaders(),
-          });
-        }
-
-        return { id: String(orderId), status: result.data.status };
+        
+        if (confirm) await this.client.confirmOrder(result.id);
+        return { id: String(result.id), status: result.status };
       },
       catch: (e) => new Error(`Printful order failed: ${e instanceof Error ? e.message : String(e)}`),
     });
@@ -323,36 +186,24 @@ export class PrintfulService {
   getOrder(id: string) {
     return Effect.tryPromise({
       try: async () => {
-        const response = await fetch(`${this.v2BaseUrl}/orders/${id}`, {
-          headers: this.getHeaders(),
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`Failed to get order: ${response.status} - ${errorBody}`);
-        }
-
-        const result = (await response.json()) as { data: Record<string, unknown> };
-        const data = result.data;
-
+        const data = await this.client.getOrder(id);
         const order: FulfillmentOrder = {
           id: String(data.id),
-          externalId: data.external_id as string | undefined,
-          status: PRINTFUL_STATUS_MAP[(data.status as string)?.toLowerCase()] || 'pending',
-          created: data.created_at ? new Date(data.created_at as string).getTime() : Date.now(),
-          updated: data.updated_at ? new Date(data.updated_at as string).getTime() : Date.now(),
+          externalId: data.external_id ?? undefined,
+          status: data.status as FulfillmentOrderStatus,
+          created: new Date(data.created_at).getTime(),
+          updated: new Date(data.updated_at).getTime(),
           recipient: {
-            name: (data.recipient as Record<string, string>)?.name || '',
-            address1: (data.recipient as Record<string, string>)?.address1 || '',
-            city: (data.recipient as Record<string, string>)?.city || '',
-            stateCode: (data.recipient as Record<string, string>)?.state_code || '',
-            countryCode: (data.recipient as Record<string, string>)?.country_code || '',
-            zip: (data.recipient as Record<string, string>)?.zip || '',
-            email: (data.recipient as Record<string, string>)?.email || '',
+            name: data.recipient.name,
+            address1: data.recipient.address1,
+            city: data.recipient.city,
+            stateCode: data.recipient.state_code,
+            countryCode: data.recipient.country_code,
+            zip: data.recipient.zip,
+            email: data.recipient.email,
           },
           shipments: undefined,
         };
-
         return { order };
       },
       catch: (e) => new Error(`Failed to get Printful order: ${e instanceof Error ? e.message : String(e)}`),
@@ -362,42 +213,23 @@ export class PrintfulService {
   getOrderShipments(orderId: string) {
     return Effect.tryPromise({
       try: async () => {
-        const response = await fetch(`${this.v2BaseUrl}/orders/${orderId}/shipments`, {
-          headers: this.getHeaders(),
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`Failed to get shipments: ${response.status} - ${errorBody}`);
-        }
-
-        const result = (await response.json()) as { data: PrintfulShipmentV2[] };
-
+        const shipments = await this.client.getOrderShipments(orderId);
         return {
-          shipments: result.data.map((s) => ({
+          shipments: shipments.map((s: Shipment) => ({
             id: String(s.id),
-            carrier: s.carrier || '',
-            service: s.service || '',
-            trackingNumber: s.tracking_number || '',
-            trackingUrl: s.tracking_url || '',
-            status: s.shipment_status || '',
+            carrier: s.carrier,
+            service: s.service,
+            trackingNumber: '',
+            trackingUrl: s.tracking_url,
+            status: s.shipment_status,
             shippedAt: s.shipped_at,
             deliveredAt: s.delivered_at,
             deliveryStatus: s.delivery_status,
-            estimatedDelivery: s.estimated_delivery ? {
-              fromDate: s.estimated_delivery.from_date,
-              toDate: s.estimated_delivery.to_date,
-            } : undefined,
-            trackingEvents: s.tracking_events?.map((e) => ({
-              triggeredAt: e.triggered_at,
-              description: e.description,
-            })),
-            items: s.shipment_items?.map((i) => ({
-              id: i.id,
-              orderItemId: i.order_item_id,
-              name: i.order_item_name,
-              quantity: i.quantity,
-            })),
+            estimatedDelivery: s.estimated_delivery
+              ? { fromDate: s.estimated_delivery.from_date, toDate: s.estimated_delivery.to_date }
+              : undefined,
+            trackingEvents: s.tracking_events?.map(e => ({ triggeredAt: e.triggered_at, description: e.description })),
+            items: s.shipment_items?.map(i => ({ id: i.id, orderItemId: i.order_item_id, name: i.order_item_name, quantity: i.quantity })),
           })),
         };
       },
@@ -409,11 +241,10 @@ export class PrintfulService {
     return Effect.gen(this, function* () {
       const { order } = yield* this.getOrder(id);
       const { shipments } = yield* this.getOrderShipments(id);
-      
       return {
         order: {
           ...order,
-          shipments: shipments.map((s) => ({
+          shipments: shipments.map(s => ({
             id: s.id,
             carrier: s.carrier,
             service: s.service,
@@ -429,24 +260,204 @@ export class PrintfulService {
   verifyWebhookSignature(body: string, signature: string, webhookSecret: string) {
     return Effect.sync(() => {
       if (!webhookSecret || !signature) return false;
-
-      const secretBuffer = Buffer.from(webhookSecret, 'hex');
-      const hmac = crypto.createHmac('sha256', secretBuffer);
+      const hmac = crypto.createHmac('sha256', Buffer.from(webhookSecret, 'hex'));
       hmac.update(body);
-      const calculatedSignature = hmac.digest('hex');
-
       try {
-        return crypto.timingSafeEqual(
-          Buffer.from(signature),
-          Buffer.from(calculatedSignature)
-        );
+        return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(hmac.digest('hex')));
       } catch {
         return false;
       }
     });
   }
 
-  mapStatus(status: string): FulfillmentOrderStatus {
-    return PRINTFUL_STATUS_MAP[status.toLowerCase()] || 'pending';
+  getMockupStyles(productId: number) {
+    return Effect.tryPromise({
+      try: async () => {
+        const response = await this.client.catalogV2.retrieveMockupStylesByProductId(productId);
+        const placements = (response?.data ?? []) as MockupStyles[];
+
+        const styles: MockupStyleInfo[] = [];
+        for (const placementStyle of placements) {
+          for (const mockupStyle of placementStyle.mockup_styles ?? []) {
+            styles.push({
+              id: String(mockupStyle.id ?? 0),
+              name: `${mockupStyle.category_name} - ${mockupStyle.view_name}`,
+              category: mockupStyle.category_name,
+              placement: placementStyle.placement,
+              technique: placementStyle.technique,
+              viewName: mockupStyle.view_name,
+            });
+          }
+        }
+
+        return { styles };
+      },
+      catch: (e) => new Error(`Failed to get mockup styles: ${e instanceof Error ? e.message : String(e)}`),
+    });
+  }
+
+  generateMockups(params: {
+    productId: number;
+    variantIds: number[];
+    files: Array<{ placement: string; imageUrl: string; technique?: string }>;
+    mockupStyleIds?: number[];
+    format?: 'jpg' | 'png';
+  }) {
+    return Effect.tryPromise({
+      try: async () => {
+        const placements = params.files.map((f) => ({
+          placement: f.placement,
+          technique: f.technique || TechniqueEnum.DTG,
+          layers: [{ type: 'file', url: f.imageUrl }],
+        }));
+
+        const payload = {
+          format: params.format === 'png' ? MockupTaskCreation.format.PNG : MockupTaskCreation.format.JPG,
+          products: [{
+            source: 'catalog' as const,
+            mockup_style_ids: params.mockupStyleIds || [],
+            catalog_product_id: params.productId,
+            catalog_variant_ids: params.variantIds,
+            placements,
+          }],
+        };
+
+        const response = await this.client.mockupGeneratorV2.createMockupGeneratorTasks(this.storeId, payload);
+        const tasks = (response?.data ?? []) as Array<{ id?: number }>;
+        return { taskId: String(tasks[0]?.id || '') };
+      },
+      catch: (e) => new Error(`Failed to generate mockups: ${e instanceof Error ? e.message : String(e)}`),
+    });
+  }
+
+  getMockupResult(taskId: string) {
+    return Effect.tryPromise({
+      try: async () => {
+        const response = await this.client.mockupGeneratorV2.getMockupGeneratorTasks([taskId]);
+        const tasks = (response?.data ?? []) as MockupGeneratorTask[];
+        const task = tasks[0];
+
+        if (!task) return { status: 'failed' as const, mockups: [] };
+
+        if (task.status === MockupGeneratorTask.status.COMPLETED) {
+          const mockups: MockupResult[] = [];
+          for (const variantMockup of task.catalog_variant_mockups) {
+            for (const mockup of variantMockup.mockups) {
+              mockups.push({
+                variantId: variantMockup.catalog_variant_id,
+                placement: mockup.placement,
+                style: String(mockup.style_id),
+                imageUrl: mockup.mockup_url,
+              });
+            }
+          }
+          return { status: 'completed' as const, mockups };
+        }
+
+        if (task.status === MockupGeneratorTask.status.FAILED) {
+          return { status: 'failed' as const, mockups: [], error: task.failure_reasons.map(e => e.detail).join(', ') };
+        }
+
+        return { status: 'pending' as const, mockups: [] };
+      },
+      catch: (e) => new Error(`Failed to get mockup result: ${e instanceof Error ? e.message : String(e)}`),
+    });
+  }
+
+  pollMockupTask(taskId: string, maxAttempts = 30, intervalMs = 2000): Effect.Effect<MockupTaskResult, Error> {
+    return Effect.gen(this, function* () {
+      let attempts = 0;
+      while (attempts < maxAttempts) {
+        const result = yield* this.getMockupResult(taskId);
+        if (result.status === 'completed') return result;
+        if (result.status === 'failed') return yield* Effect.fail(new Error(`Mockup generation failed: ${result.error}`));
+        yield* Effect.sleep(`${intervalMs} millis`);
+        attempts++;
+      }
+      return yield* Effect.fail(new Error(`Mockup generation timed out for task ${taskId}`));
+    });
+  }
+
+  generateAndWaitForMockups(params: {
+    productId: number;
+    variantIds: number[];
+    files: Array<{ placement: string; imageUrl: string; technique?: string }>;
+    mockupStyleIds?: number[];
+    format?: 'jpg' | 'png';
+  }): Effect.Effect<MockupTaskResult, Error> {
+    return Effect.gen(this, function* () {
+      const { taskId } = yield* this.generateMockups(params);
+      return yield* this.pollMockupTask(taskId);
+    });
+  }
+
+  static groupVariantsByColor(variants: ProviderVariant[]): Map<string, ProviderVariant[]> {
+    const map = new Map<string, ProviderVariant[]>();
+    for (const v of variants) {
+      const key = v.colorCode || v.color || 'default';
+      const group = map.get(key) || [];
+      group.push(v);
+      map.set(key, group);
+    }
+    return map;
+  }
+
+  generateMockupsForProduct(params: {
+    catalogProductId: number;
+    variants: ProviderVariant[];
+    designFiles: Array<{ placement: string; url: string }>;
+    mockupStyleIds?: number[];
+    format?: 'jpg' | 'png';
+  }): Effect.Effect<ProductImage[], Error> {
+    return Effect.gen(this, function* () {
+      if (params.designFiles.length === 0) return [];
+
+      const colorGroups = PrintfulService.groupVariantsByColor(params.variants);
+
+      let styleIds = params.mockupStyleIds || [];
+      if (styleIds.length === 0) {
+        const { styles } = yield* this.getMockupStyles(params.catalogProductId);
+        const relevant = styles.filter(s => s.category === 'Flat' || s.category === 'Lifestyle' || s.category === "Men's");
+        styleIds = relevant.slice(0, 2).map(s => parseInt(s.id, 10));
+      }
+
+      if (styleIds.length === 0) return [];
+
+      const images: ProductImage[] = [];
+      let order = 1;
+
+      for (const [colorKey, colorVariants] of colorGroups) {
+        const rep = colorVariants[0];
+        if (!rep?.catalogVariantId) continue;
+
+        const variantIds = colorVariants.map(v => `printful-variant-${v.id}`).filter(Boolean);
+
+        try {
+          const result = yield* this.generateAndWaitForMockups({
+            productId: params.catalogProductId,
+            variantIds: [rep.catalogVariantId],
+            files: params.designFiles.map(df => ({ placement: df.placement, imageUrl: df.url, technique: 'dtg' })),
+            mockupStyleIds: styleIds,
+            format: params.format || 'jpg',
+          });
+
+          for (const mockup of result.mockups) {
+            images.push({
+              id: `mockup-${mockup.style}-${colorKey}-${mockup.placement}`,
+              url: mockup.imageUrl,
+              type: 'mockup',
+              placement: mockup.placement,
+              style: mockup.style,
+              variantIds,
+              order: order++,
+            });
+          }
+        } catch (error) {
+          console.error(`Mockup generation failed for color ${colorKey}:`, error);
+        }
+      }
+
+      return images;
+    });
   }
 }

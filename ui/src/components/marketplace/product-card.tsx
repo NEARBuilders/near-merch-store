@@ -23,7 +23,7 @@ export function ProductCard({
     e.preventDefault();
     e.stopPropagation();
     setIsAnimating(true);
-    onToggleFavorite(product.id, product.name);
+    onToggleFavorite(product.id, product.title);
     setTimeout(() => setIsAnimating(false), 600);
   };
 
@@ -35,8 +35,8 @@ export function ProductCard({
     >
       <div className="relative bg-muted aspect-square overflow-hidden">
         <img
-          src={product.primaryImage}
-          alt={product.name}
+          src={product.images[0]?.url}
+          alt={product.title}
           className="w-full h-full object-top object-cover group-hover:scale-105 transition-all duration-300"
         />
         <button
@@ -73,7 +73,7 @@ export function ProductCard({
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
           {product.category}
         </p>
-        <h3 className="text-foreground mb-2">{product.name}</h3>
+        <h3 className="text-foreground mb-2">{product.title}</h3>
         <p className="text-foreground">${product.price}</p>
       </div>
     </Link>

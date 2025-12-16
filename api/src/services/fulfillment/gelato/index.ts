@@ -62,18 +62,6 @@ export default createPlugin({
         return await Effect.runPromise(service.getOrder(input.id));
       }),
 
-      getMockupStyles: builder.getMockupStyles.handler(async () => {
-        throw new Error('Gelato does not support mockup generation');
-      }),
-
-      generateMockups: builder.generateMockups.handler(async () => {
-        throw new Error('Gelato does not support mockup generation');
-      }),
-
-      getMockupResult: builder.getMockupResult.handler(async () => {
-        throw new Error('Gelato does not support mockup generation');
-      }),
-
       webhook: builder.webhook.handler(async ({ input }) => {
         const signature = input.signature || '';
 

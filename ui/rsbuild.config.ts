@@ -24,7 +24,7 @@ const apiUrl =
     ? `${bosConfig.app.host.production}/api/rpc`
     : `${bosConfig.app.host.development}/api/rpc`;
 
-function updateHostConfig(name: string, url: string) {
+function updateHostConfig(_name: string, url: string) {
   try {
     const configPath = path.resolve(__dirname, "../bos.config.json");
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));

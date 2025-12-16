@@ -87,10 +87,10 @@ function StripeCheckoutPage() {
               {cartItems.map((item) => (
                 <div key={item.productId} className="flex gap-3">
                   <div className="size-12 bg-[#ececf0] flex-shrink-0 overflow-hidden">
-                    <img src={item.product.primaryImage} alt={item.product.name} className="size-full object-cover" />
+                    <img src={item.product.images[0]} alt={item.product.title} className="size-full object-cover" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm">{item.product.name}</p>
+                    <p className="text-sm">{item.product.title}</p>
                     <p className="text-xs text-[#717182]">
                       {item.size !== 'N/A' && `Size: ${item.size} • `}Qty: {item.quantity}
                     </p>

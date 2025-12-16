@@ -1,75 +1,8 @@
 import { Context, Effect, Layer } from 'every-plugin/effect';
-import type { MarketplaceRuntime, FulfillmentProvider } from '../runtime';
-import type { Collection, Product, ProductCategory, ProductImage, FulfillmentConfig } from '../schema';
-import { ProductStore, type ProductWithImages, type ProductVariantInput } from '../store';
+import type { FulfillmentProvider, MarketplaceRuntime } from '../runtime';
+import type { Collection, FulfillmentConfig, Product, ProductCategory, ProductImage, ProductOption } from '../schema';
+import { ProductStore, type ProductVariantInput, type ProductWithImages } from '../store';
 import type { ProviderProduct } from './fulfillment/schema';
-
-export const COLLECTIONS: Collection[] = [
-  {
-    slug: 'men',
-    name: 'Men',
-    description: 'Premium fits designed specifically for men. Classic essentials to modern oversized styles.',
-    image: '/ui/src/assets/images/pngs/men_collections.avif',
-    features: [
-      'Regular & Oversized Fits',
-      'Premium 100% Cotton',
-      'Modern Minimalist Designs',
-      'Durable Construction',
-    ],
-  },
-  {
-    slug: 'women',
-    name: 'Women',
-    description: 'Tailored fits designed for women. Comfortable, stylish, and sustainably made.',
-    image: '/ui/src/assets/images/pngs/women_collections.avif',
-    features: [
-      'Fitted & Crop Styles',
-      'Premium Soft Fabrics',
-      'Versatile Designs',
-      'Sustainable Materials',
-    ],
-  },
-  {
-    slug: 'accessories',
-    name: 'Accessories',
-    description: 'Complete your look with our curated selection. From everyday essentials to statement pieces.',
-    image: '/ui/src/assets/images/pngs/accessories.avif',
-    badge: 'Limited',
-    features: [
-      'Functional & Stylish',
-      'Premium Materials',
-      'Versatile Designs',
-      'Perfect for Gifting',
-    ],
-  },
-  {
-    slug: 'exclusives',
-    name: 'Exclusives',
-    description: "Limited edition designs created in collaboration with artists. Once they're gone, they're gone.",
-    image: '/ui/src/assets/images/pngs/near_legion.avif',
-    features: [
-      'Limited Edition Items',
-      'Artist Collaborations',
-      'Unique Designs',
-      'Collectible Pieces',
-    ],
-  },
-];
-
-function categoryFromSlug(slug: string): ProductCategory | undefined {
-  // UI routes use collection slugs; API/storage uses ProductCategory.
-  const map: Record<string, ProductCategory> = {
-    men: 'Men',
-    women: 'Women',
-    accessories: 'Accessories',
-    exclusives: 'Exclusives',
-  };
-  return map[slug];
-}
-
-function getCollectionBySlug(slug: string): Collection | undefined {
-  return COLLECTIONS.find((c) => c.slug === slug);
-}
 
 export class ProductService extends Context.Tag('ProductService')<
   ProductService,
@@ -101,13 +34,14 @@ export class ProductService extends Context.Tag('ProductService')<
       Error
     >;
   }
->() {}
+>() { }
 
 function transformProviderProduct(
   providerName: string,
   product: ProviderProduct
 ): ProductWithImages {
   const images: ProductImage[] = [];
+  const seenUrls = new Set<string>();
   const thumbnailUrl = product.thumbnailUrl;
 
   if (thumbnailUrl) {
@@ -117,43 +51,80 @@ function transformProviderProduct(
       type: 'catalog',
       order: 0,
     });
+    seenUrls.add(thumbnailUrl);
   }
 
+  let imageOrder = 1;
+  for (const variant of product.variants) {
+    if (!variant.files) continue;
+    for (const file of variant.files) {
+      const url = file.previewUrl || file.url;
+      if (!url || seenUrls.has(url)) continue;
+      seenUrls.add(url);
+      images.push({
+        id: `file-${file.id}-${variant.id}`,
+        url,
+        type: file.type === 'preview' ? 'preview' : 'detail',
+        placement: file.type !== 'preview' && file.type !== 'default' ? file.type : undefined,
+        order: imageOrder++,
+      });
+    }
+  }
+
+  // Extract unique options from all variants
+  const optionsMap = new Map<string, Set<string>>();
+  for (const variant of product.variants) {
+    if (variant.size) {
+      if (!optionsMap.has('Size')) optionsMap.set('Size', new Set());
+      optionsMap.get('Size')!.add(variant.size);
+    }
+    if (variant.color) {
+      if (!optionsMap.has('Color')) optionsMap.set('Color', new Set());
+      optionsMap.get('Color')!.add(variant.color);
+    }
+  }
+
+  const options: ProductOption[] = Array.from(optionsMap.entries()).map(([name, values], index) => ({
+    id: `${providerName}-option-${product.sourceId}-${index}`,
+    name,
+    values: Array.from(values),
+    position: index + 1,
+  }));
+
   const firstVariant = product.variants[0];
-  const basePrice = product.variants.length > 0 
+  const basePrice = product.variants.length > 0
     ? Math.min(...product.variants.map(v => v.retailPrice))
     : 0;
-  
+
   const baseCurrency = firstVariant?.currency || 'USD';
 
   const variants: ProductVariantInput[] = product.variants.map((variant) => {
+    const variantId = String(variant.id);
     const fulfillmentConfig: FulfillmentConfig = {
-      externalVariantId: variant.id,
+      externalVariantId: variantId,
       externalProductId: String(product.sourceId),
-      designFileUrl: variant.files?.[0]?.url || null,
-      providerData: providerName === 'printful' 
-        ? { 
-            syncVariantId: parseInt(variant.id), 
-            catalogVariantId: variant.catalogVariantId,
-            catalogProductId: variant.catalogProductId,
-          }
+      designFiles: variant.designFiles || [],
+      providerData: providerName === 'printful'
+        ? {
+          catalogVariantId: variant.catalogVariantId,
+          catalogProductId: variant.catalogProductId,
+        }
         : providerName === 'gelato'
-        ? { productUid: String(product.sourceId) }
-        : {},
+          ? { productUid: String(product.sourceId) }
+          : {},
     };
 
     return {
-      id: `${providerName}-variant-${variant.id}`,
+      id: `${providerName}-variant-${variantId}`,
       name: variant.name || 'One Size',
       sku: variant.sku,
       price: variant.retailPrice,
       currency: variant.currency,
-      attributes: {
-        size: variant.size || 'One Size',
-        ...(variant.color && { color: variant.color }),
-        ...(variant.colorCode && { colorCode: variant.colorCode }),
-      },
-      externalVariantId: variant.id,
+      attributes: [
+        { name: 'Size', value: variant.size || 'One Size' },
+        ...(variant.color ? [{ name: 'Color', value: variant.color }] : []),
+      ],
+      externalVariantId: variantId,
       fulfillmentConfig,
       inStock: true,
     };
@@ -166,18 +137,13 @@ function transformProviderProduct(
     price: basePrice,
     currency: baseCurrency,
     category: 'Exclusives',
+    options,
     images,
     primaryImage: thumbnailUrl,
     variants,
     fulfillmentProvider: providerName,
     externalProductId: String(product.sourceId),
     source: providerName,
-    mockupConfig: {
-      styles: ['Lifestyle', 'Flat'],
-      placements: ['front'],
-      format: 'jpg',
-      generateOnSync: true,
-    },
   };
 }
 
@@ -190,28 +156,29 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
       const extractValidationIssues = (err: unknown): string | null => {
         const error = err as Record<string, unknown>;
-        
+
         if (error?.issues && Array.isArray(error.issues)) {
           return error.issues
-            .map((issue: { path?: string[]; message?: string }) => 
+            .map((issue: { path?: string[]; message?: string }) =>
               `  - ${issue.path?.join('.') || '?'}: ${issue.message || 'unknown'}`)
             .join('\n');
         }
-        
+
         const cause = error?.cause as Record<string, unknown> | undefined;
         if (cause?.issues && Array.isArray(cause.issues)) {
           return cause.issues
-            .map((issue: { path?: string[]; message?: string }) => 
+            .map((issue: { path?: string[]; message?: string }) =>
               `  - ${issue.path?.join('.') || '?'}: ${issue.message || 'unknown'}`)
             .join('\n');
         }
-        
+
         return null;
       };
 
       const syncFromProvider = (
-        provider: FulfillmentProvider
-      ): Effect.Effect<number, Error> =>
+        provider: FulfillmentProvider,
+        syncStartedAt: Date
+      ): Effect.Effect<{ synced: number; removed: number }, Error> =>
         Effect.gen(function* () {
           console.log(`[ProductSync] Starting sync from ${provider.name}...`);
 
@@ -224,7 +191,7 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
                 console.error(issues);
                 return new Error(`Validation failed for ${provider.name}:\n${issues}`);
               }
-              
+
               const errorMessage = e instanceof Error ? e.message : String(e);
               return new Error(`Failed to fetch products from ${provider.name}: ${errorMessage}`);
             },
@@ -237,6 +204,9 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
           for (const product of products) {
             try {
               const localProduct = transformProviderProduct(provider.name, product);
+
+
+
               yield* store.upsert(localProduct);
               syncedCount++;
               console.log(`[ProductSync] Synced product: ${localProduct.name} with ${localProduct.variants.length} variants`);
@@ -245,8 +215,13 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
             }
           }
 
-          console.log(`[ProductSync] Completed ${provider.name} sync: ${syncedCount} products`);
-          return syncedCount;
+          const removedCount = yield* store.prune(provider.name, syncStartedAt);
+          if (removedCount > 0) {
+            console.log(`[ProductSync] Pruned ${removedCount} stale products from ${provider.name}`);
+          }
+
+          console.log(`[ProductSync] Completed ${provider.name} sync: ${syncedCount} synced, ${removedCount} removed`);
+          return { synced: syncedCount, removed: removedCount };
         });
 
       return {
@@ -272,47 +247,40 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
             return { products };
           }),
 
-        getFeaturedProducts: (limit = 8) =>
+        getFeaturedProducts: (limit = 12) =>
           Effect.gen(function* () {
             const result = yield* store.findMany({ limit, offset: 0 });
             return { products: result.products };
           }),
 
-        getCollections: () => Effect.succeed({ collections: COLLECTIONS }),
+        getCollections: () => Effect.succeed({ collections: [] }),
 
         getCollection: (slug) =>
           Effect.gen(function* () {
-            const collection = getCollectionBySlug(slug);
-            if (!collection) {
-              return yield* Effect.fail(new Error(`Collection not found: ${slug}`));
-            }
-
-            const category = categoryFromSlug(slug);
-            const result = category
-              ? yield* store.findMany({ category, limit: 100, offset: 0 })
-              : { products: [], total: 0 };
-
-            return { collection, products: result.products };
+            return yield* Effect.fail(new Error(`Collection not found: ${slug}`));
           }),
 
         sync: () =>
           Effect.gen(function* () {
             if (providers.length === 0) {
               console.log('[ProductSync] No providers configured, skipping sync');
-              return { status: 'completed', count: 0 };
+              return { status: 'completed', count: 0, removed: 0 };
             }
 
+            const syncStartedAt = new Date();
             yield* store.setSyncStatus('products', 'running', null, null, null);
 
             try {
               const results = yield* Effect.all(
-                providers.map((p) => syncFromProvider(p)),
+                providers.map((p) => syncFromProvider(p, syncStartedAt)),
                 { concurrency: 'unbounded' }
               );
 
-              const totalCount = results.reduce((sum, count) => sum + count, 0);
+              const totalSynced = results.reduce((sum, r) => sum + r.synced, 0);
+              const totalRemoved = results.reduce((sum, r) => sum + r.removed, 0);
               yield* store.setSyncStatus('products', 'idle', new Date(), null, null);
-              return { status: 'completed', count: totalCount };
+              console.log(`[ProductSync] Completed: ${totalSynced} synced, ${totalRemoved} removed`);
+              return { status: 'completed', count: totalSynced, removed: totalRemoved };
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : String(error);
               yield* store.setSyncStatus('products', 'error', null, new Date(), errorMessage);

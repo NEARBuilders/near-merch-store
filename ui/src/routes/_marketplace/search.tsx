@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Heart, Plus } from 'lucide-react';
-import { LoadingSpinner } from '@/components/loading';
+
 import { useCart } from '@/hooks/use-cart';
 import { useFavorites } from '@/hooks/use-favorites';
 import { cn } from '@/lib/utils';
@@ -159,8 +159,8 @@ function SearchProductCard({
       >
         <div className="relative bg-[#ececf0] aspect-square overflow-hidden">
           <img
-            src={product.primaryImage}
-            alt={product.name}
+            src={product.images[0]?.url}
+            alt={product.title}
             className="w-full h-full object-cover"
           />
 
@@ -168,7 +168,7 @@ function SearchProductCard({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onToggleFavorite(product.id, product.name);
+              onToggleFavorite(product.id, product.title);
             }}
             className="absolute top-2 right-2 p-2 bg-background/80 backdrop-blur-sm hover:bg-background transition-all z-10"
             aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
@@ -203,7 +203,7 @@ function SearchProductCard({
             {product.category}
           </p>
           <h3 className="text-foreground mb-2 line-clamp-2 tracking-[-0.48px] text-sm">
-            {product.name}
+            {product.title}
           </h3>
           <p className="text-foreground tracking-[-0.48px]">${product.price}</p>
         </div>

@@ -1,5 +1,5 @@
 import { useCart } from '@/hooks/use-cart';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { ChevronLeft, CreditCard } from 'lucide-react';
 import { useState } from 'react';
 
@@ -8,7 +8,6 @@ export const Route = createFileRoute("/_marketplace/checkout")({
 });
 
 function CheckoutPage() {
-  const navigate = useNavigate();
   const { cartItems, subtotal } = useCart();
   const [discountCode, setDiscountCode] = useState("");
 
@@ -58,13 +57,13 @@ function CheckoutPage() {
                   <div key={item.productId} className="flex gap-4">
                     <div className="size-20 bg-[#ececf0] border border-[rgba(0,0,0,0.1)] flex-shrink-0 overflow-hidden">
                       <img
-                        src={item.product.primaryImage}
-                        alt={item.product.name}
+                        src={item.product.images[0].url}
+                        alt={item.product.title}
                         className="size-full object-cover"
                       />
                     </div>
                     <div className="flex-1">
-                      <p className="text-base mb-1">{item.product.name}</p>
+                      <p className="text-base mb-1">{item.product.title}</p>
                       <p className="text-sm text-[#717182]">
                         {item.size !== "N/A" && `Size: ${item.size} • `}Qty:{" "}
                         {item.quantity}

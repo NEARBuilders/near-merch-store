@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeft, Minus, Plus, X, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/use-cart';
@@ -9,7 +9,6 @@ export const Route = createFileRoute('/_marketplace/cart')({
 });
 
 function CartPage() {
-  const navigate = useNavigate();
   const { cartItems, subtotal, updateQuantity, updateSize, removeItem } = useCart();
 
   return (
@@ -44,8 +43,8 @@ function CartPage() {
                   <div key={item.productId} className="py-6 flex flex-col md:flex-row gap-4 md:gap-6 items-center md:items-start text-center md:text-left">
                     <div className="bg-muted rounded size-32 md:size-24 shrink-0 overflow-hidden">
                       <img
-                        src={item.product.primaryImage}
-                        alt={item.product.name}
+                        src={item.product.images[0].url}
+                        alt={item.product.title}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -59,7 +58,7 @@ function CartPage() {
                             className="hover:text-[#00ec97] transition-colors"
                           >
                             <h3 className="text-lg md:text-base tracking-[-0.48px] truncate">
-                              {item.product.name}
+                              {item.product.title}
                             </h3>
                           </Link>
                           <p className="text-muted-foreground text-sm tracking-[-0.48px] mt-1">
@@ -69,7 +68,7 @@ function CartPage() {
                         <button
                           onClick={() => removeItem(item.productId)}
                           className="size-8 flex items-center justify-center shrink-0 hover:bg-muted transition-colors rounded-full md:rounded-none"
-                          aria-label={`Remove ${item.product.name}`}
+                          aria-label={`Remove ${item.product.title}`}
                         >
                           <X className="size-4" />
                         </button>

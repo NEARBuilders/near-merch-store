@@ -50,6 +50,15 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
   component: ProductDetailPage,
 });
 
+function getOptionValue(
+  attributes: Array<{ name: string; value: string }>,
+  optionName: string
+): string | undefined {
+  return attributes.find(
+    (opt) => opt.name.toLowerCase() === optionName.toLowerCase()
+  )?.value;
+}
+
 function ProductDetailPage() {
   const { productId } = Route.useParams();
   const { addToCart } = useCart();
@@ -78,17 +87,30 @@ function ProductDetailPage() {
     .filter((p) => p.id !== product.id)
     .slice(0, 3);
 
-  const productImages =
-    product.images.length > 0
-      ? product.images.map((img) => img.url)
-      : product.primaryImage
-        ? [product.primaryImage]
-        : [];
+  const getProductImages = () => {
+    if (product.images && product.images.length > 0) {
+      return product.images.map((img) => img.url);
+    }
+    const firstDesignFile = product.designFiles?.[0];
+    if (firstDesignFile) {
+      return [firstDesignFile.url];
+    }
+    const firstVariantFile = product.variants
+      .flatMap(v => v.fulfillmentConfig?.designFiles || [])
+      .find(f => f.url);
+    if (firstVariantFile) {
+      return [firstVariantFile.url];
+    }
+    return [];
+  };
+  const productImages = getProductImages();
   const isFavorite = favoriteIds.includes(product.id);
   const needsSize = requiresSize(product.category) && hasVariants;
 
   const handleAddToCart = () => {
-    const size = selectedVariant?.attributes?.size || selectedVariant?.name || "N/A";
+    const size = getOptionValue(selectedVariant?.attributes || [], "size") 
+      || selectedVariant?.title 
+      || "N/A";
     for (let i = 0; i < quantity; i++) {
       addToCart(product.id, size);
     }
@@ -106,7 +128,7 @@ function ProductDetailPage() {
           images={productImages}
           initialIndex={viewerImageIndex}
           onClose={() => setViewerOpen(false)}
-          productName={product.name}
+          productName={product.title}
         />
       )}
 
@@ -142,7 +164,7 @@ function ProductDetailPage() {
                 >
                   <img
                     src={img}
-                    alt={product.name}
+                    alt={product.title}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -169,7 +191,7 @@ function ProductDetailPage() {
             </div>
 
             <h1 className="text-2xl font-medium tracking-[-0.48px]">
-              {product.name}
+              {product.title}
             </h1>
 
             <span className="text-lg tracking-[-0.48px]">
@@ -188,22 +210,25 @@ function ProductDetailPage() {
               <div className="space-y-3">
                 <label className="block tracking-[-0.48px]">Size</label>
                 <div className="flex flex-wrap gap-2">
-                  {availableVariants.map((variant) => (
-                    <button
-                      key={variant.id}
-                      onClick={() => setSelectedVariantId(variant.id)}
-                      disabled={!variant.inStock}
-                      className={cn(
-                        "px-4 py-2 tracking-[-0.48px] transition-colors",
-                        selectedVariantId === variant.id
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-background border border-border hover:bg-muted",
-                        !variant.inStock && "opacity-50 cursor-not-allowed line-through"
-                      )}
-                    >
-                      {variant.attributes?.size || variant.name}
-                    </button>
-                  ))}
+                  {availableVariants.map((variant) => {
+                    const sizeValue = getOptionValue(variant.attributes, "size") || variant.title;
+                    return (
+                      <button
+                        key={variant.id}
+                        onClick={() => setSelectedVariantId(variant.id)}
+                        disabled={!variant.availableForSale}
+                        className={cn(
+                          "px-4 py-2 tracking-[-0.48px] transition-colors",
+                          selectedVariantId === variant.id
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background border border-border hover:bg-muted",
+                          !variant.availableForSale && "opacity-50 cursor-not-allowed line-through"
+                        )}
+                      >
+                        {sizeValue}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -261,8 +286,8 @@ function ProductDetailPage() {
                 >
                   <div className="bg-[#ececf0] aspect-square overflow-hidden relative">
                     <img
-                      src={relatedProduct.primaryImage}
-                      alt={relatedProduct.name}
+                      src={relatedProduct.images?.[0]?.url}
+                      alt={relatedProduct.title}
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -286,7 +311,7 @@ function ProductDetailPage() {
                           {relatedProduct.category}
                         </p>
                         <h3 className="text-sm tracking-[-0.48px]">
-                          {relatedProduct.name}
+                          {relatedProduct.title}
                         </h3>
                       </div>
                       <span className="tracking-[-0.48px]">

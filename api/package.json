@@ -18,6 +18,7 @@
     "drizzle-orm": "^0.45.0",
     "near-kit": "^0.6.3",
     "near-social-js": "^2.0.3",
+    "printful-sdk-js-v2": "^2.0.3-beta",
     "stripe": "^20.0.0"
   },
   "devDependencies": {

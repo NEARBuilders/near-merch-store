@@ -58,8 +58,8 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                   >
                     <div className="bg-muted rounded size-20 shrink-0 overflow-hidden">
                       <img
-                        src={item.product.primaryImage}
-                        alt={item.product.name}
+                        src={item.product.images[0]}
+                        alt={item.product.title}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -67,7 +67,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                       <div className="flex items-start justify-between mb-1 gap-2">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-[16px] tracking-[-0.48px] truncate">
-                            {item.product.name}
+                            {item.product.title}
                           </h3>
                           <p className="text-muted-foreground text-[14px] tracking-[-0.48px] mt-1">
                             {item.product.category}
@@ -77,7 +77,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                           type="button"
                           onClick={() => removeItem(item.productId)}
                           className="size-8 flex items-center justify-center shrink-0"
-                          aria-label={`Remove ${item.product.name}`}
+                          aria-label={`Remove ${item.product.title}`}
                         >
                           <X className="size-4" aria-hidden="true" />
                         </button>

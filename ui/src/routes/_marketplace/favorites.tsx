@@ -60,8 +60,8 @@ function FavoritesPage() {
                 >
                   <div className="w-full aspect-square bg-muted overflow-hidden">
                     <img
-                      src={product.primaryImage}
-                      alt={product.name}
+                      src={product.images[0]?.url}
+                      alt={product.title}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -77,7 +77,7 @@ function FavoritesPage() {
                     className="hover:text-[#00ec97] transition-colors"
                   >
                     <h4 className="text-sm text-foreground mb-1 line-clamp-2">
-                      {product.name}
+                      {product.title}
                     </h4>
                   </Link>
                   <p className="text-sm text-foreground mb-4">${product.price}</p>

@@ -3,7 +3,6 @@ import { Effect } from 'every-plugin/effect';
 import { z } from 'every-plugin/zod';
 import { FulfillmentContract } from '../contract';
 import { PrintfulService } from './service';
-import { PrintfulMockupService } from './mockups';
 
 export default createPlugin({
   variables: z.object({
@@ -12,7 +11,7 @@ export default createPlugin({
 
   secrets: z.object({
     PRINTFUL_API_KEY: z.string(),
-    PRINTFUL_STORE_ID: z.string().optional(),
+    PRINTFUL_STORE_ID: z.string(),
     PRINTFUL_WEBHOOK_SECRET: z.string().optional(),
   }),
 
@@ -22,19 +21,14 @@ export default createPlugin({
     Effect.gen(function* () {
       const service = new PrintfulService(
         config.secrets.PRINTFUL_API_KEY,
-        config.secrets.PRINTFUL_STORE_ID
-      );
-
-      const mockupService = new PrintfulMockupService(
-        config.secrets.PRINTFUL_API_KEY,
-        config.secrets.PRINTFUL_STORE_ID
+        config.secrets.PRINTFUL_STORE_ID,
+        config.variables.baseUrl
       );
 
       console.log('[Printful Plugin] Initialized successfully');
 
       return {
         service,
-        mockupService,
         webhookSecret: config.secrets.PRINTFUL_WEBHOOK_SECRET,
       };
     }),
@@ -42,7 +36,7 @@ export default createPlugin({
   shutdown: () => Effect.void,
 
   createRouter: (context, builder) => {
-    const { service, mockupService, webhookSecret } = context;
+    const { service, webhookSecret } = context;
 
     return {
       ping: builder.ping.handler(async () => ({
@@ -65,18 +59,6 @@ export default createPlugin({
 
       getOrder: builder.getOrder.handler(async ({ input }) => {
         return await Effect.runPromise(service.getOrder(input.id));
-      }),
-
-      getMockupStyles: builder.getMockupStyles.handler(async ({ input }) => {
-        return await Effect.runPromise(mockupService.getMockupStyles(input.productId));
-      }),
-
-      generateMockups: builder.generateMockups.handler(async ({ input }) => {
-        return await Effect.runPromise(mockupService.generateMockups(input));
-      }),
-
-      getMockupResult: builder.getMockupResult.handler(async ({ input }) => {
-        return await Effect.runPromise(mockupService.getMockupResult(input.taskId));
       }),
 
       webhook: builder.webhook.handler(async ({ input }) => {
@@ -110,4 +92,3 @@ export default createPlugin({
 });
 
 export { PrintfulService } from './service';
-export { PrintfulMockupService } from './mockups';

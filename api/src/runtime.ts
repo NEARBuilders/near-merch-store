@@ -8,7 +8,7 @@ import { ReturnAddress } from './schema';
 export interface FulfillmentConfig {
   printful?: {
     apiKey: string;
-    storeId?: string;
+    storeId: string;
     webhookSecret?: string;
   };
   gelato?: {
@@ -35,7 +35,7 @@ export async function createMarketplaceRuntime(config: FulfillmentConfig) {
 
   const providers: FulfillmentProvider[] = [];
 
-  if (config.printful?.apiKey) {
+  if (config.printful?.apiKey && config.printful?.storeId) {
     try {
       const printful = await runtime.usePlugin('printful', {
         variables: {

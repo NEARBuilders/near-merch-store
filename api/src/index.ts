@@ -40,7 +40,7 @@ export default createPlugin({
 
       const runtime = yield* Effect.promise(() =>
         createMarketplaceRuntime({
-          printful: config.secrets.PRINTFUL_API_KEY
+          printful: config.secrets.PRINTFUL_API_KEY && config.secrets.PRINTFUL_STORE_ID
             ? {
               apiKey: config.secrets.PRINTFUL_API_KEY,
               storeId: config.secrets.PRINTFUL_STORE_ID,
@@ -194,16 +194,28 @@ export default createPlugin({
           throw new Error('Stripe is not configured');
         }
 
+        if (!input.items || input.items.length === 0) {
+          throw new Error('At least one item is required');
+        }
+
+        const firstItem = input.items[0]!;
         const productResult = await Effect.runPromise(
           Effect.gen(function* () {
             const service = yield* ProductService;
-            return yield* service.getProduct(input.productId);
+            return yield* service.getProduct(firstItem.productId);
           }).pipe(Effect.provide(appLayer))
         );
         const product = productResult.product;
 
+        const selectedVariant = firstItem.variantId 
+          ? product.variants.find(v => v.id === firstItem.variantId)
+          : product.variants[0];
+        
+        const unitPrice = selectedVariant?.price ?? product.price;
+        const currency = selectedVariant?.currency ?? product.currency ?? 'USD';
+
         const userId = 'demo-user';
-        const totalAmount = product.price * input.quantity;
+        const totalAmount = unitPrice * firstItem.quantity;
 
         const order = await Effect.runPromise(
           Effect.gen(function* () {
@@ -212,12 +224,16 @@ export default createPlugin({
               userId,
               items: [{
                 productId: product.id,
-                productName: product.name,
-                quantity: input.quantity,
-                unitPrice: product.price,
+                variantId: selectedVariant?.id,
+                productName: product.title,
+                variantName: selectedVariant?.title,
+                quantity: firstItem.quantity,
+                unitPrice,
+                fulfillmentProvider: product.fulfillmentProvider,
+                fulfillmentConfig: selectedVariant?.fulfillmentConfig,
               }],
               totalAmount,
-              currency: product.currency || 'USD',
+              currency,
             });
           }).pipe(Effect.provide(orderLayer))
         );
@@ -225,12 +241,12 @@ export default createPlugin({
         const checkout = await Effect.runPromise(
           stripeService.createCheckoutSession({
             orderId: order.id,
-            productName: product.name,
+            productName: product.title,
             productDescription: product.description,
-            productImage: product.primaryImage || product.images[0]?.url,
-            unitAmount: product.price * 100,
-            currency: product.currency || 'USD',
-            quantity: input.quantity,
+            productImage: product.images[0]?.url,
+            unitAmount: Math.round(unitPrice * 100),
+            currency,
+            quantity: firstItem.quantity,
             successUrl: input.successUrl,
             cancelUrl: input.cancelUrl,
           })
@@ -333,21 +349,15 @@ export default createPlugin({
               );
 
               if (order && order.items.length > 0) {
-                const productId = order.items[0]!.productId;
-                const productResult = await Effect.runPromise(
-                  Effect.gen(function* () {
-                    const service = yield* ProductService;
-                    return yield* service.getProduct(productId);
-                  }).pipe(Effect.provide(appLayer))
-                );
-                const product = productResult.product;
+                const firstItem = order.items[0]!;
+                const fulfillmentProvider = firstItem.fulfillmentProvider || 'manual';
 
                 try {
-                  const provider = product.fulfillmentProvider
-                    ? runtime.getProvider(product.fulfillmentProvider)
+                  const provider = fulfillmentProvider !== 'manual'
+                    ? runtime.getProvider(fulfillmentProvider)
                     : null;
 
-                  if (provider && product.fulfillmentProvider !== 'manual') {
+                  if (provider) {
                     const fulfillmentOrder = await provider.client.createOrder({
                       externalId: order.id,
                       recipient: {
@@ -362,16 +372,19 @@ export default createPlugin({
                         phone: shippingAddress.phone,
                         email: shippingAddress.email,
                       },
-                      items: order.items.map(item => ({
-                        variantId: product.fulfillmentConfig?.printfulVariantId,
-                        productId: product.fulfillmentConfig?.gelatoProductUid
-                          ? parseInt(product.fulfillmentConfig.gelatoProductUid)
-                          : undefined,
-                        quantity: item.quantity,
-                        files: product.fulfillmentConfig?.fileUrl
-                          ? [{ url: product.fulfillmentConfig.fileUrl, type: 'default', placement: 'front' }]
-                          : undefined,
-                      })),
+                      items: order.items.map(item => {
+                        const config = item.fulfillmentConfig;
+                        const providerData = config?.providerData as Record<string, unknown> | undefined;
+                        return {
+                          externalVariantId: config?.externalVariantId || undefined,
+                          variantId: providerData?.syncVariantId as number | undefined,
+                          productId: providerData?.catalogProductId as number | undefined,
+                          quantity: item.quantity,
+                          files: config?.designFiles?.length
+                            ? config.designFiles.map(df => ({ url: df.url, type: 'default', placement: df.placement }))
+                            : undefined,
+                        };
+                      }),
                       retailCosts: {
                         currency: order.currency,
                       },
@@ -383,7 +396,7 @@ export default createPlugin({
                         yield* store.updateFulfillment(orderId, fulfillmentOrder.id);
                       }).pipe(Effect.provide(orderLayer))
                     );
-                  } else if (product.fulfillmentProvider === 'manual') {
+                  } else {
                     console.log('[Fulfillment] Manual fulfillment - no automated order creation');
                   }
                 } catch (error) {

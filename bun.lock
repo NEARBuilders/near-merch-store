@@ -17,6 +17,7 @@
         "drizzle-orm": "^0.45.0",
         "near-kit": "^0.6.3",
         "near-social-js": "^2.0.3",
+        "printful-sdk-js-v2": "^2.0.3-beta",
         "stripe": "^20.0.0",
       },
       "devDependencies": {
@@ -1581,6 +1582,8 @@
     "prettier": ["prettier@3.7.4", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-v6UNi1+3hSlVvv8fSaoUbggEM5VErKmmpGA7Pl3HF8V6uKY7rvClBOJlH6yNwQtfTueNkGVpOv/mtWL9L4bgRA=="],
 
     "pretty-format": ["pretty-format@27.5.1", "", { "dependencies": { "ansi-regex": "^5.0.1", "ansi-styles": "^5.0.0", "react-is": "^17.0.1" } }, "sha512-Qb1gy5OrP5+zDf2Bvnzdl3jsTf1qXVMazbvCoKhtKqVs4/YK4ozX4gKQJJVyNe+cajNPn0KoC0MC3FUmaHWEmQ=="],
+
+    "printful-sdk-js-v2": ["printful-sdk-js-v2@2.0.3-beta", "", {}, "sha512-onL5v5e9uMXtuGTD/XxzOS7tvfzdt+1JK3Xuvb1rNNHp/1Xgo2dcsZMOWc3ZpkhPz5LExGLzVdHOLKB4EzqoHQ=="],
 
     "process-nextick-args": ["process-nextick-args@2.0.1", "", {}, "sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag=="],
 

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { CheckCircle, Mail, Package, Truck, Loader2, ExternalLink } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
-import { useOrderByCheckoutSession, type Order } from '@/integrations/marketplace-api/orders';
+import { useOrderByCheckoutSession } from '@/integrations/marketplace-api/orders';
 import { useCart } from '@/hooks/use-cart';
 import { useEffect } from 'react';
 
@@ -42,7 +42,6 @@ function OrderConfirmationPage() {
   const {
     data: orderData,
     isLoading,
-    isError,
   } = useOrderByCheckoutSession(session_id, {
     refetchInterval: (query) => {
       const status = query.state.data?.order?.status;
@@ -120,12 +119,12 @@ function OrderConfirmationPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#717182]">Product</span>
-                    <span>{order.productName}</span>
+                    <span className="text-[#717182]">Items</span>
+                    <span>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#717182]">Quantity</span>
-                    <span>{order.quantity}</span>
+                    <span className="text-[#717182]">Total Quantity</span>
+                    <span>{order.items.reduce((sum, item) => sum + item.quantity, 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#717182]">Total</span>

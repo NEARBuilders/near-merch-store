@@ -9,7 +9,7 @@
     "ui": {
       "name": "marketplace_ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-1152-marketplace-ui-near-merch-store-536bf2e91-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1155-marketplace-ui-near-merch-store-12483ae26-ze.zephyrcloud.app",
       "exposes": {
         "App": "./App",
         "components": "./components",
@@ -21,7 +21,7 @@
       "plugins": {
         "marketplace-api": {
           "development": "http://localhost:3014",
-          "production": "https://elliot-braem-1153-marketplace-api-near-merch-stor-4bc8b3e98-ze.zephyrcloud.app",
+          "production": "https://elliot-braem-1156-marketplace-api-near-merch-stor-5353b9463-ze.zephyrcloud.app",
           "variables": {
             "network": "mainnet",
             "contractId": "social.near"
@@ -30,6 +30,7 @@
             "STRIPE_SECRET_KEY": "{{STRIPE_SECRET_KEY}}",
             "STRIPE_WEBHOOK_SECRET": "{{STRIPE_WEBHOOK_SECRET}}",
             "PRINTFUL_API_KEY": "{{PRINTFUL_API_KEY}}",
+            "PRINTFUL_STORE_ID": "{{PRINTFUL_STORE_ID}}",
             "DATABASE_URL": "{{DATABASE_URL}}",
             "DATABASE_AUTH_TOKEN": "{{DATABASE_AUTH_TOKEN}}"
           }

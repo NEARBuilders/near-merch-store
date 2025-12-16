@@ -48,7 +48,7 @@ export function SizeSelectionModal({
           <div className="flex-1">
             <h2 className="tracking-[-0.48px] text-[16px] mb-1">Select Size</h2>
             <p className="text-[#717182] text-[14px] tracking-[-0.48px]">
-              Choose your size for {product.name}
+              Choose your size for {product.title}
             </p>
           </div>
           <button
@@ -64,14 +64,14 @@ export function SizeSelectionModal({
           <div className="flex gap-4 mb-6">
             <div className="bg-[#ececf0] rounded size-20 shrink-0 overflow-hidden">
               <img
-                src={product.primaryImage}
-                alt={product.name}
+                src={product.images[0]?.url}
+                alt={product.title}
                 className="w-full h-full object-cover"
               />
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-[16px] tracking-[-0.48px] mb-1">
-                {product.name}
+                {product.title}
               </h3>
               <p className="text-[#717182] text-[14px] tracking-[-0.48px] mb-2">
                 {product.category}

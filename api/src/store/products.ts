@@ -1,44 +1,8 @@
+import { and, count, eq, like, lt } from 'drizzle-orm';
 import { Context, Effect, Layer } from 'every-plugin/effect';
-import { eq, like, and, count, sql } from 'drizzle-orm';
 import * as schema from '../db/schema';
-import type { Product, ProductCategory, ProductImage, ProductVariant, FulfillmentConfig, MockupConfig, VariantAttributes } from '../schema';
+import type { Product, ProductCategory, ProductCriteria, ProductImage, ProductVariant, ProductWithImages } from '../schema';
 import { Database } from './database';
-
-export interface ProductCriteria {
-  category?: ProductCategory;
-  limit?: number;
-  offset?: number;
-}
-
-export interface ProductVariantInput {
-  id: string;
-  name: string;
-  sku?: string;
-  price: number;
-  currency: string;
-  attributes?: VariantAttributes;
-  externalVariantId?: string;
-  fulfillmentConfig?: FulfillmentConfig;
-  inStock?: boolean;
-}
-
-export interface ProductWithImages {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  currency: string;
-  category: ProductCategory;
-  brand?: string;
-  productType?: string;
-  images: ProductImage[];
-  primaryImage?: string;
-  variants: ProductVariantInput[];
-  fulfillmentProvider: string;
-  externalProductId?: string;
-  source: string;
-  mockupConfig?: MockupConfig;
-}
 
 export class ProductStore extends Context.Tag('ProductStore')<
   ProductStore,
@@ -46,10 +10,11 @@ export class ProductStore extends Context.Tag('ProductStore')<
     readonly find: (id: string) => Effect.Effect<Product | null, Error>;
     readonly findMany: (criteria: ProductCriteria) => Effect.Effect<{ products: Product[]; total: number }, Error>;
     readonly search: (query: string, category: ProductCategory | undefined, limit: number) => Effect.Effect<Product[], Error>;
-    readonly upsert: (product: ProductWithImages) => Effect.Effect<Product, Error>;
+    readonly upsert: (product: ProductWithImages, syncedAt?: Date) => Effect.Effect<Product, Error>;
     readonly delete: (id: string) => Effect.Effect<void, Error>;
+    readonly prune: (source: string, before: Date) => Effect.Effect<number, Error>;
     readonly setSyncStatus: (
-      id: string, 
+      id: string,
       status: 'idle' | 'running' | 'error',
       lastSuccessAt: Date | null,
       lastErrorAt: Date | null,
@@ -62,7 +27,7 @@ export class ProductStore extends Context.Tag('ProductStore')<
       errorMessage: string | null;
     }, Error>;
   }
->() {}
+>() { }
 
 export const ProductStoreLive = Layer.effect(
   ProductStore,
@@ -95,14 +60,14 @@ export const ProductStoreLive = Layer.effect(
 
       return variants.map((v) => ({
         id: v.id,
-        name: v.name,
+        title: v.name,
         sku: v.sku || undefined,
         price: v.price / 100,
         currency: v.currency,
-        attributes: v.attributes || undefined,
+        attributes: v.attributes || [],
         externalVariantId: v.externalVariantId || undefined,
         fulfillmentConfig: v.fulfillmentConfig || undefined,
-        inStock: v.inStock,
+        availableForSale: v.inStock,
       }));
     };
 
@@ -112,20 +77,21 @@ export const ProductStoreLive = Layer.effect(
 
       return {
         id: row.id,
-        name: row.name,
+        title: row.name,
         description: row.description || undefined,
         price: row.price / 100,
         currency: row.currency,
         category: row.category as ProductCategory,
         brand: row.brand || undefined,
         productType: row.productType || undefined,
+        options: row.options || [],
         images,
-        primaryImage: row.primaryImage || undefined,
         variants,
+        designFiles: [],
         fulfillmentProvider: row.fulfillmentProvider,
         externalProductId: row.externalProductId || undefined,
         source: row.source,
-        mockupConfig: row.mockupConfig || undefined,
+        tags: [],
       };
     };
 
@@ -185,9 +151,9 @@ export const ProductStoreLive = Layer.effect(
 
             const conditions = category
               ? and(
-                  like(schema.products.name, searchTerm),
-                  eq(schema.products.category, category)
-                )
+                like(schema.products.name, searchTerm),
+                eq(schema.products.category, category)
+              )
               : like(schema.products.name, searchTerm);
 
             const results = await db
@@ -217,11 +183,11 @@ export const ProductStoreLive = Layer.effect(
                 category: product.category,
                 brand: product.brand || null,
                 productType: product.productType || null,
+                options: product.options,
                 primaryImage: product.primaryImage || null,
                 fulfillmentProvider: product.fulfillmentProvider,
                 externalProductId: product.externalProductId || null,
                 source: product.source,
-                mockupConfig: product.mockupConfig || null,
                 createdAt: now,
                 updatedAt: now,
               })
@@ -235,11 +201,12 @@ export const ProductStoreLive = Layer.effect(
                   category: product.category,
                   brand: product.brand || null,
                   productType: product.productType || null,
+                  options: product.options,
                   primaryImage: product.primaryImage || null,
                   fulfillmentProvider: product.fulfillmentProvider,
                   externalProductId: product.externalProductId || null,
                   source: product.source,
-                  mockupConfig: product.mockupConfig || null,
+                  lastSyncedAt: now,
                   updatedAt: now,
                 },
               });
@@ -307,6 +274,28 @@ export const ProductStoreLive = Layer.effect(
             await db.delete(schema.products).where(eq(schema.products.id, id));
           },
           catch: (error) => new Error(`Failed to delete product: ${error}`),
+        }),
+
+      prune: (source: string, before: Date) =>
+        Effect.tryPromise({
+          try: async () => {
+            const staleProducts = await db
+              .select({ id: schema.products.id })
+              .from(schema.products)
+              .where(and(
+                eq(schema.products.source, source),
+                lt(schema.products.lastSyncedAt, before)
+              ));
+
+            if (staleProducts.length > 0) {
+              for (const { id } of staleProducts) {
+                await db.delete(schema.products).where(eq(schema.products.id, id));
+              }
+            }
+
+            return staleProducts.length;
+          },
+          catch: (error) => new Error(`Failed to prune stale products: ${error}`),
         }),
 
       setSyncStatus: (id, status, lastSuccessAt, lastErrorAt, errorMessage) =>

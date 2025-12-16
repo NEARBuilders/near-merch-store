@@ -1,47 +1,8 @@
+import { desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
-import { eq, desc } from "drizzle-orm";
 import * as schema from "../db/schema";
-import type { OrderStatus, ShippingAddress, TrackingInfo, DeliveryEstimate, FulfillmentConfig, VariantAttributes, OrderItem } from "../schema";
+import type { CreateOrderInput, DeliveryEstimate, OrderItem, OrderStatus, OrderWithItems, ShippingAddress, TrackingInfo } from "../schema";
 import { Database } from "./database";
-
-export interface OrderWithItems {
-  id: string;
-  userId: string;
-  status: OrderStatus;
-  totalAmount: number;
-  currency: string;
-  checkoutSessionId?: string;
-  checkoutProvider?: 'stripe' | 'near';
-  shippingMethod?: string;
-  shippingAddress?: ShippingAddress;
-  fulfillmentOrderId?: string;
-  fulfillmentReferenceId?: string;
-  trackingInfo?: TrackingInfo[];
-  deliveryEstimate?: DeliveryEstimate;
-  createdAt: string;
-  updatedAt: string;
-  items: OrderItem[];
-}
-
-export interface CreateOrderItemInput {
-  productId: string;
-  variantId?: string;
-  productName: string;
-  variantName?: string;
-  quantity: number;
-  unitPrice: number;
-  attributes?: VariantAttributes;
-  fulfillmentProvider?: string;
-  fulfillmentConfig?: FulfillmentConfig;
-}
-
-export interface CreateOrderInput {
-  userId: string;
-  items: CreateOrderItemInput[];
-  totalAmount: number;
-  currency: string;
-  shippingMethod?: string;
-}
 
 export class OrderStore extends Context.Tag("OrderStore")<
   OrderStore,
@@ -58,7 +19,7 @@ export class OrderStore extends Context.Tag("OrderStore")<
     readonly updateTracking: (orderId: string, trackingInfo: TrackingInfo[]) => Effect.Effect<OrderWithItems, Error>;
     readonly updateDeliveryEstimate: (orderId: string, deliveryEstimate: DeliveryEstimate) => Effect.Effect<OrderWithItems, Error>;
   }
->() {}
+>() { }
 
 export const OrderStoreLive = Layer.effect(
   OrderStore,
