@@ -87,7 +87,7 @@ export const ProductStoreLive = Layer.effect(
         options: row.options || [],
         images,
         variants,
-        designFiles: [], // Will be populated from provider data
+        designFiles: [],
         fulfillmentProvider: row.fulfillmentProvider,
         externalProductId: row.externalProductId || undefined,
         source: row.source,
