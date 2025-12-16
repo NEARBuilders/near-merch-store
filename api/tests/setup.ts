@@ -18,8 +18,8 @@ export const runtime = createPluginRuntime({
 });
 
 export async function getPluginClient() {
-  const { client } = await runtime.usePlugin(TEST_PLUGIN_ID, TEST_CONFIG);
-  return client;
+  const { createClient } = await runtime.usePlugin(TEST_PLUGIN_ID, TEST_CONFIG);
+  return createClient();
 }
 
 export async function teardown() {

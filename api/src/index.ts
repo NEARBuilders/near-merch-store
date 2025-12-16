@@ -4,7 +4,7 @@ import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import { contract } from './contract';
 import { createMarketplaceRuntime } from './runtime';
-import { ReturnAddressSchema, type OrderStatus, type TrackingInfo } from './schema';
+import { ReturnAddressSchema, type OrderStatus, type OrderWithItems, type TrackingInfo } from './schema';
 import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStoreLive } from './store';
@@ -108,7 +108,7 @@ export default createPlugin({
       });
     });
 
-    const orderToSchema = (order) => ({
+    const orderToSchema = (order: OrderWithItems) => ({
       id: order.id,
       userId: order.userId,
       productId: order.items[0]?.productId || '',
@@ -561,7 +561,7 @@ export default createPlugin({
               newStatus = 'shipped';
               const shipments = orderData.shipments || [orderData.shipment];
               if (shipments && shipments.length > 0) {
-                newTracking = shipments.map((s) => ({
+                newTracking = shipments.map((s: any) => ({
                   trackingCode: s.trackingCode || s.tracking_code || '',
                   trackingUrl: s.trackingUrl || s.tracking_url || '',
                   shipmentMethodName: s.shipmentMethodName || s.method || 'Standard',
