@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_marketplace/_page/privacy-policy")({
 function PrivacyPolicy() {
   return (
     <>
-      <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
+      <h1 className="text-base font-normal mb-2">Privacy Policy</h1>
       <p className="text-sm text-muted-foreground mb-8">
         Last updated: December 16, 2025
       </p>
@@ -146,7 +146,8 @@ function PrivacyPolicy() {
           [Placeholder: Provide contact information for privacy-related questions and data
           requests.]
         </p>
-        <p className="text-muted-foreground mt-6">
+        <hr className="border-t border-border my-6" />
+        <p className="text-muted-foreground">
           For privacy-related questions or to exercise your privacy rights, please contact us at{" "}
           <a href="mailto:privacy@near.org" className="text-primary hover:underline">
             privacy@near.org

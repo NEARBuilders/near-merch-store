@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_marketplace/_page/terms-of-service")({
 function TermsOfService() {
   return (
     <>
-      <h1 className="text-3xl font-bold mb-2">Terms of Service</h1>
+      <h1 className="text-base font-normal mb-2">Terms of Service</h1>
       <p className="text-sm text-muted-foreground mb-8">
         Last updated: December 16, 2025
       </p>
@@ -143,7 +143,8 @@ function TermsOfService() {
         <p className="text-muted-foreground mb-4">
           [Placeholder: Provide official contact details for legal notices and questions.]
         </p>
-        <p className="text-muted-foreground mt-6">
+        <hr className="border-t border-border my-6" />
+        <p className="text-muted-foreground">
           For questions about these Terms of Service, please contact us at{" "}
           <a href="mailto:legal@near.org" className="text-primary hover:underline">
             legal@near.org
