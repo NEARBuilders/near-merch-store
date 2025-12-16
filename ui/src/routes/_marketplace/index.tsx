@@ -3,23 +3,21 @@ import { LoadingSpinner } from "@/components/loading";
 import { CartSidebar } from "@/components/marketplace/cart-sidebar";
 import { ProductCard } from "@/components/marketplace/product-card";
 import { SizeSelectionModal } from "@/components/marketplace/size-selection-modal";
-import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
 import { useFavorites } from "@/hooks/use-favorites";
 import {
   // useSuspenseCollections, // HIDDEN: Collections feature
   productLoaders,
-  useSuspenseFeaturedProducts,
+  useFeaturedProducts,
   type Product
 } from "@/integrations/marketplace-api";
 import { queryClient } from "@/utils/orpc";
 import {
   createFileRoute,
-    /* Link, */ useRouter
+    /* Link, */
 } from "@tanstack/react-router"; // HIDDEN: Link for collections
 import {
   // ArrowRight, // HIDDEN: Collections feature
-  AlertCircle,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -28,7 +26,13 @@ import { useEffect, useRef, useState } from "react";
 export const Route = createFileRoute("/_marketplace/")({
   pendingComponent: LoadingSpinner,
   loader: async () => {
-    await queryClient.ensureQueryData(productLoaders.featured(8));
+    // Prefetch products, but don't throw errors if it fails
+    try {
+      await queryClient.ensureQueryData(productLoaders.featured(8));
+    } catch (error) {
+      // Silently fail - the component will handle the empty state
+      console.warn('Failed to prefetch products:', error);
+    }
 
     // HIDDEN: Collections feature
     //     const listData = await queryClient.ensureQueryData(
@@ -41,27 +45,6 @@ export const Route = createFileRoute("/_marketplace/")({
     //         queryClient.ensureQueryData(collectionLoaders.detail(c.slug))
     //       )
     //     );
-  },
-  errorComponent: ({ error }) => {
-    const router = useRouter();
-
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="max-w-md text-center space-y-4">
-          <div className="text-red-600">
-            <AlertCircle className="h-12 w-12 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold">Unable to Load Store</h2>
-          </div>
-          <p className="text-gray-600">
-            {error.message ||
-              "Failed to load the marketplace. Please check your connection and try again."}
-          </p>
-          <div className="flex gap-3 justify-center">
-            <Button onClick={() => router.invalidate()}>Try Again</Button>
-          </div>
-        </div>
-      </div>
-    );
   },
   component: MarketplaceHome,
 });
@@ -79,10 +62,10 @@ function MarketplaceHome() {
   const [isCartSidebarOpen, setIsCartSidebarOpen] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: featuredData } = useSuspenseFeaturedProducts(12);
+  const { data: featuredData, isLoading, isError } = useFeaturedProducts(12);
   // const { data: collectionsData } = useSuspenseCollections(); // HIDDEN: Collections feature
 
-  const featuredProducts = featuredData.products;
+  const featuredProducts = featuredData?.products ?? [];
   // const collections = collectionsData.collections; // HIDDEN: Collections feature
 
   const handleQuickAdd = (product: Product) => {
@@ -379,17 +362,45 @@ function MarketplaceHome() {
 
       <section className="py-16 md:py-20 border-t border-border" id="products">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredProducts?.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                isFavorite={favoriteIds.includes(product.id)}
-                onToggleFavorite={toggleFavorite}
-                onQuickAdd={handleQuickAdd}
-              />
-            ))}
-          </div>
+          {featuredProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="text-muted-foreground mb-4">
+                <svg
+                  className="mx-auto h-16 w-16 mb-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                  />
+                </svg>
+                <h3 className="text-xl font-semibold text-foreground mb-2">
+                  No Products Found
+                </h3>
+                <p className="text-sm max-w-md">
+                  There are currently no products available in the marketplace.
+                  {isError && " The API may be temporarily unavailable."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  isFavorite={favoriteIds.includes(product.id)}
+                  onToggleFavorite={toggleFavorite}
+                  onQuickAdd={handleQuickAdd}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

@@ -3,6 +3,7 @@ import { RPCLink } from '@orpc/client/fetch';
 import { QueryCache, QueryClient } from '@tanstack/react-query';
 import type { ContractRouterClient } from '@orpc/contract';
 import type { contract } from '../../../api/src/contract';
+import { toast } from 'sonner';
 
 export const API_URL = import.meta.env.API_URL || `${window.location.origin}/api/rpc`;
 
@@ -34,6 +35,10 @@ function createApiLink() {
     interceptors: [
       onError((error: unknown) => {
         console.error('oRPC API Error:', error);
+        toast.error('Unable to connect to API', {
+          id: 'api-connection-error',
+          description: 'The marketplace API is currently unavailable. Please try again later.',
+        });
       }),
     ],
     fetch(url, options) {
