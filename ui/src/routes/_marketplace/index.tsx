@@ -1,4 +1,5 @@
-import manOnNearImage from "@/assets/images/pngs/man_on_near.png";
+import nearLegionImage from "@/assets/images/pngs/green-near.png";
+import nearAiImage from "@/assets/images/pngs/blue-near.png";
 import { LoadingSpinner } from "@/components/loading";
 import { CartSidebar } from "@/components/marketplace/cart-sidebar";
 import { ProductCard } from "@/components/marketplace/product-card";
@@ -80,20 +81,28 @@ function MarketplaceHome() {
 
   const slides = [
     {
-      badge: "New Collection",
-      title: "NEAR LEGION",
-      subtitle: "COLLECTION",
+      badge: "EXCLUSIVE",
+      title: "NEW LEGION",
+      subtitle: "MERCH LAUNCHED",
       description:
-        "Exclusive merchandise celebrating the NEAR Protocol community",
-      buttonText: "Shop Collections",
+        "Represent the NEAR Legion with New Styles",
+      buttonText: "Shop Items",
+      image: nearLegionImage,
+      gradientFrom: "#012216",
+      gradientTo: "#00ec97",
+      glowColor: "#00ec97",
     },
     {
-      badge: "Limited Edition",
-      title: "NEAR FOUNDATION",
-      subtitle: "ESSENTIALS",
+      badge: "EXCLUSIVE",
+      title: "NEAR AI STYLES",
+      subtitle: "AVAILABLE",
       description:
-        "Premium quality gear designed for builders and innovators of the decentralized web",
-      buttonText: "Explore Now",
+        "New styles for NEAR AI",
+      buttonText: "Shop Items",
+      image: nearAiImage,
+      gradientFrom: "#001a3d",
+      gradientTo: "#0066cc",
+      glowColor: "#0066ff",
     },
   ];
 
@@ -137,7 +146,12 @@ function MarketplaceHome() {
 
   return (
     <div>
-      <section className="relative bg-gradient-to-b from-[#012216] to-[#00ec97] overflow-hidden">
+      <section 
+        className="relative overflow-hidden transition-colors duration-500"
+        style={{
+          background: `linear-gradient(to bottom, ${slides[currentSlide].gradientFrom}, ${slides[currentSlide].gradientTo})`
+        }}
+      >
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-8 md:py-20 lg:py-24">
           <div
             className="relative overflow-visible"
@@ -217,12 +231,13 @@ function MarketplaceHome() {
                   <div className="relative w-full h-full flex items-end justify-end overflow-hidden">
                     {/* Large glowing orb with fill animation */}
                     <div
-                      className={`absolute top-0 right-1/3 -translate-y-1/4 rounded-full bg-[#00ec97] blur-[120px] transition-all duration-800 ease-out ${
+                      className={`absolute top-0 right-1/3 -translate-y-1/4 rounded-full blur-[120px] transition-all duration-800 ease-out ${
                         !isAnimating
                           ? "w-[500px] h-[500px] opacity-30"
                           : "w-0 h-0 opacity-0"
                       }`}
                       style={{
+                        backgroundColor: slide.glowColor,
                         transitionTimingFunction:
                           "cubic-bezier(0.34, 1.56, 0.64, 1)",
                       }}
@@ -241,8 +256,8 @@ function MarketplaceHome() {
                       }}
                     >
                       <img
-                        src={manOnNearImage}
-                        alt="NEAR Protocol"
+                        src={slide.image}
+                        alt={slide.title}
                         className="w-auto h-auto max-w-[90%] max-h-[600px] object-contain object-bottom-right"
                         style={{
                           filter:
