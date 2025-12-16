@@ -57,7 +57,9 @@ export const OrderStoreLive = Layer.effect(
         totalAmount: row.totalAmount / 100,
         currency: row.currency,
         checkoutSessionId: row.checkoutSessionId || undefined,
-        checkoutProvider: row.checkoutProvider as 'stripe' | 'near' | undefined,
+        checkoutProvider: row.checkoutProvider === 'stripe' || row.checkoutProvider === 'near' 
+          ? row.checkoutProvider 
+          : undefined,
         shippingMethod: row.shippingMethod || undefined,
         shippingAddress: row.shippingAddress || undefined,
         fulfillmentOrderId: row.fulfillmentOrderId || undefined,

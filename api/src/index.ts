@@ -4,7 +4,7 @@ import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import { contract } from './contract';
 import { createMarketplaceRuntime } from './runtime';
-import { ReturnAddressSchema, type OrderStatus, type OrderWithItems, type TrackingInfo } from './schema';
+import { ReturnAddressSchema, type OrderStatus, type TrackingInfo } from './schema';
 import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStoreLive } from './store';
@@ -106,26 +106,6 @@ export default createPlugin({
           nearAccountId: context.nearAccountId,
         }
       });
-    });
-
-    const orderToSchema = (order: OrderWithItems) => ({
-      id: order.id,
-      userId: order.userId,
-      productId: order.items[0]?.productId || '',
-      productName: order.items[0]?.productName || '',
-      quantity: order.items[0]?.quantity || 1,
-      totalAmount: order.totalAmount,
-      currency: order.currency,
-      status: order.status,
-      checkoutSessionId: order.checkoutSessionId,
-      checkoutProvider: order.checkoutProvider,
-      fulfillmentOrderId: order.fulfillmentOrderId,
-      fulfillmentReferenceId: order.fulfillmentReferenceId,
-      shippingAddress: order.shippingAddress,
-      trackingInfo: order.trackingInfo,
-      deliveryEstimate: order.deliveryEstimate,
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
     });
 
     return {
@@ -298,7 +278,7 @@ export default createPlugin({
           );
 
           return {
-            orders: result.orders.map(orderToSchema),
+            orders: result.orders,
             total: result.total,
           };
         }),
@@ -323,7 +303,7 @@ export default createPlugin({
             });
           }
 
-          return { order: orderToSchema(order) };
+          return { order };
         }),
 
       getOrderByCheckoutSession: builder.getOrderByCheckoutSession.handler(async ({ input }) => {
@@ -334,7 +314,7 @@ export default createPlugin({
           }).pipe(Effect.provide(orderLayer))
         );
 
-        return { order: order ? orderToSchema(order) : null };
+        return { order };
       }),
 
       stripeWebhook: builder.stripeWebhook.handler(async ({ input }) => {
