@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "BOS_CONFIG_PATH=../bos.config.json tsx server.ts",
     "build": "rsbuild build",
     "preview": "NODE_ENV=production BOS_CONFIG_PATH=../bos.config.json tsx server.ts",
     "typecheck": "tsc --noEmit",

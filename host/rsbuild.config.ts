@@ -103,6 +103,7 @@ export default defineConfig({
     port: 3001,
     proxy: {
       '/api': 'http://localhost:3000',
+      '/__runtime-config': 'http://localhost:3000',
     },
   },
   tools: {

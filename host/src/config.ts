@@ -50,9 +50,12 @@ export async function loadBosConfig(): Promise<RuntimeConfig> {
   const raw = await readFile(path, 'utf8');
   const config = JSON.parse(raw) as BosConfig;
 
+  const useRemoteApi = process.env.USE_REMOTE_API === 'true';
+  const useRemoteUi = process.env.USE_REMOTE_UI === 'true';
+
   const api: RuntimeConfig['api'] = {
     name: config.app.api.name,
-    url: config.app.api[env],
+    url: useRemoteApi ? config.app.api.production : config.app.api[env],
     variables: config.app.api.variables,
     secrets: config.app.api.secrets,
   };
@@ -63,7 +66,7 @@ export async function loadBosConfig(): Promise<RuntimeConfig> {
     hostUrl: config.app.host[env],
     ui: {
       name: config.app.ui.name,
-      url: config.app.ui[env],
+      url: useRemoteUi ? config.app.ui.production : config.app.ui[env],
       exposes: config.app.ui.exposes,
     },
     api,

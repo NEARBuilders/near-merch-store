@@ -1,4 +1,5 @@
 import { Component, type CSSProperties, type FC, type ReactNode } from "react";
+import type { ErrorInfo } from "react";
 
 export interface AppStateViewProps {
   kind: "loading" | "error" | "notFound";
@@ -245,35 +246,6 @@ export const Error: FC<{
   </div>
 );
 
-export const NotFound: FC<{
-  title?: string;
-  message?: string;
-  onNavigateHome?: () => void;
-}> = ({
-  title = "Page Not Found",
-  message = "The page you're looking for doesn't exist or has been moved.",
-  onNavigateHome,
-}) => (
-  <div style={contentStyle}>
-    <div style={emojiStyle}>🔍</div>
-    <h1 style={headingStyle}>{title}</h1>
-    <p style={messageStyle}>{message}</p>
-
-    <div style={buttonContainerStyle}>
-      {onNavigateHome && (
-        <Button variant="secondary" onClick={onNavigateHome}>
-          Go Home
-        </Button>
-      )}
-      <Button variant="secondary" onClick={() => window.history.back()}>
-        Go Back
-      </Button>
-    </div>
-  </div>
-);
-
-// Simple ErrorBoundary implementation
-import { type ErrorInfo } from "react";
 
 interface ErrorBoundaryProps {
   children: ReactNode;

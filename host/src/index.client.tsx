@@ -1,7 +1,5 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import Components from './components';
-import Main from './main';
 import { initializeFederation } from './federation';
 
 const rootElement = document.getElementById('root');
@@ -12,17 +10,14 @@ if (!rootElement) {
 
 const pathname = window.location.pathname;
 
-const getRouteComponent = () => {
-  if (pathname === '/components') {
-    return Components;
-  }
-  return Main;
-};
-
-const RootComponent = getRouteComponent();
-
 // Initialize federation before rendering
-initializeFederation().then(() => {
+initializeFederation().then(async () => {
+  const ComponentModule = pathname === '/components'
+    ? await import('./components')
+    : await import('./main');
+
+  const RootComponent = ComponentModule.default;
+
   createRoot(rootElement!).render(
     <StrictMode>
       <RootComponent />
