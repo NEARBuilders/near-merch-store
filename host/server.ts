@@ -78,6 +78,19 @@ async function startServer() {
 
   apiApp.get('/health', (c) => c.text('OK'));
 
+  // Runtime config endpoint - safe subset for client
+  apiApp.get('/__runtime-config', async (c) => {
+    const config = await loadBosConfig();
+    return c.json({
+      env: config.env,
+      title: config.title,
+      hostUrl: config.hostUrl,
+      ui: config.ui,
+      apiBase: '/api',
+      rpcBase: '/api/rpc',
+    });
+  });
+
   apiApp.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 
   apiApp.post('/api/webhooks/stripe', async (c) => {

@@ -1,18 +1,16 @@
+import { loadRemote } from "@module-federation/runtime";
 import {
   Suspense,
   lazy,
-  type FC,
-  type ComponentType,
-  useState,
   useEffect,
-  type CSSProperties,
   useMemo,
+  useState,
+  type CSSProperties,
+  type ComponentType,
+  type FC,
 } from "react";
-import { loadRemote } from "@module-federation/runtime";
-import { ErrorBoundary } from "./error-boundary";
-import { LoadingFallback } from "./loading-fallback";
-import { FadeIn } from "./fade-in";
-import { loadBosConfig } from "./config";
+import { getRuntimeConfig } from "./federation";
+import { ErrorBoundary, Loading } from "./ui";
 
 interface RegistryItem {
   name: string;
@@ -33,22 +31,11 @@ interface Registry {
   items: RegistryItem[];
 }
 
-let runtimeConfig: Awaited<ReturnType<typeof loadBosConfig>> | null = null;
-
-const getConfig = async () => {
-  if (!runtimeConfig) {
-    runtimeConfig = await loadBosConfig();
-  }
-  return runtimeConfig;
-};
-
-const SocialProvider = lazy(async () => {
-  const config = await getConfig();
-  const module = await loadRemote<{
-    SocialProvider: FC<{ network: string; children: React.ReactNode }>;
-  }>(`${config.ui.name}/providers`);
+const Providers = lazy(async () => {
+  const config = getRuntimeConfig();
+  const module = await loadRemote<{ default: FC<{ children: React.ReactNode }> }>(`${config.ui.name}/providers`);
   if (!module) throw new Error(`Failed to load ${config.ui.name}/providers`);
-  return { default: module.SocialProvider };
+  return module;
 });
 
 const cardContainerStyle: CSSProperties = {
@@ -119,14 +106,7 @@ const inlineLoaderStyle: CSSProperties = {
   fontSize: "12px",
 };
 
-const spinnerStyle: CSSProperties = {
-  width: "16px",
-  height: "16px",
-  border: "2px solid #e5e7eb",
-  borderTopColor: "#6b7280",
-  borderRadius: "50%",
-  animation: "spin 0.8s linear infinite",
-};
+
 
 const errorBadgeStyle: CSSProperties = {
   fontSize: "11px",
@@ -146,33 +126,15 @@ interface ComponentCardProps {
 }
 
 const ComponentCard: FC<ComponentCardProps> = ({
-  name,
   title,
-  description,
   Component,
   props,
-  index,
 }) => {
-  const [loaded, setLoaded] = useState(false);
   const [showProps, setShowProps] = useState(false);
-
-  const cardAnimation: CSSProperties = {
-    opacity: loaded ? 1 : 0,
-    transform: loaded ? "translateY(0)" : "translateY(8px)",
-    transition: `opacity 400ms ease-out ${
-      index * 50
-    }ms, transform 400ms ease-out ${index * 50}ms`,
-  };
-
-  useEffect(() => {
-    const timer = setTimeout(() => setLoaded(true), 50);
-    return () => clearTimeout(timer);
-  }, []);
-
   const hasProps = Object.keys(props).length > 0;
 
   return (
-    <div style={{ ...cardContainerStyle, ...cardAnimation }}>
+    <div style={cardContainerStyle}>
       <div style={cardHeaderStyle}>
         <span style={cardTitleStyle}>{`<${title} />`}</span>
         {hasProps && (
@@ -191,14 +153,11 @@ const ComponentCard: FC<ComponentCardProps> = ({
           <Suspense
             fallback={
               <div style={inlineLoaderStyle}>
-                <div style={spinnerStyle} />
                 <span>Loading...</span>
               </div>
             }
           >
-            <ComponentWrapper>
-              <Component {...props} />
-            </ComponentWrapper>
+            <Component {...props} />
           </Suspense>
         </ErrorBoundary>
       </div>
@@ -219,21 +178,7 @@ const ComponentCard: FC<ComponentCardProps> = ({
   );
 };
 
-const ComponentWrapper: FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [visible, setVisible] = useState(false);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setVisible(true), 30);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const style: CSSProperties = {
-    opacity: visible ? 1 : 0,
-    transition: "opacity 300ms ease-out",
-  };
-
-  return <div style={style}>{children}</div>;
-};
 
 const pageContainerStyle: CSSProperties = {
   display: "flex",
@@ -289,7 +234,7 @@ const gridStyle: CSSProperties = {
 
 const createLazyComponent = (componentName: string) => {
   return lazy(async () => {
-    const config = await getConfig();
+    const config = getRuntimeConfig();
     const module = await loadRemote<
       Record<string, ComponentType<Record<string, unknown>>>
     >(`${config.ui.name}/components`);
@@ -306,9 +251,7 @@ export const Components: FC = () => {
   const [ready, setReady] = useState(false);
   const [registry, setRegistry] = useState<Registry | null>(null);
   const [registryError, setRegistryError] = useState<string | null>(null);
-  const [config, setConfig] = useState<Awaited<
-    ReturnType<typeof loadBosConfig>
-  > | null>(null);
+  const [config, setConfig] = useState<ReturnType<typeof getRuntimeConfig> | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setReady(true), 50);
@@ -316,7 +259,7 @@ export const Components: FC = () => {
   }, []);
 
   useEffect(() => {
-    getConfig().then(setConfig);
+    setConfig(getRuntimeConfig());
   }, []);
 
   useEffect(() => {
@@ -369,27 +312,20 @@ export const Components: FC = () => {
       </style>
       <ErrorBoundary>
         <Suspense
-          fallback={
-            <LoadingFallback
-              message="Loading providers..."
-              submessage="Setting up social context"
-            />
-          }
+          fallback={<Loading />}
         >
-          <SocialProvider network="mainnet">
+          <Providers>
             <div style={scrollContainerStyle}>
               <div style={contentWrapperStyle}>
-                <FadeIn duration={500}>
-                  <header style={headerStyle}>
-                    <h1 style={titleStyle}>Component Gallery</h1>
-                    <p style={subtitleStyle}>
-                      Remote components from{" "}
-                      <code style={codeStyle}>
-                        {config?.ui.name || "Loading..."}
-                      </code>
-                    </p>
-                  </header>
-                </FadeIn>
+                <header style={headerStyle}>
+                  <h1 style={titleStyle}>Component Gallery</h1>
+                  <p style={subtitleStyle}>
+                    Remote components from{" "}
+                    <code style={codeStyle}>
+                      {config?.ui.name || "Loading..."}
+                    </code>
+                  </p>
+                </header>
 
                 {registryError && (
                   <div
@@ -405,7 +341,6 @@ export const Components: FC = () => {
 
                 {!registry && !registryError && (
                   <div style={inlineLoaderStyle}>
-                    <div style={spinnerStyle} />
                     <span>Loading component registry...</span>
                   </div>
                 )}
@@ -425,7 +360,7 @@ export const Components: FC = () => {
                 </div>
               </div>
             </div>
-          </SocialProvider>
+          </Providers>
         </Suspense>
       </ErrorBoundary>
     </div>

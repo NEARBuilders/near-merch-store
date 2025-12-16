@@ -1,9 +1,21 @@
 import { registerRemotes } from '@module-federation/enhanced/runtime';
-import { loadBosConfig, type RuntimeConfig } from './config';
+
+interface RuntimeConfig {
+  env: 'development' | 'production';
+  title: string;
+  hostUrl: string;
+  ui: {
+    name: string;
+    url: string;
+    exposes: Record<string, string>;
+  };
+  apiBase: string;
+  rpcBase: string;
+}
 
 let runtimeConfig: RuntimeConfig | null = null;
 
-export function getRuntimeConfig() {
+export function getRuntimeConfig(): RuntimeConfig {
   if (!runtimeConfig) {
     throw new Error('Runtime config not initialized');
   }
@@ -11,9 +23,9 @@ export function getRuntimeConfig() {
 }
 
 export async function initializeFederation() {
-  const config = await loadBosConfig();
+  const config = await fetch('/__runtime-config').then((r) => r.json()) as RuntimeConfig;
   runtimeConfig = config;
-  
+
   console.log('[Federation] Registering dynamic remote:', {
     name: config.ui.name,
     entry: `${config.ui.url}/remoteEntry.js`,

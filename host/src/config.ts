@@ -1,4 +1,5 @@
-import bosConfigRaw from '../../bos.config.json';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 interface BosConfig {
   account: string;
@@ -15,15 +16,11 @@ interface BosConfig {
       exposes: Record<string, string>;
     };
     api: {
-      plugins: Record<
-        string,
-        {
-          development: string;
-          production: string;
-          variables?: Record<string, any>;
-          secrets?: Record<string, string>;
-        }
-      >;
+      name: string;
+      development: string;
+      production: string;
+      variables?: Record<string, any>;
+      secrets?: string[];
     };
   };
 }
@@ -37,31 +34,28 @@ export interface RuntimeConfig {
     url: string;
     exposes: Record<string, string>;
   };
-  apiPlugins: Record<
-    string,
-    {
-      url: string;
-      variables?: Record<string, any>;
-      secrets?: Record<string, string>;
-    }
-  >;
+  api: {
+    name: string;
+    url: string;
+    variables?: Record<string, any>;
+    secrets?: string[];
+  };
 }
 
 export async function loadBosConfig(): Promise<RuntimeConfig> {
   const env = (process.env.NODE_ENV as 'development' | 'production') || 'development';
-  const config = bosConfigRaw as BosConfig;
 
-  const useRemoteApi = process.env.USE_REMOTE_API === 'true';
-  const useRemoteUi = process.env.USE_REMOTE_UI === 'true';
+  const path = process.env.BOS_CONFIG_PATH ?? resolve(process.cwd(), 'bos.config.json');
 
-  const apiPlugins: RuntimeConfig['apiPlugins'] = {};
-  for (const [name, pluginConfig] of Object.entries(config.app.api.plugins)) {
-    apiPlugins[name] = {
-      url: useRemoteApi ? pluginConfig.production : pluginConfig[env],
-      variables: pluginConfig.variables,
-      secrets: pluginConfig.secrets,
-    };
-  }
+  const raw = await readFile(path, 'utf8');
+  const config = JSON.parse(raw) as BosConfig;
+
+  const api: RuntimeConfig['api'] = {
+    name: config.app.api.name,
+    url: config.app.api[env],
+    variables: config.app.api.variables,
+    secrets: config.app.api.secrets,
+  };
 
   return {
     env,
@@ -69,9 +63,9 @@ export async function loadBosConfig(): Promise<RuntimeConfig> {
     hostUrl: config.app.host[env],
     ui: {
       name: config.app.ui.name,
-      url: useRemoteUi ? config.app.ui.production : config.app.ui[env],
+      url: config.app.ui[env],
       exposes: config.app.ui.exposes,
     },
-    apiPlugins,
+    api,
   };
 }

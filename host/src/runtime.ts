@@ -8,19 +8,13 @@ export interface PluginStatus {
   errorDetails: string | null;
 }
 
-function resolveSecrets(
-  secrets: Record<string, string>
-): Record<string, string> {
-  const resolved: Record<string, string> = {};
-  for (const [key, value] of Object.entries(secrets)) {
-    const match = value.match(/^\{\{(\w+)\}\}$/);
-    if (match) {
-      resolved[key] = process.env[match[1]] ?? '';
-    } else {
-      resolved[key] = value;
-    }
+function secretsFromEnv(keys: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of keys) {
+    const v = process.env[k];
+    if (typeof v === "string" && v.length > 0) out[k] = v;
   }
-  return resolved;
+  return out;
 }
 
 export interface PluginResult {
@@ -30,51 +24,35 @@ export interface PluginResult {
 }
 
 export async function initializePlugins(): Promise<PluginResult> {
-  let currentPluginName: string | null = null;
-  let currentPluginUrl: string | null = null;
+  let pluginName: string | null = null;
+  let pluginUrl: string | null = null;
   
   try {
     const config = await loadBosConfig();
-    const entries = Object.entries(config.apiPlugins);
+    const pluginConfig = config.api;
+    pluginName = pluginConfig.name;
+    pluginUrl = pluginConfig.url;
 
-    if (entries.length === 0) {
-      console.warn('[Plugins] No plugins configured in bos.config.json');
-      return {
-        runtime: null,
-        api: null,
-        status: {
-          available: false,
-          pluginName: null,
-          error: 'No plugins configured',
-          errorDetails: 'No plugins found in bos.config.json',
-        },
-      };
-    }
-
-    const [pluginName, pluginConfig] = entries[0]!;
-    currentPluginName = pluginName;
-    currentPluginUrl = pluginConfig.url;
-
-    console.log(`[Plugins] Registering remote: ${pluginName} from ${pluginConfig.url}`);
+    console.log(`[Plugins] Registering remote: ${pluginName} from ${pluginUrl}`);
 
     const runtime = createPluginRuntime({
       registry: {
         [pluginName]: {
-          remote: pluginConfig.url,
+          remote: pluginUrl,
         },
       },
       secrets: {},
     });
 
     const secrets = pluginConfig.secrets
-      ? resolveSecrets(pluginConfig.secrets)
+      ? secretsFromEnv(pluginConfig.secrets)
       : {};
     const variables = pluginConfig.variables ?? {};
 
     const api = await runtime.usePlugin(pluginName, {
-      // @ts-expect-error no plugin types loaded
+       // @ts-expect-error no plugin types loaded
       variables,
-      // @ts-expect-error no plugin types loaded
+       // @ts-expect-error no plugin types loaded
       secrets,
     });
 
@@ -95,8 +73,8 @@ export async function initializePlugins(): Promise<PluginResult> {
     console.error('[Plugins] ❌ Failed to initialize plugin');
     
     if (errorMessage.includes('register-remote') || errorStack?.includes('register-remote')) {
-      console.error(`[Plugins] Failed to register remote plugin: ${currentPluginName}`);
-      console.error(`[Plugins] Remote URL: ${currentPluginUrl}`);
+      console.error(`[Plugins] Failed to register remote plugin: ${pluginName}`);
+      console.error(`[Plugins] Remote URL: ${pluginUrl}`);
       console.error('[Plugins] Possible causes:');
       console.error('  • API server is not running at the configured URL');
       console.error('  • Wrong URL in bos.config.json');
@@ -109,15 +87,15 @@ export async function initializePlugins(): Promise<PluginResult> {
       console.error(`[Plugins] Error: ${errorMessage}`);
     } else if (errorMessage.includes('ENOTDIR') || errorMessage.includes('ENOENT')) {
       console.error('[Plugins] Plugin file not found - ensure API is running and built');
-      console.error(`[Plugins] Attempted URL: ${currentPluginUrl}`);
+      console.error(`[Plugins] Attempted URL: ${pluginUrl}`);
       console.error(`[Plugins] Error: ${errorMessage}`);
     } else if (errorMessage.includes('fetch') || errorMessage.includes('network')) {
       console.error('[Plugins] Network error - ensure API server is running at the configured URL');
-      console.error(`[Plugins] URL: ${currentPluginUrl}`);
+      console.error(`[Plugins] URL: ${pluginUrl}`);
       console.error(`[Plugins] Error: ${errorMessage}`);
     } else {
-      console.error(`[Plugins] Plugin: ${currentPluginName}`);
-      console.error(`[Plugins] URL: ${currentPluginUrl}`);
+      console.error(`[Plugins] Plugin: ${pluginName}`);
+      console.error(`[Plugins] URL: ${pluginUrl}`);
       console.error(`[Plugins] Error: ${errorMessage}`);
     }
     
@@ -128,7 +106,7 @@ export async function initializePlugins(): Promise<PluginResult> {
       api: null,
       status: {
         available: false,
-        pluginName: currentPluginName,
+        pluginName,
         error: errorMessage,
         errorDetails: errorStack ?? null,
       },
