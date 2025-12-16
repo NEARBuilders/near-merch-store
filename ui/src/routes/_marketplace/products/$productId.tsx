@@ -60,60 +60,106 @@ function getOptionValue(
   )?.value;
 }
 
+const COLOR_MAP: Record<string, string> = {
+  "Black": "#000000",
+  "White": "#FFFFFF",
+  "Navy": "#000080",
+  "Dark Grey Heather": "#333333",
+  "Sport Grey": "#808080",
+  "Blue": "#0000FF",
+  "Red": "#FF0000",
+  "Green": "#008000",
+  // Add common expected colors
+};
+
+function getProductColor(title: string): string | undefined {
+  for (const [name, hex] of Object.entries(COLOR_MAP)) {
+    if (title.toLowerCase().includes(name.toLowerCase())) {
+      return hex;
+    }
+  }
+  return undefined;
+}
+
 function ProductDetailPage() {
   const { productId } = Route.useParams();
   const { addToCart } = useCart();
   const { favoriteIds, toggleFavorite } = useFavorites();
 
   const { data } = useSuspenseProduct(productId);
-  const product = data.product;
+  const mainProduct = data.product;
+  const subProducts = mainProduct.subProducts || [mainProduct];
 
-  const availableVariants = product.variants || [];
+  const [selectedStyleId, setSelectedStyleId] = useState(mainProduct.id);
+  const activeProduct = subProducts.find(p => p.id === selectedStyleId) || mainProduct;
+
+  const availableVariants = activeProduct.variants || [];
   const hasVariants = availableVariants.length > 0;
-  const defaultVariant = availableVariants[0];
 
-  const [selectedVariantId, setSelectedVariantId] = useState(defaultVariant?.id || "");
+  // Deduplicate sizes
+  const uniqueSizes = Array.from(new Set(
+    availableVariants.map(v => getOptionValue(v.attributes, "size") || v.title)
+  )).filter(Boolean);
+
+  const [selectedSize, setSelectedSize] = useState<string>("");
+
+  // Initialize selected size if available
+  if (uniqueSizes.length > 0 && !selectedSize) {
+    // Don't call setState during render, do it in effect or lazy init if possible.
+    // For now, let's treat empty as "Select size" or pick first.
+    // Better pattern: derive 'selectedVariant' from 'selectedSize'
+  }
+
+  // Find variant matching selected style and selected size (if strictly needed)
+  // OR just find the first available variant if size not selected yet.
+  const selectedVariant = availableVariants.find(v => {
+    const size = getOptionValue(v.attributes, "size") || v.title;
+    return size === selectedSize;
+  }) || availableVariants[0];
+
+  const displayPrice = selectedVariant?.price || activeProduct.price;
+
   const [quantity, setQuantity] = useState(1);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerImageIndex, setViewerImageIndex] = useState(0);
 
-  const selectedVariant = availableVariants.find(v => v.id === selectedVariantId) || defaultVariant;
-  const displayPrice = selectedVariant?.price || product.price;
-
   const { data: relatedData } = useProducts({
-    category: product.category,
+    category: mainProduct.category,
     limit: 4,
   });
   const relatedProducts = (relatedData?.products ?? [])
-    .filter((p) => p.id !== product.id)
+    .filter((p) => p.id !== mainProduct.id && !subProducts.some(sp => sp.id === p.id))
     .slice(0, 3);
 
   const getProductImages = () => {
-    if (product.images && product.images.length > 0) {
-      return product.images.map((img) => img.url);
+    // STRICTLY prioritize images over design files.
+    // Filter out potential design placeholders if they are mixed in 'images' array (heuristic: usually design files are in designFiles prop)
+    if (activeProduct.images && activeProduct.images.length > 0) {
+      return activeProduct.images.map((img) => img.url);
     }
-    const firstDesignFile = product.designFiles?.[0];
-    if (firstDesignFile) {
-      return [firstDesignFile.url];
-    }
-    const firstVariantFile = product.variants
-      .flatMap(v => v.fulfillmentConfig?.designFiles || [])
-      .find(f => f.url);
-    if (firstVariantFile) {
-      return [firstVariantFile.url];
-    }
+    // Fallback only if NO images exist, though user asked to remove them.
+    // If logic is "never show design files", returns empty if no images.
     return [];
   };
   const productImages = getProductImages();
-  const isFavorite = favoriteIds.includes(product.id);
-  const needsSize = requiresSize(product.category) && hasVariants;
+  const isFavorite = favoriteIds.includes(activeProduct.id);
+  const needsSize = requiresSize(activeProduct.category) && hasVariants;
 
   const handleAddToCart = () => {
-    const size = getOptionValue(selectedVariant?.attributes || [], "size")
-      || selectedVariant?.title
-      || "N/A";
+    // If size required but not selected (and multiple sizes exist), might want to validate.
+    // For now assuming default variant logic handles basic add.
+    const size = selectedSize || getOptionValue(selectedVariant?.attributes || [], "size") || "N/A";
+
+    // We need the specific variant ID for the selected size
+    const targetVariant = availableVariants.find(v => {
+      const vSize = getOptionValue(v.attributes, "size") || v.title;
+      return vSize === size;
+    }) || selectedVariant;
+
+    // Use current activeProduct.id but technically cart might expect variant ID logic?
+    // Based on `use-cart.ts`, `addToCart(productId, size)` is standard.
     for (let i = 0; i < quantity; i++) {
-      addToCart(product.id, size);
+      addToCart(activeProduct.id, size);
     }
   };
 
@@ -129,7 +175,7 @@ function ProductDetailPage() {
           images={productImages}
           initialIndex={viewerImageIndex}
           onClose={() => setViewerOpen(false)}
-          productName={product.title}
+          productName={activeProduct.title}
         />
       )}
 
@@ -148,28 +194,21 @@ function ProductDetailPage() {
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <div className="w-full">
-            <div className={cn(
-              "gap-4",
-              productImages.length === 1
-                ? "flex"
-                : "grid grid-cols-2 aspect-square"
-            )}>
-              {productImages.map((img, i) => (
+            <div className="flex gap-4">
+              {productImages.length > 0 && (
                 <div
-                  key={i}
-                  className={cn(
-                    "bg-muted overflow-hidden cursor-pointer hover:opacity-90 transition-opacity",
-                    productImages.length === 1 ? "w-full aspect-square" : "w-full h-full"
-                  )}
-                  onClick={() => handleImageClick(i)}
+                  className="rounded-lg cursor-pointer hover:scale-[1.02] transition-all duration-300 w-full aspect-square relative shadow-[0_0_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_-10px_rgba(255,255,255,0.15)]"
+                  onClick={() => handleImageClick(0)}
                 >
+                  {/* Removed 'bg-muted' and borders. Added theme-aware back glow. */}
+                  <div className="absolute inset-0 bg-transparent" />
                   <img
-                    src={img}
-                    alt={product.title}
+                    src={productImages[0]}
+                    alt={activeProduct.title}
                     className="w-full h-full object-cover"
                   />
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -177,52 +216,103 @@ function ProductDetailPage() {
             <div className="flex items-center justify-between">
               <div className="inline-block border border-border px-2 py-1">
                 <span className="text-xs tracking-[-0.48px]">
-                  {product.category}
+                  {activeProduct.category}
                 </span>
               </div>
               <FavoriteButton
                 isFavorite={isFavorite}
-                onToggle={() => toggleFavorite(product.id, product.title)}
+                onToggle={() => toggleFavorite(activeProduct.id, activeProduct.title)}
                 variant="button"
               />
             </div>
 
             <h1 className="text-2xl font-medium tracking-[-0.48px]">
-              {product.title}
+              {activeProduct.title}
             </h1>
 
             <span className="text-lg tracking-[-0.48px]">
               ${displayPrice}
             </span>
 
-            {product.description && (
+            {activeProduct.description && (
               <p className="text-[#717182] tracking-[-0.48px] leading-6">
-                {product.description}
+                {activeProduct.description}
               </p>
             )}
 
             <div className="h-px bg-border" />
 
+            {subProducts.length > 1 && (
+              <div className="space-y-3">
+                <label className="block tracking-[-0.48px]">Style</label>
+                <div className="flex flex-wrap gap-2">
+                  {subProducts.map((subProduct) => {
+                    const color = getProductColor(subProduct.title);
+                    const isSelected = selectedStyleId === subProduct.id;
+
+                    if (color) {
+                      return (
+                        <button
+                          key={subProduct.id}
+                          onClick={() => setSelectedStyleId(subProduct.id)}
+                          className={cn(
+                            "size-8 rounded-full border-2 transition-all p-0.5 relative",
+                            isSelected ? "border-primary" : "border-transparent hover:border-border"
+                          )}
+                          title={subProduct.title}
+                        >
+                          <div
+                            className="w-full h-full rounded-full border border-black/10 shadow-sm"
+                            style={{ backgroundColor: color }}
+                          />
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={subProduct.id}
+                        onClick={() => setSelectedStyleId(subProduct.id)}
+                        className={cn(
+                          "px-4 py-2 tracking-[-0.48px] transition-colors border text-sm",
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background border-border hover:bg-muted"
+                        )}
+                      >
+                        {subProduct.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {needsSize && (
               <div className="space-y-3">
                 <label className="block tracking-[-0.48px]">Size</label>
                 <div className="flex flex-wrap gap-2">
-                  {availableVariants.map((variant) => {
-                    const sizeValue = getOptionValue(variant.attributes, "size") || variant.title;
+                  {uniqueSizes.map((size) => {
+                    // Check availability for this size in current style
+                    const variantForSize = availableVariants.find(
+                      v => (getOptionValue(v.attributes, "size") || v.title) === size
+                    );
+                    const isAvailable = variantForSize?.availableForSale;
+
                     return (
                       <button
-                        key={variant.id}
-                        onClick={() => setSelectedVariantId(variant.id)}
-                        disabled={!variant.availableForSale}
+                        key={size}
+                        onClick={() => setSelectedSize(size)}
+                        disabled={!isAvailable}
                         className={cn(
                           "px-4 py-2 tracking-[-0.48px] transition-colors",
-                          selectedVariantId === variant.id
+                          size === selectedSize
                             ? "bg-primary text-primary-foreground"
                             : "bg-background border border-border hover:bg-muted",
-                          !variant.availableForSale && "opacity-50 cursor-not-allowed line-through"
+                          !isAvailable && "opacity-50 cursor-not-allowed line-through"
                         )}
                       >
-                        {sizeValue}
+                        {size}
                       </button>
                     );
                   })}

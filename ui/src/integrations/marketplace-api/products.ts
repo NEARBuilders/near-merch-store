@@ -1,8 +1,11 @@
 import { useQuery, useSuspenseQuery, useQueries } from '@tanstack/react-query';
 import { apiClient, queryClient } from '@/utils/orpc';
 import { productKeys, type ProductCategory } from './keys';
+import { HIDDEN_PRODUCT_IDS, PRODUCT_MERGES, getMergeTargetId } from './merges';
 
-export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'];
+export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'] & {
+  subProducts?: Product[];
+};
 
 export function useProducts(options?: {
   category?: ProductCategory;
@@ -15,12 +18,18 @@ export function useProducts(options?: {
       limit: options?.limit,
       offset: options?.offset,
     }),
-    queryFn: () =>
-      apiClient.getProducts({
+    queryFn: async () => {
+      const data = await apiClient.getProducts({
         category: options?.category,
         limit: options?.limit ?? 50,
         offset: options?.offset ?? 0,
-      }),
+      });
+
+      return {
+        ...data,
+        products: data.products.filter(p => !HIDDEN_PRODUCT_IDS.includes(p.id))
+      };
+    },
     placeholderData: (prev) => prev,
   });
 }
@@ -28,7 +37,31 @@ export function useProducts(options?: {
 export function useProduct(id: string) {
   return useQuery({
     queryKey: productKeys.detail(id),
-    queryFn: () => apiClient.getProduct({ id }),
+    queryFn: async () => {
+      const targetId = getMergeTargetId(id);
+
+      if (!targetId) {
+        return apiClient.getProduct({ id });
+      }
+
+      // If it's part of a merge group, fetch all related products
+      const sourceIds = PRODUCT_MERGES[targetId] || [];
+      const allIds = [targetId, ...sourceIds];
+
+      const results = await Promise.all(
+        allIds.map(pid => apiClient.getProduct({ id: pid }))
+      );
+
+      const mainProduct = results[0].product;
+      const subProducts = results.map(r => r.product);
+
+      return {
+        product: {
+          ...mainProduct,
+          subProducts
+        } as Product
+      };
+    },
     enabled: !!id,
     placeholderData: (prev) => prev,
   });
@@ -37,14 +70,44 @@ export function useProduct(id: string) {
 export function useSuspenseProduct(id: string) {
   return useSuspenseQuery({
     queryKey: productKeys.detail(id),
-    queryFn: () => apiClient.getProduct({ id }),
+    queryFn: async () => {
+      const targetId = getMergeTargetId(id);
+
+      if (!targetId) {
+        return apiClient.getProduct({ id });
+      }
+
+      // If it's part of a merge group, fetch all related products
+      const sourceIds = PRODUCT_MERGES[targetId] || [];
+      const allIds = [targetId, ...sourceIds];
+
+      const results = await Promise.all(
+        allIds.map(pid => apiClient.getProduct({ id: pid }))
+      );
+
+      const mainProduct = results[0].product;
+      const subProducts = results.map(r => r.product);
+
+      return {
+        product: {
+          ...mainProduct,
+          subProducts
+        } as Product
+      };
+    },
   });
 }
 
 export function useFeaturedProducts(limit = 12) {
   return useQuery({
     queryKey: productKeys.featured(limit),
-    queryFn: () => apiClient.getFeaturedProducts({ limit }),
+    queryFn: async () => {
+      const data = await apiClient.getFeaturedProducts({ limit });
+      return {
+        ...data,
+        products: data.products.filter(p => !HIDDEN_PRODUCT_IDS.includes(p.id))
+      };
+    },
     placeholderData: (prev) => prev,
   });
 }
@@ -52,7 +115,13 @@ export function useFeaturedProducts(limit = 12) {
 export function useSuspenseFeaturedProducts(limit = 12) {
   return useSuspenseQuery({
     queryKey: productKeys.featured(limit),
-    queryFn: () => apiClient.getFeaturedProducts({ limit }),
+    queryFn: async () => {
+      const data = await apiClient.getFeaturedProducts({ limit });
+      return {
+        ...data,
+        products: data.products.filter(p => !HIDDEN_PRODUCT_IDS.includes(p.id))
+      };
+    },
   });
 }
 
@@ -62,12 +131,17 @@ export function useSearchProducts(query: string, options?: {
 }) {
   return useQuery({
     queryKey: productKeys.search(query, options?.category, options?.limit),
-    queryFn: () =>
-      apiClient.searchProducts({
+    queryFn: async () => {
+      const data = await apiClient.searchProducts({
         query,
         category: options?.category,
         limit: options?.limit ?? 20,
-      }),
+      });
+      return {
+        ...data,
+        products: data.products.filter(p => !HIDDEN_PRODUCT_IDS.includes(p.id))
+      };
+    },
     enabled: query.length > 0,
   });
 }
@@ -78,12 +152,17 @@ export function useSuspenseSearchProducts(query: string, options?: {
 }) {
   return useSuspenseQuery({
     queryKey: productKeys.search(query, options?.category, options?.limit),
-    queryFn: () =>
-      apiClient.searchProducts({
+    queryFn: async () => {
+      const data = await apiClient.searchProducts({
         query,
         category: options?.category,
         limit: options?.limit ?? 20,
-      }),
+      });
+      return {
+        ...data,
+        products: data.products.filter(p => !HIDDEN_PRODUCT_IDS.includes(p.id))
+      };
+    },
   });
 }
 

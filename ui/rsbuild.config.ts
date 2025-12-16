@@ -133,7 +133,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3002,
+    port: 3001,
     printUrls: ({ urls }) => urls.filter((url) => url.includes("localhost")),
     headers: {
       "Access-Control-Allow-Origin": "*",
