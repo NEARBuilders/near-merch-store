@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 // import { COLLECTIONS } from "@/integrations/marketplace-api"; // HIDDEN: Collections feature
-import logoFull from "@/assets/logo_full.png";
+import { NearWordmark } from "@/components/near-wordmark";
 
 export function MarketplaceFooter() {
   return (
@@ -8,17 +8,18 @@ export function MarketplaceFooter() {
       <div className="max-w-[1408px] mx-auto px-4 md:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <img
-                src={logoFull}
-                alt="NEAR Store"
-                className="h-8 w-auto object-contain dark:invert"
-              />
-            </div>
+            <a
+              aria-label="NEAR.org"
+              className="block w-full max-w-[240px] mx-auto md:mx-0"
+              href="/"
+            >
+              <NearWordmark className="text-foreground" />
+            </a>
           </div>
+
           {/* HIDDEN: Collections in footer - uncomment to restore */}
           {/* <div>
-            <h4 className="font-semibold mb-4 text-black">Shop</h4>
+            <h4 className="font-semibold mb-4 text-foreground">Shop</h4>
             <div className="space-y-4 mt-4">
               {COLLECTIONS.map((c: string) => (
                 <Link
@@ -34,11 +35,11 @@ export function MarketplaceFooter() {
           </div> */}
           
           <div>
-            <h4 className="font-semibold mb-4 text-black">Shop</h4>
+            <h4 className="font-semibold mb-4 text-foreground">Shop</h4>
             <div className="space-y-4 mt-4">
               <Link
                 to="/"
-                className="block text-black/60 hover:text-[#00ec97] transition-colors text-sm"
+                className="block text-muted-foreground hover:text-primary transition-colors text-sm"
               >
                 All Products
               </Link>

@@ -20,7 +20,8 @@ import { useFavorites } from "@/hooks/use-favorites";
 // import { COLLECTIONS } from "@/integrations/marketplace-api"; // HIDDEN: Collections feature
 import { authClient } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/theme-toggle";
-import logoFull from "@/assets/logo_full.png";
+import { NearMark } from "@/components/near-mark";
+import { NearWordmark } from "@/components/near-wordmark";
 
 export function MarketplaceHeader() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,13 +59,15 @@ export function MarketplaceHeader() {
     <header className="bg-background border-b border-border sticky top-0 z-50">
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
         <div className="flex items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <img
-              src={logoFull}
-              alt="NEAR Store"
-              className="h-5 md:h-8 w-auto object-contain dark:invert"
-            />
-          </Link>
+          <a
+            href="/"
+            aria-label="NEAR"
+            className="text-xl font-bold flex flex-row items-center gap-4 relative pl-[26px] pr-6 py-4 shrink-0 grow-0 text-foreground"
+          >
+            <NearMark className="max-w-[28px]" />
+            <span aria-hidden="true" className="h-6 w-px bg-border/60" />
+            <NearWordmark className="max-w-[70px]" />
+          </a>
 
           {/* HIDDEN: Collections navigation - uncomment to restore */}
           {/* <nav className="hidden md:flex items-center gap-6">
