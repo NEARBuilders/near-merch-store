@@ -1,5 +1,6 @@
 import { createPlugin } from 'every-plugin';
 import { Effect, Layer } from 'every-plugin/effect';
+import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import { contract } from './contract';
 import { createMarketplaceRuntime } from './runtime';
@@ -27,6 +28,10 @@ export default createPlugin({
     PRINTFUL_WEBHOOK_SECRET: z.string().optional(),
     DATABASE_URL: z.string().default('file:./marketplace.db'),
     DATABASE_AUTH_TOKEN: z.string().optional(),
+  }),
+
+  context: z.object({
+    nearAccountId: z.string().optional(),
   }),
 
   contract,
@@ -89,7 +94,21 @@ export default createPlugin({
   createRouter: (context, builder) => {
     const { stripeService, runtime, appLayer, orderLayer, secrets } = context;
 
-    const orderToSchema = (order: any) => ({
+    const requireAuth = builder.middleware(async ({ context, next }) => {
+      if (!context.nearAccountId) {
+        throw new ORPCError('UNAUTHORIZED', {
+          message: 'Authentication required',
+          data: { authType: 'nearAccountId' }
+        });
+      }
+      return next({
+        context: {
+          nearAccountId: context.nearAccountId,
+        }
+      });
+    });
+
+    const orderToSchema = (order) => ({
       id: order.id,
       userId: order.userId,
       productId: order.items[0]?.productId || '',
@@ -189,121 +208,123 @@ export default createPlugin({
         );
       }),
 
-      createCheckout: builder.createCheckout.handler(async ({ input, context }) => {
-        if (!context?.nearAccountId) {
-          throw new Error('NEAR account required for checkout');
-        }
+      createCheckout: builder.createCheckout
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          if (!stripeService) {
+            throw new Error('Stripe is not configured');
+          }
 
-        if (!stripeService) {
-          throw new Error('Stripe is not configured');
-        }
+          if (!input.items || input.items.length === 0) {
+            throw new Error('At least one item is required');
+          }
 
-        if (!input.items || input.items.length === 0) {
-          throw new Error('At least one item is required');
-        }
+          const firstItem = input.items[0]!;
+          const productResult = await Effect.runPromise(
+            Effect.gen(function* () {
+              const service = yield* ProductService;
+              return yield* service.getProduct(firstItem.productId);
+            }).pipe(Effect.provide(appLayer))
+          );
+          const product = productResult.product;
 
-        const firstItem = input.items[0]!;
-        const productResult = await Effect.runPromise(
-          Effect.gen(function* () {
-            const service = yield* ProductService;
-            return yield* service.getProduct(firstItem.productId);
-          }).pipe(Effect.provide(appLayer))
-        );
-        const product = productResult.product;
+          const selectedVariant = firstItem.variantId
+            ? product.variants.find(v => v.id === firstItem.variantId)
+            : product.variants[0];
 
-        const selectedVariant = firstItem.variantId
-          ? product.variants.find(v => v.id === firstItem.variantId)
-          : product.variants[0];
+          const unitPrice = selectedVariant?.price ?? product.price;
+          const currency = selectedVariant?.currency ?? product.currency ?? 'USD';
 
-        const unitPrice = selectedVariant?.price ?? product.price;
-        const currency = selectedVariant?.currency ?? product.currency ?? 'USD';
+          const userId = context.nearAccountId;
+          const totalAmount = unitPrice * firstItem.quantity;
 
-        const userId = context.nearAccountId;
-        const totalAmount = unitPrice * firstItem.quantity;
+          const order = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.create({
+                userId,
+                items: [{
+                  productId: product.id,
+                  variantId: selectedVariant?.id,
+                  productName: product.title,
+                  variantName: selectedVariant?.title,
+                  quantity: firstItem.quantity,
+                  unitPrice,
+                  fulfillmentProvider: product.fulfillmentProvider,
+                  fulfillmentConfig: selectedVariant?.fulfillmentConfig,
+                }],
+                totalAmount,
+                currency,
+              });
+            }).pipe(Effect.provide(orderLayer))
+          );
 
-        const order = await Effect.runPromise(
-          Effect.gen(function* () {
-            const store = yield* OrderStore;
-            return yield* store.create({
-              userId,
-              items: [{
-                productId: product.id,
-                variantId: selectedVariant?.id,
-                productName: product.title,
-                variantName: selectedVariant?.title,
-                quantity: firstItem.quantity,
-                unitPrice,
-                fulfillmentProvider: product.fulfillmentProvider,
-                fulfillmentConfig: selectedVariant?.fulfillmentConfig,
-              }],
-              totalAmount,
+          const checkout = await Effect.runPromise(
+            stripeService.createCheckoutSession({
+              orderId: order.id,
+              productName: product.title,
+              productDescription: product.description,
+              productImage: product.images[0]?.url,
+              unitAmount: Math.round(unitPrice * 100),
               currency,
-            });
-          }).pipe(Effect.provide(orderLayer))
-        );
+              quantity: firstItem.quantity,
+              successUrl: input.successUrl,
+              cancelUrl: input.cancelUrl,
+            })
+          );
 
-        const checkout = await Effect.runPromise(
-          stripeService.createCheckoutSession({
+          await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.updateCheckout(order.id, checkout.sessionId, 'stripe');
+            }).pipe(Effect.provide(orderLayer))
+          );
+
+          return {
+            checkoutSessionId: checkout.sessionId,
+            checkoutUrl: checkout.url,
             orderId: order.id,
-            productName: product.title,
-            productDescription: product.description,
-            productImage: product.images[0]?.url,
-            unitAmount: Math.round(unitPrice * 100),
-            currency,
-            quantity: firstItem.quantity,
-            successUrl: input.successUrl,
-            cancelUrl: input.cancelUrl,
-          })
-        );
+          };
+        }),
 
-        await Effect.runPromise(
-          Effect.gen(function* () {
-            const store = yield* OrderStore;
-            return yield* store.updateCheckout(order.id, checkout.sessionId, 'stripe');
-          }).pipe(Effect.provide(orderLayer))
-        );
+      getOrders: builder.getOrders
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const result = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.findByUser(context.nearAccountId!, input);
+            }).pipe(Effect.provide(orderLayer))
+          );
 
-        return {
-          checkoutSessionId: checkout.sessionId,
-          checkoutUrl: checkout.url,
-          orderId: order.id,
-        };
-      }),
+          return {
+            orders: result.orders.map(orderToSchema),
+            total: result.total,
+          };
+        }),
 
-      getOrders: builder.getOrders.handler(async ({ input }) => {
-        const userId = 'demo-user';
-        const result = await Effect.runPromise(
-          Effect.gen(function* () {
-            const store = yield* OrderStore;
-            return yield* store.findByUser(userId, input);
-          }).pipe(Effect.provide(orderLayer))
-        );
+      getOrder: builder.getOrder
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const order = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.find(input.id);
+            }).pipe(Effect.provide(orderLayer))
+          );
 
-        return {
-          orders: result.orders.map(orderToSchema),
-          total: result.total,
-        };
-      }),
+          if (!order) {
+            throw new Error('Order not found');
+          }
 
-      getOrder: builder.getOrder.handler(async ({ input }) => {
-        const userId = 'demo-user';
-        const order = await Effect.runPromise(
-          Effect.gen(function* () {
-            const store = yield* OrderStore;
-            return yield* store.find(input.id);
-          }).pipe(Effect.provide(orderLayer))
-        );
+          if (order.userId !== context.nearAccountId) {
+            throw new ORPCError('FORBIDDEN', {
+              message: 'You do not have permission to access this order'
+            });
+          }
 
-        if (!order) {
-          throw new Error('Order not found');
-        }
-
-        if (order.userId !== userId) {
-          throw new Error('Unauthorized');
-        }
-
-        return { order: orderToSchema(order) };
-      }),
+          return { order: orderToSchema(order) };
+        }),
 
       getOrderByCheckoutSession: builder.getOrderByCheckoutSession.handler(async ({ input }) => {
         const order = await Effect.runPromise(
@@ -540,7 +561,7 @@ export default createPlugin({
               newStatus = 'shipped';
               const shipments = orderData.shipments || [orderData.shipment];
               if (shipments && shipments.length > 0) {
-                newTracking = shipments.map((s: any) => ({
+                newTracking = shipments.map((s) => ({
                   trackingCode: s.trackingCode || s.tracking_code || '',
                   trackingUrl: s.trackingUrl || s.tracking_url || '',
                   shipmentMethodName: s.shipmentMethodName || s.method || 'Standard',
