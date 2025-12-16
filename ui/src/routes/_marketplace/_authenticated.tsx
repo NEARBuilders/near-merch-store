@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_marketplace/_authenticated")({
       throw redirect({
         to: "/login",
         search: {
-          redirectUrl: location.pathname,
+          redirect: location.pathname,
         },
       });
     }
