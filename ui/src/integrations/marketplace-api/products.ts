@@ -1,4 +1,4 @@
-import { useQuery, useSuspenseQuery, useQueries } from '@tanstack/react-query';
+import { useQuery, useSuspenseQuery, useQueries, useMutation } from '@tanstack/react-query';
 import { apiClient, queryClient } from '@/utils/orpc';
 import { productKeys, type ProductCategory } from './keys';
 
@@ -8,18 +8,21 @@ export function useProducts(options?: {
   category?: ProductCategory;
   limit?: number;
   offset?: number;
+  includeUnlisted?: boolean;
 }) {
   return useQuery({
     queryKey: productKeys.list({
       category: options?.category,
       limit: options?.limit,
       offset: options?.offset,
+      includeUnlisted: options?.includeUnlisted,
     }),
     queryFn: () =>
       apiClient.getProducts({
         category: options?.category,
         limit: options?.limit ?? 50,
         offset: options?.offset ?? 0,
+        includeUnlisted: options?.includeUnlisted,
       }),
     placeholderData: (prev) => prev,
   });
@@ -153,3 +156,72 @@ export const productLoaders = {
     await queryClient.prefetchQuery(productLoaders.search(query, options));
   },
 };
+
+// Admin functions for sync and listing management
+export function useSyncStatus() {
+  return useQuery({
+    queryKey: productKeys.syncStatus(),
+    queryFn: () => apiClient.getSyncStatus(),
+    refetchInterval: (query) => {
+      // Poll every 2 seconds while syncing
+      if (query.state.data?.status === 'running') {
+        return 2000;
+      }
+      return false;
+    },
+  });
+}
+
+export function useSyncProducts() {
+  return useMutation({
+    mutationFn: () => apiClient.sync(),
+    onSuccess: () => {
+      // Invalidate sync status to trigger refetch
+      queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
+      // Invalidate product lists to show new products
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+  });
+}
+
+export function useUpdateProductListing() {
+  return useMutation({
+    mutationFn: ({ id, listed }: { id: string; listed: boolean }) =>
+      apiClient.updateProductListing({ id, listed }),
+    onMutate: async ({ id, listed }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: productKeys.all });
+
+      // Snapshot previous value
+      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+
+      // Optimistically update all product lists
+      queryClient.setQueriesData(
+        { queryKey: productKeys.lists() },
+        (old: { products: Product[]; total: number } | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            products: old.products.map((p) =>
+              p.id === id ? { ...p, listed } : p
+            ),
+          };
+        }
+      );
+
+      return { previousProducts };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      // Refetch to ensure sync with server
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+  });
+}

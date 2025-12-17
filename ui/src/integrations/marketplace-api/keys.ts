@@ -3,13 +3,14 @@ export type ProductCategory = 'Men' | 'Women' | 'Accessories' | 'Exclusives';
 export const productKeys = {
   all: ['products'] as const,
   lists: () => [...productKeys.all, 'list'] as const,
-  list: (filters: { category?: ProductCategory; limit?: number; offset?: number }) =>
+  list: (filters: { category?: ProductCategory; limit?: number; offset?: number; includeUnlisted?: boolean }) =>
     [...productKeys.lists(), filters] as const,
   details: () => [...productKeys.all, 'detail'] as const,
   detail: (id: string) => [...productKeys.details(), id] as const,
   featured: (limit?: number) => [...productKeys.all, 'featured', { limit }] as const,
   search: (query: string, category?: ProductCategory, limit?: number) =>
     [...productKeys.all, 'search', { query, category, limit }] as const,
+  syncStatus: () => [...productKeys.all, 'syncStatus'] as const,
 };
 
 export const collectionKeys = {

@@ -17,6 +17,7 @@ export const products = sqliteTable('products', {
   externalProductId: text('external_product_id'),
   source: text('source').notNull(),
   lastSyncedAt: integer('last_synced_at', { mode: 'timestamp' }),
+  listed: integer('listed', { mode: 'boolean' }).notNull().default(true),
 
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
@@ -25,6 +26,7 @@ export const products = sqliteTable('products', {
   index('source_idx').on(table.source),
   index('external_product_idx').on(table.externalProductId),
   index('fulfillment_provider_idx').on(table.fulfillmentProvider),
+  index('listed_idx').on(table.listed),
 ]));
 
 export const productImages = sqliteTable('product_images', {

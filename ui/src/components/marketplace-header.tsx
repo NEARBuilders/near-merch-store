@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Search, Heart, ShoppingCart, User, Menu, X, LogIn } from "lucide-react";
+import { Search, Heart, ShoppingCart, User, Menu, X, LogIn, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -130,11 +130,20 @@ export function MarketplaceHeader() {
                 <User className="h-5 w-5" />
               </Button>
             ) : session ? (
-              <Link to="/account">
-                <Button variant="ghost" size="icon">
-                  <User className="h-5 w-5" />
-                </Button>
-              </Link>
+              <>
+                {(session.user as { role?: string })?.role === "admin" && (
+                  <Link to="/admin">
+                    <Button variant="ghost" size="icon" className="text-[#00ec97]" title="Admin Dashboard">
+                      <Shield className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                )}
+                <Link to="/account">
+                  <Button variant="ghost" size="icon">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </Link>
+              </>
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

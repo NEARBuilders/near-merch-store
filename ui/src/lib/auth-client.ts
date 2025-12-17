@@ -1,4 +1,5 @@
 import { createAuthClient } from "better-auth/react";
+import { adminClient } from "better-auth/client/plugins";
 import { siwnClient } from "better-near-auth/client";
 
 export const authClient = createAuthClient({
@@ -8,5 +9,6 @@ export const authClient = createAuthClient({
       domain: "marketplace-demo.near",
       networkId: "mainnet",
     }),
+    adminClient(),
   ],
 });

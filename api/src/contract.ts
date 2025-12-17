@@ -39,6 +39,7 @@ export const contract = oc.router({
         category: ProductCategorySchema.optional(),
         limit: z.number().int().positive().max(100).default(50),
         offset: z.number().int().min(0).default(0),
+        includeUnlisted: z.boolean().optional(),
       })
     )
     .output(
@@ -260,6 +261,27 @@ export const contract = oc.router({
         lastSuccessAt: z.number().nullable(),
         lastErrorAt: z.number().nullable(),
         errorMessage: z.string().nullable(),
+      })
+    ),
+
+  updateProductListing: oc
+    .route({
+      method: 'POST',
+      path: '/products/{id}/listing',
+      summary: 'Update product listing status',
+      description: 'Updates whether a product is listed (visible) in the store.',
+      tags: ['Products'],
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        listed: z.boolean(),
+      })
+    )
+    .output(
+      z.object({
+        success: z.boolean(),
+        product: ProductSchema.optional(),
       })
     ),
 });

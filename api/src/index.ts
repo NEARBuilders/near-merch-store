@@ -189,6 +189,15 @@ export default createPlugin({
         );
       }),
 
+      updateProductListing: builder.updateProductListing.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateProductListing(input.id, input.listed);
+          }).pipe(Effect.provide(appLayer))
+        );
+      }),
+
       createCheckout: builder.createCheckout.handler(async ({ input }) => {
         if (!stripeService) {
           throw new Error('Stripe is not configured');

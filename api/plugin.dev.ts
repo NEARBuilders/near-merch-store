@@ -1,10 +1,7 @@
-import type { PluginConfigInput } from "every-plugin";
-import type Plugin from "./src/index";
-import packageJson from "./package.json" with { type: "json" };
 import "dotenv/config";
 
 export default {
-  pluginId: packageJson.name,
+  pluginId: "marketplace-api",
   port: 3014,
   config: {
     variables: {
@@ -21,5 +18,5 @@ export default {
       DATABASE_URL: process.env.DATABASE_URL,
       DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN,
     },
-  } satisfies PluginConfigInput<typeof Plugin>,
+  },
 };
