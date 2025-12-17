@@ -7,7 +7,9 @@
     "ui"
   ],
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "bun run sync:prod && turbo dev",
+    "dev:no-sync": "turbo dev",
+    "sync:prod": "bun run scripts/sync-production-db.ts",
     "dev:ui": "USE_REMOTE_API=true turbo dev --filter=host --filter=marketplace_ui",
     "dev:api": "USE_REMOTE_UI=true turbo dev --filter=host --filter=marketplace-api",
     "start": "turbo preview --filter=host",
@@ -22,7 +24,10 @@
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "dotenv": "^16.4.5"
+  },
   "devDependencies": {
     "turbo": "^2.6.3"
   },
