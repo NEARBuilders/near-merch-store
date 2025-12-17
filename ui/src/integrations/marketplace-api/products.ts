@@ -3,16 +3,7 @@ import { apiClient, queryClient } from '@/utils/orpc';
 import { productKeys, type ProductCategory } from './keys';
 import { HIDDEN_PRODUCT_IDS, PRODUCT_MERGES, getMergeTargetId } from './merges';
 
-export type ProductImage = {
-  url: string;
-  type: 'preview' | 'detail';
-  variantIds: string[];
-};
-
-export type Product = Omit<Awaited<ReturnType<typeof apiClient.getProduct>>['product'], 'images'> & {
-  subProducts?: Product[];
-  images: ProductImage[];
-};
+export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'];
 
 export function useProducts(options?: {
   category?: ProductCategory;
@@ -48,10 +39,13 @@ export function useProduct(id: string) {
       const targetId = getMergeTargetId(id);
 
       if (!targetId) {
-        return apiClient.getProduct({ id });
+        const data = await apiClient.getProduct({ id });
+        return {
+          product: data.product,
+          mergedProducts: undefined
+        };
       }
 
-      // If it's part of a merge group, fetch all related products
       const sourceIds = PRODUCT_MERGES[targetId] || [];
       const allIds = [targetId, ...sourceIds];
 
@@ -59,14 +53,9 @@ export function useProduct(id: string) {
         allIds.map(pid => apiClient.getProduct({ id: pid }))
       );
 
-      const mainProduct = results[0].product;
-      const subProducts = results.map(r => r.product);
-
       return {
-        product: {
-          ...mainProduct,
-          subProducts
-        } as Product
+        product: results[0].product,
+        mergedProducts: results.map(r => r.product)
       };
     },
     enabled: !!id,
@@ -81,10 +70,13 @@ export function useSuspenseProduct(id: string) {
       const targetId = getMergeTargetId(id);
 
       if (!targetId) {
-        return apiClient.getProduct({ id });
+        const data = await apiClient.getProduct({ id });
+        return {
+          product: data.product,
+          mergedProducts: undefined
+        };
       }
 
-      // If it's part of a merge group, fetch all related products
       const sourceIds = PRODUCT_MERGES[targetId] || [];
       const allIds = [targetId, ...sourceIds];
 
@@ -92,14 +84,9 @@ export function useSuspenseProduct(id: string) {
         allIds.map(pid => apiClient.getProduct({ id: pid }))
       );
 
-      const mainProduct = results[0].product;
-      const subProducts = results.map(r => r.product);
-
       return {
-        product: {
-          ...mainProduct,
-          subProducts
-        } as Product
+        product: results[0].product,
+        mergedProducts: results.map(r => r.product)
       };
     },
   });

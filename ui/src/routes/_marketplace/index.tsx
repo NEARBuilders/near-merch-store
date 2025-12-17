@@ -15,8 +15,8 @@ import {
 import { queryClient } from "@/utils/orpc";
 import {
   createFileRoute,
-    /* Link, */
-} from "@tanstack/react-router"; // HIDDEN: Link for collections
+  Link,
+} from "@tanstack/react-router";
 import {
   // ArrowRight, // HIDDEN: Collections feature
   ChevronLeft,
@@ -220,8 +220,9 @@ function MarketplaceHome() {
                     {slide.description}
                   </p>
 
-                  <button
-                    className={`bg-white text-black px-6 md:px-8 py-3 md:py-4 text-sm md:text-base font-semibold hover:bg-white/90 transition-all duration-700 ease-out ${
+                  <Link
+                    to="/products"
+                    className={`inline-block bg-white text-black px-6 md:px-8 py-3 md:py-4 text-sm md:text-base font-semibold hover:bg-white/90 transition-all duration-700 ease-out ${
                       !isAnimating
                         ? "translate-y-0 opacity-100"
                         : "translate-y-full opacity-0"
@@ -232,7 +233,7 @@ function MarketplaceHome() {
                     }}
                   >
                     {slide.buttonText}
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>

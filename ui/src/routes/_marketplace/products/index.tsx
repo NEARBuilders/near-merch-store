@@ -83,7 +83,7 @@ function ProductsIndexPage() {
             </div>
 
             {/* Category Filter */}
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* <div className="flex items-center gap-2 flex-wrap">
               <Filter className="size-4 text-muted-foreground" />
               <Button
                 variant={selectedCategory === 'all' ? 'default' : 'outline'}
@@ -102,7 +102,7 @@ function ProductsIndexPage() {
                   {category}
                 </Button>
               ))}
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
@@ -135,16 +135,16 @@ function ProductsIndexPage() {
                   No Products Found
                 </h3>
                 <p className="text-sm max-w-md">
-                  {selectedCategory === 'all' 
+                  {selectedCategory === "all"
                     ? "There are currently no products available in the marketplace."
                     : `No products found in the ${selectedCategory} category.`}
                   {isError && " The API may be temporarily unavailable."}
                 </p>
               </div>
-              {selectedCategory !== 'all' && (
+              {selectedCategory !== "all" && (
                 <Button
                   variant="outline"
-                  onClick={() => setSelectedCategory('all')}
+                  onClick={() => setSelectedCategory("all")}
                   className="mt-4"
                 >
                   View All Products
@@ -154,8 +154,9 @@ function ProductsIndexPage() {
           ) : (
             <>
               <div className="mb-6 text-sm text-muted-foreground">
-                Showing {products.length} {products.length === 1 ? 'product' : 'products'}
-                {selectedCategory !== 'all' && ` in ${selectedCategory}`}
+                Showing {products.length}{" "}
+                {products.length === 1 ? "product" : "products"}
+                {selectedCategory !== "all" && ` in ${selectedCategory}`}
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {products.map((product) => (
