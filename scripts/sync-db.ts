@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 /**
- * Sync Production Database to Development
+ * Sync Database
  *
- * This script fetches all products from the production API and syncs them
- * to the development database (Turso or local SQLite) for development purposes.
+ * This script fetches all products from the live API and syncs them
+ * to the local database (Turso or local SQLite) for development purposes.
  *
- * Usage: bun run scripts/sync-production-db.ts
+ * Usage: bun run db:sync
  *
  * Environment variables:
  *   DATABASE_URL - The database URL (libsql:// for Turso, file: for local SQLite)
@@ -19,7 +19,7 @@ import path from "path";
 // Load env from host directory
 config({ path: path.join(import.meta.dir, "../host/.env") });
 
-const PRODUCTION_API_URL = "https://near.everything.market/api/products";
+const API_URL = "https://near.everything.market/api/products";
 
 function getDatabaseClient(): Client {
   const url = process.env.DATABASE_URL;
@@ -91,17 +91,17 @@ interface ProductsResponse {
   total: number;
 }
 
-async function fetchProductsFromProduction(): Promise<Product[]> {
-  console.log("📡 Fetching products from production API...");
+async function fetchProducts(): Promise<Product[]> {
+  console.log("📡 Fetching products from API...");
 
-  const response = await fetch(PRODUCTION_API_URL);
+  const response = await fetch(API_URL);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
   }
 
   const data: ProductsResponse = await response.json();
-  console.log(`✅ Fetched ${data.products.length} products from production`);
+  console.log(`✅ Fetched ${data.products.length} products`);
 
   return data.products;
 }
@@ -197,7 +197,7 @@ async function syncProducts(db: Client, products: Product[]): Promise<void> {
         product.thumbnailImage || null,
         product.fulfillmentProvider || "manual",
         product.externalProductId || null,
-        product.source || "production-sync",
+        product.source || "sync",
         now,
         now,
         now,
@@ -257,14 +257,14 @@ async function syncProducts(db: Client, products: Product[]): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  console.log("🔄 Starting production database sync...\n");
+  console.log("🔄 Starting database sync...\n");
 
   try {
-    // Fetch products from production
-    const products = await fetchProductsFromProduction();
+    // Fetch products from API
+    const products = await fetchProducts();
 
     if (products.length === 0) {
-      console.log("⚠️  No products found in production. Skipping sync.");
+      console.log("⚠️  No products found. Skipping sync.");
       return;
     }
 
