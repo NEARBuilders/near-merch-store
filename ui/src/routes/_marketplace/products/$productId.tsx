@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { queryClient } from "@/utils/orpc";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { ProductCard } from "@/components/marketplace/product-card";
 import { AlertCircle, ArrowLeft, Minus, Plus } from "lucide-react";
 import { useState } from "react";
 
@@ -452,48 +453,11 @@ function ProductDetailPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {relatedProducts.map((relatedProduct) => (
-                <Link
+                <ProductCard
                   key={relatedProduct.id}
-                  to="/products/$productId"
-                  params={{ productId: relatedProduct.id }}
-                  className="border border-border overflow-hidden group"
-                >
-                  <div className="bg-[#ececf0] aspect-square overflow-hidden relative">
-                    <img
-                      src={relatedProduct.images?.[0]?.url}
-                      alt={relatedProduct.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          addToCart(relatedProduct.id);
-                        }}
-                        className="bg-primary text-primary-foreground px-4 py-2 text-sm tracking-[-0.48px] flex items-center gap-2"
-                      >
-                        <Plus className="size-4" />
-                        QUICK ADD
-                      </button>
-                    </div>
-                  </div>
-                  <div className="p-4 border-t border-border">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <p className="text-[#717182] text-xs uppercase tracking-wider">
-                          {relatedProduct.category}
-                        </p>
-                        <h3 className="text-sm tracking-[-0.48px]">
-                          {relatedProduct.title}
-                        </h3>
-                      </div>
-                      <span className="tracking-[-0.48px]">
-                        ${relatedProduct.price}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+                  product={relatedProduct}
+                  variant="sm"
+                />
               ))}
             </div>
           </div>

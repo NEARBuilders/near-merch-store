@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
+import { ProductCard } from "@/components/marketplace/product-card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   type Product,
@@ -61,26 +62,13 @@ export function SizeSelectionModal({
           </button>
         </div>
         <div className="px-6 py-6">
-          <div className="flex gap-4 mb-6">
-            <div className="bg-[#ececf0] rounded size-20 shrink-0 overflow-hidden">
-              <img
-                src={product.images[0]?.url}
-                alt={product.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-[16px] tracking-[-0.48px] mb-1">
-                {product.title}
-              </h3>
-              <p className="text-[#717182] text-[14px] tracking-[-0.48px] mb-2">
-                {product.category}
-              </p>
-              <p className="text-[16px] tracking-[-0.48px]">
-                ${product.price.toFixed(2)}
-              </p>
-            </div>
-          </div>
+          <ProductCard
+            product={product}
+            variant="horizontal"
+            hideActions
+            hideFavorite
+            className="mb-6 p-0 shadow-none hover:shadow-none bg-transparent"
+          />
           <div className="mb-6">
             <label className="block text-[14px] tracking-[-0.48px] mb-3">
               Size

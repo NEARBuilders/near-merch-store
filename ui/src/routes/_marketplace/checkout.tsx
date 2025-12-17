@@ -1,5 +1,6 @@
 import { useCart } from '@/hooks/use-cart';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { ProductCard } from '@/components/marketplace/product-card';
 import { ChevronLeft, CreditCard } from 'lucide-react';
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -77,25 +78,25 @@ function CheckoutPage() {
 
               <div className="space-y-4">
                 {cartItems.map((item) => (
-                  <div key={item.productId} className="flex gap-4">
-                    <div className="size-20 bg-[#ececf0] border border-[rgba(0,0,0,0.1)] flex-shrink-0 overflow-hidden">
-                      <img
-                        src={item.product.images[0].url}
-                        alt={item.product.title}
-                        className="size-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-base mb-1">{item.product.title}</p>
-                      <p className="text-sm text-[#717182]">
-                        {item.size !== "N/A" && `Size: ${item.size} • `}Qty:{" "}
-                        {item.quantity}
-                      </p>
-                    </div>
-                    <div className="text-base text-right">
-                      ${(item.product.price * item.quantity).toFixed(2)}
-                    </div>
-                  </div>
+                  <ProductCard
+                    key={item.productId}
+                    product={item.product}
+                    variant="horizontal"
+                    hideFavorite
+                    hideActions
+                    hidePrice
+                    className="p-0 border-none shadow-none gap-4 bg-transparent"
+                    actionSlot={
+                      <div className="text-base text-right">
+                        ${(item.product.price * item.quantity).toFixed(2)}
+                      </div>
+                    }
+                  >
+                    <p className="text-sm text-[#717182]">
+                      {item.size !== "N/A" && `Size: ${item.size} • `}Qty:{" "}
+                      {item.quantity}
+                    </p>
+                  </ProductCard>
                 ))}
               </div>
             </div>

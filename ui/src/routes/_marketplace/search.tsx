@@ -1,16 +1,13 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { Heart, Plus } from 'lucide-react';
 
-import { useCart } from '@/hooks/use-cart';
-import { useFavorites } from '@/hooks/use-favorites';
 import { cn } from '@/lib/utils';
+import { ProductCard } from '@/components/marketplace/product-card';
 import {
   useSearchProducts,
   useProducts,
   productLoaders,
   COLLECTIONS,
-  type Product,
   type ProductCategory,
 } from '@/integrations/marketplace-api';
 import { queryClient } from '@/utils/orpc';
@@ -36,9 +33,6 @@ type SortOption = (typeof SORT_OPTIONS)[number];
 
 function SearchPage() {
   const { q, category } = Route.useSearch();
-  const { addToCart } = useCart();
-  const { favoriteIds, toggleFavorite } = useFavorites();
-
   const [activeFilter, setActiveFilter] = useState<string>(category || 'All');
   const [sortBy, setSortBy] = useState<SortOption>('Featured');
 
@@ -110,12 +104,9 @@ function SearchPage() {
         {sortedProducts.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {sortedProducts.map((product) => (
-              <SearchProductCard
+              <ProductCard
                 key={product.id}
                 product={product}
-                isFavorite={favoriteIds.includes(product.id)}
-                onToggleFavorite={toggleFavorite}
-                onAddToCart={addToCart}
               />
             ))}
           </div>
@@ -131,83 +122,3 @@ function SearchPage() {
   );
 }
 
-interface SearchProductCardProps {
-  product: Product;
-  isFavorite: boolean;
-  onToggleFavorite: (id: string, name: string) => void;
-  onAddToCart: (id: string) => void;
-}
-
-function SearchProductCard({
-  product,
-  isFavorite,
-  onToggleFavorite,
-  onAddToCart,
-}: SearchProductCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  return (
-    <div
-      className="group bg-card border border-border overflow-hidden cursor-pointer"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <Link
-        to="/products/$productId"
-        params={{ productId: product.id }}
-        className="block"
-      >
-        <div className="relative bg-[#ececf0] aspect-square overflow-hidden">
-          <img
-            src={product.images[0]?.url}
-            alt={product.title}
-            className="w-full h-full object-cover"
-          />
-
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleFavorite(product.id, product.title);
-            }}
-            className="absolute top-2 right-2 p-2 bg-background/80 backdrop-blur-sm hover:bg-background transition-all z-10"
-            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Heart
-              className={cn('size-4', isFavorite ? 'fill-black stroke-black' : 'stroke-black')}
-            />
-          </button>
-
-          <div
-            className={cn(
-              'absolute bottom-0 left-0 right-0 flex items-center justify-center p-6 transition-opacity duration-300',
-              isHovered ? 'opacity-100' : 'opacity-0'
-            )}
-          >
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onAddToCart(product.id);
-              }}
-              className="bg-primary text-primary-foreground px-6 py-2 flex items-center gap-2 hover:bg-primary/90 transition-colors tracking-[-0.48px] text-sm"
-            >
-              <Plus className="size-4" />
-              QUICK ADD
-            </button>
-          </div>
-        </div>
-
-        <div className="p-4">
-          <p className="text-xs text-[#717182] uppercase tracking-wider mb-1">
-            {product.category}
-          </p>
-          <h3 className="text-foreground mb-2 line-clamp-2 tracking-[-0.48px] text-sm">
-            {product.title}
-          </h3>
-          <p className="text-foreground tracking-[-0.48px]">${product.price}</p>
-        </div>
-      </Link>
-    </div>
-  );
-}
