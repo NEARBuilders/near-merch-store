@@ -1,13 +1,12 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
-import { ArrowLeft, Heart, Plus, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/loading';
 import { SizeSelectionModal } from '@/components/marketplace/size-selection-modal';
 import { CartSidebar } from '@/components/marketplace/cart-sidebar';
+import { ProductCard } from '@/components/marketplace/product-card';
 import { useCart } from '@/hooks/use-cart';
-import { useFavorites } from '@/hooks/use-favorites';
-import { cn } from '@/lib/utils';
 import {
   useSuspenseCollection,
   collectionLoaders,
@@ -54,7 +53,6 @@ export const Route = createFileRoute('/_marketplace/collections/$collection')({
 function CollectionDetailPage() {
   const { collection: collectionSlug } = Route.useParams();
   const { addToCart } = useCart();
-  const { favoriteIds, toggleFavorite } = useFavorites();
   const [sizeModalProduct, setSizeModalProduct] = useState<Product | null>(null);
   const [isCartSidebarOpen, setIsCartSidebarOpen] = useState(false);
 
@@ -113,7 +111,7 @@ function CollectionDetailPage() {
           <div className="border-l border-[rgba(0,0,0,0.1)] p-8 md:p-16 flex flex-col justify-center">
             <div className="space-y-8">
               <h1 className="text-2xl font-medium tracking-[-0.48px]">{collection.name}</h1>
-              
+
               <p className="text-[#717182] text-lg leading-7 tracking-[-0.48px]">
                 {collection.description || ''}
               </p>
@@ -157,12 +155,11 @@ function CollectionDetailPage() {
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {products.map((product) => (
-              <CollectionProductCard
+              <ProductCard
                 key={product.id}
                 product={product}
-                isFavorite={favoriteIds.includes(product.id)}
-                onToggleFavorite={toggleFavorite}
-                onAddToCart={handleAddToCart}
+                onQuickAdd={handleAddToCart}
+                variant="lg"
               />
             ))}
           </div>
@@ -197,83 +194,6 @@ function CollectionDetailPage() {
         isOpen={isCartSidebarOpen}
         onClose={() => setIsCartSidebarOpen(false)}
       />
-    </div>
-  );
-}
-
-interface CollectionProductCardProps {
-  product: Product;
-  isFavorite: boolean;
-  onToggleFavorite: (id: string, name: string) => void;
-  onAddToCart: (product: Product) => void;
-}
-
-function CollectionProductCard({
-  product,
-  isFavorite,
-  onToggleFavorite,
-  onAddToCart,
-}: CollectionProductCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  return (
-    <div
-      className="group bg-card border border-border overflow-hidden cursor-pointer"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <Link
-        to="/products/$productId"
-        params={{ productId: product.id }}
-        className="block"
-      >
-        <div className="relative bg-muted aspect-square overflow-hidden">
-          <img src={product.images[0]?.url} alt={product.title} className="w-full h-full object-cover" />
-
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleFavorite(product.id, product.title);
-            }}
-            className="absolute top-3 right-3 p-2 bg-background/80 backdrop-blur-sm hover:bg-background transition-all z-10"
-            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Heart
-              className={cn('size-4', isFavorite ? 'fill-primary stroke-primary' : 'stroke-foreground')}
-            />
-          </button>
-
-          <div
-            className={cn(
-              'absolute bottom-0 left-0 right-0 flex items-center justify-center p-6 transition-opacity duration-300',
-              isHovered ? 'opacity-100' : 'opacity-0'
-            )}
-          >
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onAddToCart(product);
-              }}
-              className="bg-primary text-primary-foreground px-6 py-2 flex items-center gap-2 hover:bg-primary/90 transition-colors tracking-[-0.48px] text-sm"
-            >
-              <Plus className="size-4" />
-              QUICK ADD
-            </button>
-          </div>
-        </div>
-
-        <div className="p-4">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-            {product.category}
-          </p>
-          <h3 className="text-foreground mb-2 line-clamp-2 tracking-[-0.48px] text-sm">
-            {product.title}
-          </h3>
-          <p className="text-foreground tracking-[-0.48px]">${product.price}</p>
-        </div>
-      </Link>
     </div>
   );
 }

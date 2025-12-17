@@ -188,7 +188,7 @@ function OrderConfirmationPage() {
             </>
           )}
 
-          <div className="flex gap-4">
+          {/* <div className="flex gap-4">
             <div className="size-10 bg-[#ececf0] rounded-full flex items-center justify-center flex-shrink-0">
               <Mail className="size-5 text-[#717182]" />
             </div>
@@ -198,7 +198,7 @@ function OrderConfirmationPage() {
                 We've sent a confirmation email to <span className="font-semibold text-neutral-950">{displayEmail}</span> with your order details and tracking information.
               </p>
             </div>
-          </div>
+          </div> */}
 
           <div className="h-px bg-[rgba(0,0,0,0.1)]" />
 
@@ -245,8 +245,8 @@ function OrderConfirmationPage() {
 
         <p className="text-sm text-[#717182] text-center mt-8">
           Need help with your order? Contact us at{' '}
-          <a href="mailto:support@near.org" className="underline hover:text-neutral-950 transition-colors">
-            support@near.org
+          <a href="mailto:merch@near.foundation" className="underline hover:text-neutral-950 transition-colors">
+            merch@near.foundation
           </a>
         </p>
       </div>

@@ -1,7 +1,14 @@
 import { useCart } from '@/hooks/use-cart';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { ProductCard } from '@/components/marketplace/product-card';
 import { ChevronLeft, CreditCard } from 'lucide-react';
 import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { apiClient } from '@/utils/orpc';
+import { toast } from 'sonner';
+import { authClient } from '@/lib/auth-client';
+import { Checkbox } from '@/components/ui/checkbox';
+import { NearMark } from '@/components/near-mark';
 
 export const Route = createFileRoute("/_marketplace/checkout")({
   component: CheckoutPage,
@@ -10,23 +17,57 @@ export const Route = createFileRoute("/_marketplace/checkout")({
 function CheckoutPage() {
   const { cartItems, subtotal } = useCart();
   const [discountCode, setDiscountCode] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const navigate = useNavigate();
 
   const tax = subtotal * 0.08;
   const total = subtotal + tax;
   const nearAmount = (total / 3.5).toFixed(2);
 
-  if (cartItems.length === 0) {
-    return (
-      <div className="bg-white min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-medium mb-4">Your cart is empty</h1>
-          <Link to="/" className="text-[#00ec97] hover:underline">
-            Continue Shopping
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const checkoutMutation = useMutation({
+    mutationFn: async () => {
+      if (cartItems.length === 0) throw new Error('Cart is empty');
+
+      const result = await apiClient.createCheckout({
+        items: cartItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          size: item.size,
+        })),
+        successUrl: `${window.location.origin}/order-confirmation`,
+        cancelUrl: `${window.location.origin}/checkout`,
+      });
+      return result;
+    },
+    onSuccess: (data) => {
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        toast.error('Failed to create checkout session');
+      }
+    },
+    onError: (error: Error) => {
+      toast.error('Checkout failed', {
+        description: error.message || 'Please try again later',
+      });
+    },
+  });
+
+  const handlePayWithCard = async () => {
+    // Check if user is authenticated before proceeding with checkout
+    const { data: session } = await authClient.getSession();
+    if (!session?.user) {
+      navigate({
+        to: "/login",
+        search: {
+          redirect: "/checkout",
+        },
+      });
+      return;
+    }
+
+    checkoutMutation.mutate();
+  };
 
   return (
     <div className="bg-background min-h-screen">
@@ -54,25 +95,25 @@ function CheckoutPage() {
 
               <div className="space-y-4">
                 {cartItems.map((item) => (
-                  <div key={item.productId} className="flex gap-4">
-                    <div className="size-20 bg-[#ececf0] border border-[rgba(0,0,0,0.1)] flex-shrink-0 overflow-hidden">
-                      <img
-                        src={item.product.images[0].url}
-                        alt={item.product.title}
-                        className="size-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-base mb-1">{item.product.title}</p>
-                      <p className="text-sm text-[#717182]">
-                        {item.size !== "N/A" && `Size: ${item.size} • `}Qty:{" "}
-                        {item.quantity}
-                      </p>
-                    </div>
+                  <ProductCard
+                    key={item.productId}
+                    product={item.product}
+                    variant="horizontal"
+                    hideFavorite
+                    hideActions
+                    hidePrice
+                    className="p-0 border-none shadow-none gap-4 bg-transparent"
+                    actionSlot={
+                      <div className="text-base text-right">
+                        ${(item.product.price * item.quantity).toFixed(2)}
+                      </div>
+                    }
+                  >
                     <div className="text-base text-right">
-                      ${(item.product.price * item.quantity).toFixed(2)}
-                    </div>
-                  </div>
+                      {item.size !== "N/A" && `Size: ${item.size} • `}Qty:{" "}
+                      {item.quantity}
+                    </p>
+                  </ProductCard>
                 ))}
               </div>
             </div>
@@ -117,17 +158,40 @@ function CheckoutPage() {
           </div>
 
           <div>
-            <h2 className="text-base font-medium mb-6">
-              Choose Payment Method
-            </h2>
+            <div className="border border-border p-6 mb-6">
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="terms" 
+                  checked={acceptedTerms}
+                  onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
+                  className="mt-0.5"
+                />
+                <label 
+                  htmlFor="terms" 
+                  className="text-sm leading-relaxed cursor-pointer select-none"
+                >
+                  By checking this box, you agree to our{' '}
+                  <Link 
+                    to="/terms-of-service" 
+                    className="underline hover:text-neutral-950 transition-colors"
+                  >
+                    Terms of Service
+                  </Link>
+                </label>
+              </div>
+            </div>
 
-            <div className="space-y-6">
+            {acceptedTerms && (
+              <>
+                <h2 className="text-base font-medium mb-6">
+                  Choose Payment Method
+                </h2>
+
+                <div className="space-y-6">
               <div className="w-full border border-border p-6 text-left relative opacity-50 cursor-not-allowed">
                 <div className="flex items-start gap-3">
-                  <div className="size-10 bg-[#00ec97] flex items-center justify-center flex-shrink-0">
-                    <svg className="size-6" fill="none" viewBox="0 0 24 24">
-                      <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" fill="black" />
-                    </svg>
+                  <div className="size-10 bg-[#00ec97] flex items-center justify-center shrink-0">
+                    <NearMark className="size-6 text-black" />
                   </div>
 
                   <div className="flex-1">
@@ -148,17 +212,24 @@ function CheckoutPage() {
                 </p>
               </div>
 
-              <Link
-                to="/checkout/stripe"
-                className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left"
+              <button
+                onClick={handlePayWithCard}
+                disabled={checkoutMutation.isPending}
+                className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-start gap-3">
-                  <div className="size-10 bg-[#d6d3ff] flex items-center justify-center flex-shrink-0">
-                    <CreditCard className="size-6 text-[#635BFF]" />
+                  <div className="size-10 bg-[#d6d3ff] flex items-center justify-center shrink-0">
+                    {checkoutMutation.isPending ? (
+                      <div className="animate-spin size-5 border-2 border-[#635BFF]/30 border-t-[#635BFF] rounded-full" />
+                    ) : (
+                      <CreditCard className="size-6 text-[#635BFF]" />
+                    )}
                   </div>
 
                   <div className="flex-1">
-                    <p className="text-base mb-1">Pay with Card</p>
+                    <p className="text-base mb-1">
+                      {checkoutMutation.isPending ? 'Redirecting...' : 'Pay with Card'}
+                    </p>
                     <div className="flex items-center gap-1 text-xs text-[#635bff]">
                       <span>Powered by</span>
                       <span className="font-semibold">stripe</span>
@@ -167,10 +238,15 @@ function CheckoutPage() {
                 </div>
 
                 <p className="text-sm text-[#717182] mt-4">
-                  Traditional checkout with credit card
+                  {checkoutMutation.isPending 
+                    ? 'Please wait...'
+                    : 'Traditional checkout with credit card'
+                  }
                 </p>
-              </Link>
+              </button>
             </div>
+              </>
+            )}
           </div>
         </div>
       </div>

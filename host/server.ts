@@ -7,6 +7,7 @@ import { createRsbuild, logger } from '@rsbuild/core';
 import { OpenAPIHandler } from '@orpc/openapi/fetch';
 import { OpenAPIReferencePlugin } from '@orpc/openapi/plugins';
 import { onError } from '@orpc/server';
+import { formatORPCError } from 'every-plugin/errors';
 import { RPCHandler } from '@orpc/server/fetch';
 import { BatchHandlerPlugin } from '@orpc/server/plugins';
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
@@ -15,12 +16,26 @@ import { initializePlugins } from './src/runtime';
 import { loadBosConfig } from './src/config';
 import { createRouter } from './src/routers';
 import { auth } from './src/lib/auth';
+import { db } from './src/db';
+import * as schema from './src/db/schema/auth';
+import { eq } from 'drizzle-orm';
 
 async function createContext(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
+
+  // Get NEAR account ID from linked accounts
+  let nearAccountId: string | null = null;
+  if (session?.user?.id) {
+    const nearAccount = await db.query.nearAccount.findFirst({
+      where: eq(schema.nearAccount.userId, session.user.id),
+    });
+    nearAccountId = nearAccount?.accountId ?? null;
+  }
+
   return {
     session,
     user: session?.user,
+    nearAccountId,
   };
 }
 
@@ -37,7 +52,19 @@ async function startServer() {
     plugins: [new BatchHandlerPlugin()],
     interceptors: [
       onError((error) => {
-        console.error('RPC Error:', error);
+        console.error('\n=== Error ===');
+        formatORPCError(error);
+        
+        if (error && typeof error === 'object') {
+          if ('message' in error) console.error('Message:', error.message);
+          if ('code' in error) console.error('Code:', error.code);
+          if ('status' in error) console.error('Status:', error.status);
+          if ('cause' in error) console.error('Cause:', error.cause);
+          if ('stack' in error) console.error('Stack:', error.stack);
+        } else {
+          console.error('Error:', error);
+        }
+        console.error('=================\n');
       }),
     ],
   });
@@ -57,7 +84,19 @@ async function startServer() {
     ],
     interceptors: [
       onError((error) => {
-        console.error('OpenAPI Error:', error);
+        console.error('\n=== Error ===');
+        formatORPCError(error);
+        
+        if (error && typeof error === 'object') {
+          if ('message' in error) console.error('Message:', error.message);
+          if ('code' in error) console.error('Code:', error.code);
+          if ('status' in error) console.error('Status:', error.status);
+          if ('cause' in error) console.error('Cause:', error.cause);
+          if ('stack' in error) console.error('Stack:', error.stack);
+        } else {
+          console.error('Error:', error);
+        }
+        console.error('=====================\n');
       }),
     ],
   });

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeft, Minus, Plus, X, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/use-cart';
+import { ProductCard } from '@/components/marketplace/product-card';
 import { SIZES } from '@/integrations/marketplace-api';
 
 export const Route = createFileRoute('/_marketplace/cart')({
@@ -40,40 +41,24 @@ function CartPage() {
             <div className="lg:col-span-2">
               <div className="divide-y divide-border">
                 {cartItems.map((item) => (
-                  <div key={item.productId} className="py-6 flex flex-col md:flex-row gap-4 md:gap-6 items-center md:items-start text-center md:text-left">
-                    <div className="bg-muted rounded size-32 md:size-24 shrink-0 overflow-hidden">
-                      <img
-                        src={item.product.images[0].url}
-                        alt={item.product.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-
-                    <div className="flex-1 min-w-0 flex flex-col w-full">
-                      <div className="flex flex-col md:flex-row items-center md:items-start justify-between mb-2 gap-2">
-                        <div className="flex-1 min-w-0">
-                          <Link
-                            to="/products/$productId"
-                            params={{ productId: item.productId }}
-                            className="hover:text-[#00ec97] transition-colors"
-                          >
-                            <h3 className="text-lg md:text-base tracking-[-0.48px] truncate">
-                              {item.product.title}
-                            </h3>
-                          </Link>
-                          <p className="text-muted-foreground text-sm tracking-[-0.48px] mt-1">
-                            {item.product.category}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => removeItem(item.productId)}
-                          className="size-8 flex items-center justify-center shrink-0 hover:bg-muted transition-colors rounded-full md:rounded-none"
-                          aria-label={`Remove ${item.product.title}`}
-                        >
-                          <X className="size-4" />
-                        </button>
-                      </div>
-
+                  <ProductCard
+                    key={item.productId}
+                    product={item.product}
+                    variant="horizontal"
+                    hideFavorite
+                    hidePrice
+                    className="py-6 border-b border-border last:border-0 hover:shadow-none bg-transparent gap-4 md:gap-6"
+                    actionSlot={
+                      <button
+                        onClick={() => removeItem(item.productId)}
+                        className="size-8 flex items-center justify-center shrink-0 hover:bg-muted transition-colors rounded-full md:rounded-none"
+                        aria-label={`Remove ${item.product.title}`}
+                      >
+                        <X className="size-4" />
+                      </button>
+                    }
+                  >
+                    <div className="w-full flex flex-col gap-4 mt-2">
                       {item.size !== 'N/A' && (
                         <div className="relative mt-3 w-full max-w-[200px] mx-auto md:mx-0">
                           <select
@@ -115,7 +100,7 @@ function CartPage() {
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </ProductCard>
                 ))}
               </div>
             </div>

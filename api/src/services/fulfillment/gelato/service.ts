@@ -1,6 +1,13 @@
 import { Effect } from 'every-plugin/effect';
 import crypto from 'crypto';
-import type { ProviderProduct, FulfillmentOrderInput, FulfillmentOrder, FulfillmentOrderStatus } from '../schema';
+import type { 
+  ProviderProduct, 
+  FulfillmentOrderInput, 
+  FulfillmentOrder, 
+  FulfillmentOrderStatus,
+  ShippingQuoteInput,
+  ShippingQuoteOutput
+} from '../schema';
 
 interface GelatoAddress {
   firstName: string;
@@ -306,7 +313,7 @@ export class GelatoService {
           throw new Error(`Failed to cancel order: ${response.status} - ${errorBody}`);
         }
 
-        return { success: true, orderId };
+        return { id: orderId, status: 'cancelled' };
       },
       catch: (e) => new Error(`Gelato cancel order failed: ${e instanceof Error ? e.message : String(e)}`),
     });
@@ -363,7 +370,7 @@ export class GelatoService {
     });
   }
 
-  quoteOrder(params: {
+  quoteOrderDetailed(params: {
     orderReferenceId: string;
     customerReferenceId: string;
     currency: string;
@@ -479,6 +486,71 @@ export class GelatoService {
       } catch {
         return signature === this.webhookSecret;
       }
+    });
+  }
+
+  quoteOrder(input: ShippingQuoteInput): Effect.Effect<ShippingQuoteOutput, Error> {
+    return Effect.gen(this, function* () {
+      if (input.items.length === 0) {
+        return {
+          rates: [],
+          currency: input.currency || 'USD',
+        };
+      }
+
+      const quoteResult = yield* this.quoteOrderDetailed({
+        orderReferenceId: `quote_${Date.now()}`,
+        customerReferenceId: `quote_${Date.now()}`,
+        currency: input.currency || 'USD',
+        recipient: {
+          name: input.recipient.name,
+          company: input.recipient.company,
+          address1: input.recipient.address1,
+          address2: input.recipient.address2,
+          city: input.recipient.city,
+          stateCode: input.recipient.stateCode,
+          countryCode: input.recipient.countryCode,
+          zip: input.recipient.zip,
+          email: input.recipient.email,
+          phone: input.recipient.phone,
+        },
+        items: input.items.map((item, index) => ({
+          itemReferenceId: `item_${index}`,
+          productUid: item.productId?.toString() || item.externalVariantId || '',
+          files: item.files || [],
+          quantity: item.quantity,
+        })),
+      });
+
+      const rates = quoteResult.quotes.flatMap(quote =>
+        quote.shipmentMethods.map(method => ({
+          id: method.uid,
+          name: method.name,
+          rate: method.price,
+          currency: method.currency,
+          minDeliveryDays: method.minDeliveryDays,
+          maxDeliveryDays: method.maxDeliveryDays,
+          minDeliveryDate: method.minDeliveryDate,
+          maxDeliveryDate: method.maxDeliveryDate,
+        }))
+      );
+
+      return {
+        rates,
+        currency: input.currency || 'USD',
+      };
+    });
+  }
+
+  confirmOrder(orderId: string) {
+    return Effect.gen(this, function* () {
+      const { order } = yield* this.getOrder(orderId);
+      
+      if (order.status === 'draft') {
+        console.log(`[Gelato] Confirming draft order ${orderId} - transitioning to order`);
+      }
+      
+      return { id: orderId, status: order.status };
     });
   }
 

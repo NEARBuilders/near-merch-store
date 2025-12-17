@@ -4,9 +4,12 @@ import {
   CollectionSchema,
   CreateCheckoutInputSchema,
   CreateCheckoutOutputSchema,
-  OrderSchema,
+  OrderWithItemsSchema,
   ProductCategorySchema,
   ProductSchema,
+  QuoteItemInputSchema,
+  QuoteOutputSchema,
+  ShippingAddressSchema,
   WebhookResponseSchema
 } from './schema';
 
@@ -140,6 +143,22 @@ export const contract = oc.router({
     .input(CreateCheckoutInputSchema)
     .output(CreateCheckoutOutputSchema),
 
+  quote: oc
+    .route({
+      method: 'POST',
+      path: '/quote',
+      summary: 'Get shipping quote for cart',
+      description: 'Calculates shipping costs by provider for cart items.',
+      tags: ['Checkout'],
+    })
+    .input(
+      z.object({
+        items: z.array(QuoteItemInputSchema).min(1),
+        shippingAddress: ShippingAddressSchema,
+      })
+    )
+    .output(QuoteOutputSchema),
+
   getOrders: oc
     .route({
       method: 'GET',
@@ -156,7 +175,7 @@ export const contract = oc.router({
     )
     .output(
       z.object({
-        orders: z.array(OrderSchema),
+        orders: z.array(OrderWithItemsSchema),
         total: z.number(),
       })
     ),
@@ -170,7 +189,7 @@ export const contract = oc.router({
       tags: ['Orders'],
     })
     .input(z.object({ id: z.string() }))
-    .output(z.object({ order: OrderSchema })),
+    .output(z.object({ order: OrderWithItemsSchema })),
 
   getOrderByCheckoutSession: oc
     .route({
@@ -181,7 +200,7 @@ export const contract = oc.router({
       tags: ['Orders'],
     })
     .input(z.object({ sessionId: z.string() }))
-    .output(z.object({ order: OrderSchema.nullable() })),
+    .output(z.object({ order: OrderWithItemsSchema.nullable() })),
 
   stripeWebhook: oc
     .route({
@@ -260,6 +279,33 @@ export const contract = oc.router({
         lastSuccessAt: z.number().nullable(),
         lastErrorAt: z.number().nullable(),
         errorMessage: z.string().nullable(),
+      })
+    ),
+
+  cleanupAbandonedDrafts: oc
+    .route({
+      method: 'POST',
+      path: '/cron/cleanup-drafts',
+      summary: 'Cleanup abandoned draft orders',
+      description: 'Cancels draft orders older than 24 hours. Intended to be called by a cron job daily.',
+      tags: ['Jobs'],
+    })
+    .input(
+      z.object({
+        maxAgeHours: z.number().int().positive().default(24).optional(),
+      })
+    )
+    .output(
+      z.object({
+        totalProcessed: z.number(),
+        cancelled: z.number(),
+        partiallyCancelled: z.number(),
+        failed: z.number(),
+        errors: z.array(z.object({
+          orderId: z.string(),
+          provider: z.string(),
+          error: z.string(),
+        })),
       })
     ),
 });

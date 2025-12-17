@@ -125,8 +125,8 @@ export function OrderConfirmationPage({
         {/* Support Link */}
         <p className="text-sm text-[#717182] text-center mt-8">
           Need help with your order? Contact us at{" "}
-          <a href="mailto:support@near.org" className="underline hover:text-neutral-950 transition-colors">
-            support@near.org
+          <a href="mailto:merch@near.foundation" className="underline hover:text-neutral-950 transition-colors">
+            merch@near.foundation
           </a>
         </p>
       </div>
