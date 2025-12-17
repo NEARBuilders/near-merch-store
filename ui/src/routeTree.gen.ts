@@ -19,6 +19,7 @@ import { Route as MarketplaceCheckoutRouteImport } from './routes/_marketplace/c
 import { Route as MarketplaceCartRouteImport } from './routes/_marketplace/cart'
 import { Route as MarketplacePageRouteImport } from './routes/_marketplace/_page'
 import { Route as MarketplaceAuthenticatedRouteImport } from './routes/_marketplace/_authenticated'
+import { Route as MarketplaceProductsIndexRouteImport } from './routes/_marketplace/products/index'
 import { Route as MarketplaceCollectionsIndexRouteImport } from './routes/_marketplace/collections/index'
 import { Route as MarketplaceProductsProductIdRouteImport } from './routes/_marketplace/products/$productId'
 import { Route as MarketplaceCollectionsCollectionRouteImport } from './routes/_marketplace/collections/$collection'
@@ -76,6 +77,12 @@ const MarketplacePageRoute = MarketplacePageRouteImport.update({
 const MarketplaceAuthenticatedRoute =
   MarketplaceAuthenticatedRouteImport.update({
     id: '/_authenticated',
+    getParentRoute: () => MarketplaceRoute,
+  } as any)
+const MarketplaceProductsIndexRoute =
+  MarketplaceProductsIndexRouteImport.update({
+    id: '/products/',
+    path: '/products/',
     getParentRoute: () => MarketplaceRoute,
   } as any)
 const MarketplaceCollectionsIndexRoute =
@@ -147,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/collections/$collection': typeof MarketplaceCollectionsCollectionRoute
   '/products/$productId': typeof MarketplaceProductsProductIdRoute
   '/collections': typeof MarketplaceCollectionsIndexRoute
+  '/products': typeof MarketplaceProductsIndexRoute
   '/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
   '/account/': typeof MarketplaceAuthenticatedAccountIndexRoute
@@ -164,6 +172,7 @@ export interface FileRoutesByTo {
   '/collections/$collection': typeof MarketplaceCollectionsCollectionRoute
   '/products/$productId': typeof MarketplaceProductsProductIdRoute
   '/collections': typeof MarketplaceCollectionsIndexRoute
+  '/products': typeof MarketplaceProductsIndexRoute
   '/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
   '/account': typeof MarketplaceAuthenticatedAccountIndexRoute
@@ -186,6 +195,7 @@ export interface FileRoutesById {
   '/_marketplace/collections/$collection': typeof MarketplaceCollectionsCollectionRoute
   '/_marketplace/products/$productId': typeof MarketplaceProductsProductIdRoute
   '/_marketplace/collections/': typeof MarketplaceCollectionsIndexRoute
+  '/_marketplace/products/': typeof MarketplaceProductsIndexRoute
   '/_marketplace/_authenticated/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/_marketplace/_authenticated/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
   '/_marketplace/_authenticated/account/': typeof MarketplaceAuthenticatedAccountIndexRoute
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/collections/$collection'
     | '/products/$productId'
     | '/collections'
+    | '/products'
     | '/account/connected'
     | '/account/orders'
     | '/account/'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/collections/$collection'
     | '/products/$productId'
     | '/collections'
+    | '/products'
     | '/account/connected'
     | '/account/orders'
     | '/account'
@@ -244,6 +256,7 @@ export interface FileRouteTypes {
     | '/_marketplace/collections/$collection'
     | '/_marketplace/products/$productId'
     | '/_marketplace/collections/'
+    | '/_marketplace/products/'
     | '/_marketplace/_authenticated/account/connected'
     | '/_marketplace/_authenticated/account/orders'
     | '/_marketplace/_authenticated/account/'
@@ -323,6 +336,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: ''
       preLoaderRoute: typeof MarketplaceAuthenticatedRouteImport
+      parentRoute: typeof MarketplaceRoute
+    }
+    '/_marketplace/products/': {
+      id: '/_marketplace/products/'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof MarketplaceProductsIndexRouteImport
       parentRoute: typeof MarketplaceRoute
     }
     '/_marketplace/collections/': {
@@ -454,6 +474,7 @@ interface MarketplaceRouteChildren {
   MarketplaceCollectionsCollectionRoute: typeof MarketplaceCollectionsCollectionRoute
   MarketplaceProductsProductIdRoute: typeof MarketplaceProductsProductIdRoute
   MarketplaceCollectionsIndexRoute: typeof MarketplaceCollectionsIndexRoute
+  MarketplaceProductsIndexRoute: typeof MarketplaceProductsIndexRoute
 }
 
 const MarketplaceRouteChildren: MarketplaceRouteChildren = {
@@ -469,6 +490,7 @@ const MarketplaceRouteChildren: MarketplaceRouteChildren = {
   MarketplaceCollectionsCollectionRoute: MarketplaceCollectionsCollectionRoute,
   MarketplaceProductsProductIdRoute: MarketplaceProductsProductIdRoute,
   MarketplaceCollectionsIndexRoute: MarketplaceCollectionsIndexRoute,
+  MarketplaceProductsIndexRoute: MarketplaceProductsIndexRoute,
 }
 
 const MarketplaceRouteWithChildren = MarketplaceRoute._addFileChildren(
