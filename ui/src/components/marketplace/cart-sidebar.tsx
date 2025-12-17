@@ -102,7 +102,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                             >
                               <Minus className="size-4" aria-hidden="true" />
                             </button>
-                            <span className="w-8 text-center text-xs font-medium tracking-[-0.48px]">
+                            <span className="w-8 text-center text-[14px] font-medium tracking-[-0.48px]">
                               {item.quantity}
                             </span>
                             <button

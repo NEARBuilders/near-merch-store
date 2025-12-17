@@ -1,11 +1,12 @@
 import { useCart } from '@/hooks/use-cart';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { ProductCard } from '@/components/marketplace/product-card';
 import { ChevronLeft, CreditCard } from 'lucide-react';
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/utils/orpc';
 import { toast } from 'sonner';
+import { authClient } from '@/lib/auth-client';
 
 export const Route = createFileRoute("/_marketplace/checkout")({
   component: CheckoutPage,
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/_marketplace/checkout")({
 function CheckoutPage() {
   const { cartItems, subtotal } = useCart();
   const [discountCode, setDiscountCode] = useState("");
+  const navigate = useNavigate();
 
   const tax = subtotal * 0.08;
   const total = subtotal + tax;
@@ -48,7 +50,19 @@ function CheckoutPage() {
     },
   });
 
-  const handlePayWithCard = () => {
+  const handlePayWithCard = async () => {
+    // Check if user is authenticated before proceeding with checkout
+    const { data: session } = await authClient.getSession();
+    if (!session?.user) {
+      navigate({
+        to: "/login",
+        search: {
+          redirect: "/checkout",
+        },
+      });
+      return;
+    }
+
     checkoutMutation.mutate();
   };
 

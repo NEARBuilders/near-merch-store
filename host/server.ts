@@ -52,8 +52,18 @@ async function startServer() {
     plugins: [new BatchHandlerPlugin()],
     interceptors: [
       onError((error) => {
-        console.error('\n=== RPC Error ===');
+        console.error('\n=== Error ===');
         formatORPCError(error);
+        
+        if (error && typeof error === 'object') {
+          if ('message' in error) console.error('Message:', error.message);
+          if ('code' in error) console.error('Code:', error.code);
+          if ('status' in error) console.error('Status:', error.status);
+          if ('cause' in error) console.error('Cause:', error.cause);
+          if ('stack' in error) console.error('Stack:', error.stack);
+        } else {
+          console.error('Error:', error);
+        }
         console.error('=================\n');
       }),
     ],
@@ -74,8 +84,18 @@ async function startServer() {
     ],
     interceptors: [
       onError((error) => {
-        console.error('\n=== OpenAPI Error ===');
+        console.error('\n=== Error ===');
         formatORPCError(error);
+        
+        if (error && typeof error === 'object') {
+          if ('message' in error) console.error('Message:', error.message);
+          if ('code' in error) console.error('Code:', error.code);
+          if ('status' in error) console.error('Status:', error.status);
+          if ('cause' in error) console.error('Cause:', error.cause);
+          if ('stack' in error) console.error('Stack:', error.stack);
+        } else {
+          console.error('Error:', error);
+        }
         console.error('=====================\n');
       }),
     ],

@@ -137,10 +137,10 @@ function ProductDetailPage() {
 
   const { data } = useSuspenseProduct(productId);
   const product = data.product;
-  const subProducts = product.subProducts || [product];
+  const mergedProducts = data.mergedProducts ?? [product];
 
   const [selectedStyleId, setSelectedStyleId] = useState(product.id);
-  const currentStyle: Product = subProducts.find((p: Product) => p.id === selectedStyleId) || product;
+  const currentStyle: Product = mergedProducts.find((p: Product) => p.id === selectedStyleId) || product;
 
   // Derive variants from the currently selected style
   const availableVariants = currentStyle.variants || [];
@@ -181,7 +181,7 @@ function ProductDetailPage() {
     limit: 4,
   });
   const relatedProducts = (relatedData?.products ?? [])
-    .filter((p) => p.id !== product.id && !subProducts.some((sp: Product) => sp.id === p.id))
+    .filter((p) => p.id !== product.id && !mergedProducts.some((sp: Product) => sp.id === p.id))
     .slice(0, 3);
 
   // Determine display images (filter out 'detail' type/blueprints)
@@ -215,11 +215,7 @@ function ProductDetailPage() {
   const handleAddToCart = () => {
     const size = selectedSize || getOptionValue(selectedVariant?.attributes, "size") || "N/A";
     for (let i = 0; i < quantity; i++) {
-      if (selectedVariant?.id) {
-        addToCart(selectedVariant.id, size);
-      } else {
-        addToCart(currentStyle.id, size);
-      }
+      addToCart(currentStyle.id, size);
     }
   };
 
@@ -302,18 +298,17 @@ function ProductDetailPage() {
 
             <div className="h-px bg-border" />
 
-            {/* Sub-product Style Selector (Merged Products) */}
-            {subProducts.length > 1 && (
+            {mergedProducts.length > 1 && (
               <div className="space-y-3">
                 <label className="block tracking-[-0.48px]">Style</label>
                 <div className="flex flex-wrap gap-2">
-                  {subProducts.map((subProduct: Product) => {
-                    const isSelected = selectedStyleId === subProduct.id;
+                  {mergedProducts.map((mergedProduct: Product) => {
+                    const isSelected = selectedStyleId === mergedProduct.id;
                     return (
                       <button
-                        key={subProduct.id}
+                        key={mergedProduct.id}
                         onClick={() => {
-                          setSelectedStyleId(subProduct.id);
+                          setSelectedStyleId(mergedProduct.id);
                           setSelectedSize("");
                           setSelectedColor("");
                         }}
@@ -324,7 +319,7 @@ function ProductDetailPage() {
                             : "bg-background border border-border hover:bg-muted"
                         )}
                       >
-                        {subProduct.title}
+                        {mergedProduct.title}
                       </button>
                     );
                   })}

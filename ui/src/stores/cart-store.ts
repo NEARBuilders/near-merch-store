@@ -47,6 +47,7 @@ export const useCartStore = create<CartState>()(
             },
           };
         });
+        toast.success("Added to cart");
       },
 
       updateQuantity: (productId: string, change: number) => {
@@ -87,9 +88,9 @@ export const useCartStore = create<CartState>()(
       removeItem: (productId: string) => {
         set((state) => {
           const { [productId]: _, ...rest } = state.items;
-          toast.success("Removed from cart");
           return { items: rest };
         });
+        toast.success("Removed from cart");
       },
 
       clearCart: () => {

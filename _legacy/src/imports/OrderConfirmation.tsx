@@ -363,7 +363,7 @@ function Container14() {
 function Link() {
   return (
     <div className="absolute content-stretch flex h-[18px] items-start left-[435px] top-px w-[126.734px]" data-name="Link">
-      <p className="[text-underline-position:from-font] decoration-solid font-['Red_Hat_Mono:Regular',sans-serif] font-normal leading-[20px] relative shrink-0 text-[#717182] text-[14px] text-center text-nowrap tracking-[-0.48px] underline whitespace-pre">support@near.org</p>
+      <p className="[text-underline-position:from-font] decoration-solid font-['Red_Hat_Mono:Regular',sans-serif] font-normal leading-[20px] relative shrink-0 text-[#717182] text-[14px] text-center text-nowrap tracking-[-0.48px] underline whitespace-pre">merch@near.foundation</p>
     </div>
   );
 }

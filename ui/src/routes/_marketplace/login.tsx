@@ -188,7 +188,7 @@ function LoginPage() {
                 <img
                   src={nearLogo}
                   alt="NEAR"
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain invert dark:invert-0"
                 />
               </div>
               <span className="text-sm">
