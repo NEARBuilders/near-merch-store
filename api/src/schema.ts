@@ -294,3 +294,44 @@ export type ProductVariantInput = z.infer<typeof ProductVariantInputSchema>;
 export type ProductWithImages = z.infer<typeof ProductWithImagesSchema>;
 export type ProductCriteria = z.infer<typeof ProductCriteriaSchema>;
 export type OrderWithItems = z.infer<typeof OrderWithItemsSchema>;
+
+export const QuoteItemInputSchema = z.object({
+  productId: z.string(),
+  variantId: z.string().optional(),
+  quantity: z.number().int().positive().default(1),
+});
+
+export const ProviderShippingOptionSchema = z.object({
+  provider: z.string(),
+  rateId: z.string(),
+  rateName: z.string(),
+  shippingCost: z.number(),
+  currency: z.string(),
+  minDeliveryDays: z.number().optional(),
+  maxDeliveryDays: z.number().optional(),
+});
+
+export const ProviderBreakdownSchema = z.object({
+  provider: z.string(),
+  itemCount: z.number(),
+  subtotal: z.number(),
+  selectedShipping: ProviderShippingOptionSchema,
+  availableRates: z.array(ProviderShippingOptionSchema),
+});
+
+export const QuoteOutputSchema = z.object({
+  subtotal: z.number(),
+  shippingCost: z.number(),
+  total: z.number(),
+  currency: z.string(),
+  providerBreakdown: z.array(ProviderBreakdownSchema),
+  estimatedDelivery: z.object({
+    minDays: z.number().optional(),
+    maxDays: z.number().optional(),
+  }).optional(),
+});
+
+export type QuoteItemInput = z.infer<typeof QuoteItemInputSchema>;
+export type ProviderShippingOption = z.infer<typeof ProviderShippingOptionSchema>;
+export type ProviderBreakdown = z.infer<typeof ProviderBreakdownSchema>;
+export type QuoteOutput = z.infer<typeof QuoteOutputSchema>;

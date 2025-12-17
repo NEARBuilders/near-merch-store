@@ -5,6 +5,7 @@ import { z } from 'every-plugin/zod';
 import { contract } from './contract';
 import { createMarketplaceRuntime } from './runtime';
 import { ReturnAddressSchema, type OrderStatus, type TrackingInfo } from './schema';
+import { CheckoutService, CheckoutServiceLive } from './services/checkout';
 import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStoreLive } from './store';
@@ -44,28 +45,44 @@ export default createPlugin({
           : null;
 
       const runtime = yield* Effect.promise(() =>
-        createMarketplaceRuntime({
-          printful: config.secrets.PRINTFUL_API_KEY && config.secrets.PRINTFUL_STORE_ID
-            ? {
-              apiKey: config.secrets.PRINTFUL_API_KEY,
-              storeId: config.secrets.PRINTFUL_STORE_ID,
-              webhookSecret: config.secrets.PRINTFUL_WEBHOOK_SECRET,
-            }
-            : undefined,
-          gelato:
-            config.secrets.GELATO_API_KEY && config.secrets.GELATO_WEBHOOK_SECRET
+        createMarketplaceRuntime(
+          {
+            printful: config.secrets.PRINTFUL_API_KEY && config.secrets.PRINTFUL_STORE_ID
               ? {
-                apiKey: config.secrets.GELATO_API_KEY,
-                webhookSecret: config.secrets.GELATO_WEBHOOK_SECRET,
-                returnAddress: config.variables.returnAddress,
+                apiKey: config.secrets.PRINTFUL_API_KEY,
+                storeId: config.secrets.PRINTFUL_STORE_ID,
+                webhookSecret: config.secrets.PRINTFUL_WEBHOOK_SECRET,
               }
               : undefined,
-        })
+            gelato:
+              config.secrets.GELATO_API_KEY && config.secrets.GELATO_WEBHOOK_SECRET
+                ? {
+                  apiKey: config.secrets.GELATO_API_KEY,
+                  webhookSecret: config.secrets.GELATO_WEBHOOK_SECRET,
+                  returnAddress: config.variables.returnAddress,
+                }
+                : undefined,
+          },
+          config.secrets.STRIPE_SECRET_KEY && config.secrets.STRIPE_WEBHOOK_SECRET
+            ? {
+              stripe: {
+                secretKey: config.secrets.STRIPE_SECRET_KEY,
+                webhookSecret: config.secrets.STRIPE_WEBHOOK_SECRET,
+              },
+            }
+            : undefined
+        )
       );
 
       const dbLayer = DatabaseLive(config.secrets.DATABASE_URL, config.secrets.DATABASE_AUTH_TOKEN);
 
       const appLayer = ProductServiceLive(runtime).pipe(
+        Layer.provide(ProductStoreLive),
+        Layer.provide(dbLayer)
+      );
+
+      const checkoutLayer = CheckoutServiceLive(runtime).pipe(
+        Layer.provide(OrderStoreLive),
         Layer.provide(ProductStoreLive),
         Layer.provide(dbLayer)
       );
@@ -81,6 +98,7 @@ export default createPlugin({
         stripeService,
         runtime,
         appLayer,
+        checkoutLayer,
         orderLayer,
         secrets: config.secrets,
       };
@@ -92,7 +110,7 @@ export default createPlugin({
     }),
 
   createRouter: (context, builder) => {
-    const { stripeService, runtime, appLayer, orderLayer, secrets } = context;
+    const { stripeService, runtime, appLayer, checkoutLayer, orderLayer, secrets } = context;
 
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.nearAccountId) {
@@ -266,6 +284,15 @@ export default createPlugin({
             orderId: order.id,
           };
         }),
+
+      quote: builder.quote.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* CheckoutService;
+            return yield* service.getQuote(input.items, input.shippingAddress);
+          }).pipe(Effect.provide(checkoutLayer))
+        );
+      }),
 
       getOrders: builder.getOrders
         .use(requireAuth)

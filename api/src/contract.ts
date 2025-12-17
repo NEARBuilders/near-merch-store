@@ -7,6 +7,9 @@ import {
   OrderWithItemsSchema,
   ProductCategorySchema,
   ProductSchema,
+  QuoteItemInputSchema,
+  QuoteOutputSchema,
+  ShippingAddressSchema,
   WebhookResponseSchema
 } from './schema';
 
@@ -139,6 +142,22 @@ export const contract = oc.router({
     })
     .input(CreateCheckoutInputSchema)
     .output(CreateCheckoutOutputSchema),
+
+  quote: oc
+    .route({
+      method: 'POST',
+      path: '/quote',
+      summary: 'Get shipping quote for cart',
+      description: 'Calculates shipping costs by provider for cart items.',
+      tags: ['Checkout'],
+    })
+    .input(
+      z.object({
+        items: z.array(QuoteItemInputSchema).min(1),
+        shippingAddress: ShippingAddressSchema,
+      })
+    )
+    .output(QuoteOutputSchema),
 
   getOrders: oc
     .route({
