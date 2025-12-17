@@ -3,8 +3,15 @@ import { apiClient, queryClient } from '@/utils/orpc';
 import { productKeys, type ProductCategory } from './keys';
 import { HIDDEN_PRODUCT_IDS, PRODUCT_MERGES, getMergeTargetId } from './merges';
 
-export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'] & {
+export type ProductImage = {
+  url: string;
+  type: 'preview' | 'detail';
+  variantIds: string[];
+};
+
+export type Product = Omit<Awaited<ReturnType<typeof apiClient.getProduct>>['product'], 'images'> & {
   subProducts?: Product[];
+  images: ProductImage[];
 };
 
 export function useProducts(options?: {

@@ -69,12 +69,58 @@ const COLOR_MAP: Record<string, string> = {
   "Blue": "#0000FF",
   "Red": "#FF0000",
   "Green": "#008000",
-  // Add common expected colors
+  "Light": "#F0F0F0",
+  "Dark": "#1A1A1A",
+  "Heather": "#999999",
+  "Royal": "#4169E1",
+  "Orange": "#FFA500",
+  "Purple": "#800080",
+  "Pink": "#FFC0CB",
+  "Yellow": "#FFFF00",
+  "Gold": "#FFD700",
+  "Charcoal": "#36454F",
+  "Grey": "#808080",
+  "Gray": "#808080",
 };
 
-function getProductColor(title: string): string | undefined {
+// Helper to get hex code from attribute if available
+function getAttributeHex(
+  attributes: Array<{ name: string; value: string }> | undefined,
+  optionName: string
+): string | undefined {
+  if (!attributes) return undefined;
+  const attr = attributes.find(
+    (opt) => opt.name.toLowerCase() === optionName.toLowerCase()
+  );
+  // Cast to specific type since the backend type might not have 'hex' yet in the schema definition
+  // until the user updates the backend.
+  return (attr as unknown as { hex?: string })?.hex;
+}
+
+function getProductColor(product: { title: string; variants?: Array<{ attributes?: Array<{ name: string; value: string }> }> }): string | undefined {
+  // 1. Try to find explicit Color attribute in first variant
+  const firstVariant = product.variants?.[0];
+  if (firstVariant?.attributes) {
+    // Try to get dynamic hex from API first
+    const apiHex = getAttributeHex(firstVariant.attributes, "Color");
+    if (apiHex) return apiHex;
+
+    const colorAttr = getOptionValue(firstVariant.attributes, "Color");
+    if (colorAttr) {
+      // Try strict match first
+      if (COLOR_MAP[colorAttr]) return COLOR_MAP[colorAttr];
+      // Try partial match on attribute value
+      for (const [name, hex] of Object.entries(COLOR_MAP)) {
+        if (colorAttr.toLowerCase().includes(name.toLowerCase())) {
+          return hex;
+        }
+      }
+    }
+  }
+
+  // 2. Fallback to title matching
   for (const [name, hex] of Object.entries(COLOR_MAP)) {
-    if (title.toLowerCase().includes(name.toLowerCase())) {
+    if (product.title.toLowerCase().includes(name.toLowerCase())) {
       return hex;
     }
   }
@@ -96,28 +142,39 @@ function ProductDetailPage() {
   const availableVariants = activeProduct.variants || [];
   const hasVariants = availableVariants.length > 0;
 
-  // Deduplicate sizes
+  // Deduplicate sizes and colors
   const uniqueSizes = Array.from(new Set(
     availableVariants.map(v => getOptionValue(v.attributes, "size") || v.title)
   )).filter(Boolean);
 
+  const uniqueColors = Array.from(new Set(
+    availableVariants.map(v => getOptionValue(v.attributes, "Color"))
+  )).filter(Boolean) as string[];
+
   const [selectedSize, setSelectedSize] = useState<string>("");
+  const [selectedColor, setSelectedColor] = useState<string>("");
 
-  // Initialize selected size if available
-  if (uniqueSizes.length > 0 && !selectedSize) {
-    // Don't call setState during render, do it in effect or lazy init if possible.
-    // For now, let's treat empty as "Select size" or pick first.
-    // Better pattern: derive 'selectedVariant' from 'selectedSize'
-  }
+  // Initialize selected size/color if only one option or first load
+  // (Optional refinement: auto-select first available if not set)
 
-  // Find variant matching selected style and selected size (if strictly needed)
-  // OR just find the first available variant if size not selected yet.
+  // Find variant matching selected style (product), selected size AND selected color
   const selectedVariant = availableVariants.find(v => {
-    const size = getOptionValue(v.attributes, "size") || v.title;
-    return size === selectedSize;
+    const vSize = getOptionValue(v.attributes, "size") || v.title;
+    const vColor = getOptionValue(v.attributes, "Color");
+
+    // Better logic:
+    const matchesSize = !selectedSize || vSize === selectedSize;
+    const matchesColor = !uniqueColors.length || !selectedColor || vColor === selectedColor;
+
+    return matchesSize && matchesColor;
   }) || availableVariants[0];
 
+  // Effect to ensure we have a selected Color if multiple exist, or default to first
+  // For render phase, just deriving is better, but state is used for UI active/inactive.
+  // We'll lazy init via state functional update or just rely on user interaction + default fallback.
+
   const displayPrice = selectedVariant?.price || activeProduct.price;
+  const selectedVariantId = selectedVariant?.id;
 
   const [quantity, setQuantity] = useState(1);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -131,35 +188,41 @@ function ProductDetailPage() {
     .filter((p) => p.id !== mainProduct.id && !subProducts.some(sp => sp.id === p.id))
     .slice(0, 3);
 
+  // Determine display images (filter out 'detail' type/blueprints)
+  const validImages = activeProduct.images.filter((img) => img.type !== "detail");
+
+  // Find the image specifically for the selected variant
+  const variantImage = validImages.find(img => img.variantIds?.includes(selectedVariantId || ""));
+
+  // If a specific variant image exists, prioritize it. Otherwise show all valid preview images.
+  let sortedImages = variantImage
+    ? [variantImage, ...validImages.filter(img => img !== variantImage)]
+    : validImages;
+
+  if (productId === "printful-product-407012072" && sortedImages.length >= 2) {
+    const [first, second, ...rest] = sortedImages;
+    sortedImages = [second, first, ...rest];
+  }
+
   const getProductImages = () => {
-    // STRICTLY prioritize images over design files.
-    // Filter out potential design placeholders if they are mixed in 'images' array (heuristic: usually design files are in designFiles prop)
-    if (activeProduct.images && activeProduct.images.length > 0) {
-      return activeProduct.images.map((img) => img.url);
+    if (sortedImages.length > 0) {
+      return sortedImages.map(img => img.url);
     }
-    // Fallback only if NO images exist, though user asked to remove them.
-    // If logic is "never show design files", returns empty if no images.
     return [];
   };
   const productImages = getProductImages();
   const isFavorite = favoriteIds.includes(activeProduct.id);
-  const needsSize = requiresSize(activeProduct.category) && hasVariants;
+  const needsSize = requiresSize(activeProduct.category) && hasVariants && uniqueSizes.length > 0;
 
   const handleAddToCart = () => {
-    // If size required but not selected (and multiple sizes exist), might want to validate.
-    // For now assuming default variant logic handles basic add.
     const size = selectedSize || getOptionValue(selectedVariant?.attributes || [], "size") || "N/A";
-
-    // We need the specific variant ID for the selected size
-    const targetVariant = availableVariants.find(v => {
-      const vSize = getOptionValue(v.attributes, "size") || v.title;
-      return vSize === size;
-    }) || selectedVariant;
-
-    // Use current activeProduct.id but technically cart might expect variant ID logic?
-    // Based on `use-cart.ts`, `addToCart(productId, size)` is standard.
+    // For cart, if variant ID is known, that carries the specific color/size combo.
     for (let i = 0; i < quantity; i++) {
-      addToCart(activeProduct.id, size);
+      if (selectedVariant?.id) {
+        addToCart(selectedVariant.id, size);
+      } else {
+        addToCart(activeProduct.id, size);
+      }
     }
   };
 
@@ -200,7 +263,7 @@ function ProductDetailPage() {
                   className="rounded-lg cursor-pointer hover:scale-[1.02] transition-all duration-300 w-full aspect-square relative shadow-[0_0_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_-10px_rgba(255,255,255,0.15)]"
                   onClick={() => handleImageClick(0)}
                 >
-                  {/* Removed 'bg-muted' and borders. Added theme-aware back glow. */}
+
                   <div className="absolute inset-0 bg-transparent" />
                   <img
                     src={productImages[0]}
@@ -242,45 +305,67 @@ function ProductDetailPage() {
 
             <div className="h-px bg-border" />
 
+            {/* Sub-product Style Selector (Merged Products) */}
             {subProducts.length > 1 && (
               <div className="space-y-3">
                 <label className="block tracking-[-0.48px]">Style</label>
                 <div className="flex flex-wrap gap-2">
                   {subProducts.map((subProduct) => {
-                    const color = getProductColor(subProduct.title);
                     const isSelected = selectedStyleId === subProduct.id;
-
-                    if (color) {
-                      return (
-                        <button
-                          key={subProduct.id}
-                          onClick={() => setSelectedStyleId(subProduct.id)}
-                          className={cn(
-                            "size-8 rounded-full border-2 transition-all p-0.5 relative",
-                            isSelected ? "border-primary" : "border-transparent hover:border-border"
-                          )}
-                          title={subProduct.title}
-                        >
-                          <div
-                            className="w-full h-full rounded-full border border-black/10 shadow-sm"
-                            style={{ backgroundColor: color }}
-                          />
-                        </button>
-                      );
-                    }
-
                     return (
                       <button
                         key={subProduct.id}
-                        onClick={() => setSelectedStyleId(subProduct.id)}
+                        onClick={() => {
+                          setSelectedStyleId(subProduct.id);
+                          setSelectedSize("");
+                          setSelectedColor("");
+                        }}
                         className={cn(
-                          "px-4 py-2 tracking-[-0.48px] transition-colors border text-sm",
+                          "px-4 py-2 tracking-[-0.48px] transition-colors",
                           isSelected
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background border-border hover:bg-muted"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background border border-border hover:bg-muted"
                         )}
                       >
                         {subProduct.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Single Product Color Selector (Variant Colors) */}
+            {uniqueColors.length > 0 && (
+              <div className="space-y-3">
+                <label className="block tracking-[-0.48px]">Color</label>
+                <div className="flex flex-wrap gap-2">
+                  {uniqueColors.map((color) => {
+                    // Try to find the specific variant that has this color to check for metadata
+                    // Ideally we'd map color -> hex in a separate pass, but finding one variant is enough
+                    const sampleVariant = availableVariants.find(v =>
+                      getOptionValue(v.attributes, 'Color') === color
+                    );
+                    const apiHex = getAttributeHex(sampleVariant?.attributes, 'Color');
+
+                    const hex = apiHex || COLOR_MAP[color] || "#808080"; // API Hex -> Local Map -> Fallback
+                    const isSelected = color === selectedColor; // Strict match
+
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        className={cn(
+                          "size-8 rounded-full border transition-all p-0.5 relative ring-offset-background",
+                          isSelected ? "border-primary ring-2 ring-primary ring-offset-2" : "border-transparent hover:border-border",
+                          "dark:ring-offset-background" // Ensure proper offset in dark mode
+                        )}
+                        title={color}
+                      >
+                        <div
+                          className="w-full h-full rounded-full border border-black/10 dark:border-white/20 shadow-sm"
+                          style={{ backgroundColor: hex }}
+                        />
                       </button>
                     );
                   })}
@@ -293,10 +378,15 @@ function ProductDetailPage() {
                 <label className="block tracking-[-0.48px]">Size</label>
                 <div className="flex flex-wrap gap-2">
                   {uniqueSizes.map((size) => {
-                    // Check availability for this size in current style
-                    const variantForSize = availableVariants.find(
-                      v => (getOptionValue(v.attributes, "size") || v.title) === size
-                    );
+                    // Check availability for this size in current style AND current selected color (if applicable)
+                    const variantForSize = availableVariants.find(v => {
+                      const vSize = getOptionValue(v.attributes, "size") || v.title;
+                      const vColor = getOptionValue(v.attributes, "Color");
+
+                      const matchSize = vSize === size;
+                      const matchColor = !uniqueColors.length || !selectedColor || vColor === selectedColor;
+                      return matchSize && matchColor;
+                    });
                     const isAvailable = variantForSize?.availableForSale;
 
                     return (

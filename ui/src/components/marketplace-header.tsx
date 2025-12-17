@@ -235,7 +235,7 @@ export function MarketplaceHeader() {
                     </Link>
                   </div> */}
                   <div className="space-y-4">
-                    <p className="text-black/60 text-sm">Browse our products</p>
+                    <p className="text-muted-foreground text-sm">Browse our products</p>
                   </div>
                 </div>
 
