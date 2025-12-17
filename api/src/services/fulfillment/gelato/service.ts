@@ -313,7 +313,7 @@ export class GelatoService {
           throw new Error(`Failed to cancel order: ${response.status} - ${errorBody}`);
         }
 
-        return { success: true, orderId };
+        return { id: orderId, status: 'cancelled' };
       },
       catch: (e) => new Error(`Gelato cancel order failed: ${e instanceof Error ? e.message : String(e)}`),
     });

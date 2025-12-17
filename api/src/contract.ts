@@ -281,4 +281,31 @@ export const contract = oc.router({
         errorMessage: z.string().nullable(),
       })
     ),
+
+  cleanupAbandonedDrafts: oc
+    .route({
+      method: 'POST',
+      path: '/cron/cleanup-drafts',
+      summary: 'Cleanup abandoned draft orders',
+      description: 'Cancels draft orders older than 24 hours. Intended to be called by a cron job daily.',
+      tags: ['Jobs'],
+    })
+    .input(
+      z.object({
+        maxAgeHours: z.number().int().positive().default(24).optional(),
+      })
+    )
+    .output(
+      z.object({
+        totalProcessed: z.number(),
+        cancelled: z.number(),
+        partiallyCancelled: z.number(),
+        failed: z.number(),
+        errors: z.array(z.object({
+          orderId: z.string(),
+          provider: z.string(),
+          error: z.string(),
+        })),
+      })
+    ),
 });

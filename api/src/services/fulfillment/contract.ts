@@ -69,6 +69,14 @@ export const FulfillmentContract = oc.router({
       id: z.string(),
       status: z.string(),
     })),
+
+  cancelOrder: oc
+    .route({ method: 'POST', path: '/orders/{id}/cancel' })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({
+      id: z.string(),
+      status: z.string(),
+    })),
 });
 
 export type FulfillmentContractType = typeof FulfillmentContract;

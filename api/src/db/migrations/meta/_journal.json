@@ -29,6 +29,13 @@
       "when": 1765847938987,
       "tag": "0003_watery_iron_fist",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1766004137240,
+      "tag": "0004_flippant_vindicator",
+      "breakpoints": true
     }
   ]
 }

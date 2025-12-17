@@ -115,6 +115,13 @@ export class PrintfulClient {
     await this.sdk.ordersV2.confirmOrder(String(orderId), this.storeId);
   }
 
+  async cancelOrder(orderId: number): Promise<void> {
+    await this.request<PrintfulResponse<{ result: string }>>(
+      `${this.v1BaseUrl}/orders/${orderId}/cancel`,
+      { method: 'DELETE' }
+    );
+  }
+
   async getOrder(orderId: string): Promise<Order> {
     const result = await this.sdk.ordersV2.getOrder(orderId, this.storeId);
     return result.data as Order;

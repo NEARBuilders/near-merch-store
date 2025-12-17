@@ -124,12 +124,15 @@ export const DeliveryEstimateSchema = z.object({
 
 export const OrderStatusSchema = z.enum([
   'pending',
+  'draft_created',
   'paid',
+  'paid_pending_fulfillment',
   'processing',
-  'printing',
   'shipped',
   'delivered',
   'cancelled',
+  'partially_cancelled',
+  'refunded'
 ]);
 
 export const TrackingInfoSchema = z.object({
@@ -164,6 +167,7 @@ export const OrderSchema = z.object({
   currency: z.string(),
   checkoutSessionId: z.string().optional(),
   checkoutProvider: z.enum(['stripe', 'near']).optional(),
+  draftOrderIds: z.record(z.string(), z.string()).optional(),
   shippingMethod: z.string().optional(),
   shippingAddress: ShippingAddressSchema.optional(),
   fulfillmentOrderId: z.string().optional(),
@@ -188,6 +192,9 @@ export const CreateCheckoutInputSchema = z.object({
     variantId: z.string().optional(),
     quantity: z.number().int().positive().default(1),
   })),
+  shippingAddress: ShippingAddressSchema,
+  selectedRates: z.record(z.string(), z.string()),
+  shippingCost: z.number(),
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
 });
@@ -277,6 +284,7 @@ export const OrderWithItemsSchema = z.object({
   currency: z.string(),
   checkoutSessionId: z.string().optional(),
   checkoutProvider: z.enum(['stripe', 'near']).optional(),
+  draftOrderIds: z.record(z.string(), z.string()).optional(),
   shippingMethod: z.string().optional(),
   shippingAddress: ShippingAddressSchema.optional(),
   fulfillmentOrderId: z.string().optional(),

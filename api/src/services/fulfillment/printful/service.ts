@@ -255,6 +255,17 @@ export class PrintfulService {
     });
   }
 
+  cancelOrder(orderId: string) {
+    return Effect.gen(this, function* () {
+      yield* Effect.tryPromise({
+        try: () => this.client.cancelOrder(parseInt(orderId, 10)),
+        catch: (e) => new Error(`Failed to cancel Printful order: ${e instanceof Error ? e.message : String(e)}`),
+      });
+      
+      return { id: orderId, status: 'cancelled' };
+    });
+  }
+
   createOrder(input: FulfillmentOrderInput, confirm = false) {
     return Effect.tryPromise({
       try: async () => {

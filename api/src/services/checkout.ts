@@ -30,6 +30,7 @@ export interface CreateCheckoutParams {
 
 export interface CreateCheckoutOutput {
   orderId: string;
+  checkoutSessionId: string;
   checkoutUrl: string;
   draftOrderIds: Record<string, string>;
 }
@@ -426,8 +427,13 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
 
             yield* orderStore.updateCheckout(order.id, checkout.sessionId, 'stripe');
 
+            yield* orderStore.updateDraftOrderIds(order.id, draftOrderIds);
+
+            yield* orderStore.updateStatus(order.id, 'draft_created');
+
             return {
               orderId: order.id,
+              checkoutSessionId: checkout.sessionId,
               checkoutUrl: checkout.url,
               draftOrderIds,
             };
