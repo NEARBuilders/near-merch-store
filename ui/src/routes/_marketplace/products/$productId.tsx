@@ -8,7 +8,9 @@ import {
   productLoaders,
   requiresSize,
   useProducts,
-  useSuspenseProduct
+  useSuspenseProduct,
+  type Product,
+  type ProductImage
 } from "@/integrations/marketplace-api";
 import { cn } from "@/lib/utils";
 import { queryClient } from "@/utils/orpc";
@@ -52,10 +54,10 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
 });
 
 function getOptionValue(
-  attributes: Array<{ name: string; value: string }>,
+  attributes: Array<{ name: string; value: string }> | undefined | null,
   optionName: string
 ): string | undefined {
-  return attributes.find(
+  return attributes?.find(
     (opt) => opt.name.toLowerCase() === optionName.toLowerCase()
   )?.value;
 }
@@ -133,47 +135,40 @@ function ProductDetailPage() {
   const { favoriteIds, toggleFavorite } = useFavorites();
 
   const { data } = useSuspenseProduct(productId);
-  const mainProduct = data.product;
-  const subProducts = mainProduct.subProducts || [mainProduct];
+  const product = data.product;
+  const subProducts = product.subProducts || [product];
 
-  const [selectedStyleId, setSelectedStyleId] = useState(mainProduct.id);
-  const activeProduct = subProducts.find(p => p.id === selectedStyleId) || mainProduct;
+  const [selectedStyleId, setSelectedStyleId] = useState(product.id);
+  const currentStyle: Product = subProducts.find((p: Product) => p.id === selectedStyleId) || product;
 
-  const availableVariants = activeProduct.variants || [];
+  // Derive variants from the currently selected style
+  const availableVariants = currentStyle.variants || [];
   const hasVariants = availableVariants.length > 0;
 
-  // Deduplicate sizes and colors
+  // Deduplicate sizes and colors from the CURRENT style
   const uniqueSizes = Array.from(new Set(
-    availableVariants.map(v => getOptionValue(v.attributes, "size") || v.title)
-  )).filter(Boolean);
+    availableVariants.map((v) => getOptionValue(v.attributes, "size") || v.title)
+  )).filter(Boolean) as string[];
 
   const uniqueColors = Array.from(new Set(
-    availableVariants.map(v => getOptionValue(v.attributes, "Color"))
+    availableVariants.map((v) => getOptionValue(v.attributes, "Color"))
   )).filter(Boolean) as string[];
 
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [selectedColor, setSelectedColor] = useState<string>("");
 
-  // Initialize selected size/color if only one option or first load
-  // (Optional refinement: auto-select first available if not set)
-
-  // Find variant matching selected style (product), selected size AND selected color
-  const selectedVariant = availableVariants.find(v => {
+  // Find variant matching selected style (currentStyle), selected size AND selected color
+  const selectedVariant = availableVariants.find((v) => {
     const vSize = getOptionValue(v.attributes, "size") || v.title;
     const vColor = getOptionValue(v.attributes, "Color");
 
-    // Better logic:
     const matchesSize = !selectedSize || vSize === selectedSize;
     const matchesColor = !uniqueColors.length || !selectedColor || vColor === selectedColor;
 
     return matchesSize && matchesColor;
   }) || availableVariants[0];
 
-  // Effect to ensure we have a selected Color if multiple exist, or default to first
-  // For render phase, just deriving is better, but state is used for UI active/inactive.
-  // We'll lazy init via state functional update or just rely on user interaction + default fallback.
-
-  const displayPrice = selectedVariant?.price || activeProduct.price;
+  const displayPrice = selectedVariant?.price || currentStyle.price;
   const selectedVariantId = selectedVariant?.id;
 
   const [quantity, setQuantity] = useState(1);
@@ -181,22 +176,21 @@ function ProductDetailPage() {
   const [viewerImageIndex, setViewerImageIndex] = useState(0);
 
   const { data: relatedData } = useProducts({
-    category: mainProduct.category,
+    category: product.category,
     limit: 4,
   });
   const relatedProducts = (relatedData?.products ?? [])
-    .filter((p) => p.id !== mainProduct.id && !subProducts.some(sp => sp.id === p.id))
+    .filter((p) => p.id !== product.id && !subProducts.some((sp: Product) => sp.id === p.id))
     .slice(0, 3);
 
   // Determine display images (filter out 'detail' type/blueprints)
-  const validImages = activeProduct.images.filter((img) => img.type !== "detail");
+  const validImages = currentStyle.images.filter((img: ProductImage) => img.type !== "detail");
 
-  // Find the image specifically for the selected variant
-  const variantImage = validImages.find(img => img.variantIds?.includes(selectedVariantId || ""));
+  // STRICTLY prioritize images over design files.
+  const variantImage = validImages.find((img: ProductImage) => img.variantIds?.includes(selectedVariantId || ""));
 
-  // If a specific variant image exists, prioritize it. Otherwise show all valid preview images.
   let sortedImages = variantImage
-    ? [variantImage, ...validImages.filter(img => img !== variantImage)]
+    ? [variantImage, ...validImages.filter((img: ProductImage) => img !== variantImage)]
     : validImages;
 
   if (productId === "printful-product-407012072" && sortedImages.length >= 2) {
@@ -206,22 +200,24 @@ function ProductDetailPage() {
 
   const getProductImages = () => {
     if (sortedImages.length > 0) {
-      return sortedImages.map(img => img.url);
+      return sortedImages.map((img: ProductImage) => img.url);
     }
     return [];
   };
   const productImages = getProductImages();
-  const isFavorite = favoriteIds.includes(activeProduct.id);
-  const needsSize = requiresSize(activeProduct.category) && hasVariants && uniqueSizes.length > 0;
+
+  // Favorites should track the MAIN product
+  const isFavorite = favoriteIds.includes(product.id);
+
+  const needsSize = requiresSize(product.category) && hasVariants && uniqueSizes.length > 0;
 
   const handleAddToCart = () => {
-    const size = selectedSize || getOptionValue(selectedVariant?.attributes || [], "size") || "N/A";
-    // For cart, if variant ID is known, that carries the specific color/size combo.
+    const size = selectedSize || getOptionValue(selectedVariant?.attributes, "size") || "N/A";
     for (let i = 0; i < quantity; i++) {
       if (selectedVariant?.id) {
         addToCart(selectedVariant.id, size);
       } else {
-        addToCart(activeProduct.id, size);
+        addToCart(currentStyle.id, size);
       }
     }
   };
@@ -238,7 +234,7 @@ function ProductDetailPage() {
           images={productImages}
           initialIndex={viewerImageIndex}
           onClose={() => setViewerOpen(false)}
-          productName={activeProduct.title}
+          productName={product.title}
         />
       )}
 
@@ -267,7 +263,7 @@ function ProductDetailPage() {
                   <div className="absolute inset-0 bg-transparent" />
                   <img
                     src={productImages[0]}
-                    alt={activeProduct.title}
+                    alt={product.title}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -279,27 +275,27 @@ function ProductDetailPage() {
             <div className="flex items-center justify-between">
               <div className="inline-block border border-border px-2 py-1">
                 <span className="text-xs tracking-[-0.48px]">
-                  {activeProduct.category}
+                  {product.category}
                 </span>
               </div>
               <FavoriteButton
                 isFavorite={isFavorite}
-                onToggle={() => toggleFavorite(activeProduct.id, activeProduct.title)}
+                onToggle={() => toggleFavorite(product.id, product.title)}
                 variant="button"
               />
             </div>
 
             <h1 className="text-2xl font-medium tracking-[-0.48px]">
-              {activeProduct.title}
+              {product.title}
             </h1>
 
             <span className="text-lg tracking-[-0.48px]">
               ${displayPrice}
             </span>
 
-            {activeProduct.description && (
+            {product.description && (
               <p className="text-[#717182] tracking-[-0.48px] leading-6">
-                {activeProduct.description}
+                {product.description}
               </p>
             )}
 
@@ -310,7 +306,7 @@ function ProductDetailPage() {
               <div className="space-y-3">
                 <label className="block tracking-[-0.48px]">Style</label>
                 <div className="flex flex-wrap gap-2">
-                  {subProducts.map((subProduct) => {
+                  {subProducts.map((subProduct: Product) => {
                     const isSelected = selectedStyleId === subProduct.id;
                     return (
                       <button
@@ -373,12 +369,13 @@ function ProductDetailPage() {
               </div>
             )}
 
-            {needsSize && (
+            {/* Size Selector */}
+            {hasVariants && uniqueSizes.length > 0 && (
               <div className="space-y-3">
                 <label className="block tracking-[-0.48px]">Size</label>
                 <div className="flex flex-wrap gap-2">
                   {uniqueSizes.map((size) => {
-                    // Check availability for this size in current style AND current selected color (if applicable)
+                    // Check availability for this size in current style
                     const variantForSize = availableVariants.find(v => {
                       const vSize = getOptionValue(v.attributes, "size") || v.title;
                       const vColor = getOptionValue(v.attributes, "Color");

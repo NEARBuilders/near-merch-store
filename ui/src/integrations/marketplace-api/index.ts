@@ -27,6 +27,7 @@ export {
   useProductsByIds,
   productLoaders,
   type Product,
+  type ProductImage,
 } from './products';
 
 export {

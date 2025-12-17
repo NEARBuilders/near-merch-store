@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "turbo dev",
-    "dev:ui": "USE_REMOTE_API=true turbo dev --filter=marketplace_ui",
+    "dev:ui": "USE_REMOTE_API=true turbo dev --filter=host --filter=marketplace_ui",
     "dev:api": "USE_REMOTE_UI=true turbo dev --filter=host --filter=marketplace-api",
     "start": "turbo preview --filter=host",
     "build": "turbo build",
