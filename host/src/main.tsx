@@ -13,7 +13,6 @@ import { getRuntimeConfig } from './federation';
 
 const RemoteApp = lazy(async () => {
   const config = getRuntimeConfig();
-  console.log("CONFIG", config);
   const module = await loadRemote<{ default: FC }>(`${config.ui.name}/App`);
   if (!module) throw new Error(`Failed to load ${config.ui.name}/App`);
   return module;

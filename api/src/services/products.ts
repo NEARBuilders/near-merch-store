@@ -44,7 +44,6 @@ function transformProviderProduct(
   const designFiles = firstVariantWithDesigns?.designFiles || [];
 
   const imageMap = new Map<string, ProductImage>();
-  const images: ProductImage[] = [];
   const seenUrls = new Set<string>();
   const thumbnailUrl = product.thumbnailUrl;
 
@@ -57,23 +56,6 @@ function transformProviderProduct(
       variantIds: [], // Thumbnail is not variant-specific
     });
     seenUrls.add(thumbnailUrl);
-  }
-
-  let imageOrder = 1;
-  for (const variant of product.variants) {
-    if (!variant.files) continue;
-    for (const file of variant.files) {
-      const url = file.previewUrl || file.url;
-      if (!url || seenUrls.has(url)) continue;
-      seenUrls.add(url);
-      images.push({
-        id: `file-${file.id}-${variant.id}`,
-        url,
-        type: file.type === 'preview' ? 'preview' : 'detail',
-        placement: file.type !== 'preview' && file.type !== 'default' ? file.type : undefined,
-        order: imageOrder++,
-      });
-    }
   }
 
   let imageOrder = 1;

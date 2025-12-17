@@ -7,6 +7,7 @@ import { createRsbuild, logger } from '@rsbuild/core';
 import { OpenAPIHandler } from '@orpc/openapi/fetch';
 import { OpenAPIReferencePlugin } from '@orpc/openapi/plugins';
 import { onError } from '@orpc/server';
+import { formatORPCError } from 'every-plugin/errors';
 import { RPCHandler } from '@orpc/server/fetch';
 import { BatchHandlerPlugin } from '@orpc/server/plugins';
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
@@ -51,7 +52,9 @@ async function startServer() {
     plugins: [new BatchHandlerPlugin()],
     interceptors: [
       onError((error) => {
-        console.error('RPC Error:', error);
+        console.error('\n=== RPC Error ===');
+        formatORPCError(error);
+        console.error('=================\n');
       }),
     ],
   });
@@ -71,7 +74,9 @@ async function startServer() {
     ],
     interceptors: [
       onError((error) => {
-        console.error('OpenAPI Error:', error);
+        console.error('\n=== OpenAPI Error ===');
+        formatORPCError(error);
+        console.error('=====================\n');
       }),
     ],
   });

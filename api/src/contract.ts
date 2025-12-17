@@ -4,7 +4,7 @@ import {
   CollectionSchema,
   CreateCheckoutInputSchema,
   CreateCheckoutOutputSchema,
-  OrderSchema,
+  OrderWithItemsSchema,
   ProductCategorySchema,
   ProductSchema,
   WebhookResponseSchema
@@ -156,7 +156,7 @@ export const contract = oc.router({
     )
     .output(
       z.object({
-        orders: z.array(OrderSchema),
+        orders: z.array(OrderWithItemsSchema),
         total: z.number(),
       })
     ),
@@ -170,7 +170,7 @@ export const contract = oc.router({
       tags: ['Orders'],
     })
     .input(z.object({ id: z.string() }))
-    .output(z.object({ order: OrderSchema })),
+    .output(z.object({ order: OrderWithItemsSchema })),
 
   getOrderByCheckoutSession: oc
     .route({
@@ -181,7 +181,7 @@ export const contract = oc.router({
       tags: ['Orders'],
     })
     .input(z.object({ sessionId: z.string() }))
-    .output(z.object({ order: OrderSchema.nullable() })),
+    .output(z.object({ order: OrderWithItemsSchema.nullable() })),
 
   stripeWebhook: oc
     .route({

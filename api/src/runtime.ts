@@ -49,7 +49,7 @@ export async function createMarketplaceRuntime(config: FulfillmentConfig) {
       });
       providers.push({
         name: 'printful',
-        client: printful.client as FulfillmentProvider['client'],
+        client: printful.createClient(),
         router: printful.router,
       });
       console.log('[MarketplaceRuntime] Printful provider initialized');
@@ -72,7 +72,7 @@ export async function createMarketplaceRuntime(config: FulfillmentConfig) {
       });
       providers.push({
         name: 'gelato',
-        client: gelato.client as FulfillmentProvider['client'],
+        client: gelato.createClient(),
         router: gelato.router,
       });
       console.log('[MarketplaceRuntime] Gelato provider initialized');

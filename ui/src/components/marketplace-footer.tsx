@@ -106,18 +106,18 @@ export function MarketplaceFooter() {
             © {new Date().getFullYear()} NEAR Protocol. All rights reserved.
           </div>
           <div className="flex items-center justify-center gap-6">
-            <a
-              href="#"
+            <Link
+              to="/privacy-policy"
               className="text-muted-foreground hover:text-foreground transition-colors text-sm"
             >
               Privacy Policy
-            </a>
-            <a
-              href="#"
+            </Link>
+            <Link
+              to="/terms-of-service"
               className="text-muted-foreground hover:text-foreground transition-colors text-sm"
             >
               Terms of Service
-            </a>
+            </Link>
           </div>
         </div>
       </div>
