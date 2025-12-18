@@ -17,7 +17,6 @@ import { Route as MarketplaceLoginRouteImport } from './routes/_marketplace/logi
 import { Route as MarketplaceFavoritesRouteImport } from './routes/_marketplace/favorites'
 import { Route as MarketplaceCheckoutRouteImport } from './routes/_marketplace/checkout'
 import { Route as MarketplaceCartRouteImport } from './routes/_marketplace/cart'
-import { Route as MarketplaceAuthCallbackRouteImport } from './routes/_marketplace/auth-callback'
 import { Route as MarketplaceAuthenticatedRouteImport } from './routes/_marketplace/_authenticated'
 import { Route as MarketplaceAdminRouteImport } from './routes/_marketplace/_admin'
 import { Route as MarketplaceCollectionsIndexRouteImport } from './routes/_marketplace/collections/index'
@@ -67,11 +66,6 @@ const MarketplaceCartRoute = MarketplaceCartRouteImport.update({
   path: '/cart',
   getParentRoute: () => MarketplaceRoute,
 } as any)
-const MarketplaceAuthCallbackRoute = MarketplaceAuthCallbackRouteImport.update({
-  id: '/auth-callback',
-  path: '/auth-callback',
-  getParentRoute: () => MarketplaceRoute,
-} as any)
 const MarketplaceAuthenticatedRoute =
   MarketplaceAuthenticatedRouteImport.update({
     id: '/_authenticated',
@@ -118,7 +112,6 @@ const MarketplaceAuthenticatedCheckoutStripeRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/auth-callback': typeof MarketplaceAuthCallbackRoute
   '/cart': typeof MarketplaceCartRoute
   '/checkout': typeof MarketplaceCheckoutRoute
   '/favorites': typeof MarketplaceFavoritesRoute
@@ -134,7 +127,6 @@ export interface FileRoutesByFullPath {
   '/checkout/stripe': typeof MarketplaceAuthenticatedCheckoutStripeRoute
 }
 export interface FileRoutesByTo {
-  '/auth-callback': typeof MarketplaceAuthCallbackRoute
   '/cart': typeof MarketplaceCartRoute
   '/checkout': typeof MarketplaceCheckoutRoute
   '/favorites': typeof MarketplaceFavoritesRoute
@@ -154,7 +146,6 @@ export interface FileRoutesById {
   '/_marketplace': typeof MarketplaceRouteWithChildren
   '/_marketplace/_admin': typeof MarketplaceAdminRouteWithChildren
   '/_marketplace/_authenticated': typeof MarketplaceAuthenticatedRouteWithChildren
-  '/_marketplace/auth-callback': typeof MarketplaceAuthCallbackRoute
   '/_marketplace/cart': typeof MarketplaceCartRoute
   '/_marketplace/checkout': typeof MarketplaceCheckoutRoute
   '/_marketplace/favorites': typeof MarketplaceFavoritesRoute
@@ -172,7 +163,6 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/auth-callback'
     | '/cart'
     | '/checkout'
     | '/favorites'
@@ -188,7 +178,6 @@ export interface FileRouteTypes {
     | '/checkout/stripe'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/auth-callback'
     | '/cart'
     | '/checkout'
     | '/favorites'
@@ -207,7 +196,6 @@ export interface FileRouteTypes {
     | '/_marketplace'
     | '/_marketplace/_admin'
     | '/_marketplace/_authenticated'
-    | '/_marketplace/auth-callback'
     | '/_marketplace/cart'
     | '/_marketplace/checkout'
     | '/_marketplace/favorites'
@@ -283,13 +271,6 @@ declare module '@tanstack/react-router' {
       path: '/cart'
       fullPath: '/cart'
       preLoaderRoute: typeof MarketplaceCartRouteImport
-      parentRoute: typeof MarketplaceRoute
-    }
-    '/_marketplace/auth-callback': {
-      id: '/_marketplace/auth-callback'
-      path: '/auth-callback'
-      fullPath: '/auth-callback'
-      preLoaderRoute: typeof MarketplaceAuthCallbackRouteImport
       parentRoute: typeof MarketplaceRoute
     }
     '/_marketplace/_authenticated': {
@@ -382,7 +363,6 @@ const MarketplaceAuthenticatedRouteWithChildren =
 interface MarketplaceRouteChildren {
   MarketplaceAdminRoute: typeof MarketplaceAdminRouteWithChildren
   MarketplaceAuthenticatedRoute: typeof MarketplaceAuthenticatedRouteWithChildren
-  MarketplaceAuthCallbackRoute: typeof MarketplaceAuthCallbackRoute
   MarketplaceCartRoute: typeof MarketplaceCartRoute
   MarketplaceCheckoutRoute: typeof MarketplaceCheckoutRoute
   MarketplaceFavoritesRoute: typeof MarketplaceFavoritesRoute
@@ -398,7 +378,6 @@ interface MarketplaceRouteChildren {
 const MarketplaceRouteChildren: MarketplaceRouteChildren = {
   MarketplaceAdminRoute: MarketplaceAdminRouteWithChildren,
   MarketplaceAuthenticatedRoute: MarketplaceAuthenticatedRouteWithChildren,
-  MarketplaceAuthCallbackRoute: MarketplaceAuthCallbackRoute,
   MarketplaceCartRoute: MarketplaceCartRoute,
   MarketplaceCheckoutRoute: MarketplaceCheckoutRoute,
   MarketplaceFavoritesRoute: MarketplaceFavoritesRoute,

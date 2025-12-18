@@ -1,18 +1,11 @@
-import { createFileRoute, Link, redirect, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { queryClient } from "@/utils/orpc";
 
-type LoginSearch = {
-  redirect?: string;
-};
-
 export const Route = createFileRoute("/_marketplace/login")({
-  validateSearch: (search: Record<string, unknown>): LoginSearch => ({
-    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
-  }),
   beforeLoad: async () => {
     const { data: session } = await authClient.getSession();
     if (session?.user) {
@@ -23,8 +16,6 @@ export const Route = createFileRoute("/_marketplace/login")({
 });
 
 function LoginPage() {
-  const navigate = useNavigate();
-  const { redirect: redirectTo } = useSearch({ from: "/_marketplace/login" });
   const [isExpanded, setIsExpanded] = useState(false);
 
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
@@ -71,14 +62,8 @@ function LoginPage() {
           onSuccess: async () => {
             setIsSigningInWithNear(false);
             queryClient.invalidateQueries();
-            // Use redirect param if provided, otherwise check role
-            const { data: session } = await authClient.getSession();
-            const user = session?.user as { role?: string } | undefined;
-            const defaultRedirect = user?.role === "admin" ? "/admin" : "/account";
-            const finalRedirect = redirectTo || defaultRedirect;
             toast.success(`Signed in as: ${accountId}`);
-            // Use window.location for dynamic redirects
-            window.location.href = finalRedirect;
+            window.location.href = "/account";
           },
           onError: (error: any) => {
             setIsSigningInWithNear(false);
@@ -126,12 +111,9 @@ function LoginPage() {
   const handleSignInWithGoogle = async () => {
     setIsSigningInWithGoogle(true);
     try {
-      const callbackUrl = redirectTo
-        ? `${window.location.origin}/auth-callback?redirect=${encodeURIComponent(redirectTo)}`
-        : `${window.location.origin}/auth-callback`;
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: callbackUrl,
+        callbackURL: `${window.location.origin}/account`,
       });
     } catch (error) {
       setIsSigningInWithGoogle(false);
@@ -143,12 +125,9 @@ function LoginPage() {
   const handleSignInWithGithub = async () => {
     setIsSigningInWithGitHub(true);
     try {
-      const callbackUrl = redirectTo
-        ? `${window.location.origin}/auth-callback?redirect=${encodeURIComponent(redirectTo)}`
-        : `${window.location.origin}/auth-callback`;
       await authClient.signIn.social({
         provider: "github",
-        callbackURL: callbackUrl,
+        callbackURL: `${window.location.origin}/account`,
       });
     } catch (error) {
       setIsSigningInWithGitHub(false);

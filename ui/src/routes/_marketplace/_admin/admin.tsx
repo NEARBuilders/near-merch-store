@@ -243,8 +243,8 @@ function InventoryManagement() {
         ),
         cell: ({ row }) => (
           <div>
-            <p className="font-medium text-sm">{row.original.title}</p>
-            <p className="text-xs text-[#717182]">{row.original.id}</p>
+            <p className="font-medium text-sm group-hover:text-black">{row.original.title}</p>
+            <p className="text-xs text-[#717182] group-hover:text-[#444]">{row.original.id}</p>
           </div>
         ),
       },
@@ -279,7 +279,7 @@ function InventoryManagement() {
           </Button>
         ),
         cell: ({ row }) => (
-          <span className="text-sm">
+          <span className="text-sm group-hover:text-black">
             ${row.original.price.toFixed(2)} {row.original.currency}
           </span>
         ),
@@ -304,7 +304,7 @@ function InventoryManagement() {
         accessorKey: "variants",
         header: "Variants",
         cell: ({ row }) => (
-          <span className="text-sm text-[#717182]">{row.original.variants?.length || 0}</span>
+          <span className="text-sm text-[#717182] group-hover:text-[#444]">{row.original.variants?.length || 0}</span>
         ),
       },
       {
@@ -330,7 +330,7 @@ function InventoryManagement() {
               >
                 {isListed ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
               </Button>
-              <span className="text-xs text-[#717182]">{isListed ? "Listed" : "Delisted"}</span>
+              <span className="text-xs text-[#717182] group-hover:text-[#444]">{isListed ? "Listed" : "Delisted"}</span>
             </div>
           );
         },
@@ -452,9 +452,9 @@ function InventoryManagement() {
               </tr>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="hover:bg-[#ececf0] transition-colors">
+                <tr key={row.id} className="group hover:bg-[#ececf0] transition-colors">
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3">
+                    <td key={cell.id} className="px-4 py-3 group-hover:text-black">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
