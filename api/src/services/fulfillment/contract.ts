@@ -4,6 +4,8 @@ import {
   ProviderProductSchema,
   FulfillmentOrderInputSchema,
   FulfillmentOrderSchema,
+  ShippingQuoteInputSchema,
+  ShippingQuoteOutputSchema,
 } from './schema';
 
 export const FulfillmentContract = oc.router({
@@ -53,6 +55,27 @@ export const FulfillmentContract = oc.router({
     .output(z.object({
       received: z.boolean(),
       eventType: z.string().optional(),
+    })),
+
+  quoteOrder: oc
+    .route({ method: 'POST', path: '/orders/quote' })
+    .input(ShippingQuoteInputSchema)
+    .output(ShippingQuoteOutputSchema),
+
+  confirmOrder: oc
+    .route({ method: 'POST', path: '/orders/{id}/confirm' })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({
+      id: z.string(),
+      status: z.string(),
+    })),
+
+  cancelOrder: oc
+    .route({ method: 'POST', path: '/orders/{id}/cancel' })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({
+      id: z.string(),
+      status: z.string(),
     })),
 });
 

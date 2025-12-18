@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { X, Plus, Minus, ChevronDown } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useCart } from "@/hooks/use-cart";
+import { ProductCard } from "@/components/marketplace/product-card";
 import { SIZES, requiresSize } from "@/integrations/marketplace-api";
 
 interface CartSidebarProps {
@@ -52,86 +53,74 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                 const availableSizes = needsSize ? [...SIZES, "N/A"] : ["N/A"];
 
                 return (
-                  <div
+                  <ProductCard
                     key={item.productId}
-                    className="py-4 flex gap-4 items-start"
+                    product={item.product}
+                    variant="horizontal"
+                    hideFavorite
+                    className="py-4 border-b border-[rgba(0,0,0,0.1)] last:border-0 hover:shadow-none"
                   >
-                    <div className="bg-muted rounded size-20 shrink-0 overflow-hidden">
-                      <img
-                        src={item.product.images[0]}
-                        alt={item.product.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-between">
-                      <div className="flex items-start justify-between mb-1 gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-[16px] tracking-[-0.48px] truncate">
-                            {item.product.title}
-                          </h3>
-                          <p className="text-muted-foreground text-[14px] tracking-[-0.48px] mt-1">
-                            {item.product.category}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(item.productId)}
-                          className="size-8 flex items-center justify-center shrink-0"
-                          aria-label={`Remove ${item.product.title}`}
-                        >
-                          <X className="size-4" aria-hidden="true" />
-                        </button>
-                      </div>
-                      {item.size !== 'N/A' && (
-                        <div className="relative mt-3 w-fit max-w-full">
-                          <select
-                            value={item.size}
-                            onChange={(e) =>
-                              updateSize(item.productId, e.target.value)
-                            }
-                            className="appearance-none bg-muted text-foreground border-none h-9 pl-3.5 pr-8 text-[14px] tracking-[-0.48px] cursor-pointer rounded w-full"
-                          >
-                            {availableSizes.map((size) => (
-                              <option key={size} value={size}>
-                                {size}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown
-                            className="size-4 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"
-                            aria-hidden="true"
-                          />
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between mt-auto pt-2 gap-2 flex-wrap">
-                        <div className="flex items-center border border-border rounded h-[34px]">
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.productId, -1)}
-                            disabled={item.quantity <= 1}
-                            className="size-8 flex items-center justify-center disabled:opacity-50 hover:bg-muted transition-colors"
-                            aria-label="Decrease quantity"
-                          >
-                            <Minus className="size-4" aria-hidden="true" />
-                          </button>
-                          <span className="w-8 text-center text-[14px] font-medium tracking-[-0.48px]">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.productId, 1)}
-                            className="size-8 flex items-center justify-center hover:bg-muted transition-colors"
-                            aria-label="Increase quantity"
-                          >
-                            <Plus className="size-4" aria-hidden="true" />
-                          </button>
-                        </div>
-                        <div className="text-[16px] font-medium tracking-[-0.48px] whitespace-nowrap">
-                          ${(item.product.price * item.quantity).toFixed(2)}
+                    <div className="flex flex-col items-end gap-2 h-full justify-between w-full pl-4 border-l border-border ml-4">
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.productId)}
+                        className="size-8 flex items-center justify-center shrink-0"
+                        aria-label={`Remove ${item.product.title}`}
+                      >
+                        <X className="size-4" aria-hidden="true" />
+                      </button>
+                      <div className="flex flex-col items-end gap-2 w-full">
+                        {item.size !== 'N/A' && (
+                          <div className="relative w-fit max-w-full">
+                            <select
+                              value={item.size}
+                              onChange={(e) =>
+                                updateSize(item.productId, e.target.value)
+                              }
+                              className="appearance-none bg-muted text-foreground border-none h-9 pl-3.5 pr-8 text-[14px] tracking-[-0.48px] cursor-pointer rounded w-full"
+                            >
+                              {availableSizes.map((size) => (
+                                <option key={size} value={size}>
+                                  {size}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown
+                              className="size-4 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50"
+                              aria-hidden="true"
+                            />
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between mt-auto pt-2 gap-2 flex-wrap">
+                          <div className="flex items-center border border-border rounded h-[34px]">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.productId, -1)}
+                              disabled={item.quantity <= 1}
+                              className="size-8 flex items-center justify-center disabled:opacity-50 hover:bg-muted transition-colors"
+                              aria-label="Decrease quantity"
+                            >
+                              <Minus className="size-4" aria-hidden="true" />
+                            </button>
+                            <span className="w-8 text-center text-[14px] font-medium tracking-[-0.48px]">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.productId, 1)}
+                              className="size-8 flex items-center justify-center hover:bg-muted transition-colors"
+                              aria-label="Increase quantity"
+                            >
+                              <Plus className="size-4" aria-hidden="true" />
+                            </button>
+                          </div>
+                          <div className="text-[16px] font-medium tracking-[-0.48px] whitespace-nowrap">
+                            ${(item.product.price * item.quantity).toFixed(2)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </ProductCard>
                 );
               })}
             </div>

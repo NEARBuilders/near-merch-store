@@ -20,9 +20,13 @@
     "db:push": "turbo db:push",
     "db:studio": "turbo db:studio",
     "db:generate": "turbo db:generate",
-    "db:migrate": "turbo db:migrate"
+    "db:migrate": "turbo db:migrate",
+    "db:sync": "bun run scripts/sync-db.ts"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "dotenv": "^16.4.5"
+  },
   "devDependencies": {
     "turbo": "^2.6.3"
   },

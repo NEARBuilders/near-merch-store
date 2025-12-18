@@ -15,7 +15,7 @@ interface CartState {
   items: Record<string, CartItem>;
 
   // Actions
-  addToCart: (productId: string, size?: string) => void;
+  addToCart: (productId: string, variantId?: string, size?: string) => void;
   updateQuantity: (productId: string, change: number) => void;
   updateSize: (productId: string, size: string) => void;
   removeItem: (productId: string) => void;
@@ -32,7 +32,7 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: {},
 
-      addToCart: (productId: string, size = "N/A") => {
+      addToCart: (productId: string, variantId?: string, size = "N/A") => {
         set((state) => {
           const existingItem = state.items[productId];
 
@@ -41,12 +41,14 @@ export const useCartStore = create<CartState>()(
               ...state.items,
               [productId]: {
                 productId,
+                variantId: variantId || existingItem?.variantId,
                 quantity: (existingItem?.quantity || 0) + 1,
                 size: existingItem?.size || size,
               },
             },
           };
         });
+        toast.success("Added to cart");
       },
 
       updateQuantity: (productId: string, change: number) => {
@@ -87,9 +89,9 @@ export const useCartStore = create<CartState>()(
       removeItem: (productId: string) => {
         set((state) => {
           const { [productId]: _, ...rest } = state.items;
-          toast.success("Removed from cart");
           return { items: rest };
         });
+        toast.success("Removed from cart");
       },
 
       clearCart: () => {

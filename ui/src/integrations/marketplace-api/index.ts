@@ -3,6 +3,7 @@ import type { ProductCategory } from './keys';
 
 export interface CartItem {
   productId: string;
+  variantId?: string;
   quantity: number;
   size: string;
 }
@@ -30,6 +31,7 @@ export {
   useSyncProducts,
   useUpdateProductListing,
   type Product,
+  type ProductImage,
 } from './products';
 
 export {

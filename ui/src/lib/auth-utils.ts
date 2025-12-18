@@ -31,20 +31,6 @@ export function handleAccountLinkRefresh(
 
 export function getProviderConfig(provider: string) {
   switch (provider) {
-    case 'google':
-      return {
-        name: 'Google',
-        icon: '🔵',
-        color: 'text-white',
-        backgroundColor: 'bg-[#4285F4]'
-      };
-    case 'github':
-      return {
-        name: 'GitHub',
-        icon: '⚫',
-        color: 'text-white',
-        backgroundColor: 'bg-[#181717]'
-      };
     case 'siwn':
       return {
         name: 'NEAR',

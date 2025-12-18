@@ -126,6 +126,7 @@ bun build:host       # Build host server
 bun db:migrate       # Run migrations
 bun db:push          # Push schema changes
 bun db:studio        # Open Drizzle Studio
+bun db:sync          # Sync products from live API to local database
 
 # Testing
 bun test             # Run all tests

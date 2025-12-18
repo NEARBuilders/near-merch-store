@@ -126,6 +126,7 @@ function transformProviderProduct(
     const fulfillmentConfig: FulfillmentConfig = {
       externalVariantId: variantId,
       externalProductId: String(product.sourceId),
+      designFiles: variant.designFiles,
       providerData: providerName === 'printful'
         ? {
           catalogVariantId: variant.catalogVariantId,

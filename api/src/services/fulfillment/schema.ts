@@ -1,4 +1,5 @@
 import { z } from 'every-plugin/zod';
+import { DesignFileSchema } from '../../schema';
 
 export const FulfillmentProviderSchema = z.enum(['printful', 'gelato', 'manual']);
 
@@ -13,11 +14,6 @@ export const FulfillmentOrderStatusSchema = z.enum([
   'cancelled',
   'failed'
 ]);
-
-export const DesignFileSchema = z.object({
-  placement: z.string(),
-  url: z.string(),
-});
 
 export const ProviderVariantSchema = z.object({
   id: z.union([z.string(), z.number()]),
@@ -104,9 +100,35 @@ export const FulfillmentOrderSchema = z.object({
   shipments: z.array(FulfillmentShipmentSchema).optional(),
 });
 
+export const ShippingRateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  rate: z.number(),
+  currency: z.string(),
+  minDeliveryDays: z.number().optional(),
+  maxDeliveryDays: z.number().optional(),
+  minDeliveryDate: z.string().optional(),
+  maxDeliveryDate: z.string().optional(),
+});
+
+export const ShippingQuoteInputSchema = z.object({
+  recipient: FulfillmentAddressSchema,
+  items: z.array(FulfillmentOrderItemSchema),
+  currency: z.string().optional(),
+});
+
+export const ShippingQuoteOutputSchema = z.object({
+  rates: z.array(ShippingRateSchema),
+  currency: z.string(),
+});
+
 export type FulfillmentProvider = z.infer<typeof FulfillmentProviderSchema>;
 export type FulfillmentOrderStatus = z.infer<typeof FulfillmentOrderStatusSchema>;
 export type ProviderProduct = z.infer<typeof ProviderProductSchema>;
 export type ProviderVariant = z.infer<typeof ProviderVariantSchema>;
+export type FulfillmentOrderItem = z.infer<typeof FulfillmentOrderItemSchema>;
 export type FulfillmentOrderInput = z.infer<typeof FulfillmentOrderInputSchema>;
 export type FulfillmentOrder = z.infer<typeof FulfillmentOrderSchema>;
+export type ShippingRate = z.infer<typeof ShippingRateSchema>;
+export type ShippingQuoteInput = z.infer<typeof ShippingQuoteInputSchema>;
+export type ShippingQuoteOutput = z.infer<typeof ShippingQuoteOutputSchema>;

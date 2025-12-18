@@ -11,18 +11,7 @@ import { withZephyr } from "zephyr-rsbuild-plugin";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const normalizedName = pkg.name;
-
-const bosConfig = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, "../bos.config.json"), "utf8")
-);
-
 const isProduction = process.env.NODE_ENV === "production";
-const useRemoteApi = process.env.USE_REMOTE_API === "true";
-
-const apiUrl =
-  isProduction || useRemoteApi
-    ? `${bosConfig.app.host.production}/api/rpc`
-    : `${bosConfig.app.host.development}/api/rpc`;
 
 function updateHostConfig(_name: string, url: string) {
   try {
@@ -112,9 +101,6 @@ export default defineConfig({
     entry: {
       index: "./src/main.tsx",
       remote: "./src/remote.tsx",
-    },
-    define: {
-      "import.meta.env.API_URL": JSON.stringify(apiUrl),
     },
   },
   resolve: {
