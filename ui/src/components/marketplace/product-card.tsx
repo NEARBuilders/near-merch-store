@@ -265,7 +265,7 @@ function HorizontalProductLayout({
         <div className="flex justify-between items-start gap-2">
           <div className="min-w-0">
             <Link to="/products/$productId" params={{ productId: product.id }} className="block">
-              <h3 className="font-medium text-foreground truncate leading-tight transition-colors hover:text-primary text-base">
+              <h3 className="font-medium text-foreground leading-tight transition-colors hover:text-primary text-base">
                 {product.title}
               </h3>
             </Link>

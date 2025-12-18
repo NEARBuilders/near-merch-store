@@ -57,12 +57,12 @@ export function MarketplaceHeader() {
 
   return (
     <header className="bg-background border-b border-border sticky top-0 z-50">
-      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
+      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-3 md:py-6">
         <div className="flex items-center justify-between gap-4">
           <a
             href="/"
             aria-label="NEAR"
-            className="text-xl font-bold flex flex-row items-center gap-4 relative pl-[26px] pr-6 py-4 shrink-0 grow-0 text-foreground"
+            className="text-xl font-bold flex flex-row items-center gap-2 md:gap-4 relative pl-0 pr-0 py-0 md:pl-[26px] md:pr-6 md:py-4 shrink-0 grow-0 text-foreground"
           >
             <NearMark className="max-w-[28px]" />
             <span aria-hidden="true" className="h-6 w-px bg-border/60" />
@@ -165,7 +165,7 @@ export function MarketplaceHeader() {
 
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
+                <Button variant="ghost" size="icon" className="md:hidden -mr-2">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>

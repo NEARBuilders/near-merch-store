@@ -26,7 +26,7 @@ function CartPage() {
         </div>
       </div>
 
-      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-8">
+      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4 md:py-8">
         <h1 className="text-2xl font-medium tracking-[-0.48px] mb-8">Shopping Cart</h1>
 
         {cartItems.length === 0 ? (
@@ -37,7 +37,7 @@ function CartPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid lg:grid-cols-3 gap-12">
+          <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
             <div className="lg:col-span-2">
               <div className="divide-y divide-border">
                 {cartItems.map((item) => (

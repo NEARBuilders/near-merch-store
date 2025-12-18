@@ -142,7 +142,7 @@ function CheckoutPage() {
             <div className="mb-6">
               <h2 className="text-base font-medium mb-6">Order Summary</h2>
 
-              <div className="space-y-4">
+              <div className="divide-y divide-border/50">
                 {cartItems.map((item) => (
                   <ProductCard
                     key={item.productId}
@@ -151,7 +151,7 @@ function CheckoutPage() {
                     hideFavorite
                     hideActions
                     hidePrice
-                    className="p-0 border-none shadow-none gap-4 bg-transparent"
+                    className="p-0 py-4 first:pt-0 last:pb-0 border-none shadow-none gap-4 bg-transparent"
                     actionSlot={
                       <div className="text-base text-right">
                         ${(item.product.price * item.quantity).toFixed(2)}
@@ -169,12 +169,12 @@ function CheckoutPage() {
 
             <div className="h-px bg-[rgba(0,0,0,0.1)] my-6" />
 
-            <div className="space-y-3 mb-6">
-              <div className="flex justify-between text-sm">
+            <div className="space-y-0 divide-y divide-border/50 mb-6">
+              <div className="flex justify-between text-sm py-3 first:pt-0">
                 <span className="text-[#717182]">Subtotal</span>
                 <span>${subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm py-3">
                 <span className="text-[#717182]">Shipping</span>
                 <span>
                   {getShippingQuoteMutation.isPending ? (
@@ -186,7 +186,7 @@ function CheckoutPage() {
                   )}
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm py-3 last:pb-0">
                 <span className="text-[#717182]">Tax</span>
                 <span>${tax.toFixed(2)}</span>
               </div>
@@ -202,14 +202,14 @@ function CheckoutPage() {
               </div>
             </div>
 
-            <div className="mt-6 bg-muted border border-border p-4 flex items-center justify-between gap-4">
+            <div className="mt-6 bg-muted border border-border p-4 flex flex-col sm:flex-row sm:items-center items-start justify-between gap-4">
               <span className="text-sm">Apply Discount Code</span>
               <input
                 type="text"
                 placeholder="Enter Code"
                 value={discountCode}
                 onChange={(e) => setDiscountCode(e.target.value)}
-                className="bg-background border border-border px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-neutral-950 transition-colors w-60"
+                className="bg-background border border-border px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-neutral-950 transition-colors w-full sm:w-60"
               />
             </div>
           </div>
@@ -217,19 +217,19 @@ function CheckoutPage() {
           <div>
             <div className="border border-border p-6 mb-6">
               <div className="flex items-start gap-3">
-                <Checkbox 
-                  id="terms" 
+                <Checkbox
+                  id="terms"
                   checked={acceptedTerms}
                   onCheckedChange={(checked: boolean) => setAcceptedTerms(checked)}
                   className="mt-0.5"
                 />
-                <label 
-                  htmlFor="terms" 
+                <label
+                  htmlFor="terms"
                   className="text-sm leading-relaxed cursor-pointer select-none"
                 >
                   By checking this box, you agree to our{' '}
-                  <Link 
-                    to="/terms-of-service" 
+                  <Link
+                    to="/terms-of-service"
                     className="underline hover:text-neutral-950 transition-colors"
                   >
                     Terms of Service
@@ -245,65 +245,65 @@ function CheckoutPage() {
                 </h2>
 
                 <div className="space-y-6">
-              <div className="w-full border border-border p-6 text-left relative opacity-50 cursor-not-allowed">
-                <div className="flex items-start gap-3">
-                  <div className="size-10 bg-[#00ec97] flex items-center justify-center shrink-0">
-                    <NearMark className="size-6 text-black" />
-                  </div>
+                  <div className="w-full border border-border p-6 text-left relative opacity-50 cursor-not-allowed">
+                    <div className="flex items-start gap-3">
+                      <div className="size-10 bg-[#00ec97] flex items-center justify-center shrink-0">
+                        <NearMark className="size-6 text-black" />
+                      </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-base">Pay with NEAR</p>
-                      <span className="bg-neutral-950 text-white text-[10px] px-2 py-0.5 uppercase tracking-wider">
-                        COMING SOON
-                      </span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-base">Pay with NEAR</p>
+                          <span className="bg-neutral-950 text-white text-[10px] px-2 py-0.5 uppercase tracking-wider">
+                            COMING SOON
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Recommended
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Recommended
+
+                    <p className="text-sm text-muted-foreground mt-4">
+                      Instant checkout with your NEAR wallet
                     </p>
                   </div>
-                </div>
 
-                <p className="text-sm text-muted-foreground mt-4">
-                  Instant checkout with your NEAR wallet
-                </p>
-              </div>
+                  <button
+                    onClick={handlePayWithCard}
+                    disabled={checkoutMutation.isPending || getShippingQuoteMutation.isPending || !shippingQuote}
+                    className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="size-10 bg-[#d6d3ff] flex items-center justify-center shrink-0">
+                        {checkoutMutation.isPending ? (
+                          <div className="animate-spin size-5 border-2 border-[#635BFF]/30 border-t-[#635BFF] rounded-full" />
+                        ) : (
+                          <CreditCard className="size-6 text-[#635BFF]" />
+                        )}
+                      </div>
 
-              <button
-                onClick={handlePayWithCard}
-                disabled={checkoutMutation.isPending || getShippingQuoteMutation.isPending || !shippingQuote}
-                className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="size-10 bg-[#d6d3ff] flex items-center justify-center shrink-0">
-                    {checkoutMutation.isPending ? (
-                      <div className="animate-spin size-5 border-2 border-[#635BFF]/30 border-t-[#635BFF] rounded-full" />
-                    ) : (
-                      <CreditCard className="size-6 text-[#635BFF]" />
-                    )}
-                  </div>
-
-                  <div className="flex-1">
-                    <p className="text-base mb-1">
-                      {checkoutMutation.isPending ? 'Redirecting...' : 'Pay with Card'}
-                    </p>
-                    <div className="flex items-center gap-1 text-xs text-[#635bff]">
-                      <span>Powered by</span>
-                      <span className="font-semibold">stripe</span>
+                      <div className="flex-1">
+                        <p className="text-base mb-1">
+                          {checkoutMutation.isPending ? 'Redirecting...' : 'Pay with Card'}
+                        </p>
+                        <div className="flex items-center gap-1 text-xs text-[#635bff]">
+                          <span>Powered by</span>
+                          <span className="font-semibold">stripe</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <p className="text-sm text-[#717182] mt-4">
-                  {checkoutMutation.isPending 
-                    ? 'Please wait...'
-                    : getShippingQuoteMutation.isPending
-                    ? 'Loading shipping rates...'
-                    : 'Traditional checkout with credit card'
-                  }
-                </p>
-              </button>
-            </div>
+                    <p className="text-sm text-[#717182] mt-4">
+                      {checkoutMutation.isPending
+                        ? 'Please wait...'
+                        : getShippingQuoteMutation.isPending
+                          ? 'Loading shipping rates...'
+                          : 'Traditional checkout with credit card'
+                      }
+                    </p>
+                  </button>
+                </div>
               </>
             )}
           </div>
