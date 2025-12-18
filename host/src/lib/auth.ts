@@ -13,16 +13,6 @@ export const auth = betterAuth({
   trustedOrigins: process.env.CORS_ORIGIN?.split(",") || ["*"],
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL || "https://demo.everything.market",
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-    },
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID as string,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-    },
-  },
   plugins: [
     siwn({
       recipient: "marketplace-demo.near"
@@ -31,7 +21,7 @@ export const auth = betterAuth({
   account: {
     accountLinking: {
       enabled: true,
-      trustedProviders: ["google", "github", "siwn"],
+      trustedProviders: ["siwn"],
       allowDifferentEmails: true,
       updateUserInfoOnLink: true
     }
