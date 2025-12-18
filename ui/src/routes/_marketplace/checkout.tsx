@@ -22,12 +22,11 @@ type AddressFormData = {
     firstName: string;
     lastName: string;
     email: string;
-    phone: string;
     country: string;
     address1: string;
     address2?: string;
     city: string;
-    state: string;
+    state?: string;
     zip: string;
   };
   shipping?: {
@@ -37,7 +36,7 @@ type AddressFormData = {
     address1: string;
     address2?: string;
     city: string;
-    state: string;
+    state?: string;
     zip: string;
   };
 };
@@ -128,7 +127,6 @@ function CheckoutPage() {
         firstName: '',
         lastName: '',
         email: '',
-        phone: '',
         country: '',
         address1: '',
         address2: '',
@@ -205,11 +203,10 @@ function CheckoutPage() {
           addressLine1: addressData.address1,
           addressLine2: addressData.address2,
           city: addressData.city,
-          state: addressData.state,
+          state: addressData.state || '',
           postCode: addressData.zip,
           country: countryCode,
           email: formData.billing.email,
-          phone: formData.billing.phone,
         },
         selectedRates,
         shippingCost: shippingQuote.shippingCost,
@@ -257,11 +254,10 @@ function CheckoutPage() {
           addressLine1: addressData.address1,
           addressLine2: addressData.address2,
           city: addressData.city,
-          state: addressData.state,
+          state: addressData.state || '',
           postCode: addressData.zip,
           country: countryCode,
           email: formData.billing.email,
-          phone: formData.billing.phone,
         },
       });
     } finally {
@@ -287,18 +283,31 @@ function CheckoutPage() {
     
     // Basic validation
     if (!formData.billing.firstName || !formData.billing.lastName || 
-        !formData.billing.email || !formData.billing.phone ||
-        !formData.billing.country || !formData.billing.address1 ||
-        !formData.billing.city || !formData.billing.state || !formData.billing.zip) {
+        !formData.billing.email || !formData.billing.country || 
+        !formData.billing.address1 || !formData.billing.city || !formData.billing.zip) {
       toast.error('Please fill in all required billing fields');
+      return;
+    }
+
+    // State is required only for US
+    const countryMapping = countryOptions.find(c => c.name === formData.billing.country);
+    if (countryMapping?.code === 'US' && !formData.billing.state) {
+      toast.error('State is required for US addresses');
       return;
     }
 
     if (shipToDifferentAddress) {
       if (!formData.shipping?.firstName || !formData.shipping?.lastName ||
           !formData.shipping?.country || !formData.shipping?.address1 ||
-          !formData.shipping?.city || !formData.shipping?.state || !formData.shipping?.zip) {
+          !formData.shipping?.city || !formData.shipping?.zip) {
         toast.error('Please fill in all required shipping fields');
+        return;
+      }
+      
+      // State is required only for US shipping addresses
+      const shippingCountryMapping = countryOptions.find(c => c.name === formData.shipping?.country);
+      if (shippingCountryMapping?.code === 'US' && !formData.shipping?.state) {
+        toast.error('State is required for US shipping addresses');
         return;
       }
     }
@@ -457,32 +466,34 @@ function CheckoutPage() {
                 )}
               />
 
-              {/* State */}
-              <form.Field
-                name="billing.state"
-                children={(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor="state">
-                      State <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      value={field.state.value}
-                      onValueChange={field.handleChange}
-                    >
-                      <SelectTrigger id="state" className="w-full">
-                        <SelectValue placeholder="Select an option..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {usStates.map((state) => (
-                          <SelectItem key={state} value={state}>
-                            {state}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              />
+              {/* State - Only show for US */}
+              {form.state.values.billing.country === 'United States' && (
+                <form.Field
+                  name="billing.state"
+                  children={(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor="state">
+                        State <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={field.state.value || ''}
+                        onValueChange={field.handleChange}
+                      >
+                        <SelectTrigger id="state" className="w-full">
+                          <SelectValue placeholder="Select a state..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {usStates.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                />
+              )}
 
               {/* ZIP Code */}
               <form.Field
@@ -514,26 +525,6 @@ function CheckoutPage() {
                     <Input
                       id="email"
                       type="email"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      required
-                    />
-                  </div>
-                )}
-              />
-
-              {/* Phone */}
-              <form.Field
-                name="billing.phone"
-                children={(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">
-                      Phone <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="phone"
-                      type="tel"
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
@@ -673,31 +664,34 @@ function CheckoutPage() {
                     )}
                   />
 
-                  <form.Field
-                    name="shipping.state"
-                    children={(field) => (
-                      <div className="space-y-2">
-                        <Label htmlFor="shippingState">
-                          State <span className="text-red-500">*</span>
-                        </Label>
-                        <Select
-                          value={field.state.value || ''}
-                          onValueChange={field.handleChange}
-                        >
-                          <SelectTrigger id="shippingState" className="w-full">
-                            <SelectValue placeholder="Select an option..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {usStates.map((state) => (
-                              <SelectItem key={state} value={state}>
-                                {state}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  />
+                  {/* State - Only show for US */}
+                  {form.state.values.shipping?.country === 'United States' && (
+                    <form.Field
+                      name="shipping.state"
+                      children={(field) => (
+                        <div className="space-y-2">
+                          <Label htmlFor="shippingState">
+                            State <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={field.state.value || ''}
+                            onValueChange={field.handleChange}
+                          >
+                            <SelectTrigger id="shippingState" className="w-full">
+                              <SelectValue placeholder="Select a state..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {usStates.map((state) => (
+                                <SelectItem key={state} value={state}>
+                                  {state}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    />
+                  )}
 
                   <form.Field
                     name="shipping.zip"
