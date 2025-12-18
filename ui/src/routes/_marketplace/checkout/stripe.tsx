@@ -1,23 +1,52 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/use-cart';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/utils/orpc';
 import { toast } from 'sonner';
-import { authClient } from '@/lib/auth-client';
+import type { ShippingAddress } from '@/integrations/marketplace-api/checkout';
 
-export const Route = createFileRoute('/_marketplace/_authenticated/checkout/stripe')({
+interface CheckoutSearchParams {
+  shippingRateId?: string;
+  shippingAddress?: string;
+}
+
+export const Route = createFileRoute('/_marketplace/checkout/stripe')({
+  validateSearch: (search: Record<string, unknown>): CheckoutSearchParams => ({
+    shippingRateId: typeof search.shippingRateId === 'string' ? search.shippingRateId : undefined,
+    shippingAddress: typeof search.shippingAddress === 'string' ? search.shippingAddress : undefined,
+  }),
   component: StripeCheckoutPage,
 });
 
+const SHIPPING_RATES: Record<string, { name: string; rate: number; deliveryDays: string }> = {
+  standard: { name: 'Standard Shipping', rate: 5.99, deliveryDays: '5-10 business days' },
+  express: { name: 'Express Shipping', rate: 12.99, deliveryDays: '2-4 business days' },
+};
+
 function StripeCheckoutPage() {
   const { cartItems, subtotal, clearCart } = useCart();
-  const { data: session } = authClient.useSession();
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const search = Route.useSearch();
 
-  const total = subtotal;
+  // Parse shipping info from search params
+  const shippingAddress: ShippingAddress | null = useMemo(() => {
+    if (search.shippingAddress) {
+      try {
+        return JSON.parse(search.shippingAddress);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [search.shippingAddress]);
+
+  const selectedRate = search.shippingRateId ? SHIPPING_RATES[search.shippingRateId] : null;
+  const shippingCost = selectedRate?.rate ?? 0;
+  const tax = subtotal * 0.08;
+  const total = subtotal + shippingCost + tax;
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
@@ -26,8 +55,8 @@ function StripeCheckoutPage() {
       const result = await apiClient.createCheckout({
         items: cartItems.map((item) => ({
           productId: item.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
-          size: item.size,
         })),
         successUrl: `${window.location.origin}/order-confirmation`,
         cancelUrl: `${window.location.origin}/checkout`,
@@ -87,7 +116,7 @@ function StripeCheckoutPage() {
               {cartItems.map((item) => (
                 <div key={item.productId} className="flex gap-3">
                   <div className="size-12 bg-[#ececf0] flex-shrink-0 overflow-hidden">
-                    <img src={item.product.images[0]} alt={item.product.title} className="size-full object-cover" />
+                    <img src={item.product.images[0]?.url} alt={item.product.title} className="size-full object-cover" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm">{item.product.title}</p>
@@ -107,14 +136,38 @@ function StripeCheckoutPage() {
               </div>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-[#717182]">Shipping</span>
-                <span>Free</span>
+                <span>${shippingCost.toFixed(2)}</span>
               </div>
-              <div className="text-xs text-[#717182] mb-4">Free shipping (5-15 business days)</div>
+              {selectedRate && (
+                <div className="text-xs text-[#717182] mb-2">
+                  {selectedRate.name} ({selectedRate.deliveryDays})
+                </div>
+              )}
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-[#717182]">Tax</span>
+                <span>${tax.toFixed(2)}</span>
+              </div>
               <div className="flex justify-between font-medium pt-2 border-t border-[rgba(0,0,0,0.1)]">
                 <span>Total due</span>
                 <span>${total.toFixed(2)}</span>
               </div>
             </div>
+
+            {/* Shipping Address Display */}
+            {shippingAddress && (
+              <div className="mt-6 pt-4 border-t border-[rgba(0,0,0,0.1)]">
+                <h3 className="text-sm font-medium mb-2">Shipping to:</h3>
+                <div className="text-sm text-[#717182]">
+                  <p>{shippingAddress.firstName} {shippingAddress.lastName}</p>
+                  <p>{shippingAddress.addressLine1}</p>
+                  {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
+                  <p>{shippingAddress.city}, {shippingAddress.state} {shippingAddress.postCode}</p>
+                  <p>{shippingAddress.country}</p>
+                  {shippingAddress.email && <p className="mt-2">{shippingAddress.email}</p>}
+                  {shippingAddress.phone && <p>{shippingAddress.phone}</p>}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -157,12 +210,6 @@ function StripeCheckoutPage() {
                   Bank transfers & more
                 </li>
               </ul>
-            </div>
-
-            <div className="bg-[#d4fced] border border-[#00ec97] p-4 mb-6">
-              <p className="text-sm">
-                Signed in as <strong>{session?.user?.email || 'Guest'}</strong>
-              </p>
             </div>
 
             <Button

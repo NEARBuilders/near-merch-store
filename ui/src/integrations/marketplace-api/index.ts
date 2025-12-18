@@ -3,6 +3,7 @@ import type { ProductCategory } from './keys';
 
 export interface CartItem {
   productId: string;
+  variantId?: string;
   quantity: number;
   size: string;
 }
@@ -50,6 +51,11 @@ export {
 
 export {
   useCreateCheckout,
+  useGetShippingQuote,
   type CreateCheckoutInput,
   type CreateCheckoutOutput,
+  type ShippingAddress,
+  type ShippingRate,
+  type GetQuoteInput,
+  type GetQuoteOutput,
 } from './checkout';

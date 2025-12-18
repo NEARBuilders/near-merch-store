@@ -4,6 +4,8 @@ import {
   CollectionSchema,
   CreateCheckoutInputSchema,
   CreateCheckoutOutputSchema,
+  GetQuoteInputSchema,
+  GetQuoteOutputSchema,
   OrderSchema,
   ProductCategorySchema,
   ProductSchema,
@@ -139,6 +141,17 @@ export const contract = oc.router({
     })
     .input(CreateCheckoutInputSchema)
     .output(CreateCheckoutOutputSchema),
+
+  getQuote: oc
+    .route({
+      method: 'POST',
+      path: '/quote',
+      summary: 'Get shipping quote',
+      description: 'Gets shipping rates and cost estimate for items to a shipping address.',
+      tags: ['Checkout'],
+    })
+    .input(GetQuoteInputSchema)
+    .output(GetQuoteOutputSchema),
 
   getOrders: oc
     .route({

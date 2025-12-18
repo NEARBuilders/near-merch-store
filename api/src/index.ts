@@ -266,6 +266,60 @@ export default createPlugin({
         };
       }),
 
+      getQuote: builder.getQuote.handler(async ({ input }) => {
+        const { items, shippingAddress } = input;
+
+        let subtotal = 0;
+        let currency = 'USD';
+
+        // Calculate subtotal from items
+        for (const item of items) {
+          const productResult = await Effect.runPromise(
+            Effect.gen(function* () {
+              const service = yield* ProductService;
+              return yield* service.getProduct(item.productId);
+            }).pipe(Effect.provide(appLayer))
+          );
+          const product = productResult.product;
+
+          const selectedVariant = item.variantId
+            ? product.variants.find(v => v.id === item.variantId)
+            : product.variants[0];
+
+          const unitPrice = selectedVariant?.price ?? product.price;
+          currency = selectedVariant?.currency ?? product.currency ?? 'USD';
+
+          subtotal += unitPrice * item.quantity;
+        }
+
+        // For now, return standard shipping rates
+        // TODO: Integrate with Printful/Gelato shipping rate APIs based on fulfillment provider
+        const shippingRates = [
+          {
+            id: 'standard',
+            name: 'Standard Shipping',
+            rate: 5.99,
+            currency,
+            minDeliveryDays: 5,
+            maxDeliveryDays: 10,
+          },
+          {
+            id: 'express',
+            name: 'Express Shipping',
+            rate: 12.99,
+            currency,
+            minDeliveryDays: 2,
+            maxDeliveryDays: 4,
+          },
+        ];
+
+        return {
+          shippingRates,
+          subtotal,
+          currency,
+        };
+      }),
+
       getOrders: builder.getOrders.handler(async ({ input }) => {
         const userId = 'demo-user';
         const result = await Effect.runPromise(

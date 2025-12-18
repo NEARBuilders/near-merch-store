@@ -207,6 +207,38 @@ export const WebhookResponseSchema = z.object({
 
 export type WebhookResponse = z.infer<typeof WebhookResponseSchema>;
 
+// Shipping Quote Schemas
+export const QuoteItemSchema = z.object({
+  productId: z.string(),
+  variantId: z.string().optional(),
+  quantity: z.number().int().positive().default(1),
+});
+
+export const GetQuoteInputSchema = z.object({
+  items: z.array(QuoteItemSchema).min(1),
+  shippingAddress: ShippingAddressSchema,
+});
+
+export const ShippingRateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  rate: z.number(),
+  currency: z.string().default('USD'),
+  minDeliveryDays: z.number().optional(),
+  maxDeliveryDays: z.number().optional(),
+});
+
+export const GetQuoteOutputSchema = z.object({
+  shippingRates: z.array(ShippingRateSchema),
+  subtotal: z.number(),
+  currency: z.string(),
+});
+
+export type QuoteItem = z.infer<typeof QuoteItemSchema>;
+export type GetQuoteInput = z.infer<typeof GetQuoteInputSchema>;
+export type ShippingRate = z.infer<typeof ShippingRateSchema>;
+export type GetQuoteOutput = z.infer<typeof GetQuoteOutputSchema>;
+
 export const ReturnAddressSchema = ShippingAddressSchema;
 
 export type ReturnAddress = z.infer<typeof ReturnAddressSchema>;
