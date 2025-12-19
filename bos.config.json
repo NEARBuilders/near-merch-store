@@ -10,7 +10,7 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-1267-ui-near-merch-store-nearbuilder-af6449f41-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1268-ui-near-merch-store-nearbuilder-6123030c4-ze.zephyrcloud.app",
       "exposes": {
         "App": "./App",
         "components": "./components",

@@ -851,7 +851,7 @@ function CheckoutPage() {
                 <div className="space-y-6">
                   <button
                     onClick={handlePayWithPing}
-                    disabled={checkoutMutation.isPending}
+                    disabled={true} // Not available yet
                     className="w-full flex flex-row justify-center items-center py-2.5 px-5 gap-2.5 h-12 bg-[#1E1E1E] dark:bg-[#FBFAFF] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {checkoutMutation.isPending ? (
