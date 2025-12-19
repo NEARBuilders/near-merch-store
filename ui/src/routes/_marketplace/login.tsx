@@ -1,7 +1,6 @@
 import {
   createFileRoute,
   redirect,
-  useNavigate,
 } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
@@ -27,8 +26,6 @@ export const Route = createFileRoute("/_marketplace/login")({
 });
 
 function LoginPage() {
-  const navigate = useNavigate();
-  const { redirect } = Route.useSearch();
 
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -87,11 +84,18 @@ function LoginPage() {
           recipient: process.env.PUBLIC_ACCOUNT_ID || "near-merch-store.near",
         },
         {
-          onSuccess: async (context) => {
+          onSuccess: () => {
             setIsSigningIn(false);
             queryClient.invalidateQueries();
-            toast.success(`Signed in as: ${context.user?.name || context.user?.email || accountId}`);
-            navigate({ to: redirect ?? "/account", replace: true });
+            
+            const userName = accountId || "User";
+            toast.success(`Welcome back, ${userName}!`);
+            
+            // Always redirect to cart after successful sign-in
+            // Use window.location for full page reload to ensure session is loaded
+            setTimeout(() => {
+              window.location.href = "/cart";
+            }, 500);
           },
           onError: (error: any) => {
             setIsSigningIn(false);
