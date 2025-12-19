@@ -1,6 +1,8 @@
 import { useCart } from '@/hooks/use-cart';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, CreditCard, Check, ChevronsUpDown } from 'lucide-react';
+import pingpayLogoDark from '@/assets/pingpay/pingpay-logo-dark.png';
+import pingpayLogoLight from '@/assets/pingpay/pingpay-logo-light.png';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/utils/orpc';
@@ -121,7 +123,7 @@ function CheckoutPage() {
   });
 
   const checkoutMutation = useMutation({
-    mutationFn: async (formData: ShippingAddress) => {
+    mutationFn: async (params: { formData: ShippingAddress; paymentProvider: 'stripe' | 'pingpay' }) => {
       if (cartItems.length === 0) throw new Error('Cart is empty');
       if (!shippingQuote) throw new Error('Please calculate shipping first');
 
@@ -136,11 +138,12 @@ function CheckoutPage() {
           variantId: item.variantId,
           quantity: item.quantity,
         })),
-        shippingAddress: formData,
+        shippingAddress: params.formData,
         selectedRates,
         shippingCost: shippingQuote.shippingCost,
         successUrl: `${window.location.origin}/order-confirmation`,
         cancelUrl: `${window.location.origin}/checkout`,
+        paymentProvider: params.paymentProvider,
       });
       return result;
     },
@@ -214,7 +217,46 @@ function CheckoutPage() {
       return;
     }
     
-    checkoutMutation.mutate(formData);
+    checkoutMutation.mutate({ formData, paymentProvider: 'stripe' });
+  };
+
+  const handlePayWithPing = async () => {
+    const { data: session } = await authClient.getSession();
+    if (!session?.user) {
+      navigate({
+        to: "/login",
+        search: {
+          redirect: "/checkout",
+        },
+      });
+      return;
+    }
+
+    const formData = form.state.values;
+    
+    if (!formData.firstName || !formData.lastName || 
+        !formData.email || !formData.country || 
+        !formData.addressLine1 || !formData.city || !formData.postCode) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (availableStates.length > 0 && !formData.state) {
+      toast.error('State/Province is required for the selected country');
+      return;
+    }
+
+    if (formData.country === 'BR' && !formData.taxId) {
+      toast.error('Tax ID (CPF/CNPJ) is required for orders to Brazil');
+      return;
+    }
+
+    if (!shippingQuote) {
+      await handleCalculateShipping(formData);
+      return;
+    }
+    
+    checkoutMutation.mutate({ formData, paymentProvider: 'pingpay' });
   };
 
   return (
@@ -807,29 +849,36 @@ function CheckoutPage() {
                 </h2>
 
                 <div className="space-y-6">
-                  <div className="w-full border border-border p-6 text-left relative opacity-50 cursor-not-allowed">
-                    <div className="flex items-start gap-3">
-                      <div className="size-10 bg-[#00ec97] flex items-center justify-center shrink-0">
-                        <NearMark className="size-6 text-black" />
+                  <button
+                    onClick={handlePayWithPing}
+                    disabled={checkoutMutation.isPending}
+                    className="w-full flex flex-row justify-center items-center py-2.5 px-5 gap-2.5 h-12 bg-[#1E1E1E] dark:bg-[#FBFAFF] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {checkoutMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin size-5 border-2 border-white/30 border-t-white dark:border-[#3D315E]/30 dark:border-t-[#3D315E] rounded-full" />
+                        <span className="font-medium text-[21px] leading-[30px] text-white dark:text-[#3D315E]">
+                          Redirecting...
+                        </span>
                       </div>
-
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-base">Pay with NEAR</p>
-                          <span className="bg-neutral-950 text-white text-[10px] px-2 py-0.5 uppercase tracking-wider">
-                            COMING SOON
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Recommended
-                        </p>
+                    ) : (
+                      <div className="flex flex-row items-center gap-2">
+                        <span className="font-medium text-[21px] leading-[30px] text-white dark:text-[#3D315E]">
+                          Pay with
+                        </span>
+                        <img 
+                          src={pingpayLogoLight} 
+                          alt="Pingpay" 
+                          className="h-[20.53px] w-[77px] dark:hidden"
+                        />
+                        <img 
+                          src={pingpayLogoDark} 
+                          alt="Pingpay" 
+                          className="h-[20.53px] w-[77px] hidden dark:block"
+                        />
                       </div>
-                    </div>
-
-                    <p className="text-sm text-muted-foreground mt-4">
-                      Instant checkout with your NEAR wallet
-                    </p>
-                  </div>
+                    )}
+                  </button>
 
                   <button
                     onClick={handlePayWithCard}

@@ -4,6 +4,7 @@ import { FulfillmentContract } from './services/fulfillment';
 import GelatoPlugin from './services/fulfillment/gelato';
 import PrintfulPlugin from './services/fulfillment/printful';
 import { PaymentContract } from './services/payment';
+import PingPayPlugin from './services/payment/pingpay';
 import StripePlugin from './services/payment/stripe';
 import { ReturnAddress } from './schema';
 
@@ -48,6 +49,7 @@ export async function createMarketplaceRuntime(
       printful: { module: PrintfulPlugin },
       gelato: { module: GelatoPlugin },
       stripe: { module: StripePlugin },
+      pingpay: { module: PingPayPlugin },
     },
     secrets: {},
   });
@@ -119,6 +121,25 @@ export async function createMarketplaceRuntime(
     } catch (error) {
       console.error('[MarketplaceRuntime] Failed to initialize Stripe:', error);
     }
+  }
+
+  try {
+    const pingpay = await runtime.usePlugin('pingpay', {
+      variables: {
+        baseUrl: 'https://pay.pingpay.io',
+        recipientAddress: 'yourstore.near',
+        recipientChainId: 'near:mainnet',
+      },
+      secrets: {},
+    });
+    paymentProviders.push({
+      name: 'pingpay',
+      client: pingpay.createClient(),
+      router: pingpay.router,
+    });
+    console.log('[MarketplaceRuntime] PingPay payment provider initialized');
+  } catch (error) {
+    console.error('[MarketplaceRuntime] Failed to initialize PingPay:', error);
   }
 
   console.log(`[MarketplaceRuntime] Enabled fulfillment providers: ${providers.map((p) => p.name).join(', ') || 'none'}`);
