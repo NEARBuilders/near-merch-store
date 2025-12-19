@@ -83,6 +83,7 @@ function CheckoutPage() {
       city: '',
       state: '',
       postCode: '',
+      taxId: '',
     } as ShippingAddress,
     onSubmit: async ({ value }) => {
       await handleCalculateShipping(value);
@@ -200,6 +201,11 @@ function CheckoutPage() {
 
     if (availableStates.length > 0 && !formData.state) {
       toast.error('State/Province is required for the selected country');
+      return;
+    }
+
+    if (formData.country === 'BR' && !formData.taxId) {
+      toast.error('Tax ID (CPF/CNPJ) is required for orders to Brazil');
       return;
     }
 
@@ -545,6 +551,108 @@ function CheckoutPage() {
                   )}
                 />
               </div>
+
+              {form.state.values.country === 'BR' && (
+                <form.Field
+                  name="taxId"
+                  children={(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor="taxId">
+                        Tax ID (CPF/CNPJ) <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="taxId"
+                        ref={(el) => {
+                          if (el) fieldRefs.current.set('taxId', el);
+                        }}
+                        value={field.state.value || ''}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/[^\d]/g, '');
+                          if (value.length <= 11) {
+                            value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+                          } else if (value.length <= 14) {
+                            value = value.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+                          }
+                          field.handleChange(value);
+                        }}
+                        placeholder="000.000.000-00 or 00.000.000/0000-00"
+                        maxLength={18}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        CPF (Individual): 000.000.000-00 • CNPJ (Business): 00.000.000/0000-00
+                      </p>
+                    </div>
+                  )}
+                />
+              )}
+
+              {form.state.values.country === 'CL' && (
+                <form.Field
+                  name="taxId"
+                  children={(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor="taxId">
+                        RUT (Tax ID) <span className="text-muted-foreground text-xs">(Recommended)</span>
+                      </Label>
+                      <Input
+                        id="taxId"
+                        ref={(el) => {
+                          if (el) fieldRefs.current.set('taxId', el);
+                        }}
+                        value={field.state.value || ''}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/[^\dkK]/gi, '');
+                          if (value.length > 1) {
+                            value = value.slice(0, -1).replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.') + '-' + value.slice(-1);
+                          }
+                          field.handleChange(value);
+                        }}
+                        placeholder="12.345.678-5"
+                        maxLength={12}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Chilean RUT format: 00.000.000-X
+                      </p>
+                    </div>
+                  )}
+                />
+              )}
+
+              {form.state.values.country === 'KR' && (
+                <form.Field
+                  name="taxId"
+                  children={(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor="taxId">
+                        PCC (Personal Customs Code) <span className="text-muted-foreground text-xs">(Recommended)</span>
+                      </Label>
+                      <Input
+                        id="taxId"
+                        ref={(el) => {
+                          if (el) fieldRefs.current.set('taxId', el);
+                        }}
+                        value={field.state.value || ''}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => {
+                          let value = e.target.value.toUpperCase().replace(/[^P\d]/g, '');
+                          if (value && !value.startsWith('P')) {
+                            value = 'P' + value;
+                          }
+                          field.handleChange(value.slice(0, 13));
+                        }}
+                        placeholder="P000000000000"
+                        maxLength={13}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Required for customs clearance in South Korea
+                      </p>
+                    </div>
+                  )}
+                />
+              )}
 
               <div className="pt-6">
                 <button

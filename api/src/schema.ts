@@ -116,6 +116,7 @@ export const ShippingAddressSchema = z.object({
   country: z.string().length(2),
   email: z.string().email(),
   phone: z.string().min(1).optional(),
+  taxId: z.string().optional(),
 });
 
 export const DeliveryEstimateSchema = z.object({

@@ -321,6 +321,7 @@ export class PrintfulService {
           zip: input.recipient.zip,
           phone: input.recipient.phone,
           email: input.recipient.email,
+          tax_number: input.recipient.taxId,
         };
 
         const items = input.items.map(item => {

@@ -148,11 +148,12 @@ export interface ShippingAddress {
   addressLine1: string;
   addressLine2?: string;
   city: string;
-  state: string;
+  state?: string;
   postCode: string;
   country: string;
   email: string;
   phone?: string;
+  taxId?: string;
 }
 
 export interface TrackingInfo {

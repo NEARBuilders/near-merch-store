@@ -68,6 +68,7 @@ export const FulfillmentAddressSchema = z.object({
   zip: z.string(),
   phone: z.string().optional(),
   email: z.string().email(),
+  taxId: z.string().optional(),
 });
 
 export const FulfillmentOrderInputSchema = z.object({

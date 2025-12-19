@@ -4,6 +4,7 @@ import type { ProviderBreakdown, ProviderShippingOption, QuoteItemInput, QuoteOu
 import { OrderStore, ProductStore } from '../store';
 import type { FulfillmentOrderItem } from './fulfillment/schema';
 import type { PaymentLineItem } from './payment/schema';
+import { CheckoutError } from './checkout/errors';
 
 interface ProviderItemGroup {
   item: QuoteItemInput;
@@ -47,6 +48,7 @@ function buildRecipient(address: ShippingAddress) {
     zip: address.postCode,
     phone: address.phone,
     email: address.email,
+    taxId: address.taxId,
   };
 }
 
@@ -190,12 +192,12 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                     items: fulfillmentItems,
                     currency,
                   }),
-                catch: (error) => {
-                  if (error instanceof Error) {
-                    return new Error(error.message);
-                  }
-                  return new Error(`Failed to get quote from ${providerName}: ${String(error)}`);
-                },
+                catch: (error) =>
+                  new CheckoutError({
+                    code: 'QUOTE_FAILED',
+                    provider: providerName,
+                    cause: error,
+                  }),
               });
 
               const rates = quoteResult.rates || [];
@@ -369,11 +371,13 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                     },
                   }),
                 catch: (error) =>
-                  new Error(
-                    `Failed to create draft order at ${providerName}: ${
-                      error instanceof Error ? error.message : String(error)
-                    }`
-                  ),
+                  new CheckoutError({
+                    code: 'DRAFT_ORDER_FAILED',
+                    provider: providerName,
+                    orderId: order.id,
+                    userId,
+                    cause: error,
+                  }),
               });
 
               draftOrderIds[providerName] = draftOrder.id;
@@ -418,11 +422,12 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                   },
                 }),
               catch: (error) =>
-                new Error(
-                  `Failed to create payment checkout: ${
-                    error instanceof Error ? error.message : String(error)
-                  }`
-                ),
+                new CheckoutError({
+                  code: 'PAYMENT_CHECKOUT_FAILED',
+                  orderId: order.id,
+                  userId,
+                  cause: error,
+                }),
             });
 
             yield* orderStore.updateCheckout(order.id, checkout.sessionId, 'stripe');
