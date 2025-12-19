@@ -17,11 +17,11 @@ export const auth = betterAuth({
     schema: schema,
   }),
   trustedOrigins: process.env.CORS_ORIGIN?.split(",") || ["*"],
-  secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL,
+  secret: process.env.BETTER_AUTH_SECRET || "default-secret-change-in-production",
+  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3001",
   plugins: [
     siwn({
-      recipient: bosConfig.account
+      recipient: bosConfig.account,
     }),
     admin({
       defaultRole: "user",
@@ -45,7 +45,7 @@ export const auth = betterAuth({
   advanced: {
     defaultCookieAttributes: {
       sameSite: "lax",
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       httpOnly: true
     }
   }

@@ -52,41 +52,26 @@ function ConnectedAccountsPage() {
   const handleNearAction = async () => {
     setIsProcessingNear(true);
     try {
-      if (!accountId) {
-        await authClient.requestSignIn.near(
-          { recipient: process.env.PUBLIC_ACCOUNT_ID || "every.near", },
-          {
-            onSuccess: () => {
-              setIsProcessingNear(false);
-            },
-            onError: async (error: any) => {
-              setIsProcessingNear(false);
-              console.error("Wallet connection failed:", error);
-              console.error(error.message || "Failed to connect wallet");
-            },
-          }
-        );
-      } else {
-        await authClient.near.link(
-          { recipient: process.env.PUBLIC_ACCOUNT_ID || "every.near", },
-          {
-            onSuccess: () => {
-              console.log("NEAR account linked successfully");
-              refreshAccounts();
-              setIsProcessingNear(false);
-            },
-            onError: async (error: any) => {
-              console.error("NEAR link error:", error);
-              console.error(error.message || "Failed to link NEAR account");
-              setIsProcessingNear(false);
-              await authClient.near.disconnect();
-            },
-          }
-        );
-      }
+      // For linking additional accounts, use the link method
+      // Note: This will require two user interactions (connect + sign)
+      await authClient.near.link(
+        { recipient: process.env.PUBLIC_ACCOUNT_ID || "near-merch-store.near" },
+        {
+          onSuccess: () => {
+            console.log("NEAR account linked successfully");
+            refreshAccounts();
+            setIsProcessingNear(false);
+          },
+          onError: async (error: any) => {
+            console.error("NEAR link error:", error);
+            console.error(error.message || "Failed to link NEAR account");
+            setIsProcessingNear(false);
+          },
+        }
+      );
     } catch (error) {
       setIsProcessingNear(false);
-      console.log("Failed to process NEAR action");
+      console.log("Failed to link NEAR account");
     }
   };
 
