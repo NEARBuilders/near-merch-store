@@ -169,10 +169,10 @@ export default defineConfig({
     },
   },
   output: {
-    // assetPrefix: isProduction
-    //   ? `${bosConfig.app.ui.production}/`
-    //   : "auto",
-    assetPrefix: "auto",
+    distPath: {
+      root: 'dist',
+    },
+    assetPrefix: "/",
     filename: {
       css: "static/css/[name].css",
     },
