@@ -130,24 +130,11 @@ export function MarketplaceHeader() {
                 </Link>
               </>
             ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-none">
-                    <User className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40 rounded-none ">
-                  <DropdownMenuItem asChild className="rounded-none">
-                    <Link
-                      to="/login"
-                      className="flex items-center justify-between w-full cursor-pointer px-4 py-2 "
-                    >
-                      <LogIn className="h-4 w-4 font-extrabold" />
-                      <span>Sign In</span>
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Link to="/login">
+                <Button variant="ghost" size="icon" className="rounded-none">
+                  <User className="h-5 w-5" />
+                </Button>
+              </Link>
             )}
 
             <div className="hidden md:block">
@@ -237,7 +224,7 @@ export function MarketplaceHeader() {
         </div>
 
 
-      </div>
-    </header>
+      </div >
+    </header >
   );
 }

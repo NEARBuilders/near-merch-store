@@ -117,7 +117,7 @@ function ConnectedAccountsPage() {
     linkedAccounts.some((a) => a.providerId === providerId);
   const primaryAccount = Array.isArray(linkedAccounts)
     ? linkedAccounts.find((acc) => acc.providerId === "siwn") ||
-      linkedAccounts[0]
+    linkedAccounts[0]
     : null;
 
   return (
@@ -142,21 +142,19 @@ function ConnectedAccountsPage() {
           {linkedAccounts.map((account) => (
             <div
               key={account.providerId || account.accountId}
-              className={`p-4 flex items-center justify-between ${
-                account === primaryAccount
-                  ? "bg-[#d4fced] border border-[#00ec97]"
-                  : "bg-card border border-border"
-              }`}
+              className={`p-4 flex items-center justify-between ${account === primaryAccount
+                ? "bg-[#d4fced] dark:bg-emerald-950/30 border border-[#00ec97] dark:border-emerald-900"
+                : "bg-card border border-border"
+                }`}
             >
               <div className="flex items-center gap-3">
                 <div
-                  className={`size-10 flex items-center justify-center ${
-                    account.providerId === "siwn"
-                      ? "bg-[#00ec97]"
-                      : account.providerId === "github"
-                      ? "bg-[#030213]"
+                  className={`size-10 flex items-center justify-center ${account.providerId === "siwn"
+                    ? "bg-[#00ec97]"
+                    : account.providerId === "github"
+                      ? "bg-[#030213] dark:bg-white"
                       : ""
-                  }`}
+                    }`}
                 >
                   {account.providerId === "siwn" && (
                     <svg className="size-5" viewBox="0 0 24 24" fill="none">
@@ -203,7 +201,7 @@ function ConnectedAccountsPage() {
         </div>
       )}
 
-      <div className="border-t border-[rgba(0,0,0,0.1)] pt-4">
+      <div className="border-t border-[rgba(0,0,0,0.1)] dark:border-white/10 pt-4">
         <p className="text-sm text-[#717182] mb-4">Add New Account</p>
 
         {!isProviderLinked("siwn") && (
@@ -224,21 +222,21 @@ function ConnectedAccountsPage() {
             <button
               onClick={handleNearAction}
               disabled={isProcessingNear}
-              className="bg-[#030213] hover:bg-[#1a1a2e] text-white text-xs h-8 px-4 disabled:opacity-50"
+              className="bg-[#030213] dark:bg-white dark:text-black hover:bg-[#1a1a2e] dark:hover:bg-gray-200 text-white text-xs h-8 px-4 disabled:opacity-50"
             >
               {isProcessingNear
                 ? accountId
                   ? "Linking..."
                   : "Connecting..."
                 : accountId
-                ? "Link"
-                : "Connect"}
+                  ? "Link"
+                  : "Connect"}
             </button>
           </div>
         )}
       </div>
 
-      <div className="bg-[#ececf0] p-4 mt-6">
+      <div className="bg-[#ececf0] dark:bg-muted p-4 mt-6">
         <p className="text-xs text-[#717182]">
           💡 Connect multiple accounts for flexible sign-in options. You can
           disconnect at any time from this page.
