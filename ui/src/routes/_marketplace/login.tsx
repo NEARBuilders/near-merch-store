@@ -40,11 +40,43 @@ function LoginPage() {
     setIsConnectingWallet(true);
     try {
       await authClient.requestSignIn.near(
-        { recipient: process.env.PUBLIC_ACCOUNT_ID || "every.near", },
+        { recipient: process.env.PUBLIC_ACCOUNT_ID || "every.near" },
         {
-          onSuccess: () => {
-            setIsConnectingWallet(false);
-            toast.success("Wallet connected");
+          onSuccess: async () => {
+            // Wallet connected, now trigger SIWN immediately
+            // Do not set isConnectingWallet to false yet
+            try {
+              await authClient.signIn.near(
+                { recipient: process.env.PUBLIC_ACCOUNT_ID || "every.near" },
+                {
+                  onSuccess: async () => {
+                    setIsConnectingWallet(false);
+                    queryClient.invalidateQueries();
+                    navigate({ to: redirect ?? "/account", replace: true });
+                    toast.success("Successfully logged in");
+                    window.location.href = "/account";
+                  },
+                  onError: (error: any) => {
+                    setIsConnectingWallet(false);
+                    console.error("NEAR sign in error:", error);
+                    if ((error as any)?.code === "NONCE_NOT_FOUND") {
+                      toast.error("Session expired. Please reconnect your wallet.");
+                      handleWalletDisconnect();
+                      return;
+                    }
+                    toast.error(
+                      error instanceof Error
+                        ? error.message
+                        : "Authentication failed"
+                    );
+                  },
+                }
+              );
+            } catch (error) {
+              setIsConnectingWallet(false);
+              console.error("NEAR sign in error:", error);
+              toast.error("Authentication failed during sign in");
+            }
           },
           onError: (error: any) => {
             setIsConnectingWallet(false);

@@ -28,26 +28,25 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  pending: 'bg-gray-100 text-gray-800',
-  paid: 'bg-blue-100 text-blue-800',
-  processing: 'bg-yellow-100 text-yellow-800',
-  printing: 'bg-purple-100 text-purple-800',
-  shipped: 'bg-orange-100 text-orange-800',
-  delivered: 'bg-green-100 text-green-800',
-  cancelled: 'bg-red-100 text-red-800',
+  pending: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+  paid: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  processing: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+  printing: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  shipped: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  delivered: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
 };
 
 function OrdersLoading() {
   return (
     <div className="flex items-center justify-center py-8">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100 mx-auto mb-2"></div>
         <p className="text-sm text-[#717182]">Loading orders...</p>
       </div>
     </div>
   );
 }
-
 function OrdersError({ error }: { error: Error }) {
   const router = useRouter();
 
@@ -178,7 +177,7 @@ function OrdersPage() {
       </div>
 
       {orders.length === 0 ? (
-        <div className="bg-[#ececf0] p-8 text-center rounded">
+        <div className="bg-[#ececf0] dark:bg-muted p-8 text-center rounded">
           <Package className="mx-auto h-12 w-12 text-[#717182] mb-4" />
           <p className="text-[#717182]">No orders yet</p>
           <p className="text-sm text-[#717182] mt-1">Your orders will appear here once you make a purchase</p>

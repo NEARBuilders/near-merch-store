@@ -47,9 +47,9 @@ function MyAccountPage() {
         <div className="flex items-start justify-between mb-12">
           <div>
             <h1 className="text-2xl font-medium mb-2">My Account</h1>
-            <div className="flex items-center gap-2 text-[#717182] text-sm">
+            <div className="flex mt-4 items-center gap-2 text-[#717182] text-sm">
               <svg
-                className="size-4"
+                className="size-4 shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 16 16"
@@ -61,13 +61,13 @@ function MyAccountPage() {
                   d="M13.333 14v-1.333A2.667 2.667 0 0010.666 10H5.333a2.667 2.667 0 00-2.666 2.667V14M8 7.333A2.667 2.667 0 108 2a2.667 2.667 0 000 5.333z"
                 />
               </svg>
-              <span>{userEmail}</span>
+              <span className="truncate max-w-[200px] md:max-w-none">{userEmail}</span>
             </div>
           </div>
           <Button
             variant="outline"
             onClick={handleSignOut}
-            className="border-[rgba(0,0,0,0.1)]"
+            className="border-[rgba(0,0,0,0.1)] dark:border-border"
           >
             Sign Out
           </Button>
@@ -77,9 +77,8 @@ function MyAccountPage() {
           <div className="space-y-1">
             <Link
               to="/account/orders"
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
-                isOrdersActive ? "bg-[#ececf0]" : "hover:bg-gray-50"
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${isOrdersActive ? "bg-[#ececf0] dark:bg-accent" : "hover:bg-gray-50 dark:hover:bg-accent/50"
+                }`}
             >
               <Package className="size-4" />
               <span className="flex-1 text-sm">My Orders</span>
@@ -88,9 +87,8 @@ function MyAccountPage() {
 
             <Link
               to="/account/connected"
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
-                isConnectedActive ? "bg-[#ececf0]" : "hover:bg-gray-50"
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${isConnectedActive ? "bg-[#ececf0] dark:bg-accent" : "hover:bg-gray-50 dark:hover:bg-accent/50"
+                }`}
             >
               <Link2 className="size-4" />
               <span className="flex-1 text-sm">Connected Accounts</span>
