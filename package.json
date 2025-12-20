@@ -8,21 +8,25 @@
   ],
   "scripts": {
     "dev": "turbo dev",
-    "dev:ui": "USE_REMOTE_API=true turbo dev --filter=host --filter=marketplace_ui",
-    "dev:api": "USE_REMOTE_UI=true turbo dev --filter=host --filter=marketplace-api",
+    "dev:ui": "USE_REMOTE_API=true turbo dev --filter=host --filter=ui",
+    "dev:api": "USE_REMOTE_UI=true turbo dev --filter=host --filter=api",
     "start": "turbo preview --filter=host",
     "build": "turbo build",
-    "build:api": "turbo build --filter=marketplace-api",
+    "build:api": "turbo build --filter=api",
     "build:host": "turbo build --filter=host",
-    "build:ui": "turbo build --filter=marketplace_ui",
-    "deploy": "NODE_ENV=production turbo build --filter=marketplace_ui --filter=marketplace-api",
+    "build:ui": "turbo build --filter=ui",
+    "deploy": "NODE_ENV=production turbo build --filter=ui --filter=api",
     "typecheck": "turbo typecheck",
     "db:push": "turbo db:push",
     "db:studio": "turbo db:studio",
     "db:generate": "turbo db:generate",
-    "db:migrate": "turbo db:migrate"
+    "db:migrate": "turbo db:migrate",
+    "db:sync": "bun run scripts/sync-db.ts"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "dotenv": "^16.4.5"
+  },
   "devDependencies": {
     "turbo": "^2.6.3"
   },

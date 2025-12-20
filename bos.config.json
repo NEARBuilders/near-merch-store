@@ -3,13 +3,14 @@
   "app": {
     "host": {
       "title": "Near Merch",
+      "description": "NEAR-powered merch store for the NEAR ecosystem",
       "development": "http://localhost:3001",
       "production": "https://near.everything.market"
     },
     "ui": {
-      "name": "marketplace_ui",
+      "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-1208-marketplace-api-near-merch-stor-a8ad76253-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1268-ui-near-merch-store-nearbuilder-6123030c4-ze.zephyrcloud.app",
       "exposes": {
         "App": "./App",
         "components": "./components",
@@ -18,9 +19,9 @@
       }
     },
     "api": {
-      "name": "marketplace-api",
+      "name": "api",
       "development": "http://localhost:3014",
-      "production": "https://elliot-braem-1200-marketplace-api-near-merch-stor-92ec7d494-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1266-api-near-merch-store-nearbuilde-8fdeb5775-ze.zephyrcloud.app",
       "variables": {
         "network": "mainnet",
         "contractId": "social.near"
@@ -30,8 +31,8 @@
         "STRIPE_WEBHOOK_SECRET",
         "PRINTFUL_API_KEY",
         "PRINTFUL_STORE_ID",
-        "DATABASE_URL",
-        "DATABASE_AUTH_TOKEN"
+        "API_DATABASE_URL",
+        "API_DATABASE_AUTH_TOKEN"
       ]
     }
   }

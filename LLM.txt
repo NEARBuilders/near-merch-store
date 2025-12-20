@@ -46,13 +46,13 @@ The **entire system** is configured via `bos.config.json` - a runtime-loaded JSO
       "production": "https://everything.market"
     },
     "ui": {
-      "name": "marketplace_ui",
+      "name": "ui",
       "development": "http://localhost:3002",
       "production": "https://cdn.example.com/ui/remoteEntry.js"
     },
     "api": {
       "plugins": {
-        "marketplace-api": {
+        "api": {
           "development": "http://localhost:3014/remoteEntry.js",
           "production": "https://cdn.example.com/api/remoteEntry.js",
           "variables": {},
@@ -115,7 +115,7 @@ const config = await loadBosConfig();  // Reads bos.config.json
 createInstance({
   name: 'host',
   remotes: [{
-    name: config.ui.name,              // "marketplace_ui"
+    name: config.ui.name,              // "ui"
     entry: `${config.ui.url}/remoteEntry.js`  // From config!
   }]
 });
@@ -204,9 +204,9 @@ const runtime = createPluginRuntime({
   )
 });
 
-const { client, router } = await runtime.usePlugin('marketplace-api', {
-  variables: config.apiPlugins['marketplace-api'].variables,
-  secrets: config.apiPlugins['marketplace-api'].secrets
+const { client, router } = await runtime.usePlugin('api', {
+  variables: config.apiPlugins['api'].variables,
+  secrets: config.apiPlugins['api'].secrets
 });
 
 // Router is merged into main oRPC router
@@ -334,7 +334,7 @@ Both use **Drizzle ORM** with **SQLite** (libsql).
 bun --filter host db:push
 
 # API migrations  
-bun --filter marketplace-api db:push
+bun --filter api db:push
 ```
 
 ## Development Workflow
@@ -423,7 +423,7 @@ export const contract = oc.router({
   }
 });
 
-// ui/src/integrations/marketplace-api/products.ts
+// ui/src/integrations/api/products.ts
 // TypeScript knows the exact input/output types!
 const { data } = await client.products.list({
   limit: 20,
@@ -442,7 +442,7 @@ Shared dependencies ensure singleton React/TanStack instances:
 import { useState } from 'react';  // Singleton
 
 // Type imports work across remote boundaries
-import type { Product } from 'marketplace_ui/types';
+import type { Product } from 'ui/types';
 ```
 
 ## Testing
@@ -497,7 +497,7 @@ createRouter: (context, builder) => ({
 })
 ```
 
-4. **Use in UI** (`ui/src/integrations/marketplace-api/`):
+4. **Use in UI** (`ui/src/integrations/api/`):
 ```typescript
 export const useMyEndpoint = () => {
   return useMutation({

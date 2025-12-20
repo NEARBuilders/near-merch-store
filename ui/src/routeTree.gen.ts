@@ -23,15 +23,18 @@ import { Route as MarketplaceCheckoutRouteImport } from './routes/_marketplace/c
 import { Route as MarketplaceCartRouteImport } from './routes/_marketplace/cart'
 import { Route as MarketplacePageRouteImport } from './routes/_marketplace/_page'
 import { Route as MarketplaceAuthenticatedRouteImport } from './routes/_marketplace/_authenticated'
+import { Route as MarketplaceProductsIndexRouteImport } from './routes/_marketplace/products/index'
 import { Route as MarketplaceCollectionsIndexRouteImport } from './routes/_marketplace/collections/index'
 import { Route as MarketplaceProductsProductIdRouteImport } from './routes/_marketplace/products/$productId'
 import { Route as MarketplaceCollectionsCollectionRouteImport } from './routes/_marketplace/collections/$collection'
 import { Route as MarketplacePageTermsOfServiceRouteImport } from './routes/_marketplace/_page/terms-of-service'
 import { Route as MarketplacePagePrivacyPolicyRouteImport } from './routes/_marketplace/_page/privacy-policy'
 import { Route as MarketplaceAuthenticatedAccountRouteImport } from './routes/_marketplace/_authenticated/account'
+import { Route as MarketplaceAuthenticatedAdminRouteImport } from './routes/_marketplace/_authenticated/_admin'
 import { Route as MarketplaceAuthenticatedAccountIndexRouteImport } from './routes/_marketplace/_authenticated/account/index'
 import { Route as MarketplaceAuthenticatedAccountOrdersRouteImport } from './routes/_marketplace/_authenticated/account/orders'
 import { Route as MarketplaceAuthenticatedAccountConnectedRouteImport } from './routes/_marketplace/_authenticated/account/connected'
+import { Route as MarketplaceAuthenticatedAdminDashboardRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard'
 
 const MarketplaceRoute = MarketplaceRouteImport.update({
   id: '/_marketplace',
@@ -102,6 +105,12 @@ const MarketplaceAuthenticatedRoute =
     id: '/_authenticated',
     getParentRoute: () => MarketplaceRoute,
   } as any)
+const MarketplaceProductsIndexRoute =
+  MarketplaceProductsIndexRouteImport.update({
+    id: '/products/',
+    path: '/products/',
+    getParentRoute: () => MarketplaceRoute,
+  } as any)
 const MarketplaceCollectionsIndexRoute =
   MarketplaceCollectionsIndexRouteImport.update({
     id: '/collections/',
@@ -138,6 +147,11 @@ const MarketplaceAuthenticatedAccountRoute =
     path: '/account',
     getParentRoute: () => MarketplaceAuthenticatedRoute,
   } as any)
+const MarketplaceAuthenticatedAdminRoute =
+  MarketplaceAuthenticatedAdminRouteImport.update({
+    id: '/_admin',
+    getParentRoute: () => MarketplaceAuthenticatedRoute,
+  } as any)
 const MarketplaceAuthenticatedAccountIndexRoute =
   MarketplaceAuthenticatedAccountIndexRouteImport.update({
     id: '/',
@@ -155,6 +169,12 @@ const MarketplaceAuthenticatedAccountConnectedRoute =
     id: '/connected',
     path: '/connected',
     getParentRoute: () => MarketplaceAuthenticatedAccountRoute,
+  } as any)
+const MarketplaceAuthenticatedAdminDashboardRoute =
+  MarketplaceAuthenticatedAdminDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => MarketplaceAuthenticatedAdminRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -175,6 +195,8 @@ export interface FileRoutesByFullPath {
   '/collections/$collection': typeof MarketplaceCollectionsCollectionRoute
   '/products/$productId': typeof MarketplaceProductsProductIdRoute
   '/collections': typeof MarketplaceCollectionsIndexRoute
+  '/products': typeof MarketplaceProductsIndexRoute
+  '/dashboard': typeof MarketplaceAuthenticatedAdminDashboardRoute
   '/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
   '/account/': typeof MarketplaceAuthenticatedAccountIndexRoute
@@ -196,6 +218,8 @@ export interface FileRoutesByTo {
   '/collections/$collection': typeof MarketplaceCollectionsCollectionRoute
   '/products/$productId': typeof MarketplaceProductsProductIdRoute
   '/collections': typeof MarketplaceCollectionsIndexRoute
+  '/products': typeof MarketplaceProductsIndexRoute
+  '/dashboard': typeof MarketplaceAuthenticatedAdminDashboardRoute
   '/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
   '/account': typeof MarketplaceAuthenticatedAccountIndexRoute
@@ -216,12 +240,15 @@ export interface FileRoutesById {
   '/_marketplace/search': typeof MarketplaceSearchRoute
   '/_marketplace/shipping-info': typeof MarketplaceShippingInfoRoute
   '/_marketplace/': typeof MarketplaceIndexRoute
+  '/_marketplace/_authenticated/_admin': typeof MarketplaceAuthenticatedAdminRouteWithChildren
   '/_marketplace/_authenticated/account': typeof MarketplaceAuthenticatedAccountRouteWithChildren
   '/_marketplace/_page/privacy-policy': typeof MarketplacePagePrivacyPolicyRoute
   '/_marketplace/_page/terms-of-service': typeof MarketplacePageTermsOfServiceRoute
   '/_marketplace/collections/$collection': typeof MarketplaceCollectionsCollectionRoute
   '/_marketplace/products/$productId': typeof MarketplaceProductsProductIdRoute
   '/_marketplace/collections/': typeof MarketplaceCollectionsIndexRoute
+  '/_marketplace/products/': typeof MarketplaceProductsIndexRoute
+  '/_marketplace/_authenticated/_admin/dashboard': typeof MarketplaceAuthenticatedAdminDashboardRoute
   '/_marketplace/_authenticated/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/_marketplace/_authenticated/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
   '/_marketplace/_authenticated/account/': typeof MarketplaceAuthenticatedAccountIndexRoute
@@ -246,6 +273,8 @@ export interface FileRouteTypes {
     | '/collections/$collection'
     | '/products/$productId'
     | '/collections'
+    | '/products'
+    | '/dashboard'
     | '/account/connected'
     | '/account/orders'
     | '/account/'
@@ -267,6 +296,8 @@ export interface FileRouteTypes {
     | '/collections/$collection'
     | '/products/$productId'
     | '/collections'
+    | '/products'
+    | '/dashboard'
     | '/account/connected'
     | '/account/orders'
     | '/account'
@@ -286,12 +317,15 @@ export interface FileRouteTypes {
     | '/_marketplace/search'
     | '/_marketplace/shipping-info'
     | '/_marketplace/'
+    | '/_marketplace/_authenticated/_admin'
     | '/_marketplace/_authenticated/account'
     | '/_marketplace/_page/privacy-policy'
     | '/_marketplace/_page/terms-of-service'
     | '/_marketplace/collections/$collection'
     | '/_marketplace/products/$productId'
     | '/_marketplace/collections/'
+    | '/_marketplace/products/'
+    | '/_marketplace/_authenticated/_admin/dashboard'
     | '/_marketplace/_authenticated/account/connected'
     | '/_marketplace/_authenticated/account/orders'
     | '/_marketplace/_authenticated/account/'
@@ -401,6 +435,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketplaceAuthenticatedRouteImport
       parentRoute: typeof MarketplaceRoute
     }
+    '/_marketplace/products/': {
+      id: '/_marketplace/products/'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof MarketplaceProductsIndexRouteImport
+      parentRoute: typeof MarketplaceRoute
+    }
     '/_marketplace/collections/': {
       id: '/_marketplace/collections/'
       path: '/collections'
@@ -443,6 +484,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketplaceAuthenticatedAccountRouteImport
       parentRoute: typeof MarketplaceAuthenticatedRoute
     }
+    '/_marketplace/_authenticated/_admin': {
+      id: '/_marketplace/_authenticated/_admin'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof MarketplaceAuthenticatedAdminRouteImport
+      parentRoute: typeof MarketplaceAuthenticatedRoute
+    }
     '/_marketplace/_authenticated/account/': {
       id: '/_marketplace/_authenticated/account/'
       path: '/'
@@ -464,8 +512,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketplaceAuthenticatedAccountConnectedRouteImport
       parentRoute: typeof MarketplaceAuthenticatedAccountRoute
     }
+    '/_marketplace/_authenticated/_admin/dashboard': {
+      id: '/_marketplace/_authenticated/_admin/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof MarketplaceAuthenticatedAdminDashboardRouteImport
+      parentRoute: typeof MarketplaceAuthenticatedAdminRoute
+    }
   }
 }
+
+interface MarketplaceAuthenticatedAdminRouteChildren {
+  MarketplaceAuthenticatedAdminDashboardRoute: typeof MarketplaceAuthenticatedAdminDashboardRoute
+}
+
+const MarketplaceAuthenticatedAdminRouteChildren: MarketplaceAuthenticatedAdminRouteChildren =
+  {
+    MarketplaceAuthenticatedAdminDashboardRoute:
+      MarketplaceAuthenticatedAdminDashboardRoute,
+  }
+
+const MarketplaceAuthenticatedAdminRouteWithChildren =
+  MarketplaceAuthenticatedAdminRoute._addFileChildren(
+    MarketplaceAuthenticatedAdminRouteChildren,
+  )
 
 interface MarketplaceAuthenticatedAccountRouteChildren {
   MarketplaceAuthenticatedAccountConnectedRoute: typeof MarketplaceAuthenticatedAccountConnectedRoute
@@ -489,11 +559,14 @@ const MarketplaceAuthenticatedAccountRouteWithChildren =
   )
 
 interface MarketplaceAuthenticatedRouteChildren {
+  MarketplaceAuthenticatedAdminRoute: typeof MarketplaceAuthenticatedAdminRouteWithChildren
   MarketplaceAuthenticatedAccountRoute: typeof MarketplaceAuthenticatedAccountRouteWithChildren
 }
 
 const MarketplaceAuthenticatedRouteChildren: MarketplaceAuthenticatedRouteChildren =
   {
+    MarketplaceAuthenticatedAdminRoute:
+      MarketplaceAuthenticatedAdminRouteWithChildren,
     MarketplaceAuthenticatedAccountRoute:
       MarketplaceAuthenticatedAccountRouteWithChildren,
   }
@@ -534,6 +607,7 @@ interface MarketplaceRouteChildren {
   MarketplaceCollectionsCollectionRoute: typeof MarketplaceCollectionsCollectionRoute
   MarketplaceProductsProductIdRoute: typeof MarketplaceProductsProductIdRoute
   MarketplaceCollectionsIndexRoute: typeof MarketplaceCollectionsIndexRoute
+  MarketplaceProductsIndexRoute: typeof MarketplaceProductsIndexRoute
 }
 
 const MarketplaceRouteChildren: MarketplaceRouteChildren = {
@@ -553,6 +627,7 @@ const MarketplaceRouteChildren: MarketplaceRouteChildren = {
   MarketplaceCollectionsCollectionRoute: MarketplaceCollectionsCollectionRoute,
   MarketplaceProductsProductIdRoute: MarketplaceProductsProductIdRoute,
   MarketplaceCollectionsIndexRoute: MarketplaceCollectionsIndexRoute,
+  MarketplaceProductsIndexRoute: MarketplaceProductsIndexRoute,
 }
 
 const MarketplaceRouteWithChildren = MarketplaceRoute._addFileChildren(

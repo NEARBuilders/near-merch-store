@@ -27,6 +27,7 @@ interface BosConfig {
 
 export interface RuntimeConfig {
   env: 'development' | 'production';
+  account: string;
   title: string;
   hostUrl: string;
   ui: {
@@ -62,6 +63,7 @@ export async function loadBosConfig(): Promise<RuntimeConfig> {
 
   return {
     env,
+    account: config.account,
     title: config.app.host.title,
     hostUrl: config.app.host[env],
     ui: {

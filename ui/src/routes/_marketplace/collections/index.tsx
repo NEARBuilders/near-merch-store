@@ -5,7 +5,7 @@ import { AlertCircle } from 'lucide-react';
 import {
   useSuspenseCollections,
   collectionLoaders,
-} from '@/integrations/marketplace-api';
+} from '@/integrations/api';
 import { queryClient } from '@/utils/orpc';
 
 export const Route = createFileRoute('/_marketplace/collections/')({

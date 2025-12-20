@@ -5,20 +5,17 @@ import { CartSidebar } from "@/components/marketplace/cart-sidebar";
 import { ProductCard } from "@/components/marketplace/product-card";
 import { SizeSelectionModal } from "@/components/marketplace/size-selection-modal";
 import { useCart } from "@/hooks/use-cart";
-import { useFavorites } from "@/hooks/use-favorites";
 import {
-  // useSuspenseCollections, // HIDDEN:  Collections feature
   productLoaders,
   useFeaturedProducts,
   type Product
-} from "@/integrations/marketplace-api";
+} from "@/integrations/api";
 import { queryClient } from "@/utils/orpc";
 import {
   createFileRoute,
-    /* Link, */
-} from "@tanstack/react-router"; // HIDDEN: Link for collections
+  Link,
+} from "@tanstack/react-router";
 import {
-  // ArrowRight, // HIDDEN: Collections feature
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -52,7 +49,7 @@ export const Route = createFileRoute("/_marketplace/")({
 
 function MarketplaceHome() {
   const { addToCart } = useCart();
-  const { favoriteIds, toggleFavorite } = useFavorites();
+
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -61,20 +58,20 @@ function MarketplaceHome() {
     null
   );
   const [isCartSidebarOpen, setIsCartSidebarOpen] = useState(false);
-  const intervalRef = useRef<NodeJS. Timeout | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: featuredData, isLoading, isError } = useFeaturedProducts(12);
+  const { data: featuredData, isError } = useFeaturedProducts(12);
   // const { data: collectionsData } = useSuspenseCollections(); // HIDDEN: Collections feature
 
-  const featuredProducts = featuredData?.products ??  [];
+  const featuredProducts = featuredData?.products ?? [];
   // const collections = collectionsData. collections; // HIDDEN: Collections feature
 
   const handleQuickAdd = (product: Product) => {
     setSizeModalProduct(product);
   };
 
-  const handleAddToCartFromModal = (productId: string, size: string) => {
-    addToCart(productId, size);
+  const handleAddToCartFromModal = (productId: string, variantId: string, size: string, color: string) => {
+    addToCart(productId, variantId, size, color);
     setSizeModalProduct(null);
     setIsCartSidebarOpen(true);
   };
@@ -84,7 +81,7 @@ function MarketplaceHome() {
       badge: "EXCLUSIVE",
       title: "NEW LEGION",
       subtitle: "MERCH LAUNCHED",
-      description: 
+      description:
         "Represent the NEAR Legion with New Styles",
       buttonText: "Shop Items",
       image: nearLegionImage,
@@ -93,21 +90,21 @@ function MarketplaceHome() {
       glowColor: "#00ec97",
     },
     {
-      badge:  "EXCLUSIVE",
-      title:  "NEAR AI STYLES",
+      badge: "EXCLUSIVE",
+      title: "NEAR AI STYLES",
       subtitle: "AVAILABLE",
       description:
         "New styles for NEAR AI",
       buttonText: "Shop Items",
       image: nearAiImage,
-      gradientFrom:  "#001a3d",
+      gradientFrom: "#001a3d",
       gradientTo: "#0066cc",
-      glowColor:  "#0066ff",
+      glowColor: "#0066ff",
     },
   ];
 
   const nextSlide = () => {
-    if (! isAnimating) {
+    if (!isAnimating) {
       setIsAnimating(true);
       setTimeout(() => {
         setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -127,7 +124,7 @@ function MarketplaceHome() {
   };
 
   useEffect(() => {
-    if (! isPaused) {
+    if (!isPaused) {
       intervalRef.current = setInterval(() => {
         nextSlide();
       }, 8000); // Auto-scroll every 8 seconds
@@ -146,7 +143,7 @@ function MarketplaceHome() {
 
   return (
     <div>
-      <section 
+      <section
         className="relative w-full h-[500px] md:h-[600px] lg:h-[700px] overflow-hidden"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
@@ -154,9 +151,8 @@ function MarketplaceHome() {
         {slides.map((slide, index) => (
           <div
             key={index}
-            className={`absolute inset-0 w-full h-full transition-opacity duration-500 ${
-              index === currentSlide ? "opacity-100" : "opacity-0"
-            }`}
+            className={`absolute inset-0 w-full h-full transition-opacity duration-500 ${index === currentSlide ? "opacity-100" : "opacity-0"
+              }`}
           >
             {/* Full-width background image */}
             <img
@@ -164,25 +160,24 @@ function MarketplaceHome() {
               alt={slide.title}
               className="absolute inset-0 w-full h-full object-cover object-center"
             />
-            
+
             {/* Gradient overlay for text readability */}
-            <div 
+            <div
               className="absolute inset-0 z-10"
               style={{
                 background: `linear-gradient(to right, ${slide.gradientFrom}ee 0%, ${slide.gradientFrom}99 35%, ${slide.gradientFrom}44 65%, transparent 100%)`
               }}
             />
-            
+
             {/* Content overlay */}
             <div className="absolute inset-0 z-20">
               <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 h-full flex items-center">
                 <div className="text-white space-y-4 md:space-y-6 max-w-xl">
                   <div
-                    className={`inline-block bg-white/10 backdrop-blur-sm px-4 py-2 text-xs md:text-sm text-white/90 uppercase font-bold tracking-wider transition-all duration-700 ease-out ${
-                      !isAnimating
+                    className={`inline-block bg-white/10 backdrop-blur-sm px-4 py-2 text-xs md:text-sm text-white/90 uppercase font-bold tracking-wider transition-all duration-700 ease-out ${!isAnimating
                         ? "translate-y-0 opacity-100"
                         : "-translate-y-full opacity-0"
-                    }`}
+                      }`}
                     style={{
                       transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
                     }}
@@ -191,11 +186,10 @@ function MarketplaceHome() {
                   </div>
 
                   <h1
-                    className={`text-4xl md:text-6xl lg:text-7xl font-bold leading-tight transition-all duration-700 ease-out ${
-                      !isAnimating
+                    className={`text-4xl md:text-6xl lg:text-7xl font-bold leading-tight transition-all duration-700 ease-out ${!isAnimating
                         ? "translate-x-0 opacity-100"
                         : "-translate-x-full opacity-0"
-                    }`}
+                      }`}
                     style={{
                       transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
                       transitionDelay: "100ms",
@@ -207,11 +201,10 @@ function MarketplaceHome() {
                   </h1>
 
                   <p
-                    className={`text-base md:text-lg text-white/90 transition-all duration-700 ease-out ${
-                      !isAnimating
+                    className={`text-base md:text-lg text-white/90 transition-all duration-700 ease-out ${!isAnimating
                         ? "translate-x-0 opacity-100"
                         : "-translate-x-full opacity-0"
-                    }`}
+                      }`}
                     style={{
                       transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
                       transitionDelay: "200ms",
@@ -220,25 +213,26 @@ function MarketplaceHome() {
                     {slide.description}
                   </p>
 
-                  <button
-                    className={`bg-white text-black px-6 md:px-8 py-3 md:py-4 text-sm md:text-base font-semibold hover:bg-white/90 transition-all duration-700 ease-out ${
+                  <Link
+                    to="/products"
+                    className={`inline-block bg-white text-black px-6 md:px-8 py-3 md:py-4 text-sm md:text-base font-semibold hover:bg-white/90 transition-all duration-700 ease-out ${
                       !isAnimating
                         ? "translate-y-0 opacity-100"
                         : "translate-y-full opacity-0"
-                    }`}
+                      }`}
                     style={{
                       transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
                       transitionDelay: "300ms",
                     }}
                   >
                     {slide.buttonText}
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>
           </div>
         ))}
-        
+
         {/* Navigation buttons */}
         <div className="absolute bottom-6 md:bottom-8 right-4 md:right-8 lg:right-16 flex items-center gap-3 z-30">
           <button
@@ -358,12 +352,10 @@ function MarketplaceHome() {
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredProducts.map((product) => (
+              {featuredProducts?.map((product) => (
                 <ProductCard
                   key={product.id}
                   product={product}
-                  isFavorite={favoriteIds.includes(product.id)}
-                  onToggleFavorite={toggleFavorite}
                   onQuickAdd={handleQuickAdd}
                 />
               ))}

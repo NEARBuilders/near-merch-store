@@ -13,6 +13,7 @@ export class ProductStore extends Context.Tag('ProductStore')<
     readonly upsert: (product: ProductWithImages, syncedAt?: Date) => Effect.Effect<Product, Error>;
     readonly delete: (id: string) => Effect.Effect<void, Error>;
     readonly prune: (source: string, before: Date) => Effect.Effect<number, Error>;
+    readonly updateListing: (id: string, listed: boolean) => Effect.Effect<Product | null, Error>;
     readonly setSyncStatus: (
       id: string,
       status: 'idle' | 'running' | 'error',
@@ -93,6 +94,7 @@ export const ProductStoreLive = Layer.effect(
         source: row.source,
         tags: [],
         thumbnailImage: row.thumbnailImage || undefined,
+        listed: row.listed ?? true,
       };
     };
 
@@ -118,10 +120,22 @@ export const ProductStoreLive = Layer.effect(
       findMany: (criteria) =>
         Effect.tryPromise({
           try: async () => {
-            const { category, limit = 50, offset = 0 } = criteria;
+            const { category, limit = 50, offset = 0, includeUnlisted = false } = criteria;
 
-            const whereClause = category
-              ? eq(schema.products.category, category)
+            // Build conditions array
+            const conditions = [];
+
+            // Only show listed products unless includeUnlisted is true (for admin)
+            if (!includeUnlisted) {
+              conditions.push(eq(schema.products.listed, true));
+            }
+
+            if (category) {
+              conditions.push(eq(schema.products.category, category));
+            }
+
+            const whereClause = conditions.length > 0
+              ? and(...conditions)
               : undefined;
 
             const [countResult] = await db
@@ -150,17 +164,20 @@ export const ProductStoreLive = Layer.effect(
           try: async () => {
             const searchTerm = `%${query}%`;
 
-            const conditions = category
-              ? and(
-                like(schema.products.name, searchTerm),
-                eq(schema.products.category, category)
-              )
-              : like(schema.products.name, searchTerm);
+            // Build conditions - always filter by listed=true and search term
+            const conditions = [
+              eq(schema.products.listed, true),
+              like(schema.products.name, searchTerm),
+            ];
+
+            if (category) {
+              conditions.push(eq(schema.products.category, category));
+            }
 
             const results = await db
               .select()
               .from(schema.products)
-              .where(conditions)
+              .where(and(...conditions))
               .limit(limit);
 
             return await Promise.all(results.map(rowToProduct));
@@ -275,6 +292,30 @@ export const ProductStoreLive = Layer.effect(
             await db.delete(schema.products).where(eq(schema.products.id, id));
           },
           catch: (error) => new Error(`Failed to delete product: ${error}`),
+        }),
+
+      updateListing: (id, listed) =>
+        Effect.tryPromise({
+          try: async () => {
+            const now = new Date();
+            await db
+              .update(schema.products)
+              .set({ listed, updatedAt: now })
+              .where(eq(schema.products.id, id));
+
+            const results = await db
+              .select()
+              .from(schema.products)
+              .where(eq(schema.products.id, id))
+              .limit(1);
+
+            if (results.length === 0) {
+              return null;
+            }
+
+            return await rowToProduct(results[0]!);
+          },
+          catch: (error) => new Error(`Failed to update product listing: ${error}`),
         }),
 
       prune: (source: string, before: Date) =>

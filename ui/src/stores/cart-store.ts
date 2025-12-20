@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { CartItem } from "@/integrations/marketplace-api";
+import type { CartItem } from "@/integrations/api";
 import { toast } from "sonner";
 
 const CART_STORAGE_KEY = "marketplace-cart";
@@ -15,16 +15,15 @@ interface CartState {
   items: Record<string, CartItem>;
 
   // Actions
-  addToCart: (productId: string, size?: string) => void;
-  updateQuantity: (productId: string, change: number) => void;
-  updateSize: (productId: string, size: string) => void;
-  removeItem: (productId: string) => void;
+  addToCart: (productId: string, variantId: string, size: string, color: string) => void;
+  updateQuantity: (variantId: string, change: number) => void;
+  removeItem: (variantId: string) => void;
   clearCart: () => void;
 
   // Getters (computed values)
-  getItem: (productId: string) => CartItem | undefined;
+  getItem: (variantId: string) => CartItem | undefined;
   getItemCount: () => number;
-  getProductIds: () => string[];
+  getVariantIds: () => string[];
 }
 
 export const useCartStore = create<CartState>()(
@@ -32,72 +31,61 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: {},
 
-      addToCart: (productId: string, size = "N/A") => {
+      addToCart: (productId: string, variantId: string, size: string, color: string) => {
         set((state) => {
-          const existingItem = state.items[productId];
+          const existingItem = state.items[variantId];
 
           return {
             items: {
               ...state.items,
-              [productId]: {
+              [variantId]: {
                 productId,
+                variantId,
                 quantity: (existingItem?.quantity || 0) + 1,
-                size: existingItem?.size || size,
+                size,
+                color,
               },
             },
           };
         });
+        toast.success("Added to cart");
       },
 
-      updateQuantity: (productId: string, change: number) => {
+      updateQuantity: (variantId: string, change: number) => {
         set((state) => {
-          const current = state.items[productId];
+          const current = state.items[variantId];
           if (!current) return state;
 
           const newQuantity = current.quantity + change;
 
           if (newQuantity <= 0) {
-            const { [productId]: _, ...rest } = state.items;
+            const { [variantId]: _, ...rest } = state.items;
             return { items: rest };
           }
 
           return {
             items: {
               ...state.items,
-              [productId]: { ...current, quantity: newQuantity },
+              [variantId]: { ...current, quantity: newQuantity },
             },
           };
         });
       },
 
-      updateSize: (productId: string, size: string) => {
+      removeItem: (variantId: string) => {
         set((state) => {
-          const current = state.items[productId];
-          if (!current) return state;
-
-          return {
-            items: {
-              ...state.items,
-              [productId]: { ...current, size },
-            },
-          };
-        });
-      },
-
-      removeItem: (productId: string) => {
-        set((state) => {
-          const { [productId]: _, ...rest } = state.items;
-          toast.success("Removed from cart");
+          const { [variantId]: _, ...rest } = state.items;
           return { items: rest };
         });
+        toast.success("Removed from cart");
       },
 
       clearCart: () => {
         set({ items: {} });
       },
 
-      getItem: (productId: string) => {
-        return get().items[productId];
+      getItem: (variantId: string) => {
+        return get().items[variantId];
       },
 
       getItemCount: () => {
@@ -107,7 +95,7 @@ export const useCartStore = create<CartState>()(
         );
       },
 
-      getProductIds: () => {
+      getVariantIds: () => {
         return Object.keys(get().items);
       },
     }),

@@ -84,19 +84,39 @@ All runtime configuration lives in `bos.config.json`:
 {
   "account": "near-merch-store.near",
   "app": {
-    "host": { "title": "Near Merch" },
+    "host": {
+      "title": "Near Merch",
+      "description": "NEAR-powered merch store for the NEAR ecosystem",
+      "development": "http://localhost:3001",
+      "production": "https://near.everything.market"
+    },
     "ui": {
-      "name": "marketplace_ui",
+      "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://cdn.example.com/ui/remoteEntry.js"
+      "production": "https://cdn.example.com/ui/remoteEntry.js",
+      "exposes": {
+        "App": "./App",
+        "components": "./components",
+        "providers": "./providers",
+        "types": "./types"
+      }
     },
     "api": {
-      "plugins": {
-        "marketplace-api": {
-          "development": "http://localhost:3014/remoteEntry.js",
-          "production": "https://cdn.example.com/api/remoteEntry.js"
-        }
-      }
+      "name": "api",
+      "development": "http://localhost:3014",
+      "production": "https://cdn.example.com/api/remoteEntry.js",
+      "variables": {
+        "network": "mainnet",
+        "contractId": "social.near"
+      },
+      "secrets": [
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "PRINTFUL_API_KEY",
+        "PRINTFUL_STORE_ID",
+        "API_DATABASE_URL",
+        "API_DATABASE_AUTH_TOKEN"
+      ]
     }
   }
 }
@@ -126,6 +146,7 @@ bun build:host       # Build host server
 bun db:migrate       # Run migrations
 bun db:push          # Push schema changes
 bun db:studio        # Open Drizzle Studio
+bun db:sync          # Sync products from live API to local database
 
 # Testing
 bun test             # Run all tests

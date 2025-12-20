@@ -1,17 +1,19 @@
-import { defineConfig } from '@rsbuild/core';
-import { pluginReact } from '@rsbuild/plugin-react';
-import { pluginModuleFederation } from '@module-federation/rsbuild-plugin';
-import { withZephyr } from 'zephyr-rsbuild-plugin';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pluginModuleFederation } from '@module-federation/rsbuild-plugin';
+import { defineConfig } from '@rsbuild/core';
+import { pluginReact } from '@rsbuild/plugin-react';
+import { withZephyr } from 'zephyr-rsbuild-plugin';
 import pkg from './package.json';
 
 const __dirname = import.meta.dirname;
 const isProduction = process.env.NODE_ENV === 'production';
 
+const configPath = process.env.BOS_CONFIG_PATH ?? path.resolve(__dirname, '../bos.config.json');
+const bosConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
 function updateBosConfig(hostUrl: string) {
   try {
-    const configPath = path.resolve(__dirname, '../bos.config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     config.app.host.production = hostUrl;
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
@@ -85,6 +87,8 @@ export default defineConfig({
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
       'process.env.USE_REMOTE_API': JSON.stringify(process.env.USE_REMOTE_API || 'false'),
       'process.env.USE_REMOTE_UI': JSON.stringify(process.env.USE_REMOTE_UI || 'false'),
+      'process.env.PUBLIC_ACCOUNT_ID': JSON.stringify(bosConfig.account),
+      'process.env.BETTER_AUTH_URL': JSON.stringify(process.env.BETTER_AUTH_URL || bosConfig.app.host[process.env.NODE_ENV || 'development']),
     },
     entry: {
       index: './src/index.client.tsx',
@@ -92,6 +96,11 @@ export default defineConfig({
   },
   html: {
     template: './index.html',
+    title: bosConfig.app.host.title,
+    templateParameters: {
+      title: bosConfig.app.host.title,
+      description: bosConfig.app.host.description,
+    },
   },
   dev: {
     progressBar: false,
@@ -105,6 +114,7 @@ export default defineConfig({
       '/api': 'http://localhost:3000',
       '/__runtime-config': 'http://localhost:3000',
     },
+    historyApiFallback: true,
   },
   tools: {
     rspack: {
@@ -118,6 +128,6 @@ export default defineConfig({
     distPath: {
       root: 'dist',
     },
-    assetPrefix: 'auto',
+    assetPrefix: '/',
   },
 });

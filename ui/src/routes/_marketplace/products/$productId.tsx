@@ -1,27 +1,42 @@
-import { FavoriteButton } from "@/components/favorite-button";
 import { LoadingSpinner } from "@/components/loading";
+import { FavoriteButton } from "@/components/marketplace/favorite-button";
 import { ImageViewer } from "@/components/marketplace/image-viewer";
+import { ProductCard } from "@/components/marketplace/product-card";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
 import { useFavorites } from "@/hooks/use-favorites";
 import {
-  productLoaders,
   requiresSize,
   useProducts,
-  useSuspenseProduct,
-  type Product,
-  type ProductImage
-} from "@/integrations/marketplace-api";
+  type ProductImage,
+} from "@/integrations/api";
+import {
+  COLOR_MAP,
+  getAttributeHex,
+  getOptionValue,
+} from "@/lib/product-utils";
 import { cn } from "@/lib/utils";
-import { queryClient } from "@/utils/orpc";
+import { apiClient } from "@/utils/orpc";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { AlertCircle, ArrowLeft, Minus, Plus } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Minus,
+  Plus,
+} from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/_marketplace/products/$productId")({
   pendingComponent: LoadingSpinner,
   loader: async ({ params }) => {
-    await queryClient.ensureQueryData(productLoaders.detail(params.productId));
+    try {
+      const data = await apiClient.getProduct({ id: params.productId });
+      return { data: { product: data.product } };
+    } catch (error) {
+      return { error: error as Error, data: null };
+    }
   },
   errorComponent: ({ error }) => {
     const router = useRouter();
@@ -53,150 +68,98 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
   component: ProductDetailPage,
 });
 
-function getOptionValue(
-  attributes: Array<{ name: string; value: string }> | undefined | null,
-  optionName: string
-): string | undefined {
-  return attributes?.find(
-    (opt) => opt.name.toLowerCase() === optionName.toLowerCase()
-  )?.value;
-}
-
-const COLOR_MAP: Record<string, string> = {
-  "Black": "#000000",
-  "White": "#FFFFFF",
-  "Navy": "#000080",
-  "Dark Grey Heather": "#333333",
-  "Sport Grey": "#808080",
-  "Blue": "#0000FF",
-  "Red": "#FF0000",
-  "Green": "#008000",
-  "Light": "#F0F0F0",
-  "Dark": "#1A1A1A",
-  "Heather": "#999999",
-  "Royal": "#4169E1",
-  "Orange": "#FFA500",
-  "Purple": "#800080",
-  "Pink": "#FFC0CB",
-  "Yellow": "#FFFF00",
-  "Gold": "#FFD700",
-  "Charcoal": "#36454F",
-  "Grey": "#808080",
-  "Gray": "#808080",
-};
-
-// Helper to get hex code from attribute if available
-function getAttributeHex(
-  attributes: Array<{ name: string; value: string }> | undefined,
-  optionName: string
-): string | undefined {
-  if (!attributes) return undefined;
-  const attr = attributes.find(
-    (opt) => opt.name.toLowerCase() === optionName.toLowerCase()
-  );
-  // Cast to specific type since the backend type might not have 'hex' yet in the schema definition
-  // until the user updates the backend.
-  return (attr as unknown as { hex?: string })?.hex;
-}
-
-function getProductColor(product: { title: string; variants?: Array<{ attributes?: Array<{ name: string; value: string }> }> }): string | undefined {
-  // 1. Try to find explicit Color attribute in first variant
-  const firstVariant = product.variants?.[0];
-  if (firstVariant?.attributes) {
-    // Try to get dynamic hex from API first
-    const apiHex = getAttributeHex(firstVariant.attributes, "Color");
-    if (apiHex) return apiHex;
-
-    const colorAttr = getOptionValue(firstVariant.attributes, "Color");
-    if (colorAttr) {
-      // Try strict match first
-      if (COLOR_MAP[colorAttr]) return COLOR_MAP[colorAttr];
-      // Try partial match on attribute value
-      for (const [name, hex] of Object.entries(COLOR_MAP)) {
-        if (colorAttr.toLowerCase().includes(name.toLowerCase())) {
-          return hex;
-        }
-      }
-    }
-  }
-
-  // 2. Fallback to title matching
-  for (const [name, hex] of Object.entries(COLOR_MAP)) {
-    if (product.title.toLowerCase().includes(name.toLowerCase())) {
-      return hex;
-    }
-  }
-  return undefined;
-}
-
 function ProductDetailPage() {
-  const { productId } = Route.useParams();
   const { addToCart } = useCart();
   const { favoriteIds, toggleFavorite } = useFavorites();
 
-  const { data } = useSuspenseProduct(productId);
-  const product = data.product;
-  const subProducts = product.subProducts || [product];
+  const loaderData = Route.useLoaderData();
 
-  const [selectedStyleId, setSelectedStyleId] = useState(product.id);
-  const currentStyle: Product = subProducts.find((p: Product) => p.id === selectedStyleId) || product;
+  if (loaderData.error || !loaderData.data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-md text-center space-y-4">
+          <div className="text-red-600">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold">Unable to Load Product</h2>
+          </div>
+          <p className="text-gray-600">
+            {loaderData.error?.message ||
+              "Failed to load product details. Please check your connection and try again."}
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
+            <Link to="/">
+              <Button variant="outline">Go Home</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  // Derive variants from the currently selected style
-  const availableVariants = currentStyle.variants || [];
+  const { product } = loaderData.data;
+
+  const availableVariants = product.variants || [];
   const hasVariants = availableVariants.length > 0;
 
-  // Deduplicate sizes and colors from the CURRENT style
-  const uniqueSizes = Array.from(new Set(
-    availableVariants.map((v) => getOptionValue(v.attributes, "size") || v.title)
-  )).filter(Boolean) as string[];
+  const sizeOption = product.options?.find((opt) => opt.name === "Size");
+  const colorOption = product.options?.find((opt) => opt.name === "Color");
 
-  const uniqueColors = Array.from(new Set(
-    availableVariants.map((v) => getOptionValue(v.attributes, "Color"))
-  )).filter(Boolean) as string[];
+  const orderedSizes = sizeOption?.values || [];
+  const orderedColors = colorOption?.values || [];
 
-  const [selectedSize, setSelectedSize] = useState<string>("");
-  const [selectedColor, setSelectedColor] = useState<string>("");
+  const defaultColor = orderedColors[0] || "";
+  const defaultSize = orderedSizes.includes("M") ? "M" : orderedSizes[0] || "";
 
-  // Find variant matching selected style (currentStyle), selected size AND selected color
+  const [selectedColor, setSelectedColor] = useState<string>(defaultColor);
+  const [selectedSize, setSelectedSize] = useState<string>(defaultSize);
+
   const selectedVariant = availableVariants.find((v) => {
-    const vSize = getOptionValue(v.attributes, "size") || v.title;
+    const vSize = getOptionValue(v.attributes, "Size");
     const vColor = getOptionValue(v.attributes, "Color");
+    return vSize === selectedSize && vColor === selectedColor;
+  });
 
-    const matchesSize = !selectedSize || vSize === selectedSize;
-    const matchesColor = !uniqueColors.length || !selectedColor || vColor === selectedColor;
-
-    return matchesSize && matchesColor;
-  }) || availableVariants[0];
-
-  const displayPrice = selectedVariant?.price || currentStyle.price;
+  const displayPrice = selectedVariant?.price || product.price;
   const selectedVariantId = selectedVariant?.id;
+
+  const availableSizesForColor = orderedSizes.filter((size) => {
+    return availableVariants.some((v) => {
+      const vSize = getOptionValue(v.attributes, "Size");
+      const vColor = getOptionValue(v.attributes, "Color");
+      return vSize === size && vColor === selectedColor && v.availableForSale;
+    });
+  });
 
   const [quantity, setQuantity] = useState(1);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerImageIndex, setViewerImageIndex] = useState(0);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const { data: relatedData } = useProducts({
     category: product.category,
     limit: 4,
   });
   const relatedProducts = (relatedData?.products ?? [])
-    .filter((p) => p.id !== product.id && !subProducts.some((sp: Product) => sp.id === p.id))
+    .filter((p) => p.id !== product.id)
     .slice(0, 3);
 
   // Determine display images (filter out 'detail' type/blueprints)
-  const validImages = currentStyle.images.filter((img: ProductImage) => img.type !== "detail");
+  const validImages = product.images.filter(
+    (img: ProductImage) => img.type !== "detail"
+  );
 
   // STRICTLY prioritize images over design files.
-  const variantImage = validImages.find((img: ProductImage) => img.variantIds?.includes(selectedVariantId || ""));
+  const variantImage = validImages.find((img: ProductImage) =>
+    img.variantIds?.includes(selectedVariantId || "")
+  );
 
-  let sortedImages = variantImage
-    ? [variantImage, ...validImages.filter((img: ProductImage) => img !== variantImage)]
+  const sortedImages = variantImage
+    ? [
+        variantImage,
+        ...validImages.filter((img: ProductImage) => img !== variantImage),
+      ]
     : validImages;
-
-  if (productId === "printful-product-407012072" && sortedImages.length >= 2) {
-    const [first, second, ...rest] = sortedImages;
-    sortedImages = [second, first, ...rest];
-  }
 
   const getProductImages = () => {
     if (sortedImages.length > 0) {
@@ -209,16 +172,13 @@ function ProductDetailPage() {
   // Favorites should track the MAIN product
   const isFavorite = favoriteIds.includes(product.id);
 
-  const needsSize = requiresSize(product.category) && hasVariants && uniqueSizes.length > 0;
+  const needsSize =
+    requiresSize(product.category) && hasVariants && orderedSizes.length > 0;
 
   const handleAddToCart = () => {
-    const size = selectedSize || getOptionValue(selectedVariant?.attributes, "size") || "N/A";
+    if (!selectedVariant) return;
     for (let i = 0; i < quantity; i++) {
-      if (selectedVariant?.id) {
-        addToCart(selectedVariant.id, size);
-      } else {
-        addToCart(currentStyle.id, size);
-      }
+      addToCart(product.id, selectedVariantId || '', selectedSize, selectedColor);
     }
   };
 
@@ -252,23 +212,103 @@ function ProductDetailPage() {
 
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <div className="w-full">
-            <div className="flex gap-4">
-              {productImages.length > 0 && (
+          <div className="w-full space-y-4">
+            <div className="relative w-full aspect-square rounded-lg overflow-hidden shadow-[0_0_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_-10px_rgba(255,255,255,0.15)]">
+              {productImages.map((img, index) => (
                 <div
-                  className="rounded-lg cursor-pointer hover:scale-[1.02] transition-all duration-300 w-full aspect-square relative shadow-[0_0_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_-10px_rgba(255,255,255,0.15)]"
-                  onClick={() => handleImageClick(0)}
+                  key={index}
+                  className={cn(
+                    "absolute inset-0 transition-opacity duration-500 cursor-pointer",
+                    index === currentImageIndex ? "opacity-100" : "opacity-0"
+                  )}
+                  onClick={() => handleImageClick(currentImageIndex)}
                 >
-
-                  <div className="absolute inset-0 bg-transparent" />
                   <img
-                    src={productImages[0]}
-                    alt={product.title}
+                    src={img}
+                    alt={`${product.title} - Image ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
                 </div>
+              ))}
+
+              {productImages.length > 1 && (
+                <div className="absolute bottom-4 right-4 flex items-center gap-2 z-10">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentImageIndex(
+                        (prev) =>
+                          (prev - 1 + productImages.length) %
+                          productImages.length
+                      );
+                    }}
+                    className="group flex items-center justify-center w-10 h-10 rounded-full border border-white/20 bg-black/20 backdrop-blur-md hover:bg-white hover:border-white transition-all duration-300"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="h-5 w-5 text-white group-hover:text-black transition-colors" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentImageIndex(
+                        (prev) => (prev + 1) % productImages.length
+                      );
+                    }}
+                    className="group flex items-center justify-center w-10 h-10 rounded-full border border-white/20 bg-black/20 backdrop-blur-md hover:bg-white hover:border-white transition-all duration-300"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="h-5 w-5 text-white group-hover:text-black transition-colors" />
+                  </button>
+                </div>
+              )}
+
+              {productImages.length > 1 && (
+                <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm text-white text-sm z-10">
+                  {currentImageIndex + 1} / {productImages.length}
+                </div>
               )}
             </div>
+
+            {productImages.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {productImages.map((img, index) => {
+                  const imageObj = sortedImages[index];
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setCurrentImageIndex(index);
+                        
+                        if (imageObj?.variantIds?.length) {
+                          const variant = availableVariants.find(
+                            (v) => imageObj.variantIds?.includes(v.id)
+                          );
+                          if (variant) {
+                            const variantColor = getOptionValue(variant.attributes, "Color");
+                            if (variantColor && orderedColors.includes(variantColor)) {
+                              setSelectedColor(variantColor);
+                            }
+                          }
+                        }
+                      }}
+                      className={cn(
+                        "flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all",
+                        index === currentImageIndex
+                          ? "border-primary ring-1 ring-primary"
+                          : "border-transparent hover:border-border opacity-60 hover:opacity-100"
+                      )}
+                    >
+                      <img
+                        src={img}
+                        alt={`${product.title} - Thumbnail ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -289,9 +329,7 @@ function ProductDetailPage() {
               {product.title}
             </h1>
 
-            <span className="text-lg tracking-[-0.48px]">
-              ${displayPrice}
-            </span>
+            <span className="text-lg tracking-[-0.48px]">${displayPrice}</span>
 
             {product.description && (
               <p className="text-[#717182] tracking-[-0.48px] leading-6">
@@ -301,51 +339,21 @@ function ProductDetailPage() {
 
             <div className="h-px bg-border" />
 
-            {/* Sub-product Style Selector (Merged Products) */}
-            {subProducts.length > 1 && (
-              <div className="space-y-3">
-                <label className="block tracking-[-0.48px]">Style</label>
-                <div className="flex flex-wrap gap-2">
-                  {subProducts.map((subProduct: Product) => {
-                    const isSelected = selectedStyleId === subProduct.id;
-                    return (
-                      <button
-                        key={subProduct.id}
-                        onClick={() => {
-                          setSelectedStyleId(subProduct.id);
-                          setSelectedSize("");
-                          setSelectedColor("");
-                        }}
-                        className={cn(
-                          "px-4 py-2 tracking-[-0.48px] transition-colors",
-                          isSelected
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-background border border-border hover:bg-muted"
-                        )}
-                      >
-                        {subProduct.title}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Single Product Color Selector (Variant Colors) */}
-            {uniqueColors.length > 0 && (
+            {orderedColors.length > 0 && (
               <div className="space-y-3">
                 <label className="block tracking-[-0.48px]">Color</label>
                 <div className="flex flex-wrap gap-2">
-                  {uniqueColors.map((color) => {
-                    // Try to find the specific variant that has this color to check for metadata
-                    // Ideally we'd map color -> hex in a separate pass, but finding one variant is enough
-                    const sampleVariant = availableVariants.find(v =>
-                      getOptionValue(v.attributes, 'Color') === color
+                  {orderedColors.map((color) => {
+                    const sampleVariant = availableVariants.find(
+                      (v) => getOptionValue(v.attributes, "Color") === color
                     );
-                    const apiHex = getAttributeHex(sampleVariant?.attributes, 'Color');
+                    const apiHex = getAttributeHex(
+                      sampleVariant?.attributes,
+                      "Color"
+                    );
 
-                    const hex = apiHex || COLOR_MAP[color] || "#808080"; // API Hex -> Local Map -> Fallback
-                    const isSelected = color === selectedColor; // Strict match
+                    const hex = apiHex || COLOR_MAP[color] || "#808080";
+                    const isSelected = color === selectedColor;
 
                     return (
                       <button
@@ -353,8 +361,10 @@ function ProductDetailPage() {
                         onClick={() => setSelectedColor(color)}
                         className={cn(
                           "size-8 rounded-full border transition-all p-0.5 relative ring-offset-background",
-                          isSelected ? "border-primary ring-2 ring-primary ring-offset-2" : "border-transparent hover:border-border",
-                          "dark:ring-offset-background" // Ensure proper offset in dark mode
+                          isSelected
+                            ? "border-primary ring-2 ring-primary ring-offset-2"
+                            : "border-transparent hover:border-border",
+                          "dark:ring-offset-background"
                         )}
                         title={color}
                       >
@@ -369,22 +379,12 @@ function ProductDetailPage() {
               </div>
             )}
 
-            {/* Size Selector */}
-            {hasVariants && uniqueSizes.length > 0 && (
+            {hasVariants && orderedSizes.length > 0 && !(orderedSizes.length === 1 && orderedSizes[0] === "One size") && (
               <div className="space-y-3">
                 <label className="block tracking-[-0.48px]">Size</label>
                 <div className="flex flex-wrap gap-2">
-                  {uniqueSizes.map((size) => {
-                    // Check availability for this size in current style
-                    const variantForSize = availableVariants.find(v => {
-                      const vSize = getOptionValue(v.attributes, "size") || v.title;
-                      const vColor = getOptionValue(v.attributes, "Color");
-
-                      const matchSize = vSize === size;
-                      const matchColor = !uniqueColors.length || !selectedColor || vColor === selectedColor;
-                      return matchSize && matchColor;
-                    });
-                    const isAvailable = variantForSize?.availableForSale;
+                  {orderedSizes.map((size) => {
+                    const isAvailable = availableSizesForColor.includes(size);
 
                     return (
                       <button
@@ -396,7 +396,8 @@ function ProductDetailPage() {
                           size === selectedSize
                             ? "bg-primary text-primary-foreground"
                             : "bg-background border border-border hover:bg-muted",
-                          !isAvailable && "opacity-50 cursor-not-allowed line-through"
+                          !isAvailable &&
+                            "opacity-50 cursor-not-allowed line-through"
                         )}
                       >
                         {size}
@@ -452,48 +453,11 @@ function ProductDetailPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {relatedProducts.map((relatedProduct) => (
-                <Link
+                <ProductCard
                   key={relatedProduct.id}
-                  to="/products/$productId"
-                  params={{ productId: relatedProduct.id }}
-                  className="border border-border overflow-hidden group"
-                >
-                  <div className="bg-[#ececf0] aspect-square overflow-hidden relative">
-                    <img
-                      src={relatedProduct.images?.[0]?.url}
-                      alt={relatedProduct.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 flex items-end justify-center pb-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          addToCart(relatedProduct.id);
-                        }}
-                        className="bg-primary text-primary-foreground px-4 py-2 text-sm tracking-[-0.48px] flex items-center gap-2"
-                      >
-                        <Plus className="size-4" />
-                        QUICK ADD
-                      </button>
-                    </div>
-                  </div>
-                  <div className="p-4 border-t border-border">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <p className="text-[#717182] text-xs uppercase tracking-wider">
-                          {relatedProduct.category}
-                        </p>
-                        <h3 className="text-sm tracking-[-0.48px]">
-                          {relatedProduct.title}
-                        </h3>
-                      </div>
-                      <span className="tracking-[-0.48px]">
-                        ${relatedProduct.price}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+                  product={relatedProduct}
+                  variant="sm"
+                />
               ))}
             </div>
           </div>

@@ -1,7 +1,9 @@
 import { createPlugin } from 'every-plugin';
 import { Effect } from 'every-plugin/effect';
+import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import { FulfillmentContract } from '../contract';
+import { FulfillmentError } from '../errors';
 import { PrintfulService } from './service';
 
 export default createPlugin({
@@ -86,6 +88,61 @@ export default createPlugin({
           received: true,
           eventType: event.type,
         };
+      }),
+
+      quoteOrder: builder.quoteOrder.handler(async ({ input }) => {
+        const mapFulfillmentErrorToORPC = (error: Error) => {
+          if (error instanceof FulfillmentError) {
+            switch (error.code) {
+              case 'RATE_LIMIT':
+                return new ORPCError('TOO_MANY_REQUESTS', {
+                  message: error.message,
+                  data: { provider: error.provider, statusCode: error.statusCode },
+                });
+              case 'INVALID_ADDRESS':
+              case 'INVALID_REQUEST':
+                return new ORPCError('BAD_REQUEST', {
+                  message: error.message,
+                  data: { provider: error.provider, code: error.code },
+                });
+              case 'AUTHENTICATION_FAILED':
+                return new ORPCError('UNAUTHORIZED', {
+                  message: error.message,
+                  data: { provider: error.provider },
+                });
+              case 'SERVICE_UNAVAILABLE':
+                return new ORPCError('SERVICE_UNAVAILABLE', {
+                  message: error.message,
+                  data: { provider: error.provider },
+                });
+              case 'NO_RATES_AVAILABLE':
+                return new ORPCError('NOT_FOUND', {
+                  message: error.message,
+                  data: { provider: error.provider },
+                });
+              default:
+                return new ORPCError('INTERNAL_SERVER_ERROR', {
+                  message: error.message,
+                  data: { provider: error.provider },
+                });
+            }
+          }
+          return error;
+        };
+
+        return await Effect.runPromise(
+          service.quoteOrder(input).pipe(
+            Effect.mapError(mapFulfillmentErrorToORPC)
+          )
+        );
+      }),
+
+      confirmOrder: builder.confirmOrder.handler(async ({ input }) => {
+        return await Effect.runPromise(service.confirmOrder(input.id));
+      }),
+
+      cancelOrder: builder.cancelOrder.handler(async ({ input }) => {
+        return await Effect.runPromise(service.cancelOrder(input.id));
       }),
     };
   },

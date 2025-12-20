@@ -1,3 +1,4 @@
+import './public-path';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen';
 import * as TanStackQueryProvider from './integrations/tanstack-query/root-provider';

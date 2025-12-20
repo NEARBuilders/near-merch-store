@@ -16,7 +16,7 @@ The host orchestrates two federation systems:
 │  └────────────────────────────────────────────────┘     │
 │           ↑                         ↑                   │
 │  ┌────────┴────────┐       ┌────────┴────────┐          │
-│  │ remotes.json    │       │ registry.json   │          │
+│  │ bos.config.json │       │ bos.config.json │          │
 │  │ UI Federation   │       │ API Plugins     │          │
 │  └────────┬────────┘       └────────┬────────┘          │
 │           ↓                         ↓                   │
@@ -34,33 +34,44 @@ The host orchestrates two federation systems:
 
 ## Federation
 
-**UI Remotes** (`remotes.json`):
+**UI Remotes** (`bos.config.json`):
 
 ```json
 {
-  "marketplace_ui": {
-    "url": "https://...",
+  "ui": {
+    "name": "ui",
+    "development": "http://localhost:3002",
+    "production": "https://...",
     "exposes": {
       "App": "./App",
-      "Router": "./Router",
       "components": "./components",
-      "providers": "./providers"
+      "providers": "./providers",
+      "types": "./types"
     }
   }
 }
 ```
 
-**API Plugins** (`registry.json`):
+**API Plugins** (`bos.config.json`):
 
 ```json
 {
-  "plugins": {
-    "marketplace-api": {
-      "remote": "https://...",
-      "secrets": {
-        "STRIPE_SECRET_KEY": "{{STRIPE_SECRET_KEY}}"
-      }
-    }
+  "api": {
+    "name": "api",
+    "development": "http://localhost:3014",
+    "production": "https://...",
+    "variables": {
+      "network": "mainnet",
+      "contractId": "social.near"
+    },
+    "secrets": [
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "PRINTFUL_API_KEY",
+      "PRINTFUL_STORE_ID",
+      "API_DATABASE_URL",
+      "API_DATABASE_AUTH_TOKEN"
+    ]
   }
 }
 ```
@@ -96,23 +107,4 @@ return {
 - `/api/auth/*` - Authentication endpoints (Better-Auth)
 - `/api/rpc/*` - RPC endpoint (batching supported)
 - `/api/*` - REST API (OpenAPI spec)
-- `/api/webhooks/stripe` - Stripe webhook handler
-- `/api/webhooks/fulfillment` - Fulfillment webhook handler
 - `/health` - Health check
-
-## Adding New Plugins
-
-1. Add plugin to `registry.json`:
-```json
-{
-  "plugins": {
-    "new-plugin": {
-      "remote": "https://plugin-url...",
-      "variables": {},
-      "secrets": {}
-    }
-  }
-}
-```
-
-2. Plugin router is automatically merged in `routers/index.ts`

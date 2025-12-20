@@ -35,10 +35,16 @@ function createApiLink() {
     interceptors: [
       onError((error: unknown) => {
         console.error('oRPC API Error:', error);
-        toast.error('Unable to connect to API', {
-          id: 'api-connection-error',
-          description: 'The marketplace API is currently unavailable. Please try again later.',
-        });
+        
+        if (error && typeof error === 'object' && 'message' in error) {
+          const message = String(error.message).toLowerCase();
+          if (message.includes('fetch') || message.includes('network') || message.includes('failed to fetch')) {
+            toast.error('Unable to connect to API', {
+              id: 'api-connection-error',
+              description: 'The marketplace API is currently unavailable. Please try again later.',
+            });
+          }
+        }
       }),
     ],
     fetch(url, options) {

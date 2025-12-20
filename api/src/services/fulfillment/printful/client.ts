@@ -107,12 +107,69 @@ export class PrintfulClient {
     recipient: Address;
     order_items: CatalogItem[];
   }): Promise<Order> {
-    const result = await this.sdk.ordersV2.createOrder(this.storeId, orderInput);
-    return result.data as Order;
+    try {
+      const result = await this.sdk.ordersV2.createOrder(this.storeId, orderInput);
+      return result.data as Order;
+    } catch (e) {
+      console.error('[PrintfulClient] createOrder failed:');
+      console.error('[PrintfulClient] Input:', JSON.stringify(orderInput, null, 2));
+      if (e && typeof e === 'object') {
+        console.error('[PrintfulClient] Error details:', JSON.stringify(e, null, 2));
+      }
+      throw e;
+    }
+  }
+
+  async createOrderV1(orderInput: {
+    external_id?: string;
+    shipping?: string;
+    recipient: Address;
+    items: Array<{
+      sync_variant_id: number;
+      quantity: number;
+      retail_price?: string;
+      name?: string;
+      external_id?: string;
+    }>;
+    retail_costs?: {
+      currency?: string;
+      subtotal?: string;
+      discount?: string;
+      shipping?: string;
+      tax?: string;
+    };
+  }): Promise<Order> {
+    try {
+      const result = await this.request<PrintfulResponse<Order>>(
+        `${this.v1BaseUrl}/orders`,
+        {
+          method: 'POST',
+          body: JSON.stringify(orderInput),
+        }
+      );
+      return result.result;
+    } catch (e) {
+      console.error('[PrintfulClient] createOrderV1 failed:');
+      console.error('[PrintfulClient] Input:', JSON.stringify(orderInput, null, 2));
+      if (e && typeof e === 'object') {
+        console.error('[PrintfulClient] Error details:', JSON.stringify(e, null, 2));
+      }
+      throw e;
+    }
   }
 
   async confirmOrder(orderId: number): Promise<void> {
-    await this.sdk.ordersV2.confirmOrder(String(orderId), this.storeId);
+    await this.request<PrintfulResponse<{ result: string }>>(
+      `${this.v1BaseUrl}/orders/${orderId}/confirm`,
+      { method: 'POST' }
+    );
+  }
+
+  async cancelOrder(orderId: number): Promise<void> {
+    await this.request<PrintfulResponse<{ result: string }>>(
+      `${this.v1BaseUrl}/orders/${orderId}/cancel`,
+      { method: 'DELETE' }
+    );
   }
 
   async getOrder(orderId: string): Promise<Order> {

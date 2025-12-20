@@ -1,17 +1,20 @@
+import { pluginModuleFederation } from "@module-federation/rsbuild-plugin";
 import { defineConfig } from "@rsbuild/core";
 import { pluginReact } from "@rsbuild/plugin-react";
-import { pluginModuleFederation } from "@module-federation/rsbuild-plugin";
 import { TanStackRouterRspack } from "@tanstack/router-plugin/rspack";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import pkg from "./package.json";
 import { withZephyr } from "zephyr-rsbuild-plugin";
+import pkg from "./package.json";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const normalizedName = pkg.name;
 const isProduction = process.env.NODE_ENV === "production";
+
+const configPath = path.resolve(__dirname, "../bos.config.json");
+const bosConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
 function updateHostConfig(_name: string, url: string) {
   try {
@@ -98,6 +101,9 @@ if (isProduction) {
 export default defineConfig({
   plugins,
   source: {
+    define: {
+      "process.env.PUBLIC_ACCOUNT_ID": JSON.stringify(bosConfig.account),
+    },
     entry: {
       index: "./src/main.tsx",
       remote: "./src/remote.tsx",
@@ -110,6 +116,10 @@ export default defineConfig({
   },
   html: {
     template: "./index.html",
+    templateParameters: {
+      title: bosConfig.app.host.title,
+      description: bosConfig.app.host.description,
+    },
   },
   dev: {
     lazyCompilation: false,
@@ -159,6 +169,9 @@ export default defineConfig({
     },
   },
   output: {
+    distPath: {
+      root: 'dist',
+    },
     assetPrefix: "auto",
     filename: {
       css: "static/css/[name].css",

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-// import { COLLECTIONS } from "@/integrations/marketplace-api"; // HIDDEN: Collections feature
+// import { COLLECTIONS } from "@/integrations/api"; // HIDDEN: Collections feature
 import { NearWordmark } from "@/components/near-wordmark";
 
 export function MarketplaceFooter() {

@@ -1,4 +1,4 @@
-import { useProductsByIds } from '@/integrations/marketplace-api';
+import { useProductsByIds } from '@/integrations/api';
 import { useFavoritesStore } from '@/stores/favorites-store';
 
 export function useFavorites() {

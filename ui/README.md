@@ -1,4 +1,4 @@
-# marketplace-ui
+# ui
 
 Marketplace frontend for browsing products, managing cart, and checkout.
 
@@ -18,7 +18,6 @@ Exposed as remote module for host consumption via `remoteEntry.js`:
 | Export | Path | Description |
 |--------|------|-------------|
 | `./App` | `bootstrap.tsx` | Main app component |
-| `./Router` | `router.tsx` | TanStack Router instance |
 | `./components` | `components/index.ts` | Reusable UI components |
 | `./providers` | `providers/index.tsx` | Context providers |
 | `./types` | `types/index.ts` | TypeScript types |
@@ -29,15 +28,16 @@ Exposed as remote module for host consumption via `remoteEntry.js`:
 - `@tanstack/react-query`, `@tanstack/react-router`
 - `@hot-labs/near-connect`, `near-kit`
 
-**Host configuration** (`host/remotes.json`):
+**Host configuration** (`bos.config.json`):
 
 ```json
 {
-  "marketplace_ui": {
-    "url": "https://...",
+  "ui": {
+    "name": "ui",
+    "development": "http://localhost:3002",
+    "production": "https://...",
     "exposes": {
       "App": "./App",
-      "Router": "./Router",
       "components": "./components",
       "providers": "./providers",
       "types": "./types"

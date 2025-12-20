@@ -17,6 +17,7 @@ export const products = sqliteTable('products', {
   externalProductId: text('external_product_id'),
   source: text('source').notNull(),
   lastSyncedAt: integer('last_synced_at', { mode: 'timestamp' }),
+  listed: integer('listed', { mode: 'boolean' }).notNull().default(true),
 
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
@@ -25,6 +26,7 @@ export const products = sqliteTable('products', {
   index('source_idx').on(table.source),
   index('external_product_idx').on(table.externalProductId),
   index('fulfillment_provider_idx').on(table.fulfillmentProvider),
+  index('listed_idx').on(table.listed),
 ]));
 
 export const productImages = sqliteTable('product_images', {
@@ -97,6 +99,7 @@ export const orders = sqliteTable('orders', {
 
   checkoutSessionId: text('checkout_session_id'),
   checkoutProvider: text('checkout_provider'),
+  draftOrderIds: text('draft_order_ids', { mode: 'json' }).$type<Record<string, string>>(),
 
   shippingMethod: text('shipping_method'),
   shippingAddress: text('shipping_address', { mode: 'json' }).$type<ShippingAddress>(),
@@ -145,11 +148,12 @@ export interface ShippingAddress {
   addressLine1: string;
   addressLine2?: string;
   city: string;
-  state: string;
+  state?: string;
   postCode: string;
   country: string;
   email: string;
   phone?: string;
+  taxId?: string;
 }
 
 export interface TrackingInfo {

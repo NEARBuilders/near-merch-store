@@ -1,4 +1,4 @@
-# marketplace-api
+# api
 
 [every-plugin](https://github.com/near-everything/every-plugin) based API for marketplace operations.
 
@@ -20,7 +20,7 @@ Built with **every-plugin** framework (Rspack + Module Federation):
 ┌─────────────────────────────────────────────────────────┐
 │                   Host Integration                      │
 ├─────────────────────────────────────────────────────────┤
-│  registry.json → plugin URL + secrets                   │
+│  bos.config.json → plugin URL + secrets                 │
 │  runtime.ts → createPluginRuntime().usePlugin()         │
 │  routers/index.ts → merge plugin.router into AppRouter  │
 └─────────────────────────────────────────────────────────┘
@@ -97,18 +97,26 @@ Each domain can be its own plugin with independent:
 
 ## Configuration
 
-**Host registry** (`host/registry.json`):
+**Host configuration** (`bos.config.json`):
 
 ```json
 {
-  "plugins": {
-    "marketplace-api": {
-      "remote": "https://...",
-      "secrets": {
-        "STRIPE_SECRET_KEY": "{{STRIPE_SECRET_KEY}}",
-        "PRINTFUL_API_KEY": "{{PRINTFUL_API_KEY}}"
-      }
-    }
+  "api": {
+    "name": "api",
+    "development": "http://localhost:3014",
+    "production": "https://...",
+    "variables": {
+      "network": "mainnet",
+      "contractId": "social.near"
+    },
+    "secrets": [
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "PRINTFUL_API_KEY",
+      "PRINTFUL_STORE_ID",
+      "API_DATABASE_URL",
+      "API_DATABASE_AUTH_TOKEN"
+    ]
   }
 }
 ```
@@ -119,4 +127,4 @@ Each domain can be its own plugin with independent:
 - `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
 - `PRINTFUL_API_KEY` - Printful API key
 - `GELATO_API_KEY` - Gelato API key
-- `DATABASE_URL` - SQLite database URL
+- `API_DATABASE_URL` - SQLite database URL

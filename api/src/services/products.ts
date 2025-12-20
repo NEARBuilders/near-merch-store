@@ -11,6 +11,7 @@ export class ProductService extends Context.Tag('ProductService')<
       category?: ProductCategory;
       limit?: number;
       offset?: number;
+      includeUnlisted?: boolean;
     }) => Effect.Effect<{ products: Product[]; total: number }, Error>;
     readonly getProduct: (id: string) => Effect.Effect<{ product: Product }, Error>;
     readonly searchProducts: (options: {
@@ -33,6 +34,10 @@ export class ProductService extends Context.Tag('ProductService')<
       },
       Error
     >;
+    readonly updateProductListing: (
+      id: string,
+      listed: boolean
+    ) => Effect.Effect<{ success: boolean; product?: Product }, Error>;
   }
 >() { }
 
@@ -121,6 +126,7 @@ function transformProviderProduct(
     const fulfillmentConfig: FulfillmentConfig = {
       externalVariantId: variantId,
       externalProductId: String(product.sourceId),
+      designFiles: variant.designFiles,
       providerData: providerName === 'printful'
         ? {
           catalogVariantId: variant.catalogVariantId,
@@ -245,8 +251,8 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
       return {
         getProducts: (options) =>
           Effect.gen(function* () {
-            const { category, limit = 50, offset = 0 } = options;
-            return yield* store.findMany({ category, limit, offset });
+            const { category, limit = 50, offset = 0, includeUnlisted = false } = options;
+            return yield* store.findMany({ category, limit, offset, includeUnlisted });
           }),
 
         getProduct: (id) =>
@@ -267,7 +273,8 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
         getFeaturedProducts: (limit = 12) =>
           Effect.gen(function* () {
-            const result = yield* store.findMany({ limit, offset: 0 });
+            // Featured products should only show listed products
+            const result = yield* store.findMany({ limit, offset: 0, includeUnlisted: false });
             return { products: result.products };
           }),
 
@@ -309,6 +316,15 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
         getSyncStatus: () =>
           Effect.gen(function* () {
             return yield* store.getSyncStatus('products');
+          }),
+
+        updateProductListing: (id, listed) =>
+          Effect.gen(function* () {
+            const product = yield* store.updateListing(id, listed);
+            if (!product) {
+              return { success: false };
+            }
+            return { success: true, product };
           }),
       };
     })
