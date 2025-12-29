@@ -43,11 +43,12 @@ export function MarketplaceFooter() {
               >
                 All Products
               </Link>
+
               <Link
-                to="/account"
+                to="/dashboard"
                 className="block text-muted-foreground hover:text-primary transition-colors text-sm"
               >
-                My Account
+                Admin Dashboard
               </Link>
             </div>
           </div>
