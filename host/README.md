@@ -1,6 +1,6 @@
-# everything.market
+# host
 
-Server host for the marketplace with authentication and Module Federation.
+Server host for the application with authentication and Module Federation.
 
 ## Architecture
 
@@ -16,7 +16,7 @@ The host orchestrates two federation systems:
 │  └────────────────────────────────────────────────┘     │
 │           ↑                         ↑                   │
 │  ┌────────┴────────┐       ┌────────┴────────┐          │
-│  │ bos.config.json │       │ bos.config.json │          │
+│  │ remotes.json    │       │ registry.json   │          │
 │  │ UI Federation   │       │ API Plugins     │          │
 │  └────────┬────────┘       └────────┬────────┘          │
 │           ↓                         ↓                   │
@@ -34,44 +34,33 @@ The host orchestrates two federation systems:
 
 ## Federation
 
-**UI Remotes** (`bos.config.json`):
+**UI Remotes** (`remotes.json`):
 
 ```json
 {
   "ui": {
-    "name": "ui",
-    "development": "http://localhost:3002",
-    "production": "https://...",
+    "url": "https://...",
     "exposes": {
       "App": "./App",
+      "Router": "./Router",
       "components": "./components",
-      "providers": "./providers",
-      "types": "./types"
+      "providers": "./providers"
     }
   }
 }
 ```
 
-**API Plugins** (`bos.config.json`):
+**API Plugins** (`registry.json`):
 
 ```json
 {
-  "api": {
-    "name": "api",
-    "development": "http://localhost:3014",
-    "production": "https://...",
-    "variables": {
-      "network": "mainnet",
-      "contractId": "social.near"
-    },
-    "secrets": [
-      "STRIPE_SECRET_KEY",
-      "STRIPE_WEBHOOK_SECRET",
-      "PRINTFUL_API_KEY",
-      "PRINTFUL_STORE_ID",
-      "API_DATABASE_URL",
-      "API_DATABASE_AUTH_TOKEN"
-    ]
+  "plugins": {
+    "api": {
+      "remote": "https://...",
+      "secrets": {
+        "STRIPE_SECRET_KEY": "{{STRIPE_SECRET_KEY}}"
+      }
+    }
   }
 }
 ```
@@ -107,4 +96,23 @@ return {
 - `/api/auth/*` - Authentication endpoints (Better-Auth)
 - `/api/rpc/*` - RPC endpoint (batching supported)
 - `/api/*` - REST API (OpenAPI spec)
+- `/api/webhooks/stripe` - Stripe webhook handler
+- `/api/webhooks/fulfillment` - Fulfillment webhook handler
 - `/health` - Health check
+
+## Adding New Plugins
+
+1. Add plugin to `registry.json`:
+```json
+{
+  "plugins": {
+    "new-plugin": {
+      "remote": "https://plugin-url...",
+      "variables": {},
+      "secrets": {}
+    }
+  }
+}
+```
+
+2. Plugin router is automatically merged in `routers/index.ts`

@@ -3,36 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="format-detection" content="telephone=no" />
+    
+    <!-- Preconnect to font origins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Theme flash prevention - runs before any render -->
+    <script>
+      (function() {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+
+    <!--__RUNTIME_CONFIG__-->
+    <!--__REMOTE_PRELOAD__-->
+    
     <style>
-      *, *::before, *::after {
-        box-sizing: border-box;
+      /* Minimal shell reset - does NOT style the app */
+      *, *::before, *::after { box-sizing: border-box; }
+      html { height: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+      body { 
+        min-height: 100%; 
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
       }
-      html, body, #root {
-        height: 100%;
-        width: 100%;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        overscroll-behavior: none;
+      #root { min-height: 100vh; }
+      @supports (min-height: 100dvh) {
+        #root { min-height: 100dvh; }
       }
-      html {
-        -webkit-text-size-adjust: 100%;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-      }
-      body {
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        line-height: 1.5;
-      }
-      .loading-spinner {
-        width: 3rem;
-        height: 3rem;
-        border: 4px solid #e5e7eb;
-        border-top-color: #3b82f6;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-      @keyframes spin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>

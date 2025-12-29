@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { OpenAPIHandler } from '@orpc/openapi/fetch';
@@ -8,17 +7,40 @@ import { RPCHandler } from '@orpc/server/fetch';
 import { BatchHandlerPlugin } from '@orpc/server/plugins';
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
 import { createRsbuild, logger } from '@rsbuild/core';
+import 'dotenv/config';
 import { eq } from 'drizzle-orm';
 import { formatORPCError } from 'every-plugin/errors';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import config from './rsbuild.config';
-import { loadBosConfig } from './src/config';
+import { loadBosConfig, type RuntimeConfig } from './src/config';
 import { db } from './src/db';
 import * as schema from './src/db/schema/auth';
+import { initializeServerFederation } from './src/federation.server';
+import { initializeServerApiClient } from './src/lib/api-client.server';
 import { auth } from './src/lib/auth';
 import { createRouter } from './src/routers';
 import { initializePlugins } from './src/runtime';
+import { renderToStream, createSSRHtml } from './src/ssr';
+
+function injectRuntimeConfig(html: string, config: RuntimeConfig): string {
+  const clientConfig = {
+    env: config.env,
+    title: config.title,
+    hostUrl: config.hostUrl,
+    ui: config.ui,
+    apiBase: '/api',
+    rpcBase: '/api/rpc',
+  };
+  const configScript = `<script>window.__RUNTIME_CONFIG__=${JSON.stringify(clientConfig)};</script>`;
+  const preloadLink = `<link rel="preload" href="${config.ui.url}/remoteEntry.js" as="script" />`;
+
+  return html
+    .replace('<!--__RUNTIME_CONFIG__-->', configScript)
+    .replace('<!--__REMOTE_PRELOAD__-->', preloadLink);
+}
 
 async function createContext(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -48,6 +70,8 @@ async function startServer() {
   const plugins = await initializePlugins();
   const router = createRouter(plugins);
 
+  initializeServerApiClient(router);
+
   // Setup graceful shutdown handlers
   const shutdown = async () => {
     console.log('[Plugins] Shutting down plugin runtime...');
@@ -62,23 +86,7 @@ async function startServer() {
 
   const rpcHandler = new RPCHandler(router, {
     plugins: [new BatchHandlerPlugin()],
-    interceptors: [
-      onError((error) => {
-        console.error('\n=== Error ===');
-        formatORPCError(error);
-        
-        if (error && typeof error === 'object') {
-          if ('message' in error) console.error('Message:', error.message);
-          if ('code' in error) console.error('Code:', error.code);
-          if ('status' in error) console.error('Status:', error.status);
-          if ('cause' in error) console.error('Cause:', error.cause);
-          if ('stack' in error) console.error('Stack:', error.stack);
-        } else {
-          console.error('Error:', error);
-        }
-        console.error('=================\n');
-      }),
-    ],
+    interceptors: [onError((error) => formatORPCError(error))],
   });
 
   const apiHandler = new OpenAPIHandler(router, {
@@ -94,23 +102,7 @@ async function startServer() {
         },
       }),
     ],
-    interceptors: [
-      onError((error) => {
-        console.error('\n=== Error ===');
-        formatORPCError(error);
-        
-        if (error && typeof error === 'object') {
-          if ('message' in error) console.error('Message:', error.message);
-          if ('code' in error) console.error('Code:', error.code);
-          if ('status' in error) console.error('Status:', error.status);
-          if ('cause' in error) console.error('Cause:', error.cause);
-          if ('stack' in error) console.error('Stack:', error.stack);
-        } else {
-          console.error('Error:', error);
-        }
-        console.error('=====================\n');
-      }),
-    ],
+    interceptors: [onError((error) => formatORPCError(error))],
   });
 
   const apiApp = new Hono();
@@ -128,19 +120,6 @@ async function startServer() {
   );
 
   apiApp.get('/health', (c) => c.text('OK'));
-
-  // Runtime config endpoint - safe subset for client
-  apiApp.get('/__runtime-config', async (c) => {
-    const config = await loadBosConfig();
-    return c.json({
-      env: config.env,
-      title: config.title,
-      hostUrl: config.hostUrl,
-      ui: config.ui,
-      apiBase: '/api',
-      rpcBase: '/api/rpc',
-    });
-  });
 
   apiApp.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 
@@ -188,8 +167,48 @@ async function startServer() {
 
     await rsbuild.startDevServer();
   } else {
+    const ssrEnabled = process.env.DISABLE_SSR !== 'true';
+    const indexHtml = await readFile(resolve(import.meta.dirname, './dist/index.html'), 'utf-8');
+    const injectedHtml = injectRuntimeConfig(indexHtml, bosConfig);
+
+    if (ssrEnabled) {
+      initializeServerFederation(bosConfig);
+    }
+
     apiApp.use('/*', serveStatic({ root: './dist' }));
-    apiApp.get('*', serveStatic({ root: './dist', path: 'index.html' }));
+
+    apiApp.get('*', async (c) => {
+      if (ssrEnabled) {
+        try {
+          const url = new URL(c.req.url).pathname + new URL(c.req.url).search;
+          const { stream, dehydratedState, headData } = await renderToStream({
+            url,
+            config: bosConfig,
+          });
+
+          const chunks: Uint8Array[] = [];
+          const reader = stream.getReader();
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+          }
+          
+          const bodyContent = new TextDecoder().decode(
+            new Uint8Array(chunks.reduce((acc, chunk) => [...acc, ...chunk], [] as number[]))
+          );
+          
+          const html = createSSRHtml(bodyContent, dehydratedState, bosConfig, headData);
+          return c.html(html);
+        } catch (error) {
+          logger.error('[SSR] Render failed, falling back to CSR:', error);
+          return c.html(injectedHtml);
+        }
+      }
+
+      return c.html(injectedHtml);
+    });
 
     serve({ fetch: apiApp.fetch, port }, (info) => {
       logger.info(
@@ -199,6 +218,7 @@ async function startServer() {
         `  http://localhost:${info.port}/api     → REST API (OpenAPI docs)`
       );
       logger.info(`  http://localhost:${info.port}/api/rpc → RPC endpoint`);
+      logger.info(`  SSR: ${ssrEnabled ? 'Enabled' : 'Disabled'}`);
     });
   }
 }

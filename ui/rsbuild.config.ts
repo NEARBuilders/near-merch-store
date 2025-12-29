@@ -1,10 +1,10 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { pluginModuleFederation } from "@module-federation/rsbuild-plugin";
 import { defineConfig } from "@rsbuild/core";
 import { pluginReact } from "@rsbuild/plugin-react";
 import { TanStackRouterRspack } from "@tanstack/router-plugin/rspack";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { withZephyr } from "zephyr-rsbuild-plugin";
 import pkg from "./package.json";
 
@@ -48,6 +48,7 @@ const plugins = [
       "./Router": "./src/router.tsx",
       "./components": "./src/components/index.ts",
       "./providers": "./src/providers/index.tsx",
+      "./hooks": "./src/hooks/index.ts",
       "./types": "./src/types/index.ts",
     },
     shared: {
@@ -102,7 +103,7 @@ export default defineConfig({
   plugins,
   source: {
     define: {
-      "process.env.PUBLIC_ACCOUNT_ID": JSON.stringify(bosConfig.account),
+      "import.meta.env.PUBLIC_ACCOUNT_ID": JSON.stringify(bosConfig.account),
     },
     entry: {
       index: "./src/main.tsx",
@@ -116,10 +117,6 @@ export default defineConfig({
   },
   html: {
     template: "./index.html",
-    templateParameters: {
-      title: bosConfig.app.host.title,
-      description: bosConfig.app.host.description,
-    },
   },
   dev: {
     lazyCompilation: false,
@@ -173,6 +170,9 @@ export default defineConfig({
       root: 'dist',
     },
     assetPrefix: "auto",
+    // assetPrefix: isProduction
+    //   ? `${bosConfig.app.ui.production}/`
+    //   : "auto",
     filename: {
       css: "static/css/[name].css",
     },
