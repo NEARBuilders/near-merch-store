@@ -105,34 +105,11 @@ export function MarketplaceHeader() {
               </Button>
             </Link>
 
-            {isPending ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled
-                className="rounded-none"
-              >
-                <User className="h-5 w-5" />
-              </Button>
-            ) : session ? (
-              <>
-                {(session.user as { role?: string })?.role === "admin" && (
-                  <Link to="/dashboard">
-                    <Button variant="ghost" size="icon" className="text-[#00ec97]" title="Admin Dashboard">
-                      <Shield className="h-5 w-5" />
-                    </Button>
-                  </Link>
-                )}
-                <Link to="/account">
-                  <Button variant="ghost" size="icon">
-                    <User className="h-5 w-5" />
-                  </Button>
-                </Link>
-              </>
-            ) : (
-              <Link to="/login">
-                <Button variant="ghost" size="icon" className="rounded-none">
-                  <User className="h-5 w-5" />
+            {/* Admin dashboard link - only show for admins */}
+            {session && (session.user as { role?: string })?.role === "admin" && (
+              <Link to="/dashboard">
+                <Button variant="ghost" size="icon" className="text-[#00ec97]" title="Admin Dashboard">
+                  <Shield className="h-5 w-5" />
                 </Button>
               </Link>
             )}

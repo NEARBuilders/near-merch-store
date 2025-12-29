@@ -33,7 +33,7 @@ export function MarketplaceFooter() {
               ))}
             </div>
           </div> */}
-          
+
           <div>
             <h4 className="font-semibold mb-4 text-foreground">Shop</h4>
             <div className="space-y-4 mt-4">
@@ -42,6 +42,12 @@ export function MarketplaceFooter() {
                 className="block text-muted-foreground hover:text-primary transition-colors text-sm"
               >
                 All Products
+              </Link>
+              <Link
+                to="/account"
+                className="block text-muted-foreground hover:text-primary transition-colors text-sm"
+              >
+                My Account
               </Link>
             </div>
           </div>
