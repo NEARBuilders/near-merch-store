@@ -1,6 +1,8 @@
 import { useCart } from '@/hooks/use-cart';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, CreditCard, Check, ChevronsUpDown } from 'lucide-react';
+import pingpayLogoDark from '@/assets/pingpay/pingpay-logo-dark.png';
+import pingpayLogoLight from '@/assets/pingpay/pingpay-logo-light.png';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/utils/orpc';
@@ -121,7 +123,7 @@ function CheckoutPage() {
   });
 
   const checkoutMutation = useMutation({
-    mutationFn: async (formData: ShippingAddress) => {
+    mutationFn: async (params: { formData: ShippingAddress; paymentProvider: 'stripe' | 'pingpay' }) => {
       if (cartItems.length === 0) throw new Error('Cart is empty');
       if (!shippingQuote) throw new Error('Please calculate shipping first');
 
@@ -136,11 +138,12 @@ function CheckoutPage() {
           variantId: item.variantId,
           quantity: item.quantity,
         })),
-        shippingAddress: formData,
+        shippingAddress: params.formData,
         selectedRates,
         shippingCost: shippingQuote.shippingCost,
         successUrl: `${window.location.origin}/order-confirmation`,
         cancelUrl: `${window.location.origin}/checkout`,
+        paymentProvider: params.paymentProvider,
       });
       return result;
     },
@@ -191,10 +194,10 @@ function CheckoutPage() {
     }
 
     const formData = form.state.values;
-    
-    if (!formData.firstName || !formData.lastName || 
-        !formData.email || !formData.country || 
-        !formData.addressLine1 || !formData.city || !formData.postCode) {
+
+    if (!formData.firstName || !formData.lastName ||
+      !formData.email || !formData.country ||
+      !formData.addressLine1 || !formData.city || !formData.postCode) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -213,8 +216,47 @@ function CheckoutPage() {
       await handleCalculateShipping(formData);
       return;
     }
-    
-    checkoutMutation.mutate(formData);
+
+    checkoutMutation.mutate({ formData, paymentProvider: 'stripe' });
+  };
+
+  const handlePayWithPing = async () => {
+    const { data: session } = await authClient.getSession();
+    if (!session?.user) {
+      navigate({
+        to: "/login",
+        search: {
+          redirect: "/checkout",
+        },
+      });
+      return;
+    }
+
+    const formData = form.state.values;
+
+    if (!formData.firstName || !formData.lastName ||
+      !formData.email || !formData.country ||
+      !formData.addressLine1 || !formData.city || !formData.postCode) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (availableStates.length > 0 && !formData.state) {
+      toast.error('State/Province is required for the selected country');
+      return;
+    }
+
+    if (formData.country === 'BR' && !formData.taxId) {
+      toast.error('Tax ID (CPF/CNPJ) is required for orders to Brazil');
+      return;
+    }
+
+    if (!shippingQuote) {
+      await handleCalculateShipping(formData);
+      return;
+    }
+
+    checkoutMutation.mutate({ formData, paymentProvider: 'pingpay' });
   };
 
   return (
@@ -232,11 +274,11 @@ function CheckoutPage() {
       </div>
 
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-8">
-        <h1 className="text-2xl font-medium mb-8 tracking-[-0.48px]">
+        <h1 className="text-2xl font-medium mb-16 tracking-[-0.48px]">
           Shipping Address
         </h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid mt-6 grid-cols-1 lg:grid-cols-2 gap-12">
           <div>
             <form className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -262,7 +304,7 @@ function CheckoutPage() {
                     </div>
                   )}
                 />
-                
+
                 <form.Field
                   name="lastName"
                   children={(field) => (
@@ -338,12 +380,16 @@ function CheckoutPage() {
               <form.Field
                 name="addressLine2"
                 children={(field) => (
-                  <div>
+                  <div className="space-y-2">
+                    <Label htmlFor="addressLine2">
+                      Street address 2 <span className="text-muted-foreground text-xs">(optional)</span>
+                    </Label>
                     <Input
+                      id="addressLine2"
                       ref={(el) => {
                         if (el) fieldRefs.current.set('addressLine2', el);
                       }}
-                      placeholder="Apartment, suite, unit, etc. (optional)"
+                      placeholder="Apartment, suite, unit, etc."
                       value={field.state.value || ''}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
@@ -420,7 +466,7 @@ function CheckoutPage() {
                         >
                           {field.state.value
                             ? countries.find((c) => c.isoCode === field.state.value)?.flag + ' ' +
-                              countries.find((c) => c.isoCode === field.state.value)?.name
+                            countries.find((c) => c.isoCode === field.state.value)?.name
                             : "Select a country / region..."}
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
@@ -655,15 +701,16 @@ function CheckoutPage() {
               )}
 
               <div className="pt-6">
-                <button
+                <Button
                   type="button"
                   onClick={() => handleCalculateShipping(form.state.values)}
                   disabled={isCalculatingShipping || quoteMutation.isPending}
-                  className="w-full bg-neutral-950 text-white py-3 px-6 hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className="w-full"
+                  size="lg"
                 >
                   {isCalculatingShipping || quoteMutation.isPending ? (
                     <span className="flex items-center justify-center gap-2">
-                      <div className="animate-spin size-4 border-2 border-white/30 border-t-white rounded-full" />
+                      <div className="animate-spin size-4 border-2 border-current border-t-transparent rounded-full" />
                       Calculating Shipping...
                     </span>
                   ) : shippingQuote ? (
@@ -671,7 +718,7 @@ function CheckoutPage() {
                   ) : (
                     'Calculate Shipping'
                   )}
-                </button>
+                </Button>
                 {shippingQuote && (
                   <p className="text-sm text-green-600 mt-2 text-center">
                     ✓ Shipping calculated: ${shippingCost.toFixed(2)}
@@ -681,7 +728,7 @@ function CheckoutPage() {
                   <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded">
                     <div className="flex gap-2">
                       <span className="text-red-600 font-semibold shrink-0">⚠</span>
-                      <div 
+                      <div
                         className="text-sm text-red-800"
                         dangerouslySetInnerHTML={{ __html: shippingError }}
                       />
@@ -806,30 +853,39 @@ function CheckoutPage() {
                   Choose Payment Method
                 </h2>
 
-                <div className="space-y-6">
-                  <div className="w-full border border-border p-6 text-left relative opacity-50 cursor-not-allowed">
+                <div className="mt-4 space-y-6">
+                  <button
+                    onClick={handlePayWithPing}
+                    disabled={true} // Not available yet
+                    className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <div className="flex items-start gap-3">
-                      <div className="size-10 bg-[#00ec97] flex items-center justify-center shrink-0">
-                        <NearMark className="size-6 text-black" />
+                      <div className="h-10 w-auto px-3 bg-[#1E1E1E] dark:bg-[#FBFAFF] flex items-center justify-center shrink-0 rounded-sm">
+                        {checkoutMutation.isPending ? (
+                          <div className="animate-spin size-5 border-2 border-white/30 border-t-white dark:border-[#3D315E]/30 dark:border-t-[#3D315E] rounded-full" />
+                        ) : (
+                          <>
+                            <img
+                              src={pingpayLogoLight}
+                              alt="Pingpay"
+                              className="h-5 w-auto object-contain dark:hidden"
+                            />
+                            <img
+                              src={pingpayLogoDark}
+                              alt="Pingpay"
+                              className="h-5 w-auto object-contain hidden dark:block"
+                            />
+                          </>
+                        )}
                       </div>
-
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-base">Pay with NEAR</p>
-                          <span className="bg-neutral-950 text-white text-[10px] px-2 py-0.5 uppercase tracking-wider">
-                            COMING SOON
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Recommended
+                      <div>
+                        <p className="font-medium mb-1">Pingpay</p>
+                        <p className="text-sm text-neutral-500">
+                          Pay with cryptocurrency
                         </p>
                       </div>
                     </div>
-
-                    <p className="text-sm text-muted-foreground mt-4">
-                      Instant checkout with your NEAR wallet
-                    </p>
-                  </div>
+                  </button>
 
                   <button
                     onClick={handlePayWithCard}
@@ -857,7 +913,7 @@ function CheckoutPage() {
                     </div>
 
                     <p className="text-sm text-[#717182] mt-4">
-                      {checkoutMutation.isPending 
+                      {checkoutMutation.isPending
                         ? 'Please wait...'
                         : 'Traditional checkout with credit card'
                       }

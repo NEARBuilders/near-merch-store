@@ -28,6 +28,13 @@ export class CheckoutError extends Data.TaggedError('CheckoutError')<{
     if (this.userId) context.push(`userId=${this.userId}`);
     
     const contextStr = context.length > 0 ? ` [${context.join(', ')}]` : '';
-    return `Checkout ${this.code}${contextStr}`;
+    
+    const causeMsg = this.cause instanceof Error 
+      ? this.cause.message 
+      : this.cause 
+        ? String(this.cause) 
+        : '';
+    
+    return `Checkout ${this.code}${contextStr}${causeMsg ? `: ${causeMsg}` : ''}`;
   }
 }

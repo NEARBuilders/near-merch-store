@@ -38,9 +38,7 @@ function LoginPage() {
     setIsConnectingWallet(true);
     try {
       await authClient.requestSignIn.near(
-        { 
-          recipient: process.env.PUBLIC_ACCOUNT_ID || "near-merch-store.near",
-        },
+        { recipient: process.env.PUBLIC_ACCOUNT_ID || "every.near" },
         {
           onSuccess: () => {
             setIsConnectingWallet(false);

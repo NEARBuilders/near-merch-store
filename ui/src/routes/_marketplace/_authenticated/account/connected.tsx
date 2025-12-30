@@ -73,7 +73,7 @@ function ConnectedAccountsPage() {
 
   const primaryAccount = Array.isArray(linkedAccounts)
     ? linkedAccounts.find((acc) => acc.providerId === "siwn") ||
-      linkedAccounts[0]
+    linkedAccounts[0]
     : null;
 
   return (
@@ -98,21 +98,19 @@ function ConnectedAccountsPage() {
           {linkedAccounts.map((account) => (
             <div
               key={account.providerId || account.accountId}
-              className={`p-4 flex items-center justify-between ${
-                account === primaryAccount
-                  ? "bg-[#d4fced] border border-[#00ec97]"
-                  : "bg-card border border-border"
-              }`}
+              className={`p-4 flex items-center justify-between ${account === primaryAccount
+                ? "bg-[#d4fced] dark:bg-emerald-950/30 border border-[#00ec97] dark:border-emerald-900"
+                : "bg-card border border-border"
+                }`}
             >
               <div className="flex items-center gap-3">
                 <div
-                  className={`size-10 flex items-center justify-center ${
-                    account.providerId === "siwn"
-                      ? "bg-[#00ec97]"
-                      : account.providerId === "github"
-                      ? "bg-[#030213]"
+                  className={`size-10 flex items-center justify-center ${account.providerId === "siwn"
+                    ? "bg-[#00ec97]"
+                    : account.providerId === "github"
+                      ? "bg-[#030213] dark:bg-white"
                       : ""
-                  }`}
+                    }`}
                 >
                   {account.providerId === "siwn" && (
                     <svg className="size-5" viewBox="0 0 24 24" fill="none">

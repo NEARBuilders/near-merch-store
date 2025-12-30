@@ -13,7 +13,7 @@ export class OrderStore extends Context.Tag("OrderStore")<
     readonly findByCheckoutSession: (checkoutSessionId: string) => Effect.Effect<OrderWithItems | null, Error>;
     readonly findByFulfillmentRef: (fulfillmentReferenceId: string) => Effect.Effect<OrderWithItems | null, Error>;
     readonly findAbandonedDrafts: (olderThanHours: number) => Effect.Effect<OrderWithItems[], Error>;
-    readonly updateCheckout: (orderId: string, checkoutSessionId: string, checkoutProvider: 'stripe' | 'near') => Effect.Effect<OrderWithItems, Error>;
+    readonly updateCheckout: (orderId: string, checkoutSessionId: string, checkoutProvider: 'stripe' | 'near' | 'pingpay') => Effect.Effect<OrderWithItems, Error>;
     readonly updateDraftOrderIds: (orderId: string, draftOrderIds: Record<string, string>) => Effect.Effect<OrderWithItems, Error>;
     readonly updateStatus: (orderId: string, status: OrderStatus) => Effect.Effect<OrderWithItems, Error>;
     readonly updateShipping: (orderId: string, shippingAddress: ShippingAddress) => Effect.Effect<OrderWithItems, Error>;
@@ -59,7 +59,7 @@ export const OrderStoreLive = Layer.effect(
         totalAmount: row.totalAmount / 100,
         currency: row.currency,
         checkoutSessionId: row.checkoutSessionId || undefined,
-        checkoutProvider: row.checkoutProvider === 'stripe' || row.checkoutProvider === 'near' 
+        checkoutProvider: row.checkoutProvider === 'stripe' || row.checkoutProvider === 'near' || row.checkoutProvider === 'pingpay'
           ? row.checkoutProvider 
           : undefined,
         draftOrderIds: row.draftOrderIds || undefined,

@@ -10,7 +10,7 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-1264-ui-near-merch-store-nearbuilder-3c577dbfc-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1268-ui-near-merch-store-nearbuilder-6123030c4-ze.zephyrcloud.app",
       "exposes": {
         "App": "./App",
         "components": "./components",
@@ -21,7 +21,7 @@
     "api": {
       "name": "api",
       "development": "http://localhost:3014",
-      "production": "https://elliot-braem-1265-api-near-merch-store-nearbuilde-cf1f3deec-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1266-api-near-merch-store-nearbuilde-8fdeb5775-ze.zephyrcloud.app",
       "variables": {
         "network": "mainnet",
         "contractId": "social.near"

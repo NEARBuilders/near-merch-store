@@ -27,6 +27,7 @@ export interface CreateCheckoutParams {
   shippingCost: number;
   successUrl: string;
   cancelUrl: string;
+  paymentProvider?: 'stripe' | 'pingpay';
 }
 
 export interface CreateCheckoutOutput {
@@ -383,10 +384,11 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               draftOrderIds[providerName] = draftOrder.id;
             }
 
-            const paymentProvider = runtime.getPaymentProvider('stripe');
+            const providerName = params.paymentProvider || 'stripe';
+            const paymentProvider = runtime.getPaymentProvider(providerName);
             if (!paymentProvider) {
               return yield* Effect.fail(
-                new Error('Payment provider not configured')
+                new Error(`Payment provider '${providerName}' not configured`)
               );
             }
 
@@ -421,16 +423,18 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                     draftOrderIds: JSON.stringify(draftOrderIds),
                   },
                 }),
-              catch: (error) =>
-                new CheckoutError({
+              catch: (error) => {
+                console.error(`[Checkout] Payment provider '${providerName}' createCheckout failed:`, error);
+                return new CheckoutError({
                   code: 'PAYMENT_CHECKOUT_FAILED',
                   orderId: order.id,
                   userId,
                   cause: error,
-                }),
+                });
+              },
             });
 
-            yield* orderStore.updateCheckout(order.id, checkout.sessionId, 'stripe');
+            yield* orderStore.updateCheckout(order.id, checkout.sessionId, providerName);
 
             yield* orderStore.updateDraftOrderIds(order.id, draftOrderIds);
 

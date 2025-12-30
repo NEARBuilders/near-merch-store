@@ -227,6 +227,7 @@ export default createPlugin({
                 shippingCost: input.shippingCost,
                 successUrl: input.successUrl,
                 cancelUrl: input.cancelUrl,
+                paymentProvider: input.paymentProvider,
               });
             }).pipe(Effect.provide(checkoutLayer))
           );
