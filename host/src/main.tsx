@@ -68,7 +68,8 @@ export const Main: FC = () => {
 
   return (
     <div style={containerStyle}>
-      <div style={contentStyle}>
+      {/* ID added for TanStack Router scroll restoration - this is the main scrollable container */}
+      <div id="main-scroll-container" style={contentStyle}>
         <ErrorBoundary
           onError={(error) => {
             console.error('[Host] Failed to load remote app:', error.message);

@@ -166,6 +166,7 @@ function VerticalProductLayout({
           to="/products/$productId"
           params={{ productId: product.id }}
           className="block w-full h-full"
+          resetScroll={true}
         >
           {displayImage ? (
             <img
@@ -213,6 +214,7 @@ function VerticalProductLayout({
             to="/products/$productId"
             params={{ productId: product.id }}
             className="block"
+            resetScroll={true}
           >
             <h3
               className={cn(
@@ -274,6 +276,7 @@ function HorizontalProductLayout({
           to="/products/$productId"
           params={{ productId: product.id }}
           className="block w-full h-full"
+          resetScroll={true}
         >
           {displayImage ? (
             <img
@@ -297,6 +300,7 @@ function HorizontalProductLayout({
               to="/products/$productId"
               params={{ productId: product.id }}
               className="block"
+              resetScroll={true}
             >
               <h3 className="font-medium text-foreground leading-tight transition-colors hover:text-primary text-base">
                 {product.title}
