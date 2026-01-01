@@ -164,8 +164,9 @@ function VerticalProductLayout({
       <div className="relative bg-[#F0F0F0] overflow-hidden shrink-0 aspect-square w-full">
         <Link
           to="/products/$productId"
-          params={{ productId: product.id }}
+          params={{ productId: product.slug }}
           className="block w-full h-full"
+          resetScroll={true}
         >
           {displayImage ? (
             <img
@@ -211,8 +212,9 @@ function VerticalProductLayout({
         <div className="space-y-1">
           <Link
             to="/products/$productId"
-            params={{ productId: product.id }}
+            params={{ productId: product.slug }}
             className="block"
+            resetScroll={true}
           >
             <h3
               className={cn(
@@ -272,8 +274,9 @@ function HorizontalProductLayout({
       <div className="relative bg-[#F0F0F0] overflow-hidden shrink-0 size-20 rounded-md">
         <Link
           to="/products/$productId"
-          params={{ productId: product.id }}
+          params={{ productId: product.slug }}
           className="block w-full h-full"
+          resetScroll={true}
         >
           {displayImage ? (
             <img
@@ -295,8 +298,9 @@ function HorizontalProductLayout({
           <div className="min-w-0">
             <Link
               to="/products/$productId"
-              params={{ productId: product.id }}
+              params={{ productId: product.slug }}
               className="block"
+              resetScroll={true}
             >
               <h3 className="font-medium text-foreground leading-tight transition-colors hover:text-primary text-base">
                 {product.title}

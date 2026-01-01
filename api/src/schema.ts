@@ -63,6 +63,7 @@ export const ProductVariantSchema = z.object({
 
 export const ProductSchema = z.object({
   id: z.string(),
+  slug: z.string(), // SEO-friendly slug with publicKey appended
   title: z.string(),
   handle: z.string().optional(),
   description: z.string().optional(),
@@ -255,7 +256,9 @@ export const ProductVariantInputSchema = z.object({
 });
 
 export const ProductWithImagesSchema = z.object({
-  id: z.string(),
+  id: z.string(), // UUID v7
+  publicKey: z.string(), // nanoid (12 char) for URLs
+  slug: z.string(), // SEO-friendly slug with publicKey appended
   name: z.string(),
   description: z.string().optional(),
   price: z.number(),
