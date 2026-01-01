@@ -15,7 +15,7 @@ import {
   getAttributeHex,
   getOptionValue,
 } from "@/lib/product-utils";
-import { cn, toFullProductId } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { apiClient } from "@/utils/orpc";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import {
@@ -32,9 +32,7 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
   pendingComponent: LoadingSpinner,
   loader: async ({ params }) => {
     try {
-      // Reconstruct full product ID from URL (e.g., "407012072" -> "printful-product-407012072")
-      const fullId = toFullProductId(params.productId);
-      const data = await apiClient.getProduct({ id: fullId });
+      const data = await apiClient.getProduct({ id: params.productId });
       return { data: { product: data.product } };
     } catch (error) {
       return { error: error as Error, data: null };

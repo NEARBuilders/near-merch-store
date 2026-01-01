@@ -2,7 +2,9 @@ import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlit
 import type { Attribute, FulfillmentConfig, ProductOption } from '../schema';
 
 export const products = sqliteTable('products', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey(), // UUID v7
+  publicKey: text('public_key').notNull().unique(),
+  slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
   description: text('description'),
   price: integer('price').notNull(),
@@ -27,6 +29,9 @@ export const products = sqliteTable('products', {
   index('external_product_idx').on(table.externalProductId),
   index('fulfillment_provider_idx').on(table.fulfillmentProvider),
   index('listed_idx').on(table.listed),
+  index('public_key_idx').on(table.publicKey),
+  index('slug_idx').on(table.slug),
+  index('external_provider_idx').on(table.externalProductId, table.fulfillmentProvider), // Composite index for matching
 ]));
 
 export const productImages = sqliteTable('product_images', {

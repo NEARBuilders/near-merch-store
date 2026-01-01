@@ -3,11 +3,13 @@ import { Context, Effect, Layer } from 'every-plugin/effect';
 import * as schema from '../db/schema';
 import type { Product, ProductCategory, ProductCriteria, ProductImage, ProductVariant, ProductWithImages } from '../schema';
 import { Database } from './database';
+import { extractPublicKeyFromSlug, generatePublicKey, generateSlug } from '../utils/product-ids';
 
 export class ProductStore extends Context.Tag('ProductStore')<
   ProductStore,
   {
     readonly find: (id: string) => Effect.Effect<Product | null, Error>;
+    readonly findByPublicKey: (publicKey: string) => Effect.Effect<Product | null, Error>;
     readonly findMany: (criteria: ProductCriteria) => Effect.Effect<{ products: Product[]; total: number }, Error>;
     readonly search: (query: string, category: ProductCategory | undefined, limit: number) => Effect.Effect<Product[], Error>;
     readonly upsert: (product: ProductWithImages, syncedAt?: Date) => Effect.Effect<Product, Error>;
@@ -78,6 +80,7 @@ export const ProductStoreLive = Layer.effect(
 
       return {
         id: row.id,
+        slug: row.slug,
         title: row.name,
         description: row.description || undefined,
         price: row.price / 100,
@@ -115,6 +118,24 @@ export const ProductStoreLive = Layer.effect(
             return await rowToProduct(results[0]!);
           },
           catch: (error) => new Error(`Failed to find product: ${error}`),
+        }),
+
+      findByPublicKey: (publicKey) =>
+        Effect.tryPromise({
+          try: async () => {
+            const results = await db
+              .select()
+              .from(schema.products)
+              .where(eq(schema.products.publicKey, publicKey))
+              .limit(1);
+
+            if (results.length === 0) {
+              return null;
+            }
+
+            return await rowToProduct(results[0]!);
+          },
+          catch: (error) => new Error(`Failed to find product by publicKey: ${error}`),
         }),
 
       findMany: (criteria) =>
@@ -190,28 +211,37 @@ export const ProductStoreLive = Layer.effect(
           try: async () => {
             const now = new Date();
 
-            await db
-              .insert(schema.products)
-              .values({
-                id: product.id,
-                name: product.name,
-                description: product.description || null,
-                price: Math.round(product.price * 100),
-                currency: product.currency,
-                category: product.category,
-                brand: product.brand || null,
-                productType: product.productType || null,
-                options: product.options,
-                thumbnailImage: product.thumbnailImage || null,
-                fulfillmentProvider: product.fulfillmentProvider,
-                externalProductId: product.externalProductId || null,
-                source: product.source,
-                createdAt: now,
-                updatedAt: now,
-              })
-              .onConflictDoUpdate({
-                target: schema.products.id,
-                set: {
+            // Check if product already exists by externalProductId + fulfillmentProvider (for sync matching)
+            let existingProduct: typeof schema.products.$inferSelect | null = null;
+            if (product.externalProductId) {
+              const existing = await db
+                .select()
+                .from(schema.products)
+                .where(
+                  and(
+                    eq(schema.products.externalProductId, product.externalProductId),
+                    eq(schema.products.fulfillmentProvider, product.fulfillmentProvider)
+                  )
+                )
+                .limit(1);
+
+              if (existing.length > 0) {
+                existingProduct = existing[0]!;
+              }
+            }
+
+            // Use existing IDs if product exists, otherwise use new ones
+            // If existing product doesn't have slug/publicKey (migration scenario), generate them
+            const finalId = existingProduct?.id ?? product.id;
+            const finalPublicKey = existingProduct?.publicKey || (existingProduct ? generatePublicKey() : product.publicKey);
+            const finalSlug = existingProduct?.slug || (existingProduct ? generateSlug(product.name, finalPublicKey) : product.slug);
+
+            // Update or insert product
+            if (existingProduct) {
+              // Update existing product - update slug/publicKey if they were null
+              await db
+                .update(schema.products)
+                .set({
                   name: product.name,
                   description: product.description || null,
                   price: Math.round(product.price * 100),
@@ -224,20 +254,47 @@ export const ProductStoreLive = Layer.effect(
                   fulfillmentProvider: product.fulfillmentProvider,
                   externalProductId: product.externalProductId || null,
                   source: product.source,
+                  publicKey: finalPublicKey,
+                  slug: finalSlug,
                   lastSyncedAt: now,
                   updatedAt: now,
-                },
-              });
+                })
+                .where(eq(schema.products.id, finalId));
+            } else {
+              // Insert new product
+              await db
+                .insert(schema.products)
+                .values({
+                  id: finalId,
+                  publicKey: finalPublicKey,
+                  slug: finalSlug,
+                  name: product.name,
+                  description: product.description || null,
+                  price: Math.round(product.price * 100),
+                  currency: product.currency,
+                  category: product.category,
+                  brand: product.brand || null,
+                  productType: product.productType || null,
+                  options: product.options,
+                  thumbnailImage: product.thumbnailImage || null,
+                  fulfillmentProvider: product.fulfillmentProvider,
+                  externalProductId: product.externalProductId || null,
+                  source: product.source,
+                  createdAt: now,
+                  updatedAt: now,
+                });
+            }
 
+            // Delete and recreate images
             await db
               .delete(schema.productImages)
-              .where(eq(schema.productImages.productId, product.id));
+              .where(eq(schema.productImages.productId, finalId));
 
             if (product.images.length > 0) {
               await db.insert(schema.productImages).values(
                 product.images.map((img, index) => ({
-                  id: img.id || `${product.id}-img-${index}`,
-                  productId: product.id,
+                  id: img.id || `${finalId}-img-${index}`,
+                  productId: finalId,
                   url: img.url,
                   type: img.type,
                   placement: img.placement || null,
@@ -249,15 +306,16 @@ export const ProductStoreLive = Layer.effect(
               );
             }
 
+            // Delete and recreate variants
             await db
               .delete(schema.productVariants)
-              .where(eq(schema.productVariants.productId, product.id));
+              .where(eq(schema.productVariants.productId, finalId));
 
             if (product.variants.length > 0) {
               await db.insert(schema.productVariants).values(
                 product.variants.map((variant) => ({
                   id: variant.id,
-                  productId: product.id,
+                  productId: finalId,
                   name: variant.name,
                   sku: variant.sku || null,
                   price: Math.round(variant.price * 100),
@@ -274,7 +332,7 @@ export const ProductStoreLive = Layer.effect(
             const results = await db
               .select()
               .from(schema.products)
-              .where(eq(schema.products.id, product.id))
+              .where(eq(schema.products.id, finalId))
               .limit(1);
 
             if (results.length === 0) {

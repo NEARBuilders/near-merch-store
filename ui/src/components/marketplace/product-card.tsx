@@ -1,7 +1,7 @@
 import { FavoriteButton } from "@/components/marketplace/favorite-button";
 import { useFavorites } from "@/hooks/use-favorites";
 import { type Product, useSuspenseProduct } from "@/integrations/api";
-import { cn, toUrlProductId } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import React, { useCallback } from "react";
@@ -164,7 +164,7 @@ function VerticalProductLayout({
       <div className="relative bg-[#F0F0F0] overflow-hidden shrink-0 aspect-square w-full">
         <Link
           to="/products/$productId"
-          params={{ productId: toUrlProductId(product.id) }}
+          params={{ productId: product.slug }}
           className="block w-full h-full"
           resetScroll={true}
         >
@@ -212,7 +212,7 @@ function VerticalProductLayout({
         <div className="space-y-1">
           <Link
             to="/products/$productId"
-            params={{ productId: toUrlProductId(product.id) }}
+            params={{ productId: product.slug }}
             className="block"
             resetScroll={true}
           >
@@ -274,7 +274,7 @@ function HorizontalProductLayout({
       <div className="relative bg-[#F0F0F0] overflow-hidden shrink-0 size-20 rounded-md">
         <Link
           to="/products/$productId"
-          params={{ productId: toUrlProductId(product.id) }}
+          params={{ productId: product.slug }}
           className="block w-full h-full"
           resetScroll={true}
         >
@@ -298,7 +298,7 @@ function HorizontalProductLayout({
           <div className="min-w-0">
             <Link
               to="/products/$productId"
-              params={{ productId: toUrlProductId(product.id) }}
+              params={{ productId: product.slug }}
               className="block"
               resetScroll={true}
             >
