@@ -15,39 +15,11 @@
 import { createClient, type Client } from "@libsql/client";
 import { config } from "dotenv";
 import path from "path";
-import { nanoid } from "nanoid";
 
 // Load env from host directory
 config({ path: path.join(import.meta.dir, "../host/.env") });
 
 const API_URL = "https://near.everything.market/api/products";
-
-/**
- * Generate a slug-friendly string from product name
- */
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '') // Remove special characters
-    .replace(/[\s_-]+/g, '-') // Replace spaces, underscores, multiple hyphens with single hyphen
-    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-}
-
-/**
- * Generate a public key (12 character nanoid) for URLs
- */
-function generatePublicKey(): string {
-  return nanoid(12);
-}
-
-/**
- * Generate a slug with publicKey appended
- */
-function generateSlug(name: string, publicKey: string): string {
-  const nameSlug = slugify(name);
-  return `${nameSlug}-${publicKey}`;
-}
 
 function getDatabaseClient(): Client {
   const url = process.env.API_DATABASE_URL;
@@ -96,7 +68,6 @@ interface ProductOption {
 
 interface Product {
   id: string;
-  slug?: string; // May come from API, but we'll generate if missing
   title: string;
   handle?: string;
   description?: string;
@@ -140,8 +111,6 @@ async function initializeDatabase(db: Client): Promise<void> {
   await db.batch([
     `CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
-      public_key TEXT NOT NULL UNIQUE,
-      slug TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       description TEXT,
       price INTEGER NOT NULL,
@@ -208,46 +177,15 @@ async function syncProducts(db: Client, products: Product[]): Promise<void> {
       args: [product.id],
     });
 
-    // Generate slug and publicKey if not provided
-    // Extract publicKey from slug if slug exists, otherwise generate new ones
-    let publicKey: string;
-    let slug: string;
-    
-    if (product.slug) {
-      // Slug exists, extract publicKey from it (last 12 characters, since nanoid is always 12 chars)
-      // This handles cases where publicKey contains hyphens or underscores
-      if (product.slug.length >= 12) {
-        const extractedKey = product.slug.slice(-12);
-        if (/^[A-Za-z0-9_-]{12}$/.test(extractedKey)) {
-          publicKey = extractedKey;
-          slug = product.slug;
-        } else {
-          // Invalid slug format, generate new
-          publicKey = generatePublicKey();
-          slug = generateSlug(product.title, publicKey);
-        }
-      } else {
-        // Slug too short, generate new
-        publicKey = generatePublicKey();
-        slug = generateSlug(product.title, publicKey);
-      }
-    } else {
-      // No slug, generate new
-      publicKey = generatePublicKey();
-      slug = generateSlug(product.title, publicKey);
-    }
-
     // Insert/update product
     statements.push({
       sql: `INSERT OR REPLACE INTO products (
-        id, public_key, slug, name, description, price, currency, category, brand, product_type,
+        id, name, description, price, currency, category, brand, product_type,
         options, thumbnail_image, fulfillment_provider, external_product_id,
         source, last_synced_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         product.id,
-        publicKey,
-        slug,
         product.title,
         product.description || null,
         Math.round(product.price * 100), // Convert to cents

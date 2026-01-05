@@ -3,12 +3,10 @@ import { Context, Effect, Layer } from 'every-plugin/effect';
 import * as schema from '../db/schema';
 import type { Product, ProductCategory, ProductCriteria, ProductImage, ProductVariant, ProductWithImages } from '../schema';
 import { Database } from './database';
-import { extractPublicKeyFromSlug, generatePublicKey, generateSlug } from '../utils/product-ids';
 
 export class ProductStore extends Context.Tag('ProductStore')<
   ProductStore,
   {
-    readonly find: (id: string) => Effect.Effect<Product | null, Error>;
     readonly findByPublicKey: (publicKey: string) => Effect.Effect<Product | null, Error>;
     readonly findMany: (criteria: ProductCriteria) => Effect.Effect<{ products: Product[]; total: number }, Error>;
     readonly search: (query: string, category: ProductCategory | undefined, limit: number) => Effect.Effect<Product[], Error>;
@@ -102,24 +100,6 @@ export const ProductStoreLive = Layer.effect(
     };
 
     return {
-      find: (id) =>
-        Effect.tryPromise({
-          try: async () => {
-            const results = await db
-              .select()
-              .from(schema.products)
-              .where(eq(schema.products.id, id))
-              .limit(1);
-
-            if (results.length === 0) {
-              return null;
-            }
-
-            return await rowToProduct(results[0]!);
-          },
-          catch: (error) => new Error(`Failed to find product: ${error}`),
-        }),
-
       findByPublicKey: (publicKey) =>
         Effect.tryPromise({
           try: async () => {
@@ -230,15 +210,12 @@ export const ProductStoreLive = Layer.effect(
               }
             }
 
-            // Use existing IDs if product exists, otherwise use new ones
-            // If existing product doesn't have slug/publicKey (migration scenario), generate them
+            // Use existing ID if product exists, otherwise use new one
             const finalId = existingProduct?.id ?? product.id;
-            const finalPublicKey = existingProduct?.publicKey || (existingProduct ? generatePublicKey() : product.publicKey);
-            const finalSlug = existingProduct?.slug || (existingProduct ? generateSlug(product.name, finalPublicKey) : product.slug);
 
             // Update or insert product
             if (existingProduct) {
-              // Update existing product - update slug/publicKey if they were null
+              // Update existing product
               await db
                 .update(schema.products)
                 .set({
@@ -254,8 +231,8 @@ export const ProductStoreLive = Layer.effect(
                   fulfillmentProvider: product.fulfillmentProvider,
                   externalProductId: product.externalProductId || null,
                   source: product.source,
-                  publicKey: finalPublicKey,
-                  slug: finalSlug,
+                  publicKey: product.publicKey,
+                  slug: product.slug,
                   lastSyncedAt: now,
                   updatedAt: now,
                 })
@@ -266,8 +243,8 @@ export const ProductStoreLive = Layer.effect(
                 .insert(schema.products)
                 .values({
                   id: finalId,
-                  publicKey: finalPublicKey,
-                  slug: finalSlug,
+                  publicKey: product.publicKey,
+                  slug: product.slug,
                   name: product.name,
                   description: product.description || null,
                   price: Math.round(product.price * 100),

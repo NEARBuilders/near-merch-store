@@ -1,7 +1,7 @@
 {
     "version": "6",
     "dialect": "sqlite",
-    "id": "550692bc-7566-4dcb-afcc-29f97ec54eeb",
+    "id": "c5c4c934-8b41-48b9-9d0b-547f4ba5635d",
     "prevId": "a674cf99-60d8-4f74-9f32-77a5f8026760",
     "tables": {
       "collections": {
@@ -655,14 +655,14 @@
             "name": "public_key",
             "type": "text",
             "primaryKey": false,
-            "notNull": false,
+            "notNull": true,
             "autoincrement": false
           },
           "slug": {
             "name": "slug",
             "type": "text",
             "primaryKey": false,
-            "notNull": false,
+            "notNull": true,
             "autoincrement": false
           },
           "name": {

@@ -3,7 +3,7 @@ import type { FulfillmentProvider, MarketplaceRuntime } from '../runtime';
 import type { Collection, FulfillmentConfig, Product, ProductCategory, ProductImage, ProductOption } from '../schema';
 import { ProductStore, type ProductVariantInput, type ProductWithImages } from '../store';
 import type { ProviderProduct } from './fulfillment/schema';
-import { generateProductId, generatePublicKey, generateSlug, extractPublicKeyFromSlug } from '../utils/product-ids';
+import { generateProductId, generatePublicKey, generateSlug } from '../utils/product-ids';
 
 export class ProductService extends Context.Tag('ProductService')<
   ProductService,
@@ -263,22 +263,15 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
             return yield* store.findMany({ category, limit, offset, includeUnlisted });
           }),
 
-        getProduct: (slugOrId) =>
+        getProduct: (productSlug) =>
           Effect.gen(function* () {
-            // Try to extract publicKey from slug (e.g., "near-extreme-449343436748" -> "449343436748")
-            const publicKey = extractPublicKeyFromSlug(slugOrId);
-            let product: Product | null = null;
-
-            if (publicKey) {
-              // Lookup by publicKey (slug-based URL)
-              product = yield* store.findByPublicKey(publicKey);
-            } else {
-              // Fallback to UUID lookup (for backward compatibility or direct ID access)
-              product = yield* store.find(slugOrId);
-            }
+            // Extract publicKey from slug (last 12 characters)
+            const publicKey = productSlug.slice(-12);
+            
+            const product = yield* store.findByPublicKey(publicKey);
 
             if (!product) {
-              return yield* Effect.fail(new Error(`Product not found: ${slugOrId}`));
+              return yield* Effect.fail(new Error(`Product not found: ${productSlug}`));
             }
             return { product };
           }),
