@@ -39,9 +39,11 @@ export const ProviderVariantSchema = z.object({
 export const ProviderProductSchema = z.object({
   id: z.union([z.string(), z.number()]),
   sourceId: z.number().or(z.string()),
+  externalId: z.string().optional(),
   name: z.string(),
   description: z.string().optional(),
   thumbnailUrl: z.string().optional(),
+  tags: z.array(z.string()).optional(),
   variants: z.array(ProviderVariantSchema),
 });
 
