@@ -18,10 +18,10 @@ export const auth = betterAuth({
   }),
   trustedOrigins: process.env.CORS_ORIGIN?.split(",") || ["*"],
   secret: process.env.BETTER_AUTH_SECRET || "default-secret-change-in-production",
-  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3001",
+  baseURL: process.env.BETTER_AUTH_URL,
   plugins: [
     siwn({
-      recipient: bosConfig.account,
+      recipient: bosConfig.account
     }),
     admin({
       defaultRole: "user",

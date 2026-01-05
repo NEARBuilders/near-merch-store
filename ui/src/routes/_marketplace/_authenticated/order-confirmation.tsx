@@ -16,7 +16,7 @@ type SearchParams = {
   session_id?: string;
 };
 
-export const Route = createFileRoute("/_marketplace/order-confirmation")({
+export const Route = createFileRoute("/_marketplace/_authenticated/order-confirmation")({
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
     orderNumber:
       typeof search.orderNumber === "string" ? search.orderNumber : undefined,

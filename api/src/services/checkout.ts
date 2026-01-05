@@ -259,10 +259,13 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               }
             }
 
+            const tax = totalSubtotal * 0.08;
+
             return {
               subtotal: totalSubtotal,
               shippingCost: totalShippingCost,
-              total: totalSubtotal + totalShippingCost,
+              tax,
+              total: totalSubtotal + totalShippingCost + tax,
               currency,
               providerBreakdown,
               estimatedDelivery:
@@ -317,7 +320,8 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               });
             }
 
-            const totalAmount = totalSubtotal + shippingCost;
+            const tax = totalSubtotal * 0.08;
+            const totalAmount = totalSubtotal + shippingCost + tax;
 
             const orderItems = Array.from(itemsByProvider.values())
               .flat()
@@ -406,6 +410,14 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               lineItems.push({
                 name: 'Shipping',
                 unitAmount: Math.round(shippingCost * 100),
+                quantity: 1,
+              });
+            }
+
+            if (tax > 0) {
+              lineItems.push({
+                name: 'Tax',
+                unitAmount: Math.round(tax * 100),
                 quantity: 1,
               });
             }

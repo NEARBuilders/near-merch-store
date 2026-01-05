@@ -1,12 +1,12 @@
-# NEAR Merch Store - Technical Guide for LLMs
+# Technical Guide for LLMs
 
-This is the technical guide for the NEAR Protocol Official Merch Store, a production-ready e-commerce application demonstrating Module Federation, every-plugin architecture, and NEAR Protocol integration.
+This is the technical guide for a Module Federation monorepo demonstrating every-plugin architecture, runtime-loaded configuration, and NEAR Protocol integration.
 
 For contribution guidelines, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Architecture Overview
 
-This is a **Module Federation monorepo** with three federated modules:
+This is a **Module Federation monorepo** with runtime-loaded configuration:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -38,12 +38,12 @@ The **entire system** is configured via `bos.config.json` - a runtime-loaded JSO
 
 ```json
 {
-  "account": "near-merch-store.near",
+  "account": "example.near",
   "app": {
     "host": {
-      "title": "Near Merch",
+      "title": "App Title",
       "development": "http://localhost:3001",
-      "production": "https://everything.market"
+      "production": "https://example.com"
     },
     "ui": {
       "name": "ui",
@@ -51,16 +51,11 @@ The **entire system** is configured via `bos.config.json` - a runtime-loaded JSO
       "production": "https://cdn.example.com/ui/remoteEntry.js"
     },
     "api": {
-      "plugins": {
-        "api": {
-          "development": "http://localhost:3014/remoteEntry.js",
-          "production": "https://cdn.example.com/api/remoteEntry.js",
-          "variables": {},
-          "secrets": {
-            "STRIPE_SECRET_KEY": "{{STRIPE_SECRET_KEY}}"
-          }
-        }
-      }
+      "name": "api",
+      "development": "http://localhost:3014",
+      "production": "https://cdn.example.com/api/remoteEntry.js",
+      "variables": {},
+      "secrets": ["API_DATABASE_URL", "API_DATABASE_AUTH_TOKEN"]
     }
   }
 }
@@ -93,7 +88,6 @@ exposes: {
   './Router': './src/router.tsx',        // TanStack Router instance
   './components': './src/components/index.ts',  // Reusable components
   './providers': './src/providers/index.tsx',   // Context providers
-  './types': './src/types/index.ts'      // TypeScript types
 }
 ```
 
@@ -139,10 +133,6 @@ api/
 │   ├── index.ts         # createPlugin() implementation
 │   ├── schema.ts        # Zod schemas for validation
 │   ├── services/        # Business logic (Effect-based)
-│   │   ├── products.ts  # Product catalog
-│   │   ├── orders.ts    # Order management
-│   │   ├── stripe.ts    # Payment processing
-│   │   └── fulfillment.ts  # Print-on-demand
 │   └── db/              # Database schema (Drizzle)
 └── plugin.dev.ts        # Dev server config
 ```
@@ -157,31 +147,26 @@ export default createPlugin({
   }),
   
   secrets: z.object({
-    STRIPE_SECRET_KEY: z.string(),
-    GELATO_API_KEY: z.string()
+    API_DATABASE_URL: z.string(),
+    API_DATABASE_AUTH_TOKEN: z.string()
   }),
   
   contract,  // oRPC contract from contract.ts
   
   initialize: (config) => Effect.gen(function* () {
     // Create services with config
-    const stripe = new StripeService(config.secrets.STRIPE_SECRET_KEY);
-    const fulfillment = new FulfillmentService(config.secrets.GELATO_API_KEY);
-    const products = new ProductsService(db);
-    const orders = new OrdersService(db, stripe, fulfillment);
+    const db = createDb(config.secrets.API_DATABASE_URL);
+    const service = new MyService(db);
     
-    return { stripe, fulfillment, products, orders };
+    return { service };
   }),
   
   createRouter: (context, builder) => ({
-    products: {
-      list: builder.products.list.handler(async ({ input }) => {
-        return await Effect.runPromise(
-          context.products.list(input)
-        );
-      }),
-      // ... more handlers
-    }
+    getData: builder.getData.handler(async ({ input }) => {
+      return await Effect.runPromise(
+        context.service.getData(input)
+      );
+    }),
   })
 });
 ```
@@ -192,21 +177,18 @@ export default createPlugin({
 const config = await loadBosConfig();  // Reads bos.config.json
 
 const runtime = createPluginRuntime({
-  registry: Object.fromEntries(
-    Object.entries(config.apiPlugins).map(([name, plugin]) => [
-      name,
-      {
-        remote: plugin.url,      // From config!
-        variables: plugin.variables,
-        secrets: plugin.secrets
-      }
-    ])
-  )
+  registry: {
+    [config.api.name]: {
+      remote: config.api.url,      // From config!
+      variables: config.api.variables,
+      secrets: config.api.secrets
+    }
+  }
 });
 
-const { client, router } = await runtime.usePlugin('api', {
-  variables: config.apiPlugins['api'].variables,
-  secrets: config.apiPlugins['api'].secrets
+const { client, router } = await runtime.usePlugin(config.api.name, {
+  variables: config.api.variables,
+  secrets: config.api.secrets
 });
 
 // Router is merged into main oRPC router
@@ -217,7 +199,82 @@ const { client, router } = await runtime.usePlugin('api', {
 - Uses `withZephyr` for CDN deployment
 - Auto-updates `bos.config.json` on deployment
 
-**Key Point:** Plugins are independently deployable. Each plugin has its own contract, services, and database schema.
+**Key Point:** Plugins are independently deployable with their own contract, services, and database schema.
+
+## UI Styling Guidelines
+
+### Semantic Tailwind Classes
+
+This project uses **Tailwind CSS v4** with semantic color classes defined via CSS variables. Always use semantic classes instead of hardcoded colors.
+
+**Available Semantic Colors:**
+```typescript
+// Backgrounds and surfaces
+bg-background       // Main background
+bg-card            // Card backgrounds
+bg-popover         // Popover/dropdown backgrounds
+bg-primary         // Primary action color
+bg-secondary       // Secondary elements
+bg-muted           // Muted/disabled states
+bg-accent          // Accent highlights
+bg-destructive     // Destructive actions (delete, errors)
+
+// Text colors (use corresponding -foreground variants)
+text-foreground           // Main text on background
+text-card-foreground      // Text on card
+text-primary-foreground   // Text on primary
+text-secondary-foreground // Text on secondary
+text-muted-foreground     // Muted/helper text
+text-accent-foreground    // Text on accent
+text-destructive-foreground // Text on destructive
+
+// Borders and inputs
+border-border      // Border color
+border-input       // Input border color
+ring-ring          // Focus ring color
+```
+
+**Custom Brand Colors:**
+```css
+/* Available as CSS variables */
+--near-green: #00ec97;
+--near-green-hover: #00d66f;
+--near-green-light: #d4fced;
+--near-blue: #3d7fff;
+--near-purple: #635bff;
+```
+
+**Example Usage:**
+```tsx
+// ✅ Good: Semantic classes
+<button className="bg-primary text-primary-foreground hover:bg-primary/90">
+  Submit
+</button>
+
+<div className="bg-card text-card-foreground border border-border rounded-lg">
+  <h2 className="text-foreground">Title</h2>
+  <p className="text-muted-foreground">Description</p>
+</div>
+
+// ❌ Bad: Hardcoded colors
+<button className="bg-blue-600 text-white">
+  Submit
+</button>
+```
+
+**Key Benefits:**
+- Automatic dark mode support (colors switch via `.dark` class)
+- Consistent design system
+- Uses oklch color space for better color perception
+- Theme customization via CSS variables
+
+**Border Radius:**
+```typescript
+rounded-sm   // calc(var(--radius) - 4px)
+rounded-md   // calc(var(--radius) - 2px)
+rounded-lg   // var(--radius)
+rounded-xl   // calc(var(--radius) + 4px)
+```
 
 ## NEAR Protocol Integration
 
@@ -293,38 +350,13 @@ See [better-near-auth LLM.txt](https://github.com/elliotBraem/better-near-auth/b
 - ✅ Storage deposit management
 - ✅ Meta-transaction support (via relayer)
 
-### Meta-Transactions (Relayer)
-
-The API plugin includes a **relayer service** for NEAR meta-transactions:
-
-```typescript
-// API provides these endpoints:
-POST /api/relayer/connect        // Ensure storage deposit
-POST /api/relayer/publish        // Submit delegate action
-
-// Usage in UI:
-await client.relayer.publish({
-  accountId: session.user.walletAddress,
-  action: {
-    type: 'FunctionCall',
-    contractId: 'social.near',
-    method: 'set',
-    args: { ... },
-    gas: '300000000000000',
-    deposit: '100000000000000000000000'
-  }
-});
-```
-
-This allows **gasless transactions** where the relayer pays for gas.
-
 ## Database Schema
 
 **Host Database** (Better-Auth):
 - `host/src/db/schema/auth.ts` - User accounts, sessions, verification tokens
 
-**API Database** (Marketplace):
-- `api/src/db/schema.ts` - Products, orders, sync jobs
+**API Database**:
+- `api/src/db/schema.ts` - Application-specific data
 
 Both use **Drizzle ORM** with **SQLite** (libsql).
 
@@ -347,7 +379,7 @@ bun dev
 # Starts:
 # - API: http://localhost:3014
 # - UI: http://localhost:3002
-# - Host: http://localhost:3001 (proxies /api to :3000)
+# - Host: http://localhost:3001
 ```
 
 **Individual services:**
@@ -410,27 +442,19 @@ The API contract provides **end-to-end type safety**:
 ```typescript
 // api/src/contract.ts
 export const contract = oc.router({
-  products: {
-    list: oc.route({ method: 'GET', path: '/products' })
-      .input(z.object({
-        limit: z.number().default(20),
-        offset: z.number().default(0)
-      }))
-      .output(z.object({
-        products: z.array(ProductSchema),
-        total: z.number()
-      }))
-  }
+  getData: oc.route({ method: 'GET', path: '/data' })
+    .input(z.object({
+      id: z.string()
+    }))
+    .output(z.object({
+      data: DataSchema
+    }))
 });
 
-// ui/src/integrations/api/products.ts
+// ui/src/integrations/api/
 // TypeScript knows the exact input/output types!
-const { data } = await client.products.list({
-  limit: 20,
-  offset: 0
-});
-// data.products is Product[]
-// data.total is number
+const { data } = await client.getData({ id: '123' });
+// data is typed!
 ```
 
 ### Module Federation Types
@@ -442,7 +466,7 @@ Shared dependencies ensure singleton React/TanStack instances:
 import { useState } from 'react';  // Singleton
 
 // Type imports work across remote boundaries
-import type { Product } from 'ui/types';
+import type { Data } from 'ui/types';
 ```
 
 ## Testing
@@ -455,7 +479,7 @@ bun test:ui       # UI only
 ```
 
 **Integration Tests:**
-See `api/tests/integration/plugin.test.ts` for plugin testing patterns.
+See `api/tests/` for plugin testing patterns.
 
 ## Common Patterns
 
@@ -510,7 +534,7 @@ export const useMyEndpoint = () => {
 ### Adding a New UI Page
 
 1. **Create route file** (`ui/src/routes/my-page.tsx`):
-```typescript
+```tsx
 import { createFileRoute } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/my-page')({
@@ -518,7 +542,12 @@ export const Route = createFileRoute('/my-page')({
 });
 
 function MyPage() {
-  return <div>My Page</div>;
+  return (
+    <div className="bg-background text-foreground">
+      <h1 className="text-2xl font-bold">My Page</h1>
+      <p className="text-muted-foreground">Description</p>
+    </div>
+  );
 }
 ```
 

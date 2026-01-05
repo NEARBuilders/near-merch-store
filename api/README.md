@@ -1,17 +1,17 @@
 # api
 
-[every-plugin](https://github.com/near-everything/every-plugin) based API for marketplace operations.
+[every-plugin](https://github.com/near-everything/every-plugin) based API.
 
 ## Plugin Architecture
 
 Built with **every-plugin** framework (Rspack + Module Federation):
 
-```
+```bash
 ┌─────────────────────────────────────────────────────────┐
 │                    createPlugin()                       │
 ├─────────────────────────────────────────────────────────┤
-│  variables: { network, contractId, ... }                │
-│  secrets: { STRIPE_SECRET_KEY, PRINTFUL_API_KEY, ... }  │
+│  variables: { ... }                                     │
+│  secrets: { ... }                                       │
 │  contract: oRPC route definitions                       │
 │  initialize(): Effect → services                        │
 │  createRouter(): handlers using services                │
@@ -30,62 +30,14 @@ Built with **every-plugin** framework (Rspack + Module Federation):
 
 - `contract.ts` - oRPC contract definition (routes, schemas)
 - `index.ts` - Plugin initialization + router handlers
-- `schema.ts` - Zod schemas for input/output validation
-- `services/` - Business logic (products, orders, stripe, fulfillment)
+- `services/` - Business logic with Effect-TS
 - `db/` - Database schema and migrations
-
-**Extending with more plugins:**
-
-Each domain can be its own plugin with independent:
-
-- Contract definition
-- Initialization logic  
-- Router handlers
-- Database schema
-
-## API Endpoints
-
-**Products** - Product catalog from Printful
-
-- `GET /products` - List products
-- `GET /products/{id}` - Get product
-- `GET /products/search` - Search products
-- `GET /products/featured` - Featured products
-
-**Collections**
-
-- `GET /collections` - List collections
-- `GET /collections/{slug}` - Get collection with products
-
-**Checkout & Orders**
-
-- `POST /checkout` - Create Stripe checkout session
-- `GET /orders` - List user orders
-- `GET /orders/{id}` - Get order details
-
-**Sync** - Product sync from fulfillment providers
-
-- `POST /sync` - Trigger product sync
-- `GET /sync-status` - Check sync status
-
-**Relayer** - NEAR meta-transactions
-
-- `POST /connect` - Ensure storage deposit
-- `POST /publish` - Submit delegate action
-
-**Webhooks**
-
-- `POST /webhooks/stripe` - Stripe payment events
-- `POST /webhooks/fulfillment` - Gelato/Printful fulfillment events
 
 ## Tech Stack
 
 - **Framework**: every-plugin + oRPC
 - **Effects**: Effect-TS for service composition
 - **Database**: SQLite (libsql) + Drizzle ORM
-- **Payments**: Stripe
-- **Fulfillment**: Printful, Gelato
-- **NEAR**: near-kit + near-social-js
 
 ## Available Scripts
 
@@ -97,34 +49,21 @@ Each domain can be its own plugin with independent:
 
 ## Configuration
 
-**Host configuration** (`bos.config.json`):
+**bos.config.json**:
 
 ```json
 {
-  "api": {
-    "name": "api",
-    "development": "http://localhost:3014",
-    "production": "https://...",
-    "variables": {
-      "network": "mainnet",
-      "contractId": "social.near"
-    },
-    "secrets": [
-      "STRIPE_SECRET_KEY",
-      "STRIPE_WEBHOOK_SECRET",
-      "PRINTFUL_API_KEY",
-      "PRINTFUL_STORE_ID",
-      "API_DATABASE_URL",
-      "API_DATABASE_AUTH_TOKEN"
-    ]
+  "app": {
+    "api": {
+      "name": "api",
+      "development": "http://localhost:3014",
+      "production": "https://cdn.example.com/api",
+      "variables": {},
+      "secrets": [
+        "API_DATABASE_URL",
+        "API_DATABASE_AUTH_TOKEN"
+      ]
+    }
   }
 }
 ```
-
-**Required Secrets:**
-
-- `STRIPE_SECRET_KEY` - Stripe API key
-- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
-- `PRINTFUL_API_KEY` - Printful API key
-- `GELATO_API_KEY` - Gelato API key
-- `API_DATABASE_URL` - SQLite database URL

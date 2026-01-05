@@ -1,15 +1,18 @@
 {
-  "name": "marketplace-demo",
+  "name": "monorepo",
   "private": true,
   "workspaces": [
     "api",
-    "host",
-    "ui"
+    "ui",
+    "host"
   ],
   "scripts": {
-    "dev": "turbo dev",
-    "dev:ui": "USE_REMOTE_API=true turbo dev --filter=host --filter=ui",
-    "dev:api": "USE_REMOTE_UI=true turbo dev --filter=host --filter=api",
+    "test": "turbo test --filter=api",
+    "dev": "turbo dev --filter=api --filter=host --filter=ui",
+    "dev:ui": "API_SOURCE=remote turbo dev --filter=host --filter=ui",
+    "dev:api": "UI_SOURCE=remote turbo dev --filter=host --filter=api",
+    "dev:host": "UI_SOURCE=remote API_SOURCE=remote turbo dev --filter=host",
+    "dev:proxy": "API_PROXY=true turbo dev --filter=host --filter=ui",
     "start": "turbo preview --filter=host",
     "build": "turbo build",
     "build:api": "turbo build --filter=api",

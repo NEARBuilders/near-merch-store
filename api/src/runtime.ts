@@ -128,7 +128,6 @@ export async function createMarketplaceRuntime(
       variables: {
         baseUrl: 'https://pay.pingpay.io',
         recipientAddress: 'yourstore.near',
-        recipientChainId: 'near:mainnet',
       },
       secrets: {},
     });

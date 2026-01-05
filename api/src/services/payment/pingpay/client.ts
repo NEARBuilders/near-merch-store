@@ -50,7 +50,7 @@ export class PingPayClient {
   }
 
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
+    const url = `${this.baseUrl}/api${path}`;
 
     const response = await fetch(url, {
       ...options,

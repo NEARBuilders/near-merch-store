@@ -6,6 +6,8 @@
     "dev": "BOS_CONFIG_PATH=../bos.config.json tsx server.ts",
     "build": "rsbuild build",
     "preview": "NODE_ENV=production BOS_CONFIG_PATH=../bos.config.json tsx server.ts",
+    "test": "NODE_ENV=production BOS_CONFIG_PATH=../bos.config.json vitest run",
+    "test:watch": "NODE_ENV=production BOS_CONFIG_PATH=../bos.config.json vitest",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
@@ -17,8 +19,10 @@
     "@hot-labs/near-connect": "^0.6.11",
     "@libsql/client": "^0.15.15",
     "@module-federation/enhanced": "^0.21.6",
+    "@module-federation/node": "^2.7.26",
     "@module-federation/rsbuild-plugin": "^0.21.6",
     "@module-federation/runtime": "^0.21.6",
+    "@module-federation/runtime-core": "^0.21.6",
     "@orpc/openapi": "^1.12.2",
     "@orpc/server": "^1.12.2",
     "@orpc/zod": "^1.12.2",
@@ -32,7 +36,7 @@
     "drizzle-orm": "^0.45.1",
     "every-plugin": "^0.8.3",
     "hono": "^4.6.0",
-    "near-kit": "^0.6.3",
+    "near-kit": "^0.7.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
@@ -44,6 +48,9 @@
     "@types/react-dom": "^19.2.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
+    "vite-tsconfig-paths": "^6.0.3",
+    "vitest": "^3.2.4",
+    "web-vitals": "^5.1.0",
     "zephyr-rsbuild-plugin": "^0.1.2"
   }
 }

@@ -1,38 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--__HEAD_CONTENT__-->
+
+    <!--__RUNTIME_CONFIG__-->
+    <!--__REMOTE_PRELOAD__-->
+
+    <script>
+      (function () {
+        var t = localStorage.getItem("theme");
+        if (
+          t === "dark" ||
+          (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)
+        ) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
+
     <style>
-      *, *::before, *::after {
+      :root {
+        --host-bg: #ffffff;
+        --host-fg: #171717;
+      }
+      .dark {
+        --host-bg: #1c1c1e;
+        --host-fg: #fafafa;
+      }
+      *,
+      *::before,
+      *::after {
         box-sizing: border-box;
       }
-      html, body, #root {
-        height: 100%;
-        width: 100%;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        overscroll-behavior: none;
-      }
       html {
+        height: 100%;
         -webkit-text-size-adjust: 100%;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
+        text-size-adjust: 100%;
+        color-scheme: light dark;
       }
       body {
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        line-height: 1.5;
+        min-height: 100%;
+        margin: 0;
+        background-color: var(--host-bg);
+        color: var(--host-fg);
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        transition: background-color 0.2s ease;
       }
-      .loading-spinner {
-        width: 3rem;
-        height: 3rem;
-        border: 4px solid #e5e7eb;
-        border-top-color: #3b82f6;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
+      #root {
+        min-height: 100vh;
+        background-color: var(--host-bg);
       }
-      @keyframes spin { to { transform: rotate(360deg); } }
+      @supports (min-height: 100dvh) {
+        #root {
+          min-height: 100dvh;
+        }
+      }
     </style>
   </head>
   <body>

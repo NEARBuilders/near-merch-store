@@ -334,6 +334,7 @@ export const ProviderBreakdownSchema = z.object({
 export const QuoteOutputSchema = z.object({
   subtotal: z.number(),
   shippingCost: z.number(),
+  tax: z.number(),
   total: z.number(),
   currency: z.string(),
   providerBreakdown: z.array(ProviderBreakdownSchema),

@@ -49,7 +49,6 @@ Visit http://localhost:3001 to see the application.
 - ✅ **Runtime Configuration** - All URLs loaded from `bos.config.json` (no rebuild needed!)
 - ✅ **Independent Deployment** - UI, API, and Host deploy separately
 - ✅ **Type Safety** - End-to-end with oRPC contracts
-- ✅ **NEAR Integration** - Authentication + transactions via Better-Auth
 - ✅ **CDN-Ready** - Module Federation with automatic CDN deployment
 
 See [LLM.txt](./LLM.txt) for complete architecture details.
@@ -66,15 +65,9 @@ See [LLM.txt](./LLM.txt) for complete architecture details.
 - every-plugin architecture for modular APIs
 - Effect-TS for service composition
 
-**NEAR Protocol:**
-- Better-Auth + better-near-auth for wallet authentication
-- near-kit for blockchain operations
-- Meta-transaction relayer for gasless transactions
-
-**Database & Payments:**
+**Database & Auth:**
 - SQLite (libsql) + Drizzle ORM
-- Stripe for payments
-- Printful/Gelato for fulfillment
+- Better-Auth with NEAR Protocol support
 
 ## Configuration
 
@@ -82,41 +75,24 @@ All runtime configuration lives in `bos.config.json`:
 
 ```json
 {
-  "account": "near-merch-store.near",
+  "account": "example.near",
   "app": {
     "host": {
-      "title": "Near Merch",
-      "description": "NEAR-powered merch store for the NEAR ecosystem",
+      "title": "App Title",
       "development": "http://localhost:3001",
-      "production": "https://near.everything.market"
+      "production": "https://example.com"
     },
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://cdn.example.com/ui/remoteEntry.js",
-      "exposes": {
-        "App": "./App",
-        "components": "./components",
-        "providers": "./providers",
-        "types": "./types"
-      }
+      "production": "https://cdn.example.com/ui/remoteEntry.js"
     },
     "api": {
       "name": "api",
       "development": "http://localhost:3014",
       "production": "https://cdn.example.com/api/remoteEntry.js",
-      "variables": {
-        "network": "mainnet",
-        "contractId": "social.near"
-      },
-      "secrets": [
-        "STRIPE_SECRET_KEY",
-        "STRIPE_WEBHOOK_SECRET",
-        "PRINTFUL_API_KEY",
-        "PRINTFUL_STORE_ID",
-        "API_DATABASE_URL",
-        "API_DATABASE_AUTH_TOKEN"
-      ]
+      "variables": {},
+      "secrets": ["API_DATABASE_URL", "API_DATABASE_AUTH_TOKEN"]
     }
   }
 }

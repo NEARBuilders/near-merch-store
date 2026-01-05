@@ -21,7 +21,6 @@
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@/*": ["./src/*"],
-      "near-social-js": ["../../src/index.ts"]
     }
   }
 }

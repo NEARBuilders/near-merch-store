@@ -38,6 +38,30 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
       return { error: error as Error, data: null };
     }
   },
+  head: ({ loaderData }) => {
+    const product = loaderData?.data?.product;
+    const title = product?.title
+      ? `${product.title} | Near Merch`
+      : "Near Merch";
+    const description =
+      product?.description || "NEAR-powered merch store for the NEAR ecosystem";
+    const image = product?.images?.[0]?.url;
+
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:type", content: "product" },
+        ...(image ? [{ property: "og:image", content: image }] : []),
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        ...(image ? [{ name: "twitter:image", content: image }] : []),
+      ],
+    };
+  },
   errorComponent: ({ error }) => {
     const router = useRouter();
 

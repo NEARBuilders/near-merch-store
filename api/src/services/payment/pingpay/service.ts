@@ -17,10 +17,11 @@ export class PingPayService {
   createCheckout(input: CheckoutSessionInput): Effect.Effect<CheckoutSessionOutput, Error> {
     return Effect.tryPromise({
       try: async () => {
-        const amountInSmallestUnit = Math.round(input.amount).toString();
+        const amountInCents = Math.round(input.amount);
+        const amountInUSDC = amountInCents * 10000;
 
         const pingInput: CreateCheckoutSessionInput = {
-          amount: amountInSmallestUnit,
+          amount: String(amountInUSDC),
           recipient: {
             address: this.recipientAddress,
           },

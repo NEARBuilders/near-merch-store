@@ -30,7 +30,7 @@ import { Country, State } from 'country-state-city';
 import type { IState } from 'country-state-city';
 import { cn } from '@/lib/utils';
 
-export const Route = createFileRoute("/_marketplace/checkout")({
+export const Route = createFileRoute("/_marketplace/_authenticated/checkout")({
   component: CheckoutPage,
 });
 
@@ -69,8 +69,8 @@ function CheckoutPage() {
   };
 
   const shippingCost = shippingQuote?.shippingCost || 0;
-  const tax = subtotal * 0.08;
-  const total = subtotal + tax + shippingCost;
+  const tax = shippingQuote?.tax ?? subtotal * 0.08;
+  const total = shippingQuote?.total ?? subtotal + tax + shippingCost;
   const nearAmount = (total / 3.5).toFixed(2);
 
   const form = useForm({
@@ -271,7 +271,6 @@ function CheckoutPage() {
           </Link>
         </div>
       </div>
-
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-8">
         <h1 className="text-2xl font-medium mb-16 tracking-[-0.48px]">
           Shipping Address
@@ -927,5 +926,5 @@ function CheckoutPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
