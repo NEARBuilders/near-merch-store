@@ -95,6 +95,20 @@ function LoginPage() {
 
   const isWalletConnected = walletConnected || accountId;
 
+  const handleCreateWallet = () => {
+    // Opens meteor wallet popup
+    const width = 500;
+    const height = 700;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+    
+    window.open(
+      'https://wallet.meteorwallet.app/connect/mainnet/login?connectionUid=8Lt_7EFCO9g84frjAdAxw&',
+      'Meteor Wallet',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+  };
+
   return (
     <div className="bg-background min-h-screen w-full flex items-center justify-center py-16 px-4">
       <div className="w-full max-w-md">
@@ -107,14 +121,12 @@ function LoginPage() {
           </p>
           <p className="text-xs text-muted-foreground">
             Don't have a NEAR wallet?{" "}
-            <a
-              href="https://wallet.near.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-foreground"
+            <button
+              onClick={handleCreateWallet}
+              className="underline hover:text-foreground cursor-pointer"
             >
               Create one here
-            </a>
+            </button>
           </p>
         </div>
 
