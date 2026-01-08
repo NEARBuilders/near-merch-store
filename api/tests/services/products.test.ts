@@ -129,4 +129,31 @@ describe('groupProviderProducts', () => {
     const grouped = groupProviderProducts(products);
     expect(grouped).toHaveLength(2); // Should remain separate!
   });
+
+  it('preserves originalSourceId for each variant when merging', () => {
+    const products: ProviderProduct[] = [
+      {
+        id: 1,
+        sourceId: 100, // Original Printful product ID for Black Hat
+        externalId: 'hat-sku',
+        name: 'Hat Black',
+        variants: [{ id: 101, externalId: 'v101', name: 'Black', retailPrice: 10, currency: 'USD' }],
+      },
+      {
+        id: 2,
+        sourceId: 200, // Original Printful product ID for White Hat
+        externalId: 'hat-sku',
+        name: 'Hat White',
+        variants: [{ id: 102, externalId: 'v102', name: 'White', retailPrice: 10, currency: 'USD' }],
+      },
+    ];
+
+    const grouped = groupProviderProducts(products);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]?.variants).toHaveLength(2);
+    
+    // Each variant should preserve its original parent product's sourceId
+    expect(grouped[0]?.variants[0]?.originalSourceId).toBe(100);
+    expect(grouped[0]?.variants[1]?.originalSourceId).toBe(200);
+  });
 });

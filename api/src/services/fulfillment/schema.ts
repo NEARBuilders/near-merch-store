@@ -27,6 +27,7 @@ export const ProviderVariantSchema = z.object({
   colorCode: z.string().optional(),
   catalogVariantId: z.number().optional(),
   catalogProductId: z.number().optional(),
+  originalSourceId: z.union([z.string(), z.number()]).optional(), // Original product ID for fulfillment
   designFiles: z.array(DesignFileSchema).optional(),
   files: z.array(z.object({
     id: z.number().optional(),

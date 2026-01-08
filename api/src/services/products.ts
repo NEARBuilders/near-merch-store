@@ -99,13 +99,21 @@ export function groupProviderProducts(products: ProviderProduct[]): ProviderProd
 
     const groupKey = Array.from(groups.entries()).find(([_, g]) => g === group)?.[0] || base.id;
 
+    // Preserve originalSourceId on each variant before merging
+    const mergedVariants = group.flatMap(p => 
+      p.variants.map(v => ({
+        ...v,
+        originalSourceId: v.originalSourceId || p.sourceId, // Keep original Printful product ID
+      }))
+    );
+
     return {
       ...base,
       id: `group-${groupKey}`,
       sourceId: `group-${groupKey}`,
       // Use normalized name for the unified product (remove colors and collapse spaces)
       name: base.name.replace(COLOR_REGEX, '').replace(/\s+/g, ' ').trim(),
-      variants: group.flatMap(p => p.variants),
+      variants: mergedVariants,
     } as ProviderProduct;
   });
 }
@@ -192,9 +200,14 @@ function transformProviderProduct(
   const variants: ProductVariantInput[] = product.variants.map((variant) => {
     const variantId = String(variant.id);
 
+    // Use originalSourceId if set (for merged products), otherwise use the product's sourceId
+    const originalProductId = variant.originalSourceId 
+      ? String(variant.originalSourceId) 
+      : String(product.sourceId);
+
     const fulfillmentConfig: FulfillmentConfig = {
       externalVariantId: variantId,
-      externalProductId: String(product.sourceId),
+      externalProductId: originalProductId,
       designFiles: variant.designFiles,
       providerData: providerName === 'printful'
         ? {
