@@ -41,6 +41,69 @@ export class ProductService extends Context.Tag('ProductService')<
   }
 >() { }
 
+export function groupProviderProducts(products: ProviderProduct[]): ProviderProduct[] {
+  const groups = new Map<string, ProviderProduct[]>();
+  const COLOR_REGEX = /\b(Black|White|Navy|Red|Green|Blue|Grey|Gray|Yellow|Pink|Purple|Orange|Brown|Dark|Light)\b/gi;
+
+  for (const product of products) {
+    let groupKey = "";
+    
+    // 1. Explicit externalId (Primary)
+    // If externalId is a number string (Printful default), we ignore it as a group ID
+    const explicitId = product.externalId;
+    const isNumericId = explicitId && /^\d+$/.test(explicitId);
+    
+    const groupTag = product.tags?.find(t => t.startsWith('group:'));
+
+    if (explicitId && !isNumericId) {
+      groupKey = `explicit-${explicitId}`;
+    } else if (groupTag) {
+      // 2. Explicit group tag (Secondary)
+      groupKey = `tag-${groupTag.replace('group:', '')}`;
+    } else {
+      // 3. Heuristic Fallback: catalogProductId + normalized name
+      const catalogProductId = product.variants[0]?.catalogProductId || 'no-catalog';
+      const normalizedName = product.name
+        .replace(COLOR_REGEX, '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '-');
+      
+      groupKey = `heuristic-${catalogProductId}-${normalizedName}`;
+    }
+
+    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    groups.get(groupKey)!.push(product);
+  }
+
+  return Array.from(groups.values()).map(group => {
+    const base = group[0]!;
+
+    if (group.length === 1 && !base.externalId && !base.tags?.some(t => t.startsWith('group:'))) {
+      return base;
+    }
+
+    const groupKey = Array.from(groups.entries()).find(([_, g]) => g === group)?.[0] || base.id;
+
+    // Preserve originalSourceId on each variant before merging
+    const mergedVariants = group.flatMap(p => 
+      p.variants.map(v => ({
+        ...v,
+        originalSourceId: v.originalSourceId || p.sourceId, // Keep original Printful product ID
+      }))
+    );
+
+    return {
+      ...base,
+      id: `group-${groupKey}`,
+      sourceId: `group-${groupKey}`,
+      // Use normalized name for the unified product (remove colors and collapse spaces)
+      name: base.name.replace(COLOR_REGEX, '').replace(/\s+/g, ' ').trim(),
+      variants: mergedVariants,
+    } as ProviderProduct;
+  });
+}
+
 function transformProviderProduct(
   providerName: string,
   product: ProviderProduct
@@ -123,9 +186,14 @@ function transformProviderProduct(
   const variants: ProductVariantInput[] = product.variants.map((variant) => {
     const variantId = String(variant.id);
 
+    // Use originalSourceId if set (for merged products), otherwise use the product's sourceId
+    const originalProductId = variant.originalSourceId 
+      ? String(variant.originalSourceId) 
+      : String(product.sourceId);
+
     const fulfillmentConfig: FulfillmentConfig = {
       externalVariantId: variantId,
-      externalProductId: String(product.sourceId),
+      externalProductId: originalProductId,
       designFiles: variant.designFiles,
       providerData: providerName === 'printful'
         ? {
@@ -168,6 +236,7 @@ function transformProviderProduct(
     fulfillmentProvider: providerName,
     externalProductId: String(product.sourceId),
     source: providerName,
+    tags: product.tags || [],
   };
 }
 
@@ -223,11 +292,15 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
           console.log(`[ProductSync] Found ${products.length} products from ${provider.name}`);
 
+          const groupedProducts = groupProviderProducts(products);
+          console.log(`[ProductSync] Grouped into ${groupedProducts.length} entries for ${provider.name}`);
+
           let syncedCount = 0;
 
-          for (const product of products) {
+          for (const product of groupedProducts) {
             try {
               const localProduct = transformProviderProduct(provider.name, product);
+              yield* store.upsert(localProduct);
 
 
 

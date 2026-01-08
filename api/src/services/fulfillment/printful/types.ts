@@ -48,6 +48,7 @@ export const PrintfulSyncProductSchema = z.object({
   synced: z.number(),
   thumbnail_url: z.string().nullable(),
   is_ignored: z.boolean(),
+  tags: z.array(z.string()).optional(),
 });
 
 export const PrintfulCatalogVariantSchema = z.object({

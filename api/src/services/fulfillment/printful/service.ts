@@ -109,8 +109,10 @@ export class PrintfulService {
     return {
       id: syncProduct.id,
       sourceId: syncProduct.id,
+      externalId: syncProduct.external_id,
       name: syncProduct.name,
       thumbnailUrl: syncProduct.thumbnail_url ?? undefined,
+      tags: syncProduct.tags,
       variants: syncVariants.map(v => this.transformVariant(v, syncProduct.name, catalogVariants.get(v.variant_id))),
     };
   }

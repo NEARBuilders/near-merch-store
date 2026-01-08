@@ -271,6 +271,7 @@ export const ProductWithImagesSchema = z.object({
   fulfillmentProvider: z.string(),
   externalProductId: z.string().optional(),
   source: z.string(),
+  tags: z.array(z.string()).default([]),
 });
 
 export const ProductCriteriaSchema = z.object({
