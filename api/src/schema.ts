@@ -127,8 +127,11 @@ export const DeliveryEstimateSchema = z.object({
 export const OrderStatusSchema = z.enum([
   'pending',
   'draft_created',
+  'payment_pending',
   'paid',
   'paid_pending_fulfillment',
+  'payment_failed',
+  'expired',
   'processing',
   'shipped',
   'delivered',

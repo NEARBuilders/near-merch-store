@@ -13,6 +13,7 @@ export interface CreateCheckoutSessionInput {
   asset: PingAsset;
   successUrl?: string;
   cancelUrl?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CheckoutSessionResponse {
@@ -44,20 +45,28 @@ export interface GetCheckoutSessionResponse {
 
 export class PingPayClient {
   private baseUrl: string;
+  private apiKey?: string;
 
-  constructor(baseUrl = 'https://pay.pingpay.io') {
+  constructor(baseUrl = 'https://pay.pingpay.io', apiKey?: string) {
     this.baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    this.apiKey = apiKey;
   }
 
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}/api${path}`;
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...options?.headers as Record<string, string>,
+    };
+
+    if (this.apiKey) {
+      headers['x-api-key'] = this.apiKey;
+    }
+
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+      headers,
     });
 
     if (!response.ok) {

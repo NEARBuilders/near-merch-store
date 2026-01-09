@@ -10,19 +10,19 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-1372-ui-near-merch-store-nearbuilder-24c5eb439-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1412-ui-near-merch-store-nearbuilder-24c8c4811-ze.zephyrcloud.app",
       "exposes": {
         "App": "./App",
         "components": "./components",
         "providers": "./providers",
         "types": "./types"
       },
-      "ssr": "https://elliot-braem-1373-ui-near-merch-store-nearbuilder-26b2067a7-ze.zephyrcloud.app"
+      "ssr": "https://elliot-braem-1413-ui-near-merch-store-nearbuilder-d74748491-ze.zephyrcloud.app"
     },
     "api": {
       "name": "api",
       "development": "http://localhost:3014",
-      "production": "https://elliot-braem-1374-api-near-merch-store-nearbuilde-58a8b982d-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1411-api-near-merch-store-nearbuilde-422782de9-ze.zephyrcloud.app",
       "variables": {
         "network": "mainnet",
         "contractId": "social.near"

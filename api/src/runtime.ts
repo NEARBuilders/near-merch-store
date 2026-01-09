@@ -26,6 +26,10 @@ export interface PaymentConfig {
     secretKey: string;
     webhookSecret: string;
   };
+  ping?: {
+    apiKey?: string;
+    webhookSecret?: string;
+  };
 }
 
 export interface FulfillmentProvider {
@@ -129,7 +133,10 @@ export async function createMarketplaceRuntime(
         baseUrl: 'https://pay.pingpay.io',
         recipientAddress: 'near-merch-store.near',
       },
-      secrets: {},
+      secrets: {
+        PING_API_KEY: paymentConfig?.ping?.apiKey,
+        PING_WEBHOOK_SECRET: paymentConfig?.ping?.webhookSecret,
+      },
     });
     paymentProviders.push({
       name: 'pingpay',

@@ -251,6 +251,23 @@ export const contract = oc.router({
     )
     .output(WebhookResponseSchema),
 
+  pingWebhook: oc
+    .route({
+      method: 'POST',
+      path: '/webhooks/ping',
+      summary: 'Ping webhook',
+      description: 'Handles Ping webhook events for payment processing.',
+      tags: ['Webhooks'],
+    })
+    .input(
+      z.object({
+        body: z.string(),
+        signature: z.string(),
+        timestamp: z.string(),
+      })
+    )
+    .output(WebhookResponseSchema),
+
   sync: oc
     .route({
       method: 'POST',

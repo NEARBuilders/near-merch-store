@@ -27,6 +27,7 @@ export const CheckoutSessionOutputSchema = z.object({
 export const WebhookInputSchema = z.object({
   body: z.string(),
   signature: z.string(),
+  timestamp: z.string().optional(),
 });
 
 export const WebhookOutputSchema = z.object({

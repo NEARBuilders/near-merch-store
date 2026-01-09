@@ -10,7 +10,10 @@ export default createPlugin({
     recipientAddress: z.string().default('near-merch-store.near'),
   }),
 
-  secrets: z.object({}),
+  secrets: z.object({
+    PING_API_KEY: z.string().optional(),
+    PING_WEBHOOK_SECRET: z.string().optional(),
+  }),
 
   contract: PaymentContract,
 
@@ -18,10 +21,22 @@ export default createPlugin({
     Effect.gen(function* () {
       const service = new PingPayService(
         config.variables.baseUrl,
-        config.variables.recipientAddress
+        config.variables.recipientAddress,
+        config.secrets.PING_WEBHOOK_SECRET,
+        config.secrets.PING_API_KEY
       );
 
       console.log('[Ping Payment Plugin] Initialized successfully');
+      if (config.secrets.PING_API_KEY) {
+        console.log('[Ping Payment Plugin] API key configured');
+      } else {
+        console.warn('[Ping Payment Plugin] No API key configured - requests may fail');
+      }
+      if (config.secrets.PING_WEBHOOK_SECRET) {
+        console.log('[Ping Payment Plugin] Webhook secret configured');
+      } else {
+        console.warn('[Ping Payment Plugin] No webhook secret configured - webhook verification will be skipped');
+      }
 
       return {
         service,
@@ -45,8 +60,10 @@ export default createPlugin({
       }),
 
       verifyWebhook: builder.verifyWebhook.handler(async ({ input }) => {
+        const timestamp = (input as { timestamp?: string }).timestamp || '';
+        
         const result = await Effect.runPromise(
-          service.verifyWebhook(input.body, input.signature)
+          service.verifyWebhook(input.body, input.signature, timestamp)
         );
 
         return {
@@ -81,3 +98,4 @@ export default createPlugin({
 });
 
 export { PingPayService } from './service';
+export type { PingWebhookEvent, PingWebhookResult } from './service';

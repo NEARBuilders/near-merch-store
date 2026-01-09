@@ -28,6 +28,8 @@ export default createPlugin({
     PRINTFUL_API_KEY: z.string().optional(),
     PRINTFUL_STORE_ID: z.string().optional(),
     PRINTFUL_WEBHOOK_SECRET: z.string().optional(),
+    PING_API_KEY: z.string().optional(),
+    PING_WEBHOOK_SECRET: z.string().optional(),
     API_DATABASE_URL: z.string().default('file:./marketplace.db'),
     API_DATABASE_AUTH_TOKEN: z.string().optional(),
   }),
@@ -64,14 +66,18 @@ export default createPlugin({
                 }
                 : undefined,
           },
-          config.secrets.STRIPE_SECRET_KEY && config.secrets.STRIPE_WEBHOOK_SECRET
-            ? {
-              stripe: {
+          {
+            stripe: config.secrets.STRIPE_SECRET_KEY && config.secrets.STRIPE_WEBHOOK_SECRET
+              ? {
                 secretKey: config.secrets.STRIPE_SECRET_KEY,
                 webhookSecret: config.secrets.STRIPE_WEBHOOK_SECRET,
-              },
-            }
-            : undefined
+              }
+              : undefined,
+            ping: {
+              apiKey: config.secrets.PING_API_KEY,
+              webhookSecret: config.secrets.PING_WEBHOOK_SECRET,
+            },
+          }
         )
       );
 
@@ -590,6 +596,156 @@ export default createPlugin({
           }
         } catch (error) {
           console.error('[Gelato Webhook] Error processing webhook:', error);
+        }
+
+        return { received: true };
+      }),
+
+      pingWebhook: builder.pingWebhook.handler(async ({ input }) => {
+        const pingProvider = runtime.getPaymentProvider('pingpay');
+        if (!pingProvider) {
+          console.error('[Ping Webhook] PingPay provider not configured');
+          throw new Error('PingPay provider not configured');
+        }
+
+        const { body, signature, timestamp } = input;
+
+        const webhookResult = await Effect.runPromise(
+          Effect.tryPromise({
+            try: async () => {
+              const result = await pingProvider.client.verifyWebhook({
+                body,
+                signature,
+                timestamp,
+              });
+              return result;
+            },
+            catch: (error) =>
+              new Error(`Webhook verification failed: ${error instanceof Error ? error.message : String(error)}`),
+          })
+        );
+
+        const eventType = webhookResult.eventType;
+        console.log(`[Ping Webhook] Received event: ${eventType}`);
+
+        const payload = JSON.parse(body);
+        const sessionId = payload.sessionId || payload.data?.sessionId;
+        const orderId = webhookResult.orderId || payload.metadata?.orderId || payload.data?.metadata?.orderId;
+        const draftOrderIdsJson = payload.metadata?.draftOrderIds || payload.data?.metadata?.draftOrderIds;
+
+        let order = orderId
+          ? await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                return yield* store.find(orderId);
+              }).pipe(Effect.provide(orderLayer))
+            )
+          : null;
+
+        if (!order && sessionId) {
+          order = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.findByCheckoutSession(sessionId);
+            }).pipe(Effect.provide(orderLayer))
+          );
+        }
+
+        if (!order) {
+          console.log(`[Ping Webhook] Order not found for sessionId: ${sessionId}, orderId: ${orderId}`);
+          return { received: true };
+        }
+
+        const resolvedOrderId = order.id;
+        const resolvedDraftOrderIds = order.draftOrderIds || (draftOrderIdsJson ? JSON.parse(draftOrderIdsJson) : {});
+
+        switch (eventType) {
+          case 'payment.success':
+          case 'checkout.session.completed': {
+            if (order.status !== 'draft_created' && order.status !== 'pending' && order.status !== 'payment_pending') {
+              console.log(`[Ping Webhook] Order ${resolvedOrderId} already processed (status: ${order.status}), skipping`);
+              return { received: true };
+            }
+
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(resolvedOrderId, 'paid');
+              }).pipe(Effect.provide(orderLayer))
+            );
+
+            if (Object.keys(resolvedDraftOrderIds).length === 0) {
+              console.log('[Ping Webhook] No draft orders to confirm');
+              return { received: true };
+            }
+
+            const confirmationResults: Record<string, { success: boolean; error?: string }> = {};
+
+            for (const [providerName, draftId] of Object.entries(resolvedDraftOrderIds)) {
+              if (providerName === 'manual') {
+                confirmationResults[providerName] = { success: true };
+                continue;
+              }
+
+              const provider = runtime.getProvider(providerName);
+              if (!provider) {
+                console.error(`[Ping Webhook] Provider not found: ${providerName}`);
+                confirmationResults[providerName] = {
+                  success: false,
+                  error: 'Provider not configured',
+                };
+                continue;
+              }
+
+              const confirmEffect = Effect.tryPromise({
+                try: () => provider.client.confirmOrder({ id: draftId as string }),
+                catch: (error) =>
+                  new Error(
+                    `Failed to confirm order at ${providerName}: ${
+                      error instanceof Error ? error.message : String(error)
+                    }`
+                  ),
+              }).pipe(Effect.retry({ times: 3, schedule: Schedule.exponential('100 millis') }));
+
+              try {
+                const result = await Effect.runPromise(confirmEffect);
+                confirmationResults[providerName] = { success: true };
+                console.log(`[Ping Webhook] Confirmed draft order ${draftId} at ${providerName}: ${result.status}`);
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                confirmationResults[providerName] = { success: false, error: errorMessage };
+                console.error(`[Ping Webhook] Failed to confirm ${providerName} draft ${draftId}:`, errorMessage);
+              }
+            }
+
+            const allSuccess = Object.values(confirmationResults).every((r) => r.success);
+            const finalStatus: OrderStatus = allSuccess ? 'processing' : 'paid_pending_fulfillment';
+
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(resolvedOrderId, finalStatus);
+              }).pipe(Effect.provide(orderLayer))
+            );
+
+            if (!allSuccess) {
+              console.error(`[Ping Webhook] Order ${resolvedOrderId} has failed confirmations:`, confirmationResults);
+            }
+            break;
+          }
+
+          case 'payment.failed':
+            console.error(`[Ping Webhook] Payment failed for order ${resolvedOrderId}`);
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(resolvedOrderId, 'payment_failed');
+              }).pipe(Effect.provide(orderLayer))
+            );
+            break;
+
+          default:
+            console.log(`[Ping Webhook] Unhandled event type: ${eventType}`);
         }
 
         return { received: true };
