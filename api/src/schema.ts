@@ -168,7 +168,7 @@ export const OrderSchema = z.object({
   totalAmount: z.number(),
   currency: z.string(),
   checkoutSessionId: z.string().optional(),
-  checkoutProvider: z.enum(['stripe', 'near', 'pingpay']).optional(),
+  checkoutProvider: z.enum(['near', 'pingpay']).optional(),
   draftOrderIds: z.record(z.string(), z.string()).optional(),
   shippingMethod: z.string().optional(),
   shippingAddress: ShippingAddressSchema.optional(),
@@ -199,7 +199,7 @@ export const CreateCheckoutInputSchema = z.object({
   shippingCost: z.number(),
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
-  paymentProvider: z.enum(['stripe', 'pingpay']).default('stripe'),
+  paymentProvider: z.enum(['pingpay']).default('pingpay'),
 });
 
 export const CreateCheckoutOutputSchema = z.object({
@@ -287,7 +287,7 @@ export const OrderWithItemsSchema = z.object({
   totalAmount: z.number(),
   currency: z.string(),
   checkoutSessionId: z.string().optional(),
-  checkoutProvider: z.enum(['stripe', 'near', 'pingpay']).optional(),
+  checkoutProvider: z.enum(['near', 'pingpay']).optional(),
   draftOrderIds: z.record(z.string(), z.string()).optional(),
   shippingMethod: z.string().optional(),
   shippingAddress: ShippingAddressSchema.optional(),

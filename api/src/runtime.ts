@@ -5,7 +5,6 @@ import GelatoPlugin from './services/fulfillment/gelato';
 import PrintfulPlugin from './services/fulfillment/printful';
 import { PaymentContract } from './services/payment';
 import PingPayPlugin from './services/payment/pingpay';
-import StripePlugin from './services/payment/stripe';
 import { ReturnAddress } from './schema';
 
 export interface FulfillmentConfig {
@@ -22,10 +21,7 @@ export interface FulfillmentConfig {
 }
 
 export interface PaymentConfig {
-  stripe?: {
-    secretKey: string;
-    webhookSecret: string;
-  };
+  // Reserved for future payment providers
 }
 
 export interface FulfillmentProvider {
@@ -48,7 +44,6 @@ export async function createMarketplaceRuntime(
     registry: {
       printful: { module: PrintfulPlugin },
       gelato: { module: GelatoPlugin },
-      stripe: { module: StripePlugin },
       pingpay: { module: PingPayPlugin },
     },
     secrets: {},
@@ -100,26 +95,6 @@ export async function createMarketplaceRuntime(
       console.log('[MarketplaceRuntime] Gelato provider initialized');
     } catch (error) {
       console.error('[MarketplaceRuntime] Failed to initialize Gelato:', error);
-    }
-  }
-
-  if (paymentConfig?.stripe?.secretKey && paymentConfig?.stripe?.webhookSecret) {
-    try {
-      const stripe = await runtime.usePlugin('stripe', {
-        variables: {},
-        secrets: {
-          STRIPE_SECRET_KEY: paymentConfig.stripe.secretKey,
-          STRIPE_WEBHOOK_SECRET: paymentConfig.stripe.webhookSecret,
-        },
-      });
-      paymentProviders.push({
-        name: 'stripe',
-        client: stripe.createClient(),
-        router: stripe.router,
-      });
-      console.log('[MarketplaceRuntime] Stripe payment provider initialized');
-    } catch (error) {
-      console.error('[MarketplaceRuntime] Failed to initialize Stripe:', error);
     }
   }
 
