@@ -197,27 +197,11 @@ export const contract = oc.router({
       method: 'GET',
       path: '/orders/by-session/{sessionId}',
       summary: 'Get order by checkout session ID',
-      description: 'Returns an order by its Stripe checkout session ID.',
+      description: 'Returns an order by its checkout session ID.',
       tags: ['Orders'],
     })
     .input(z.object({ sessionId: z.string() }))
     .output(z.object({ order: OrderWithItemsSchema.nullable() })),
-
-  stripeWebhook: oc
-    .route({
-      method: 'POST',
-      path: '/webhooks/stripe',
-      summary: 'Stripe webhook',
-      description: 'Handles Stripe webhook events for payment processing.',
-      tags: ['Webhooks'],
-    })
-    .input(
-      z.object({
-        body: z.string(),
-        signature: z.string(),
-      })
-    )
-    .output(WebhookResponseSchema),
 
   printfulWebhook: oc
     .route({

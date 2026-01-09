@@ -27,7 +27,7 @@ export interface CreateCheckoutParams {
   shippingCost: number;
   successUrl: string;
   cancelUrl: string;
-  paymentProvider?: 'stripe' | 'pingpay';
+  paymentProvider?: 'pingpay';
 }
 
 export interface CreateCheckoutOutput {
@@ -388,7 +388,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               draftOrderIds[providerName] = draftOrder.id;
             }
 
-            const providerName = params.paymentProvider || 'stripe';
+            const providerName = params.paymentProvider || 'pingpay';
             const paymentProvider = runtime.getPaymentProvider(providerName);
             if (!paymentProvider) {
               return yield* Effect.fail(

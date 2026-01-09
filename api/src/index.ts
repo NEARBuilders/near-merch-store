@@ -8,7 +8,6 @@ import { createMarketplaceRuntime } from './runtime';
 import { ReturnAddressSchema, type OrderStatus, type TrackingInfo } from './schema';
 import { CheckoutService, CheckoutServiceLive } from './services/checkout';
 import { ProductService, ProductServiceLive } from './services/products';
-import { StripeService } from './services/stripe';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStoreLive } from './store';
 export * from './schema';
 
@@ -21,8 +20,6 @@ export default createPlugin({
   }),
 
   secrets: z.object({
-    STRIPE_SECRET_KEY: z.string().optional(),
-    STRIPE_WEBHOOK_SECRET: z.string().optional(),
     GELATO_API_KEY: z.string().optional(),
     GELATO_WEBHOOK_SECRET: z.string().optional(),
     PRINTFUL_API_KEY: z.string().optional(),
@@ -40,11 +37,6 @@ export default createPlugin({
 
   initialize: (config) =>
     Effect.gen(function* () {
-      const stripeService =
-        config.secrets.STRIPE_SECRET_KEY && config.secrets.STRIPE_WEBHOOK_SECRET
-          ? new StripeService(config.secrets.STRIPE_SECRET_KEY, config.secrets.STRIPE_WEBHOOK_SECRET)
-          : null;
-
       const runtime = yield* Effect.promise(() =>
         createMarketplaceRuntime(
           {
@@ -64,14 +56,7 @@ export default createPlugin({
                 }
                 : undefined,
           },
-          config.secrets.STRIPE_SECRET_KEY && config.secrets.STRIPE_WEBHOOK_SECRET
-            ? {
-              stripe: {
-                secretKey: config.secrets.STRIPE_SECRET_KEY,
-                webhookSecret: config.secrets.STRIPE_WEBHOOK_SECRET,
-              },
-            }
-            : undefined
+          undefined
         )
       );
 
@@ -92,10 +77,8 @@ export default createPlugin({
 
       console.log('[Marketplace] Plugin initialized');
       console.log(`[Marketplace] Providers: ${runtime.providers.map((p) => p.name).join(', ') || 'none'}`);
-      console.log(`[Marketplace] Stripe: ${stripeService ? 'configured' : 'not configured'}`);
 
       return {
-        stripeService,
         runtime,
         appLayer,
         checkoutLayer,
@@ -110,7 +93,7 @@ export default createPlugin({
     }),
 
   createRouter: (context, builder) => {
-    const { stripeService, runtime, appLayer, checkoutLayer, orderLayer, secrets } = context;
+    const { runtime, appLayer, checkoutLayer, orderLayer, secrets } = context;
 
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.nearAccountId) {
@@ -302,123 +285,6 @@ export default createPlugin({
         );
 
         return { order };
-      }),
-
-      stripeWebhook: builder.stripeWebhook.handler(async ({ input }) => {
-        if (!stripeService) {
-          throw new Error('Stripe is not configured');
-        }
-
-        const event = await Effect.runPromise(
-          stripeService.verifyWebhookSignature(input.body, input.signature)
-        );
-
-        if (event.type === 'checkout.session.completed') {
-          const session = event.data.object;
-          const orderId = session.metadata?.orderId;
-          const draftOrderIdsJson = session.metadata?.draftOrderIds;
-
-          if (!orderId) {
-            console.log('[Stripe Webhook] No orderId in metadata, skipping');
-            return { received: true };
-          }
-
-          const order = await Effect.runPromise(
-            Effect.gen(function* () {
-              const store = yield* OrderStore;
-              return yield* store.find(orderId);
-            }).pipe(Effect.provide(orderLayer))
-          );
-
-          if (!order) {
-            console.error(`[Stripe Webhook] Order not found: ${orderId}`);
-            return { received: true };
-          }
-
-          if (order.status !== 'draft_created' && order.status !== 'pending') {
-            console.log(`[Stripe Webhook] Order ${orderId} already processed (status: ${order.status}), skipping`);
-            return { received: true };
-          }
-
-          await Effect.runPromise(
-            Effect.gen(function* () {
-              const store = yield* OrderStore;
-              yield* store.updateStatus(orderId, 'paid');
-            }).pipe(Effect.provide(orderLayer))
-          );
-
-          if (!draftOrderIdsJson) {
-            console.log('[Stripe Webhook] No draft orders to confirm');
-            return { received: true };
-          }
-
-          try {
-            const draftOrderIds = JSON.parse(draftOrderIdsJson) as Record<string, string>;
-            const confirmationResults: Record<string, { success: boolean; error?: string }> = {};
-
-            for (const [providerName, draftId] of Object.entries(draftOrderIds)) {
-              if (providerName === 'manual') {
-                continue;
-              }
-
-              const provider = runtime.getProvider(providerName);
-              if (!provider) {
-                console.error(`[Stripe Webhook] Provider not found: ${providerName}`);
-                confirmationResults[providerName] = { 
-                  success: false, 
-                  error: 'Provider not configured' 
-                };
-                continue;
-              }
-
-              const confirmEffect = Effect.tryPromise({
-                try: () => provider.client.confirmOrder({ id: draftId }),
-                catch: (error) => 
-                  new Error(
-                    `Failed to confirm order at ${providerName}: ${
-                      error instanceof Error ? error.message : String(error)
-                    }`
-                  ),
-              }).pipe(
-                Effect.retry({ times: 3, schedule: Schedule.exponential('100 millis') })
-              );
-
-              try {
-                const result = await Effect.runPromise(confirmEffect);
-                confirmationResults[providerName] = { success: true };
-                console.log(`[Stripe Webhook] Confirmed draft order ${draftId} at ${providerName}: ${result.status}`);
-              } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                confirmationResults[providerName] = { success: false, error: errorMessage };
-                console.error(`[Stripe Webhook] Failed to confirm ${providerName} draft ${draftId}:`, errorMessage);
-              }
-            }
-
-            const allSuccess = Object.values(confirmationResults).every(r => r.success);
-            const finalStatus = allSuccess ? 'processing' : 'paid_pending_fulfillment';
-
-            await Effect.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                yield* store.updateStatus(orderId, finalStatus);
-              }).pipe(Effect.provide(orderLayer))
-            );
-
-            if (!allSuccess) {
-              console.error(`[Stripe Webhook] Order ${orderId} has failed confirmations:`, confirmationResults);
-            }
-          } catch (error) {
-            console.error('[Stripe Webhook] Error processing draft confirmations:', error);
-            await Effect.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                yield* store.updateStatus(orderId, 'paid_pending_fulfillment');
-              }).pipe(Effect.provide(orderLayer))
-            );
-          }
-        }
-
-        return { received: true };
       }),
 
       printfulWebhook: builder.printfulWebhook.handler(async ({ input }) => {
