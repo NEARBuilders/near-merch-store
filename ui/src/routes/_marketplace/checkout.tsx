@@ -1,4 +1,5 @@
 import { useCart } from '@/hooks/use-cart';
+import { useNearPrice } from '@/hooks/use-near-price';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ChevronLeft, CreditCard } from 'lucide-react';
 import { useState } from 'react';
@@ -9,11 +10,12 @@ export const Route = createFileRoute("/_marketplace/checkout")({
 
 function CheckoutPage() {
   const { cartItems, subtotal } = useCart();
+  const { nearPrice, isLoading: isLoadingNearPrice } = useNearPrice();
   const [discountCode, setDiscountCode] = useState("");
 
   const tax = subtotal * 0.08;
   const total = subtotal + tax;
-  const nearAmount = (total / 3.5).toFixed(2);
+  const nearAmount = (total / nearPrice).toFixed(2);
 
   if (cartItems.length === 0) {
     return (
@@ -100,7 +102,9 @@ function CheckoutPage() {
               <span className="text-base font-medium">Total</span>
               <div className="text-right">
                 <p className="text-base font-medium">${total.toFixed(2)}</p>
-                <p className="text-sm text-[#717182]">{nearAmount} NEAR</p>
+                <p className="text-sm text-[#717182]">
+                  {isLoadingNearPrice ? '...' : `≈ ${nearAmount} NEAR`}
+                </p>
               </div>
             </div>
 
