@@ -8,6 +8,9 @@
   ],
   "scripts": {
     "dev": "turbo dev",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
     "dev:ui": "USE_REMOTE_API=true turbo dev --filter=host --filter=marketplace_ui",
     "dev:api": "USE_REMOTE_UI=true turbo dev --filter=host --filter=marketplace-api",
     "start": "turbo preview --filter=host",
@@ -24,6 +27,7 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "turbo": "^2.6.3"
   },
   "packageManager": "bun@1.2.20"

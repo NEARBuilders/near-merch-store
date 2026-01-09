@@ -293,4 +293,5 @@ fabric.properties
 # db
 /**/*.db
 
-.turbo
+.turbotest-results/
+playwright-report/
