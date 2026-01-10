@@ -17,7 +17,7 @@ import {
 } from "@/lib/product-utils";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/utils/orpc";
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter, useCanGoBack } from "@tanstack/react-router";
 import {
   AlertCircle,
   ArrowLeft,
@@ -93,6 +93,8 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
 });
 
 function ProductDetailPage() {
+  const router = useRouter();
+  const canGoBack = useCanGoBack();
   const { addToCart } = useCart();
   const { favoriteIds, toggleFavorite } = useFavorites();
 
@@ -224,13 +226,19 @@ function ProductDetailPage() {
 
       <div className="border-b border-border">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
-          <Link
-            to="/"
-            className="flex items-center gap-3 hover:opacity-70 transition-opacity"
+          <button
+            onClick={() => {
+              if (canGoBack) {
+                router.history.back();
+              } else {
+                router.navigate({ to: "/" });
+              }
+            }}
+            className="flex items-center gap-3 hover:opacity-70 transition-opacity cursor-pointer"
           >
             <ArrowLeft className="size-4" />
             <span className="tracking-[-0.48px]">Back to Shop</span>
-          </Link>
+          </button>
         </div>
       </div>
 
