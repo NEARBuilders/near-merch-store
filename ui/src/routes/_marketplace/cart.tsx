@@ -152,7 +152,7 @@ function CartPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Tax</span>
-                    <span>${(subtotal * 0.08).toFixed(2)}</span>
+                    <span className="text-muted-foreground">Calculated at checkout</span>
                   </div>
                 </div>
 
@@ -161,7 +161,7 @@ function CartPage() {
                 <div className="flex justify-between items-center mb-6">
                   <span className="text-base font-medium">Estimated Total</span>
                   <span className="text-base font-medium">
-                    ${(subtotal + subtotal * 0.08).toFixed(2)}
+                    ${subtotal.toFixed(2)}
                   </span>
                 </div>
 

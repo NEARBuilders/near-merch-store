@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 1,
   "workspaces": {
     "": {
       "name": "monorepo",
@@ -151,7 +150,7 @@
       },
       "peerDependencies": {
         "@hot-labs/near-connect": "^0.6.x",
-        "@tanstack/react-query": "^5.90.16",
+        "@tanstack/react-query": "^5.x",
         "@tanstack/react-router": "^1.x",
         "near-kit": "^0.7.0",
         "react": "^19.0.0",
