@@ -28,9 +28,12 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.45.1",
+    "nanoid": "^5.1.6"
   },
   "devDependencies": {
+    "drizzle-kit": "^0.31.8",
     "turbo": "^2.6.3"
   },
   "packageManager": "bun@1.2.20"
