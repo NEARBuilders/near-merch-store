@@ -1,6 +1,6 @@
 import { useCart } from '@/hooks/use-cart';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { ChevronLeft, CreditCard, Check, ChevronsUpDown } from 'lucide-react';
+import { ChevronLeft, Check, ChevronsUpDown } from 'lucide-react';
 import pingpayLogoDark from '@/assets/pingpay/pingpay-logo-dark.png';
 import pingpayLogoLight from '@/assets/pingpay/pingpay-logo-light.png';
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -178,45 +178,6 @@ function CheckoutPage() {
     } finally {
       setIsCalculatingShipping(false);
     }
-  };
-
-  const handlePayWithCard = async () => {
-    const { data: session } = await authClient.getSession();
-    if (!session?.user) {
-      navigate({
-        to: "/login",
-        search: {
-          redirect: "/checkout",
-        },
-      });
-      return;
-    }
-
-    const formData = form.state.values;
-
-    if (!formData.firstName || !formData.lastName ||
-      !formData.email || !formData.country ||
-      !formData.addressLine1 || !formData.city || !formData.postCode) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    if (availableStates.length > 0 && !formData.state) {
-      toast.error('State/Province is required for the selected country');
-      return;
-    }
-
-    if (formData.country === 'BR' && !formData.taxId) {
-      toast.error('Tax ID (CPF/CNPJ) is required for orders to Brazil');
-      return;
-    }
-
-    if (!shippingQuote) {
-      await handleCalculateShipping(formData);
-      return;
-    }
-
-    checkoutMutation.mutate({ formData, paymentProvider: 'stripe' });
   };
 
   const handlePayWithPing = async () => {
@@ -885,39 +846,6 @@ function CheckoutPage() {
                         </p>
                       </div>
                     </div>
-                  </button>
-
-                  <button
-                    onClick={handlePayWithCard}
-                    disabled={checkoutMutation.isPending}
-                    className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="size-10 bg-[#d6d3ff] flex items-center justify-center shrink-0">
-                        {checkoutMutation.isPending ? (
-                          <div className="animate-spin size-5 border-2 border-[#635BFF]/30 border-t-[#635BFF] rounded-full" />
-                        ) : (
-                          <CreditCard className="size-6 text-[#635BFF]" />
-                        )}
-                      </div>
-
-                      <div className="flex-1">
-                        <p className="text-base mb-1">
-                          {checkoutMutation.isPending ? 'Redirecting...' : 'Pay with Card'}
-                        </p>
-                        <div className="flex items-center gap-1 text-xs text-[#635bff]">
-                          <span>Powered by</span>
-                          <span className="font-semibold">stripe</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-[#717182] mt-4">
-                      {checkoutMutation.isPending
-                        ? 'Please wait...'
-                        : 'Traditional checkout with credit card'
-                      }
-                    </p>
                   </button>
                 </div>
               </>
