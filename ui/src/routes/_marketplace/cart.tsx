@@ -1,6 +1,7 @@
 import { ProductCard } from "@/components/marketplace/product-card";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
+import { useNearPrice } from "@/hooks/use-near-price";
 import {
   COLOR_MAP,
   getAttributeHex
@@ -14,6 +15,8 @@ export const Route = createFileRoute("/_marketplace/cart")({
 
 function CartPage() {
   const { cartItems, subtotal, updateQuantity, removeItem } = useCart();
+  const { nearPrice, isLoading: isLoadingNearPrice } = useNearPrice();
+  const nearAmount = (subtotal / nearPrice).toFixed(2);
 
   return (
     <div className="bg-background min-h-screen">
@@ -158,11 +161,15 @@ function CartPage() {
 
                 <div className="h-px bg-border mb-4" />
 
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-2">
                   <span className="text-base font-medium">Estimated Total</span>
                   <span className="text-base font-medium">
                     ${subtotal.toFixed(2)}
                   </span>
+                </div>
+                <div className="flex justify-between items-center mb-6 text-sm text-muted-foreground">
+                  <span>NEAR Equivalent</span>
+                  <span>{isLoadingNearPrice ? '...' : `${nearAmount} NEAR`}</span>
                 </div>
 
                 <Link to="/checkout">
