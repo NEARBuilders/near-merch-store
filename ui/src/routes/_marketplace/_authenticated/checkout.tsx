@@ -1,4 +1,5 @@
 import { useCart } from '@/hooks/use-cart';
+import { useNearPrice } from '@/hooks/use-near-price';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, Check, ChevronsUpDown } from 'lucide-react';
 import pingpayLogoDark from '@/assets/pingpay/pingpay-logo-dark.png';
@@ -39,6 +40,7 @@ type ShippingAddress = Parameters<typeof apiClient.quote>[0]['shippingAddress'];
 
 function CheckoutPage() {
   const { cartItems, subtotal } = useCart();
+  const { nearPrice, isLoading: isLoadingNearPrice } = useNearPrice();
   const [discountCode, setDiscountCode] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
@@ -71,7 +73,7 @@ function CheckoutPage() {
   const shippingCost = shippingQuote?.shippingCost || 0;
   const tax = shippingQuote?.tax ?? subtotal * 0.08;
   const total = shippingQuote?.total ?? subtotal + tax + shippingCost;
-  const nearAmount = (total / 3.5).toFixed(2);
+  const nearAmount = (total / nearPrice).toFixed(2);
 
   const form = useForm({
     defaultValues: {
@@ -767,7 +769,9 @@ function CheckoutPage() {
                 <span className="text-base font-medium">Total</span>
                 <div className="text-right">
                   <p className="text-base font-medium">${total.toFixed(2)}</p>
-                  <p className="text-sm text-[#717182]">{nearAmount} NEAR</p>
+                  <p className="text-sm text-[#717182]">
+                    {isLoadingNearPrice ? '...' : `≈ ${nearAmount} NEAR`}
+                  </p>
                 </div>
               </div>
 

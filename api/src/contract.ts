@@ -339,5 +339,21 @@ export const contract = oc.router({
           })),
         })
       ),
-      
+
+  getNearPrice: oc
+    .route({
+      method: 'GET',
+      path: '/near-price',
+      summary: 'Get current NEAR price',
+      description: 'Returns the current NEAR token price in USD from CoinGecko.',
+      tags: ['Pricing'],
+    })
+    .output(
+      z.object({
+        price: z.number(),
+        currency: z.literal('USD'),
+        source: z.string(),
+        cachedAt: z.number(),
+      })
+    ),
 });

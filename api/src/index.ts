@@ -97,6 +97,12 @@ export default createPlugin({
 
       const orderLayer = OrderStoreLive.pipe(Layer.provide(dbLayer));
 
+      // Cache for NEAR price
+      const nearPriceCache: { price: number | null; cachedAt: number } = {
+        price: null,
+        cachedAt: 0,
+      };
+
       console.log('[Marketplace] Plugin initialized');
       console.log(`[Marketplace] Providers: ${runtime.providers.map((p) => p.name).join(', ') || 'none'}`);
       console.log(`[Marketplace] Stripe: ${stripeService ? 'configured' : 'not configured'}`);
@@ -108,6 +114,7 @@ export default createPlugin({
         checkoutLayer,
         orderLayer,
         secrets: config.secrets,
+        nearPriceCache,
       };
     }),
 
@@ -117,7 +124,7 @@ export default createPlugin({
     }),
 
   createRouter: (context, builder) => {
-    const { stripeService, runtime, appLayer, checkoutLayer, orderLayer, secrets } = context;
+    const { stripeService, runtime, appLayer, checkoutLayer, orderLayer, secrets, nearPriceCache } = context;
 
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.nearAccountId) {
@@ -212,6 +219,50 @@ export default createPlugin({
           }).pipe(Effect.provide(appLayer))
         );
       }),
+
+      getNearPrice: builder.getNearPrice.handler(async () => {
+        const COINGECKO_URL = 'https://api.coingecko.com/api/v3/simple/price?ids=near&vs_currencies=usd';
+        const CACHE_TTL = 60 * 1000; // 60 seconds
+        const FALLBACK_PRICE = 3.5;
+
+        const now = Date.now();
+        if (nearPriceCache.price && now - nearPriceCache.cachedAt < CACHE_TTL) {
+          return {
+            price: nearPriceCache.price,
+            currency: 'USD' as const,
+            source: 'coingecko',
+            cachedAt: nearPriceCache.cachedAt,
+          };
+        }
+
+        try {
+          const response = await fetch(COINGECKO_URL);
+          if (!response.ok) {
+            throw new Error('Failed to fetch NEAR price');
+          }
+          const data = await response.json() as { near: { usd: number } };
+          const price = data.near.usd;
+
+          nearPriceCache.price = price;
+          nearPriceCache.cachedAt = now;
+
+          return {
+            price,
+            currency: 'USD' as const,
+            source: 'coingecko',
+            cachedAt: now,
+          };
+        } catch (error) {
+          console.error('[getNearPrice] Failed to fetch from CoinGecko:', error);
+          return {
+            price: nearPriceCache.price || FALLBACK_PRICE,
+            currency: 'USD' as const,
+            source: nearPriceCache.price ? 'coingecko' : 'fallback',
+            cachedAt: nearPriceCache.cachedAt || now,
+          };
+        }
+      }),
+
       updateProductListing: builder.updateProductListing.handler(async ({ input }) => {
         return await Effect.runPromise(
           Effect.gen(function* () {
