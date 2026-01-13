@@ -15,10 +15,12 @@
     "@libsql/client": "^0.15.15",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
+    "nanoid": "^5.1.6",
     "near-kit": "^0.6.3",
     "near-social-js": "^2.0.3",
     "printful-sdk-js-v2": "^2.0.3-beta",
-    "stripe": "^20.0.0"
+    "stripe": "^20.0.0",
+    "uuidv7": "^1.1.0"
   },
   "devDependencies": {
     "@effect/language-service": "^0.41.1",
