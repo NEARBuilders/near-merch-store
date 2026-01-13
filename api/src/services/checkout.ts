@@ -431,9 +431,6 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                   items: lineItems,
                   successUrl,
                   cancelUrl,
-                  metadata: {
-                    draftOrderIds: JSON.stringify(draftOrderIds),
-                  },
                 }),
               catch: (error) => {
                 console.error(`[Checkout] Payment provider '${providerName}' createCheckout failed:`, error);

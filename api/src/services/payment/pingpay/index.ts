@@ -2,7 +2,7 @@ import { createPlugin } from 'every-plugin';
 import { Effect } from 'every-plugin/effect';
 import { z } from 'every-plugin/zod';
 import { PaymentContract } from '../contract';
-import { PingPayService } from './service';
+import { PingPayService, PingPayServiceLive } from './service';
 
 export default createPlugin({
   variables: z.object({
@@ -19,12 +19,12 @@ export default createPlugin({
 
   initialize: (config) =>
     Effect.gen(function* () {
-      const service = new PingPayService(
-        config.variables.baseUrl,
-        config.variables.recipientAddress,
-        config.secrets.PING_WEBHOOK_SECRET,
-        config.secrets.PING_API_KEY
-      );
+      const serviceLayer = PingPayServiceLive({
+        baseUrl: config.variables.baseUrl,
+        recipientAddress: config.variables.recipientAddress,
+        webhookSecret: config.secrets.PING_WEBHOOK_SECRET,
+        apiKey: config.secrets.PING_API_KEY,
+      });
 
       console.log('[Ping Payment Plugin] Initialized successfully');
       if (config.secrets.PING_API_KEY) {
@@ -38,15 +38,13 @@ export default createPlugin({
         console.warn('[Ping Payment Plugin] No webhook secret configured - webhook verification will be skipped');
       }
 
-      return {
-        service,
-      };
+      return { serviceLayer };
     }),
 
   shutdown: () => Effect.void,
 
   createRouter: (context, builder) => {
-    const { service } = context;
+    const { serviceLayer } = context;
 
     return {
       ping: builder.ping.handler(async () => ({
@@ -55,47 +53,62 @@ export default createPlugin({
         timestamp: new Date().toISOString(),
       })),
 
-      createCheckout: builder.createCheckout.handler(async ({ input }) => {
-        return await Effect.runPromise(service.createCheckout(input));
-      }),
+      createCheckout: builder.createCheckout.handler(async ({ input }) =>
+        Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* PingPayService;
+            return yield* service.createCheckout(input);
+          }).pipe(Effect.provide(serviceLayer))
+        )
+      ),
 
-      verifyWebhook: builder.verifyWebhook.handler(async ({ input }) => {
-        const timestamp = (input as { timestamp?: string }).timestamp || '';
-        
-        const result = await Effect.runPromise(
-          service.verifyWebhook(input.body, input.signature, timestamp)
-        );
+      verifyWebhook: builder.verifyWebhook.handler(async ({ input }) =>
+        Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* PingPayService;
+            const result = yield* service.verifyWebhook(
+              input.body,
+              input.signature,
+              (input as { timestamp?: string }).timestamp ?? ''
+            );
+            return {
+              received: true,
+              eventType: result.eventType,
+              orderId: result.orderId,
+              sessionId: result.sessionId,
+            };
+          }).pipe(Effect.provide(serviceLayer))
+        )
+      ),
 
-        return {
-          received: true,
-          eventType: result.event.type,
-          orderId: result.orderId,
-        };
-      }),
+      getSession: builder.getSession.handler(async ({ input }) =>
+        Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* PingPayService;
+            const session = yield* service.getSession(input.sessionId);
 
-      getSession: builder.getSession.handler(async ({ input }) => {
-        const session = await Effect.runPromise(service.getSession(input.sessionId));
+            const metadata: Record<string, string> | undefined = session.metadata
+              ? Object.fromEntries(
+                  Object.entries(session.metadata).map(([k, v]) => [k, String(v)])
+                )
+              : undefined;
 
-        const metadata: Record<string, string> | undefined = session.metadata
-          ? Object.fromEntries(
-              Object.entries(session.metadata).map(([k, v]) => [k, String(v)])
-            )
-          : undefined;
-
-        return {
-          session: {
-            id: session.id,
-            status: session.status || 'unknown',
-            paymentStatus: session.payment_status || 'unknown',
-            amountTotal: session.amount_total ?? undefined,
-            currency: session.currency ?? undefined,
-            metadata,
-          },
-        };
-      }),
+            return {
+              session: {
+                id: session.id,
+                status: session.status,
+                paymentStatus: session.paymentStatus,
+                amountTotal: session.amountTotal,
+                currency: session.currency,
+                metadata,
+              },
+            };
+          }).pipe(Effect.provide(serviceLayer))
+        )
+      ),
     };
   },
 });
 
-export { PingPayService } from './service';
-export type { PingWebhookEvent, PingWebhookResult } from './service';
+export { PingPayService, PingPayServiceLive, type PingPayConfig, type PingSessionInfo } from './service';
+export type { PingWebhookResult } from './schema';

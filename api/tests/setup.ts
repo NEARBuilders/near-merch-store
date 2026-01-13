@@ -18,6 +18,7 @@ const TEST_CONFIG = {
   secrets: {
     API_DATABASE_URL: TEST_DB_URL,
     API_DATABASE_AUTH_TOKEN: undefined,
+    PING_API_KEY: 'test_api_key',
     PING_WEBHOOK_SECRET: 'whsec_test_secret_key',
   },
 };
@@ -68,7 +69,7 @@ export async function runMigrations() {
   }
 }
 
-export async function getPluginClient(context?: { nearAccountId?: string }) {
+export async function getPluginClient(context?: { nearAccountId?: string; reqHeaders?: Headers }) {
   await runMigrations();
   
   const runtime = getRuntime();

@@ -29,10 +29,15 @@ describe('Webhook Signature Verification', () => {
       .digest('hex');
   };
 
+  const createWebhookHeaders = (signature: string, timestamp: string): Headers => {
+    const headers = new Headers();
+    headers.set('x-ping-signature', signature);
+    headers.set('x-ping-timestamp', timestamp);
+    return headers;
+  };
+
   describe('PingPay Webhook Signatures', () => {
     it('should accept webhooks with valid signatures', async () => {
-      const client = await getPluginClient();
-
       const timestamp = Math.floor(Date.now() / 1000).toString();
       const webhookPayload = {
         id: 'whevt_valid123',
@@ -53,24 +58,16 @@ describe('Webhook Signature Verification', () => {
       };
 
       const payloadString = JSON.stringify(webhookPayload);
-      const validSignature = generateValidSignature(
-        timestamp,
-        payloadString,
-        TEST_WEBHOOK_SECRET
-      );
+      const validSignature = generateValidSignature(timestamp, payloadString, TEST_WEBHOOK_SECRET);
+      const webhookHeaders = createWebhookHeaders(validSignature, timestamp);
+      const client = await getPluginClient({ reqHeaders: webhookHeaders });
 
-      const result = await client.pingWebhook({
-        body: payloadString,
-        signature: validSignature,
-        timestamp,
-      });
+      const result = await client.pingWebhook(webhookPayload);
 
       expect(result.received).toBe(true);
     });
 
     it('should reject webhooks with invalid signatures', async () => {
-      const client = await getPluginClient();
-
       const timestamp = Math.floor(Date.now() / 1000).toString();
       const webhookPayload = {
         id: 'whevt_invalid123',
@@ -87,21 +84,14 @@ describe('Webhook Signature Verification', () => {
         },
       };
 
-      const payloadString = JSON.stringify(webhookPayload);
       const invalidSignature = 'invalid_signature_abc123';
+      const webhookHeaders = createWebhookHeaders(invalidSignature, timestamp);
+      const client = await getPluginClient({ reqHeaders: webhookHeaders });
 
-      await expect(
-        client.pingWebhook({
-          body: payloadString,
-          signature: invalidSignature,
-          timestamp,
-        })
-      ).rejects.toThrow();
+      await expect(client.pingWebhook(webhookPayload)).rejects.toThrow();
     });
 
     it('should reject webhooks with tampered payloads', async () => {
-      const client = await getPluginClient();
-
       const timestamp = Math.floor(Date.now() / 1000).toString();
       const originalPayload = {
         id: 'whevt_tampered123',
@@ -119,11 +109,7 @@ describe('Webhook Signature Verification', () => {
       };
 
       const originalPayloadString = JSON.stringify(originalPayload);
-      const validSignature = generateValidSignature(
-        timestamp,
-        originalPayloadString,
-        TEST_WEBHOOK_SECRET
-      );
+      const validSignature = generateValidSignature(timestamp, originalPayloadString, TEST_WEBHOOK_SECRET);
 
       const tamperedPayload = {
         ...originalPayload,
@@ -133,20 +119,13 @@ describe('Webhook Signature Verification', () => {
         },
       };
 
-      const tamperedPayloadString = JSON.stringify(tamperedPayload);
+      const webhookHeaders = createWebhookHeaders(validSignature, timestamp);
+      const client = await getPluginClient({ reqHeaders: webhookHeaders });
 
-      await expect(
-        client.pingWebhook({
-          body: tamperedPayloadString,
-          signature: validSignature,
-          timestamp,
-        })
-      ).rejects.toThrow();
+      await expect(client.pingWebhook(tamperedPayload)).rejects.toThrow();
     });
 
     it('should reject webhooks with wrong secret', async () => {
-      const client = await getPluginClient();
-
       const timestamp = Math.floor(Date.now() / 1000).toString();
       const webhookPayload = {
         id: 'whevt_wrongsecret123',
@@ -164,24 +143,14 @@ describe('Webhook Signature Verification', () => {
       };
 
       const payloadString = JSON.stringify(webhookPayload);
-      const wrongSecretSignature = generateValidSignature(
-        timestamp,
-        payloadString,
-        'wrong_secret_key'
-      );
+      const wrongSecretSignature = generateValidSignature(timestamp, payloadString, 'wrong_secret_key');
+      const webhookHeaders = createWebhookHeaders(wrongSecretSignature, timestamp);
+      const client = await getPluginClient({ reqHeaders: webhookHeaders });
 
-      await expect(
-        client.pingWebhook({
-          body: payloadString,
-          signature: wrongSecretSignature,
-          timestamp,
-        })
-      ).rejects.toThrow();
+      await expect(client.pingWebhook(webhookPayload)).rejects.toThrow();
     });
 
     it('should handle signature length mismatches gracefully', async () => {
-      const client = await getPluginClient();
-
       const timestamp = Math.floor(Date.now() / 1000).toString();
       const webhookPayload = {
         id: 'whevt_length123',
@@ -198,16 +167,11 @@ describe('Webhook Signature Verification', () => {
         },
       };
 
-      const payloadString = JSON.stringify(webhookPayload);
       const shortSignature = 'abc123';
+      const webhookHeaders = createWebhookHeaders(shortSignature, timestamp);
+      const client = await getPluginClient({ reqHeaders: webhookHeaders });
 
-      await expect(
-        client.pingWebhook({
-          body: payloadString,
-          signature: shortSignature,
-          timestamp,
-        })
-      ).rejects.toThrow();
+      await expect(client.pingWebhook(webhookPayload)).rejects.toThrow();
     });
   });
 
@@ -221,7 +185,6 @@ describe('Webhook Signature Verification', () => {
       const signature2 = generateValidSignature(testTimestamp, testPayload, testSecret);
 
       expect(signature1).toBe(signature2);
-
       expect(signature1).toMatch(/^[a-f0-9]{64}$/);
     });
 
@@ -248,8 +211,6 @@ describe('Webhook Signature Verification', () => {
 
   describe('Replay Attack Prevention', () => {
     it('should accept recent timestamps', async () => {
-      const client = await getPluginClient();
-
       const timestamp = Math.floor(Date.now() / 1000).toString();
       const webhookPayload = {
         id: 'whevt_recent123',
@@ -270,17 +231,11 @@ describe('Webhook Signature Verification', () => {
       };
 
       const payloadString = JSON.stringify(webhookPayload);
-      const validSignature = generateValidSignature(
-        timestamp,
-        payloadString,
-        TEST_WEBHOOK_SECRET
-      );
+      const validSignature = generateValidSignature(timestamp, payloadString, TEST_WEBHOOK_SECRET);
+      const webhookHeaders = createWebhookHeaders(validSignature, timestamp);
+      const client = await getPluginClient({ reqHeaders: webhookHeaders });
 
-      const result = await client.pingWebhook({
-        body: payloadString,
-        signature: validSignature,
-        timestamp,
-      });
+      const result = await client.pingWebhook(webhookPayload);
 
       expect(result.received).toBe(true);
     });

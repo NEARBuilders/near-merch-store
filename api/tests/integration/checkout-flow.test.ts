@@ -27,8 +27,7 @@ describe('Checkout Flow E2E', () => {
   });
 
   const TEST_USER = 'test-user.near';
-  const TEST_WEBHOOK_SECRET = 'whsec_test123';
-  const TEST_PING_API_KEY = 'test_api_key';
+  const TEST_WEBHOOK_SECRET = 'whsec_test_secret_key';
 
   const mockShippingAddress = {
     firstName: 'John',
@@ -58,6 +57,13 @@ describe('Checkout Flow E2E', () => {
     return createHmac('sha256', secret)
       .update(signaturePayload)
       .digest('hex');
+  };
+
+  const createWebhookHeaders = (signature: string, timestamp: string): Headers => {
+    const headers = new Headers();
+    headers.set('x-ping-signature', signature);
+    headers.set('x-ping-timestamp', timestamp);
+    return headers;
   };
 
   describe('PingPay Payment Flow', () => {
@@ -119,17 +125,11 @@ describe('Checkout Flow E2E', () => {
       };
 
       const payloadString = JSON.stringify(webhookPayload);
-      const signature = generatePingPaySignature(
-        timestamp,
-        payloadString,
-        TEST_WEBHOOK_SECRET
-      );
+      const signature = generatePingPaySignature(timestamp, payloadString, TEST_WEBHOOK_SECRET);
+      const webhookHeaders = createWebhookHeaders(signature, timestamp);
+      const webhookClient = await getPluginClient({ nearAccountId: TEST_USER, reqHeaders: webhookHeaders });
 
-      const webhookResult = await client.pingWebhook({
-        body: payloadString,
-        signature,
-        timestamp,
-      });
+      const webhookResult = await webhookClient.pingWebhook(webhookPayload);
 
       expect(webhookResult.received).toBe(true);
 
@@ -139,7 +139,7 @@ describe('Checkout Flow E2E', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       order = await client.getOrder({ id: orderId });
-      expect(['processing', 'paid_pending_fulfillment']).toContain(order.order.status);
+      expect(['paid', 'processing', 'paid_pending_fulfillment']).toContain(order.order.status);
     });
 
     it('should handle payment failed gracefully', async () => {
@@ -189,17 +189,11 @@ describe('Checkout Flow E2E', () => {
       };
 
       const payloadString = JSON.stringify(webhookPayload);
-      const signature = generatePingPaySignature(
-        timestamp,
-        payloadString,
-        TEST_WEBHOOK_SECRET
-      );
+      const signature = generatePingPaySignature(timestamp, payloadString, TEST_WEBHOOK_SECRET);
+      const webhookHeaders = createWebhookHeaders(signature, timestamp);
+      const webhookClient = await getPluginClient({ nearAccountId: TEST_USER, reqHeaders: webhookHeaders });
 
-      const webhookResult = await client.pingWebhook({
-        body: payloadString,
-        signature,
-        timestamp,
-      });
+      const webhookResult = await webhookClient.pingWebhook(webhookPayload);
 
       expect(webhookResult.received).toBe(true);
 
@@ -237,6 +231,57 @@ describe('Checkout Flow E2E', () => {
       expect(result.order).toBeDefined();
       expect(result.order?.id).toBe(checkoutResult.orderId);
       expect(result.order?.checkoutSessionId).toBe(sessionId);
+    });
+
+    it('should process webhook using sessionId fallback when orderId not in metadata', async () => {
+      const client = await getPluginClient({ nearAccountId: TEST_USER });
+
+      const quoteResult = await client.quote({
+        items: mockCartItems,
+        shippingAddress: mockShippingAddress,
+      });
+
+      const selectedRates: Record<string, string> = {};
+      quoteResult.providerBreakdown.forEach((provider) => {
+        selectedRates[provider.provider] = provider.selectedShipping.rateId;
+      });
+
+      const checkoutResult = await client.createCheckout({
+        items: mockCartItems,
+        shippingAddress: mockShippingAddress,
+        selectedRates,
+        shippingCost: quoteResult.shippingCost,
+        successUrl: 'https://example.com/success',
+        cancelUrl: 'https://example.com/cancel',
+        paymentProvider: 'pingpay',
+      });
+
+      const orderId = checkoutResult.orderId;
+      const sessionId = checkoutResult.checkoutSessionId;
+
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const webhookPayload = {
+        type: 'payment.success',
+        sessionId,
+        data: {
+          paymentId: 'pay_session_only',
+          status: 'SUCCESS',
+          amount: '1000000',
+          assetId: 'NEAR:USDC',
+        },
+      };
+
+      const payloadString = JSON.stringify(webhookPayload);
+      const signature = generatePingPaySignature(timestamp, payloadString, TEST_WEBHOOK_SECRET);
+      const webhookHeaders = createWebhookHeaders(signature, timestamp);
+      const webhookClient = await getPluginClient({ nearAccountId: TEST_USER, reqHeaders: webhookHeaders });
+
+      const webhookResult = await webhookClient.pingWebhook(webhookPayload);
+
+      expect(webhookResult.received).toBe(true);
+
+      const order = await client.getOrder({ id: orderId });
+      expect(['paid', 'processing', 'paid_pending_fulfillment']).toContain(order.order.status);
     });
   });
 

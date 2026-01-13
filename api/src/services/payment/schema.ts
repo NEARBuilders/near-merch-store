@@ -34,6 +34,7 @@ export const WebhookOutputSchema = z.object({
   received: z.boolean(),
   eventType: z.string().optional(),
   orderId: z.string().optional(),
+  sessionId: z.string().optional(),
 });
 
 export const GetSessionInputSchema = z.object({

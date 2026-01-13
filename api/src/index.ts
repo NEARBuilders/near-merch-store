@@ -631,10 +631,7 @@ export default createPlugin({
         const eventType = webhookResult.eventType;
         console.log(`[Ping Webhook] Received event: ${eventType}`);
 
-        const payload = JSON.parse(body);
-        const sessionId = payload.sessionId || payload.data?.sessionId;
-        const orderId = webhookResult.orderId || payload.metadata?.orderId || payload.data?.metadata?.orderId;
-        const draftOrderIdsJson = payload.metadata?.draftOrderIds || payload.data?.metadata?.draftOrderIds;
+        const { orderId, sessionId } = webhookResult;
 
         let order = orderId
           ? await Effect.runPromise(
@@ -660,7 +657,7 @@ export default createPlugin({
         }
 
         const resolvedOrderId = order.id;
-        const resolvedDraftOrderIds = order.draftOrderIds || (draftOrderIdsJson ? JSON.parse(draftOrderIdsJson) : {});
+        const draftOrderIds = order.draftOrderIds || {};
 
         switch (eventType) {
           case 'payment.success':
@@ -677,14 +674,14 @@ export default createPlugin({
               }).pipe(Effect.provide(orderLayer))
             );
 
-            if (Object.keys(resolvedDraftOrderIds).length === 0) {
+            if (Object.keys(draftOrderIds).length === 0) {
               console.log('[Ping Webhook] No draft orders to confirm');
               return { received: true };
             }
 
             const confirmationResults: Record<string, { success: boolean; error?: string }> = {};
 
-            for (const [providerName, draftId] of Object.entries(resolvedDraftOrderIds)) {
+            for (const [providerName, draftId] of Object.entries(draftOrderIds)) {
               if (providerName === 'manual') {
                 confirmationResults[providerName] = { success: true };
                 continue;
