@@ -111,8 +111,6 @@ function ProductCardContent(props: ProductCardContentProps) {
   return <VerticalProductLayout {...props} />;
 }
 
-// --- Layout Components ---
-
 function VerticalProductLayout({
   product,
   variant = "md",
@@ -156,12 +154,11 @@ function VerticalProductLayout({
   return (
     <div
       className={cn(
-        "group relative bg-card dark:bg-card border border-border overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col h-full",
+        "group relative bg-card border border-border overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col h-full",
         className
       )}
     >
-      {/* Image Section */}
-      <div className="relative bg-[#F0F0F0] overflow-hidden shrink-0 aspect-square w-full">
+      <div className="relative bg-muted overflow-hidden shrink-0 aspect-square w-full">
         <Link
           to="/products/$productId"
           params={{ productId: product.slug }}
@@ -181,7 +178,6 @@ function VerticalProductLayout({
           )}
         </Link>
 
-        {/* Favorite Button Overlay */}
         {!hideFavorite && (
           <div className="absolute top-3 right-3 z-10">
             <FavoriteButton
@@ -193,7 +189,6 @@ function VerticalProductLayout({
           </div>
         )}
 
-        {/* Quick Add Overlay */}
         {!hideActions && (
           <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 flex justify-center z-10">
             <button
@@ -207,7 +202,6 @@ function VerticalProductLayout({
         )}
       </div>
 
-      {/* Content Section */}
       <div className="p-4 flex-1 space-y-3 flex flex-col">
         <div className="space-y-1">
           <Link
@@ -230,13 +224,10 @@ function VerticalProductLayout({
           </p>
         </div>
 
-        {/* Action Slot */}
         {actionSlot}
 
-        {/* Custom Body Children */}
         {children}
 
-        {/* Footer (Price) */}
         {!hidePrice && (
           <div className="mt-auto pt-4 flex items-end justify-between">
             <div className={cn("font-medium text-foreground", priceSize)}>
@@ -256,8 +247,6 @@ function HorizontalProductLayout({
   actionSlot,
   children,
 }: ProductCardContentProps) {
-  // Horizontal logic is simpler, might not need quick add overly or favorite overlay if used in Cart/Checkout usually
-
   const displayImage =
     product.thumbnailImage ||
     product.images?.[0]?.url ||
@@ -266,12 +255,11 @@ function HorizontalProductLayout({
   return (
     <div
       className={cn(
-        "group relative bg-card dark:bg-card border-transparent overflow-hidden flex items-start gap-4 p-4",
+        "group relative bg-card border-transparent overflow-hidden flex items-start gap-4 p-4",
         className
       )}
     >
-      {/* Image Section */}
-      <div className="relative bg-[#F0F0F0] overflow-hidden shrink-0 size-20 rounded-md">
+      <div className="relative bg-muted overflow-hidden shrink-0 size-20 rounded-md">
         <Link
           to="/products/$productId"
           params={{ productId: product.slug }}
@@ -292,7 +280,6 @@ function HorizontalProductLayout({
         </Link>
       </div>
 
-      {/* Content Section */}
       <div className="flex-1 min-w-0 justify-between h-full py-0.5 flex flex-col">
         <div className="flex justify-between items-start gap-2">
           <div className="min-w-0">
@@ -311,14 +298,11 @@ function HorizontalProductLayout({
             </p>
           </div>
 
-          {/* Action Slot */}
           {actionSlot}
         </div>
 
-        {/* Custom Body Children */}
         {children}
 
-        {/* Footer (Price) */}
         {!hidePrice && (
           <div className="mt-2 flex items-end justify-between">
             <div className="font-medium text-foreground text-sm">

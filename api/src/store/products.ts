@@ -231,8 +231,8 @@ export const ProductStoreLive = Layer.effect(
                   fulfillmentProvider: product.fulfillmentProvider,
                   externalProductId: product.externalProductId || null,
                   source: product.source,
-                  publicKey: product.publicKey,
-                  slug: product.slug,
+                  publicKey: existingProduct.publicKey || product.publicKey,
+                  slug: existingProduct.slug || product.slug,
                   lastSyncedAt: now,
                   updatedAt: now,
                 })

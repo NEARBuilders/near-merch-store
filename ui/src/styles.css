@@ -2,21 +2,9 @@
 
 @import 'tw-animate-css';
 
-@import url('https://fonts.googleapis.com/css2?family=Red+Hat+Mono:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @custom-variant dark (&:is(.dark *));
-
-body {
-  @apply m-0;
-  font-family: 'Red Hat Mono', monospace;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-code {
-  font-family:
-    source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
-}
 
 :root {
   --background: oklch(1 0 0);
@@ -44,16 +32,17 @@ code {
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
+
   --near-green: #00ec97;
   --near-green-hover: #00d66f;
   --near-green-light: #d4fced;
-  --near-blue: #3d7fff;
-  --near-purple: #635bff;
-  --marketplace-bg: #ffffff;
-  --marketplace-text: #030213;
-  --marketplace-muted: #717182;
-  --marketplace-border: rgba(0, 0, 0, 0.1);
-  --marketplace-input-bg: #f3f3f5;
+  --near-black: #000000;
+  --near-white: #ffffff;
+  --near-off-white: #f2f1e9;
+  --near-red: #ff7966;
+  --near-purple: #9797ff;
+  --near-blue: #17d9d4;
+
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.21 0.006 285.885);
@@ -136,6 +125,20 @@ code {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-near-green: var(--near-green);
+  --color-near-green-hover: var(--near-green-hover);
+  --color-near-green-light: var(--near-green-light);
+  --color-near-black: var(--near-black);
+  --color-near-white: var(--near-white);
+  --color-near-off-white: var(--near-off-white);
+  --color-near-red: var(--near-red);
+  --color-near-purple: var(--near-purple);
+  --color-near-blue: var(--near-blue);
+
+  --font-sans: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  --tracking-tight: -0.03em;
 }
 
 @layer base {
@@ -146,11 +149,44 @@ code {
   html {
     height: 100%;
     height: 100dvh;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground m-0;
     min-height: 100%;
     min-height: 100dvh;
+  }
+
+  code, pre {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer components {
+  .container-app {
+    @apply max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16;
+  }
+
+  .link-muted {
+    @apply text-muted-foreground hover:text-foreground transition-colors;
+  }
+
+  .link-primary {
+    @apply text-muted-foreground hover:text-primary transition-colors;
+  }
+
+  .btn-near {
+    @apply bg-near-green text-near-black hover:bg-near-green-hover transition-colors;
+  }
+
+  .badge-count {
+    @apply absolute -top-1 -right-1 bg-near-green text-near-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium;
+  }
+
+  .section-padding {
+    @apply py-12 md:py-16 lg:py-20;
   }
 }

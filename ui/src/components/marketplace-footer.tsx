@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { NearWordmark } from "@/components/near-wordmark";
+import { BuiltOnNear } from "@/components/built-on-near";
 
 export function MarketplaceFooter() {
   return (
-    <footer className="bg-background border-t border-border text-foreground py-16">
-      <div className="max-w-[1408px] mx-auto px-4 md:px-8">
+    <footer className="bg-background border-t border-border text-foreground section-padding">
+      <div className="container-app">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
+          <div className="space-y-6">
             <a
               aria-label="NEAR.org"
               className="block w-full max-w-[240px] mx-auto md:mx-0"
@@ -21,14 +22,14 @@ export function MarketplaceFooter() {
             <div className="space-y-4 mt-4">
               <Link
                 to="/"
-                className="block text-muted-foreground hover:text-primary transition-colors text-sm"
+                className="block link-primary text-sm"
               >
                 All Products
               </Link>
 
               <Link
                 to="/dashboard"
-                className="block text-muted-foreground hover:text-primary transition-colors text-sm"
+                className="block link-primary text-sm"
               >
                 Admin Dashboard
               </Link>
@@ -40,19 +41,19 @@ export function MarketplaceFooter() {
             <div className="space-y-4 mt-4">
               <a
                 href="mailto:merch@near.foundation"
-                className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
+                className="block link-muted text-sm"
               >
                 Contact Us
               </a>
               <Link
                 to="/faq"
-                className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
+                className="block link-muted text-sm"
               >
                 FAQ
               </Link>
               <Link
                 to="/refunds-returns"
-                className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
+                className="block link-muted text-sm"
               >
                 Refunds &amp; Returns
               </Link>
@@ -66,7 +67,7 @@ export function MarketplaceFooter() {
                 href="https://github.com/nearbuilders/near-merch-store"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
+                className="block link-muted text-sm"
               >
                 GitHub
               </a>
@@ -75,25 +76,25 @@ export function MarketplaceFooter() {
         </div>
 
         <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-center text-muted-foreground/60 text-sm ">
+          <div className="text-center md:text-left text-muted-foreground/60 text-sm">
             © {new Date().getFullYear()} NEAR Protocol. All rights reserved.
           </div>
           <div className="flex items-center justify-center gap-6">
             <Link
               to="/privacy-policy"
-              className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+              className="link-muted text-sm"
             >
               Privacy Policy
             </Link>
             <Link
               to="/terms-of-service"
-              className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+              className="link-muted text-sm"
             >
               Terms of Service
             </Link>
             <Link
               to="/cookie-policy"
-              className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+              className="link-muted text-sm"
             >
               Cookie Policy
             </Link>

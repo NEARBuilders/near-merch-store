@@ -171,7 +171,7 @@ function MarketplaceHome() {
 
             {/* Content overlay */}
             <div className="absolute inset-0 z-20">
-              <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 h-full flex items-center">
+              <div className="container-app h-full flex items-center">
                 <div className="text-white space-y-4 md:space-y-6 max-w-xl">
                   <div
                     className={`inline-block bg-white/10 backdrop-blur-sm px-4 py-2 text-xs md:text-sm text-white/90 uppercase font-bold tracking-wider transition-all duration-700 ease-out ${!isAnimating
@@ -322,8 +322,8 @@ function MarketplaceHome() {
 
       {/* == Products Section == */}
 
-      <section className="py-16 md:py-20 border-t border-border" id="products">
-        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg: px-16">
+      <section className="section-padding border-t border-border" id="products">
+        <div className="container-app">
           {featuredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="text-muted-foreground mb-4">

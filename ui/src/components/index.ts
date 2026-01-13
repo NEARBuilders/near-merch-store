@@ -1,4 +1,5 @@
 export { Badge } from './ui/badge';
+export { BuiltOnNear } from './built-on-near';
 export { Button } from './ui/button';
 export {
   Card,

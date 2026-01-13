@@ -223,8 +223,8 @@ function CheckoutPage() {
 
   return (
     <div className="bg-background min-h-screen">
-      <div className="border-b border-[rgba(0,0,0,0.1)]">
-        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
+      <div className="border-b border-border">
+        <div className="container-app py-4">
           <Link
             to="/cart"
             className="flex items-center gap-3 hover:opacity-70 transition-opacity"
@@ -234,8 +234,8 @@ function CheckoutPage() {
           </Link>
         </div>
       </div>
-      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-8">
-        <h1 className="text-2xl font-medium mb-16 tracking-[-0.48px]">
+      <div className="container-app py-8">
+        <h1 className="text-2xl font-medium mb-16 tracking-tight">
           Shipping Address
         </h1>
 
@@ -701,14 +701,14 @@ function CheckoutPage() {
           </div>
 
           <div>
-            <div className="border border-[rgba(0,0,0,0.1)] p-8 mb-6">
+            <div className="border border-border p-8 mb-6">
               <div className="mb-6">
                 <h2 className="text-base font-medium mb-6">Order Summary</h2>
 
                 <div className="space-y-4">
                   {cartItems.map((item) => (
                     <div key={item.productId} className="flex gap-4">
-                      <div className="size-20 bg-[#ececf0] border border-[rgba(0,0,0,0.1)] shrink-0 overflow-hidden">
+                      <div className="size-20 bg-muted border border-border shrink-0 overflow-hidden">
                         <img
                           src={item.product.images[0].url}
                           alt={item.product.title}
@@ -717,7 +717,7 @@ function CheckoutPage() {
                       </div>
                       <div className="flex-1">
                         <p className="text-base mb-1">{item.product.title}</p>
-                        <p className="text-sm text-[#717182]">
+                        <p className="text-sm text-muted-foreground">
                           {item.size !== "N/A" && `Size: ${item.size} • `}Qty:{" "}
                           {item.quantity}
                         </p>
@@ -730,15 +730,15 @@ function CheckoutPage() {
                 </div>
               </div>
 
-              <div className="h-px bg-[rgba(0,0,0,0.1)] my-6" />
+              <div className="h-px bg-border my-6" />
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#717182]">Subtotal</span>
+                  <span className="text-muted-foreground">Subtotal</span>
                   <span>${subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#717182]">Shipping</span>
+                  <span className="text-muted-foreground">Shipping</span>
                   <span>
                     {isCalculatingShipping ? (
                       <span className="text-muted-foreground">Calculating...</span>
@@ -751,14 +751,14 @@ function CheckoutPage() {
                 </div>
                 {shippingQuote?.estimatedDelivery && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#717182]">Estimated Delivery</span>
+                    <span className="text-muted-foreground">Estimated Delivery</span>
                     <span className="text-xs">
                       {shippingQuote.estimatedDelivery.minDays}-{shippingQuote.estimatedDelivery.maxDays} business days
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#717182]">Tax</span>
+                  <span className="text-muted-foreground">Tax</span>
                   <span>
                     {isCalculatingShipping ? (
                       <span className="text-muted-foreground">Calculating...</span>
@@ -771,13 +771,13 @@ function CheckoutPage() {
                 </div>
               </div>
 
-              <div className="h-px bg-[rgba(0,0,0,0.1)] mb-3" />
+              <div className="h-px bg-border mb-3" />
 
               <div className="flex justify-between items-start">
                 <span className="text-base font-medium">Total</span>
                 <div className="text-right">
                   <p className="text-base font-medium">${total.toFixed(2)}</p>
-                  <p className="text-sm text-[#717182]">
+                  <p className="text-sm text-muted-foreground">
                     {isLoadingNearPrice ? '...' : `≈ ${nearAmount} NEAR`}
                   </p>
                 </div>

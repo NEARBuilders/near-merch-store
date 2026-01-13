@@ -21,19 +21,19 @@ function CartPage() {
   return (
     <div className="bg-background min-h-screen">
       <div className="border-b border-border">
-        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4">
+        <div className="container-app py-4">
           <Link
             to="/"
             className="flex items-center gap-3 hover:opacity-70 transition-opacity"
           >
             <ArrowLeft className="size-4" />
-            <span className="tracking-[-0.48px]">Continue Shopping</span>
+            <span className="tracking-tight">Continue Shopping</span>
           </Link>
         </div>
       </div>
 
-      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-4 md:py-8">
-        <h1 className="text-2xl font-medium tracking-[-0.48px] mb-8">
+      <div className="container-app py-4 md:py-8">
+        <h1 className="text-2xl font-medium tracking-tight mb-8">
           Shopping Cart
         </h1>
 
@@ -90,7 +90,7 @@ function CartPage() {
                           <div className="flex items-center gap-2">
                             {colorHex && (
                               <div
-                                className="size-5 rounded-full border border-black/10 dark:border-white/20"
+                                className="size-5 rounded-full border border-border"
                                 style={{ backgroundColor: colorHex }}
                               />
                             )}
@@ -115,7 +115,7 @@ function CartPage() {
                             >
                               <Minus className="size-4" />
                             </button>
-                            <span className="flex-1 sm:w-8 text-center text-base tracking-[-0.48px]">
+                            <span className="flex-1 sm:w-8 text-center text-base tracking-tight">
                               {item.quantity}
                             </span>
                             <button
@@ -127,7 +127,7 @@ function CartPage() {
                             </button>
                           </div>
 
-                          <div className="text-lg sm:text-base font-medium tracking-[-0.48px] whitespace-nowrap text-center sm:text-right">
+                          <div className="text-lg sm:text-base font-medium tracking-tight whitespace-nowrap text-center sm:text-right">
                             ${(item.product.price * item.quantity).toFixed(2)}
                           </div>
                         </div>
@@ -140,7 +140,7 @@ function CartPage() {
 
             <div className="lg:col-span-1">
               <div className="border border-border p-4 md:p-6 sticky top-24">
-                <h2 className="text-lg font-medium tracking-[-0.48px] mb-6">
+                <h2 className="text-lg font-medium tracking-tight mb-6">
                   Order Summary
                 </h2>
 
@@ -173,12 +173,12 @@ function CartPage() {
                 </div>
 
                 <Link to="/checkout">
-                  <Button className="w-full bg-primary text-primary-foreground dark:bg-white dark:text-black dark:hover:bg-white/90 hover:bg-primary/90">
+                  <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
                     Checkout
                   </Button>
                 </Link>
 
-                <p className="text-muted-foreground text-xs tracking-[-0.48px] text-center mt-4">
+                <p className="text-muted-foreground text-xs tracking-tight text-center mt-4">
                   Shipping and taxes calculated at checkout
                 </p>
               </div>

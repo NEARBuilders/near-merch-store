@@ -18,9 +18,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       toastOptions={{
-        className: "tracking-[-0.48px] font-[inherit]",
+        className: "tracking-tight font-[inherit]",
         classNames: {
-          actionButton: "bg-primary text-primary-foreground hover:bg-primary/90 dark:bg-white dark:text-black dark:hover:bg-white/90",
+          actionButton: "bg-foreground text-background hover:bg-foreground/90",
           cancelButton: "bg-muted text-muted-foreground hover:bg-muted/80",
         },
       }}
