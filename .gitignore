@@ -293,4 +293,9 @@ fabric.properties
 # db
 /**/*.db
 
-.turbo
+.turbotest-results/
+playwright-report/
+test-results/
+
+# Playwright auth storage state
+.auth/

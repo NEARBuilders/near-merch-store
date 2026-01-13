@@ -701,7 +701,7 @@ function CheckoutPage() {
           </div>
 
           <div>
-            <div className="border border-border p-8 mb-6">
+            <div className="border border-border p-8 mb-6" data-testid="order-summary">
               <div className="mb-6">
                 <h2 className="text-base font-medium mb-6">Order Summary</h2>
 
@@ -829,6 +829,7 @@ function CheckoutPage() {
                     onClick={handlePayWithPing}
                     disabled={checkoutMutation.isPending}
                     className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-testid="pay-with-card-button"
                   >
                     <div className="flex items-start gap-3">
                       <div className="h-10 w-auto px-3 bg-[#1E1E1E] dark:bg-[#FBFAFF] flex items-center justify-center shrink-0 rounded-sm">

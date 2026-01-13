@@ -157,6 +157,7 @@ function VerticalProductLayout({
         "group relative bg-card border border-border overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col h-full",
         className
       )}
+      data-testid="product-card"
     >
       <div className="relative bg-muted overflow-hidden shrink-0 aspect-square w-full">
         <Link
@@ -194,6 +195,7 @@ function VerticalProductLayout({
             <button
               onClick={handleQuickAddClick}
               className="bg-primary text-primary-foreground px-6 py-2 flex items-center gap-2 hover:bg-primary/90 transition-colors"
+              data-testid="quick-add-button"
             >
               <Plus className="size-4" aria-hidden="true" />
               QUICK ADD
@@ -258,6 +260,7 @@ function HorizontalProductLayout({
         "group relative bg-card border-transparent overflow-hidden flex items-start gap-4 p-4",
         className
       )}
+      data-testid="cart-item"
     >
       <div className="relative bg-muted overflow-hidden shrink-0 size-20 rounded-md">
         <Link

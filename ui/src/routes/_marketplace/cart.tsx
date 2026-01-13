@@ -172,8 +172,8 @@ function CartPage() {
                   <span>{isLoadingNearPrice ? '...' : `${nearAmount} NEAR`}</span>
                 </div>
 
-                <Link to="/checkout">
-                  <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                <Link to="/checkout" data-testid="checkout-link">
+                  <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90" data-testid="checkout-button">
                     Checkout
                   </Button>
                 </Link>
