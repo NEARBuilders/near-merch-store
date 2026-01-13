@@ -3,6 +3,7 @@ import type { FulfillmentProvider, MarketplaceRuntime } from '../runtime';
 import type { Collection, FulfillmentConfig, Product, ProductCategory, ProductImage, ProductOption } from '../schema';
 import { ProductStore, type ProductVariantInput, type ProductWithImages } from '../store';
 import type { ProviderProduct } from './fulfillment/schema';
+import { generateProductId, generatePublicKey, generateSlug } from '../utils/product-ids';
 
 export class ProductService extends Context.Tag('ProductService')<
   ProductService,
@@ -11,6 +12,7 @@ export class ProductService extends Context.Tag('ProductService')<
       category?: ProductCategory;
       limit?: number;
       offset?: number;
+      includeUnlisted?: boolean;
     }) => Effect.Effect<{ products: Product[]; total: number }, Error>;
     readonly getProduct: (id: string) => Effect.Effect<{ product: Product }, Error>;
     readonly searchProducts: (options: {
@@ -33,6 +35,10 @@ export class ProductService extends Context.Tag('ProductService')<
       },
       Error
     >;
+    readonly updateProductListing: (
+      id: string,
+      listed: boolean
+    ) => Effect.Effect<{ success: boolean; product?: Product }, Error>;
   }
 >() { }
 
@@ -44,7 +50,6 @@ function transformProviderProduct(
   const designFiles = firstVariantWithDesigns?.designFiles || [];
 
   const imageMap = new Map<string, ProductImage>();
-  const images: ProductImage[] = [];
   const seenUrls = new Set<string>();
   const thumbnailUrl = product.thumbnailUrl;
 
@@ -57,23 +62,6 @@ function transformProviderProduct(
       variantIds: [], // Thumbnail is not variant-specific
     });
     seenUrls.add(thumbnailUrl);
-  }
-
-  let imageOrder = 1;
-  for (const variant of product.variants) {
-    if (!variant.files) continue;
-    for (const file of variant.files) {
-      const url = file.previewUrl || file.url;
-      if (!url || seenUrls.has(url)) continue;
-      seenUrls.add(url);
-      images.push({
-        id: `file-${file.id}-${variant.id}`,
-        url,
-        type: file.type === 'preview' ? 'preview' : 'detail',
-        placement: file.type !== 'preview' && file.type !== 'default' ? file.type : undefined,
-        order: imageOrder++,
-      });
-    }
   }
 
   let imageOrder = 1;
@@ -139,6 +127,7 @@ function transformProviderProduct(
     const fulfillmentConfig: FulfillmentConfig = {
       externalVariantId: variantId,
       externalProductId: String(product.sourceId),
+      designFiles: variant.designFiles,
       providerData: providerName === 'printful'
         ? {
           catalogVariantId: variant.catalogVariantId,
@@ -165,8 +154,15 @@ function transformProviderProduct(
     };
   });
 
+  // Generate new IDs: UUID v7 for primary key, nanoid for public URL key
+  const id = generateProductId();
+  const publicKey = generatePublicKey();
+  const slug = generateSlug(product.name, publicKey);
+
   return {
-    id: `${providerName}-product-${product.sourceId}`,
+    id,
+    publicKey,
+    slug,
     name: product.name,
     description: product.description || undefined,
     price: basePrice,
@@ -263,15 +259,16 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
       return {
         getProducts: (options) =>
           Effect.gen(function* () {
-            const { category, limit = 50, offset = 0 } = options;
-            return yield* store.findMany({ category, limit, offset });
+            const { category, limit = 50, offset = 0, includeUnlisted = false } = options;
+            return yield* store.findMany({ category, limit, offset, includeUnlisted });
           }),
 
-        getProduct: (id) =>
+        getProduct: (identifier) =>
           Effect.gen(function* () {
-            const product = yield* store.find(id);
+            const product = yield* store.find(identifier);
+
             if (!product) {
-              return yield* Effect.fail(new Error(`Product not found: ${id}`));
+              return yield* Effect.fail(new Error(`Product not found: ${identifier}`));
             }
             return { product };
           }),
@@ -285,7 +282,8 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
         getFeaturedProducts: (limit = 12) =>
           Effect.gen(function* () {
-            const result = yield* store.findMany({ limit, offset: 0 });
+            // Featured products should only show listed products
+            const result = yield* store.findMany({ limit, offset: 0, includeUnlisted: false });
             return { products: result.products };
           }),
 
@@ -327,6 +325,15 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
         getSyncStatus: () =>
           Effect.gen(function* () {
             return yield* store.getSyncStatus('products');
+          }),
+
+        updateProductListing: (id, listed) =>
+          Effect.gen(function* () {
+            const product = yield* store.updateListing(id, listed);
+            if (!product) {
+              return { success: false };
+            }
+            return { success: true, product };
           }),
       };
     })

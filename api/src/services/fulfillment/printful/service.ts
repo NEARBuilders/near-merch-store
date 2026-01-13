@@ -1,32 +1,34 @@
-import { Effect } from 'every-plugin/effect';
 import crypto from 'crypto';
-import { 
-  CatalogItem, 
-  TechniqueEnum, 
-  MockupTaskCreation,
-  MockupGeneratorTask,
-  type Address, 
-  type Shipment, 
-  type Variant,
-  type MockupStyles
-} from 'printful-sdk-js-v2';
-import type {
-  ProviderProduct,
-  FulfillmentOrderInput,
-  FulfillmentOrder,
-  FulfillmentOrderStatus,
-  ProviderVariant
-} from '../schema';
-import type { ProductImage } from '../../../schema';
+import { Effect, Schedule } from 'every-plugin/effect';
 import {
-  type PrintfulSyncProduct,
-  type PrintfulSyncVariant,
+  MockupGeneratorTask,
+  MockupTaskCreation,
+  TechniqueEnum,
+  type Address,
+  type MockupStyles,
+  type Shipment,
+  type Variant
+} from 'printful-sdk-js-v2';
+import type { ProductImage } from '../../../schema';
+import { FulfillmentError } from '../errors';
+import type {
+  FulfillmentOrder,
+  FulfillmentOrderInput,
+  FulfillmentOrderStatus,
+  ProviderProduct,
+  ProviderVariant,
+  ShippingQuoteInput,
+  ShippingQuoteOutput
+} from '../schema';
+import { PrintfulClient } from './client';
+import {
   extractDesignFiles,
+  type MockupResult,
   type MockupStyleInfo,
   type MockupTaskResult,
-  type MockupResult
+  type PrintfulSyncProduct,
+  type PrintfulSyncVariant
 } from './types';
-import { PrintfulClient } from './client';
 
 export class PrintfulService {
   private client: PrintfulClient;
@@ -141,6 +143,170 @@ export class PrintfulService {
     };
   }
 
+  calculateShippingRates(params: {
+    recipient: {
+      countryCode: string;
+      stateCode?: string;
+      city?: string;
+      zip?: string;
+    };
+    items: Array<{ variantId: number; quantity: number }>;
+    currency?: string;
+  }) {
+    return Effect.tryPromise({
+      try: async () => {
+        const response = await fetch('https://api.printful.com/v2/shipping-rates', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+            'X-PF-Store-Id': this.storeId,
+          },
+          body: JSON.stringify({
+            recipient: {
+              country_code: params.recipient.countryCode,
+              state_code: params.recipient.stateCode === "" ? null : params.recipient.stateCode,
+              city: params.recipient.city,
+              zip: params.recipient.zip,
+            },
+            order_items: params.items.map(item => ({
+              source: 'catalog',
+              catalog_variant_id: item.variantId,
+              quantity: item.quantity,
+            })),
+            currency: params.currency || 'USD',
+          }),
+        });
+
+        if (!response.ok) {
+          let errorMessage = `Printful API returned ${response.status}`;
+          
+          try {
+            const errorData = await response.json() as { 
+              error?: { message?: string; code?: string }; 
+              message?: string;
+            };
+            
+            if (errorData.error?.message) {
+              errorMessage = errorData.error.message;
+            } else if (errorData.message) {
+              errorMessage = errorData.message;
+            }
+          } catch {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}: ${errorText.substring(0, 200)}`;
+            }
+          }
+
+          throw FulfillmentError.fromHttpStatus(
+            response.status,
+            'printful',
+            errorMessage
+          );
+        }
+
+        const data = await response.json() as { data: Array<{
+          shipping: string;
+          shipping_method_name: string;
+          rate: string;
+          currency: string;
+          min_delivery_days?: number;
+          max_delivery_days?: number;
+          min_delivery_date?: string;
+          max_delivery_date?: string;
+        }> };
+
+        const transformedResult = {
+          rates: (data.data || []).map(rate => ({
+            id: rate.shipping,
+            name: rate.shipping_method_name,
+            rate: parseFloat(rate.rate),
+            currency: rate.currency,
+            minDeliveryDays: rate.min_delivery_days,
+            maxDeliveryDays: rate.max_delivery_days,
+            minDeliveryDate: rate.min_delivery_date,
+            maxDeliveryDate: rate.max_delivery_date,
+          })),
+          currency: params.currency || 'USD',
+        };
+
+        return transformedResult;
+      },
+      catch: (error) => {
+        if (error instanceof FulfillmentError) {
+          return error;
+        }
+        return new FulfillmentError({
+          message: `Failed to calculate shipping rates: ${error instanceof Error ? error.message : String(error)}`,
+          code: 'UNKNOWN',
+          provider: 'printful',
+          cause: error,
+        });
+      },
+    }).pipe(
+      Effect.retry({
+        times: 3,
+        schedule: Schedule.exponential('100 millis'),
+        while: (error) => error instanceof FulfillmentError && error.isRetryable,
+      })
+    );
+  }
+
+  quoteOrder(input: ShippingQuoteInput): Effect.Effect<ShippingQuoteOutput, Error> {
+    return Effect.gen(this, function* () {
+      const items = input.items
+        .filter(item => item.variantId)
+        .map(item => ({
+          variantId: item.variantId!,
+          quantity: item.quantity,
+        }));
+
+      if (items.length === 0) {
+        return {
+          rates: [],
+          currency: input.currency || 'USD',
+        };
+      }
+
+      const result = yield* this.calculateShippingRates({
+        recipient: {
+          countryCode: input.recipient.countryCode,
+          stateCode: input.recipient.stateCode,
+          city: input.recipient.city,
+          zip: input.recipient.zip,
+        },
+        items,
+        currency: input.currency,
+      });
+
+      return result;
+    });
+  }
+
+  confirmOrder(orderId: string) {
+    return Effect.gen(this, function* () {
+      yield* Effect.tryPromise({
+        try: () => this.client.confirmOrder(parseInt(orderId, 10)),
+        catch: (e) => new Error(`Failed to confirm Printful order: ${e instanceof Error ? e.message : String(e)}`),
+      });
+      
+      const { order } = yield* this.getOrder(orderId);
+      return { id: orderId, status: order.status };
+    });
+  }
+
+  cancelOrder(orderId: string) {
+    return Effect.gen(this, function* () {
+      yield* Effect.tryPromise({
+        try: () => this.client.cancelOrder(parseInt(orderId, 10)),
+        catch: (e) => new Error(`Failed to cancel Printful order: ${e instanceof Error ? e.message : String(e)}`),
+      });
+      
+      return { id: orderId, status: 'cancelled' };
+    });
+  }
+
   createOrder(input: FulfillmentOrderInput, confirm = false) {
     return Effect.tryPromise({
       try: async () => {
@@ -155,25 +321,23 @@ export class PrintfulService {
           zip: input.recipient.zip,
           phone: input.recipient.phone,
           email: input.recipient.email,
+          tax_number: input.recipient.taxId,
         };
 
-        const orderItems: CatalogItem[] = input.items.map(item => ({
-          source: CatalogItem.source.CATALOG,
-          catalog_variant_id: item.variantId ?? 0,
-          quantity: item.quantity,
-          placements: item.files
-            ?.filter(f => f.placement)
-            .map(f => ({
-              placement: f.placement!,
-              technique: TechniqueEnum.DTG,
-              layers: [{ type: 'file', url: f.url }],
-            })),
-        }));
+        const items = input.items.map(item => {
+          if (!item.externalVariantId) {
+            throw new Error('Missing externalVariantId for Printful order item');
+          }
+          return {
+            sync_variant_id: parseInt(item.externalVariantId, 10),
+            quantity: item.quantity,
+          };
+        });
 
-        const result = await this.client.createOrder({
-          external_id: input.externalId,
+        const result = await this.client.createOrderV1({
+          external_id: input.externalId.replace(/-/g, ''),
           recipient,
-          order_items: orderItems,
+          items,
         });
         
         if (confirm) await this.client.confirmOrder(result.id);

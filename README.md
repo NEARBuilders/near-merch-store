@@ -49,7 +49,6 @@ Visit http://localhost:3001 to see the application.
 - ✅ **Runtime Configuration** - All URLs loaded from `bos.config.json` (no rebuild needed!)
 - ✅ **Independent Deployment** - UI, API, and Host deploy separately
 - ✅ **Type Safety** - End-to-end with oRPC contracts
-- ✅ **NEAR Integration** - Authentication + transactions via Better-Auth
 - ✅ **CDN-Ready** - Module Federation with automatic CDN deployment
 
 See [LLM.txt](./LLM.txt) for complete architecture details.
@@ -66,15 +65,9 @@ See [LLM.txt](./LLM.txt) for complete architecture details.
 - every-plugin architecture for modular APIs
 - Effect-TS for service composition
 
-**NEAR Protocol:**
-- Better-Auth + better-near-auth for wallet authentication
-- near-kit for blockchain operations
-- Meta-transaction relayer for gasless transactions
-
-**Database & Payments:**
+**Database & Auth:**
 - SQLite (libsql) + Drizzle ORM
-- Stripe for payments
-- Printful/Gelato for fulfillment
+- Better-Auth with NEAR Protocol support
 
 ## Configuration
 
@@ -82,21 +75,24 @@ All runtime configuration lives in `bos.config.json`:
 
 ```json
 {
-  "account": "near-merch-store.near",
+  "account": "example.near",
   "app": {
-    "host": { "title": "Near Merch" },
+    "host": {
+      "title": "App Title",
+      "development": "http://localhost:3001",
+      "production": "https://example.com"
+    },
     "ui": {
-      "name": "marketplace_ui",
+      "name": "ui",
       "development": "http://localhost:3002",
       "production": "https://cdn.example.com/ui/remoteEntry.js"
     },
     "api": {
-      "plugins": {
-        "marketplace-api": {
-          "development": "http://localhost:3014/remoteEntry.js",
-          "production": "https://cdn.example.com/api/remoteEntry.js"
-        }
-      }
+      "name": "api",
+      "development": "http://localhost:3014",
+      "production": "https://cdn.example.com/api/remoteEntry.js",
+      "variables": {},
+      "secrets": ["API_DATABASE_URL", "API_DATABASE_AUTH_TOKEN"]
     }
   }
 }
@@ -126,6 +122,7 @@ bun build:host       # Build host server
 bun db:migrate       # Run migrations
 bun db:push          # Push schema changes
 bun db:studio        # Open Drizzle Studio
+bun db:sync          # Sync products from live API to local database
 
 # Testing
 bun test             # Run all tests

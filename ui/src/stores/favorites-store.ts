@@ -1,4 +1,4 @@
-import { create, GetState, SetState } from "zustand";
+import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { toast } from "sonner";
 
@@ -19,7 +19,7 @@ interface FavoritesState {
 
 export const useFavoritesStore = create<FavoritesState>()(
     persist(
-        (set: SetState<FavoritesState>, get: GetState<FavoritesState>) => ({
+        (set, get) => ({
             favoriteIds: [],
 
             addFavorite: (productId: string, productName?: string) => {

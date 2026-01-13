@@ -4,9 +4,13 @@ import {
   CollectionSchema,
   CreateCheckoutInputSchema,
   CreateCheckoutOutputSchema,
-  OrderSchema,
+  OrderStatusSchema,
+  OrderWithItemsSchema,
   ProductCategorySchema,
   ProductSchema,
+  QuoteItemInputSchema,
+  QuoteOutputSchema,
+  ShippingAddressSchema,
   WebhookResponseSchema
 } from './schema';
 
@@ -39,6 +43,7 @@ export const contract = oc.router({
         category: ProductCategorySchema.optional(),
         limit: z.number().int().positive().max(100).default(50),
         offset: z.number().int().min(0).default(0),
+        includeUnlisted: z.boolean().optional(),
       })
     )
     .output(
@@ -140,6 +145,22 @@ export const contract = oc.router({
     .input(CreateCheckoutInputSchema)
     .output(CreateCheckoutOutputSchema),
 
+  quote: oc
+    .route({
+      method: 'POST',
+      path: '/quote',
+      summary: 'Get shipping quote for cart',
+      description: 'Calculates shipping costs by provider for cart items.',
+      tags: ['Checkout'],
+    })
+    .input(
+      z.object({
+        items: z.array(QuoteItemInputSchema).min(1),
+        shippingAddress: ShippingAddressSchema,
+      })
+    )
+    .output(QuoteOutputSchema),
+
   getOrders: oc
     .route({
       method: 'GET',
@@ -156,7 +177,7 @@ export const contract = oc.router({
     )
     .output(
       z.object({
-        orders: z.array(OrderSchema),
+        orders: z.array(OrderWithItemsSchema),
         total: z.number(),
       })
     ),
@@ -170,7 +191,7 @@ export const contract = oc.router({
       tags: ['Orders'],
     })
     .input(z.object({ id: z.string() }))
-    .output(z.object({ order: OrderSchema })),
+    .output(z.object({ order: OrderWithItemsSchema })),
 
   getOrderByCheckoutSession: oc
     .route({
@@ -181,7 +202,30 @@ export const contract = oc.router({
       tags: ['Orders'],
     })
     .input(z.object({ sessionId: z.string() }))
-    .output(z.object({ order: OrderSchema.nullable() })),
+    .output(z.object({ order: OrderWithItemsSchema.nullable() })),
+
+  getAllOrders: oc
+    .route({
+      method: 'GET',
+      path: '/admin/orders',
+      summary: 'List all orders (Admin)',
+      description: 'Returns a list of all orders. Requires admin authentication.',
+      tags: ['Admin'],
+    })
+    .input(
+      z.object({
+        limit: z.number().int().positive().max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+        status: OrderStatusSchema.optional(),
+        search: z.string().optional(),
+      })
+    )
+    .output(
+      z.object({
+        orders: z.array(OrderWithItemsSchema),
+        total: z.number(),
+      })
+    ),
 
   stripeWebhook: oc
     .route({
@@ -231,6 +275,17 @@ export const contract = oc.router({
     )
     .output(WebhookResponseSchema),
 
+  pingWebhook: oc
+    .route({
+      method: 'POST',
+      path: '/webhooks/ping',
+      summary: 'Ping webhook',
+      description: 'Handles Ping webhook events for payment processing.',
+      tags: ['Webhooks'],
+    })
+    .input(z.unknown())
+    .output(WebhookResponseSchema),
+
   sync: oc
     .route({
       method: 'POST',
@@ -260,6 +315,69 @@ export const contract = oc.router({
         lastSuccessAt: z.number().nullable(),
         lastErrorAt: z.number().nullable(),
         errorMessage: z.string().nullable(),
+      })
+    ),
+  updateProductListing: oc
+    .route({
+      method: 'POST',
+      path: '/products/{id}/listing',
+      summary: 'Update product listing status',
+      description: 'Updates whether a product is listed (visible) in the store.',
+      tags: ['Products'],
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        listed: z.boolean(),
+      })
+    )
+    .output(
+      z.object({
+        success: z.boolean(),
+        product: ProductSchema.optional(),
+      })
+    ),
+    cleanupAbandonedDrafts: oc
+      .route({
+        method: 'POST',
+        path: '/cron/cleanup-drafts',
+        summary: 'Cleanup abandoned draft orders',
+        description: 'Cancels draft orders older than 24 hours. Intended to be called by a cron job daily.',
+        tags: ['Jobs'],
+      })
+      .input(
+        z.object({
+          maxAgeHours: z.number().int().positive().default(24).optional()
+        })
+      )
+      .output(
+        z.object({
+          totalProcessed: z.number(),
+          cancelled: z.number(),
+          partiallyCancelled: z.number(),
+          failed: z.number(),
+          errors: z.array(z.object({
+            orderId: z.string(),
+            provider: z.string(),
+            error: z.string(),
+          })),
+        })
+      ),
+
+  getNearPrice: oc
+    .route({
+      method: 'GET',
+      path: '/near-price',
+      summary: 'Get current NEAR price',
+      description: 'Returns the current NEAR token price in USD from CoinGecko.',
+      tags: ['Pricing'],
+    })
+    .output(
+      z.object({
+        price: z.number(),
+        currency: z.literal('USD'),
+        source: z.string(),
+        cachedAt: z.number(),
       })
     ),
 });

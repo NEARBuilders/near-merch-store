@@ -1,9 +1,15 @@
 
+import fs from "node:fs";
+import path from "node:path";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { admin } from "better-auth/plugins";
 import { siwn } from "better-near-auth";
 import { db } from "../db";
 import * as schema from "../db/schema/auth";
+
+const configPath = process.env.BOS_CONFIG_PATH ?? path.resolve(process.cwd(), 'bos.config.json');
+const bosConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -11,27 +17,21 @@ export const auth = betterAuth({
     schema: schema,
   }),
   trustedOrigins: process.env.CORS_ORIGIN?.split(",") || ["*"],
-  secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL || "https://demo.everything.market",
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-    },
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID as string,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-    },
-  },
+  secret: process.env.BETTER_AUTH_SECRET || "default-secret-change-in-production",
+  baseURL: process.env.BETTER_AUTH_URL,
   plugins: [
     siwn({
-      recipient: "marketplace-demo.near"
+      recipient: bosConfig.account
+    }),
+    admin({
+      defaultRole: "user",
+      adminRoles: ["admin"],
     }),
   ],
   account: {
     accountLinking: {
       enabled: true,
-      trustedProviders: ["google", "github", "siwn"],
+      trustedProviders: ["siwn"],
       allowDifferentEmails: true,
       updateUserInfoOnLink: true
     }
@@ -45,7 +45,7 @@ export const auth = betterAuth({
   advanced: {
     defaultCookieAttributes: {
       sameSite: "lax",
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       httpOnly: true
     }
   }

@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import * as schema from "../db/schema";
 import type { CreateOrderInput, DeliveryEstimate, OrderItem, OrderStatus, OrderWithItems, ShippingAddress, TrackingInfo } from "../schema";
@@ -9,10 +9,13 @@ export class OrderStore extends Context.Tag("OrderStore")<
   {
     readonly create: (input: CreateOrderInput) => Effect.Effect<OrderWithItems, Error>;
     readonly find: (id: string) => Effect.Effect<OrderWithItems | null, Error>;
+    readonly findAll: (options: { limit?: number; offset?: number; status?: OrderStatus; search?: string }) => Effect.Effect<{ orders: OrderWithItems[]; total: number }, Error>;
     readonly findByUser: (userId: string, options: { limit?: number; offset?: number }) => Effect.Effect<{ orders: OrderWithItems[]; total: number }, Error>;
     readonly findByCheckoutSession: (checkoutSessionId: string) => Effect.Effect<OrderWithItems | null, Error>;
     readonly findByFulfillmentRef: (fulfillmentReferenceId: string) => Effect.Effect<OrderWithItems | null, Error>;
-    readonly updateCheckout: (orderId: string, checkoutSessionId: string, checkoutProvider: 'stripe' | 'near') => Effect.Effect<OrderWithItems, Error>;
+    readonly findAbandonedDrafts: (olderThanHours: number) => Effect.Effect<OrderWithItems[], Error>;
+    readonly updateCheckout: (orderId: string, checkoutSessionId: string, checkoutProvider: 'stripe' | 'near' | 'pingpay') => Effect.Effect<OrderWithItems, Error>;
+    readonly updateDraftOrderIds: (orderId: string, draftOrderIds: Record<string, string>) => Effect.Effect<OrderWithItems, Error>;
     readonly updateStatus: (orderId: string, status: OrderStatus) => Effect.Effect<OrderWithItems, Error>;
     readonly updateShipping: (orderId: string, shippingAddress: ShippingAddress) => Effect.Effect<OrderWithItems, Error>;
     readonly updateFulfillment: (orderId: string, fulfillmentOrderId: string) => Effect.Effect<OrderWithItems, Error>;
@@ -57,7 +60,10 @@ export const OrderStoreLive = Layer.effect(
         totalAmount: row.totalAmount / 100,
         currency: row.currency,
         checkoutSessionId: row.checkoutSessionId || undefined,
-        checkoutProvider: row.checkoutProvider as 'stripe' | 'near' | undefined,
+        checkoutProvider: row.checkoutProvider === 'stripe' || row.checkoutProvider === 'near' || row.checkoutProvider === 'pingpay'
+          ? row.checkoutProvider 
+          : undefined,
+        draftOrderIds: row.draftOrderIds || undefined,
         shippingMethod: row.shippingMethod || undefined,
         shippingAddress: row.shippingAddress || undefined,
         fulfillmentOrderId: row.fulfillmentOrderId || undefined,
@@ -138,6 +144,50 @@ export const OrderStoreLive = Layer.effect(
           catch: (error) => new Error(`Failed to find order: ${error}`),
         }),
 
+      findAll: (options) =>
+        Effect.tryPromise({
+          try: async () => {
+            const { limit = 50, offset = 0, status, search } = options;
+
+            const conditions = [];
+
+            if (status) {
+              conditions.push(eq(schema.orders.status, status));
+            }
+
+            if (search) {
+              conditions.push(
+                or(
+                  like(schema.orders.id, `%${search}%`),
+                  like(schema.orders.userId, `%${search}%`)
+                )
+              );
+            }
+
+            const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+            const countResult = await db
+              .select({ count: sql<number>`count(*)` })
+              .from(schema.orders)
+              .where(whereClause);
+
+            const total = Number(countResult[0]?.count || 0);
+
+            const results = await db
+              .select()
+              .from(schema.orders)
+              .where(whereClause)
+              .orderBy(desc(schema.orders.createdAt))
+              .limit(limit)
+              .offset(offset);
+
+            const orders = await Promise.all(results.map(rowToOrder));
+
+            return { orders, total };
+          },
+          catch: (error) => new Error(`Failed to find all orders: ${error}`),
+        }),
+
       findByUser: (userId, options) =>
         Effect.tryPromise({
           try: async () => {
@@ -201,6 +251,24 @@ export const OrderStoreLive = Layer.effect(
           catch: (error) => new Error(`Failed to find order by fulfillment ref: ${error}`),
         }),
 
+      findAbandonedDrafts: (olderThanHours) =>
+        Effect.tryPromise({
+          try: async () => {
+            const cutoffTime = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+
+            const results = await db
+              .select()
+              .from(schema.orders)
+              .where(eq(schema.orders.status, 'draft_created'))
+              .orderBy(desc(schema.orders.createdAt));
+
+            const abandoned = results.filter(order => order.createdAt < cutoffTime);
+
+            return await Promise.all(abandoned.map(rowToOrder));
+          },
+          catch: (error) => new Error(`Failed to find abandoned drafts: ${error}`),
+        }),
+
       updateCheckout: (orderId, checkoutSessionId, checkoutProvider) =>
         Effect.tryPromise({
           try: async () => {
@@ -220,6 +288,26 @@ export const OrderStoreLive = Layer.effect(
             return order;
           },
           catch: (error) => new Error(`Failed to update order checkout: ${error}`),
+        }),
+
+      updateDraftOrderIds: (orderId, draftOrderIds) =>
+        Effect.tryPromise({
+          try: async () => {
+            await db
+              .update(schema.orders)
+              .set({
+                draftOrderIds,
+                updatedAt: new Date(),
+              })
+              .where(eq(schema.orders.id, orderId));
+
+            const order = await findOrderById(orderId);
+            if (!order) {
+              throw new Error('Order not found');
+            }
+            return order;
+          },
+          catch: (error) => new Error(`Failed to update draft order IDs: ${error}`),
         }),
 
       updateStatus: (orderId, status) =>

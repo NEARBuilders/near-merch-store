@@ -1,44 +1,35 @@
 import { registerRemotes } from '@module-federation/enhanced/runtime';
+import type { WindowRuntimeConfig } from './types';
 
-interface RuntimeConfig {
-  env: 'development' | 'production';
-  title: string;
-  hostUrl: string;
-  ui: {
-    name: string;
-    url: string;
-    exposes: Record<string, string>;
-  };
-  apiBase: string;
-  rpcBase: string;
+declare global {
+  interface Window {
+    __RUNTIME_CONFIG__?: WindowRuntimeConfig;
+  }
 }
 
-let runtimeConfig: RuntimeConfig | null = null;
+let runtimeConfig: WindowRuntimeConfig | null = null;
 
-export function getRuntimeConfig(): RuntimeConfig {
+export function getRuntimeConfig(): WindowRuntimeConfig {
   if (!runtimeConfig) {
-    throw new Error('Runtime config not initialized');
+    throw new Error('Runtime config not initialized. Ensure window.__RUNTIME_CONFIG__ is set.');
   }
   return runtimeConfig;
 }
 
 export async function initializeFederation() {
-  const config = await fetch('/__runtime-config').then((r) => r.json()) as RuntimeConfig;
-  runtimeConfig = config;
-
-  console.log('[Federation] Registering dynamic remote:', {
-    name: config.ui.name,
-    entry: `${config.ui.url}/remoteEntry.js`,
-    alias: config.ui.name,
-  });
+  if (!window.__RUNTIME_CONFIG__) {
+    throw new Error('Runtime config not found. SSR should always inline __RUNTIME_CONFIG__.');
+  }
+  
+  runtimeConfig = window.__RUNTIME_CONFIG__;
 
   registerRemotes([
     {
-      name: config.ui.name,
-      entry: `${config.ui.url}/remoteEntry.js`,
-      alias: config.ui.name,
+      name: runtimeConfig.ui.name,
+      entry: `${runtimeConfig.ui.url}/remoteEntry.js`,
+      alias: runtimeConfig.ui.name,
     },
   ]);
 
-  return config;
+  return runtimeConfig;
 }

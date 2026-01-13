@@ -1,9 +1,13 @@
+import * as crypto from 'crypto';
 import { createPlugin } from 'every-plugin';
-import { Effect, Layer } from 'every-plugin/effect';
+import { Effect, Layer, Schedule } from 'every-plugin/effect';
+import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import { contract } from './contract';
+import { cleanupAbandonedDrafts } from './jobs/cleanup-drafts';
 import { createMarketplaceRuntime } from './runtime';
 import { ReturnAddressSchema, type OrderStatus, type TrackingInfo } from './schema';
+import { CheckoutService, CheckoutServiceLive } from './services/checkout';
 import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStoreLive } from './store';
@@ -25,8 +29,15 @@ export default createPlugin({
     PRINTFUL_API_KEY: z.string().optional(),
     PRINTFUL_STORE_ID: z.string().optional(),
     PRINTFUL_WEBHOOK_SECRET: z.string().optional(),
-    DATABASE_URL: z.string().default('file:./marketplace.db'),
-    DATABASE_AUTH_TOKEN: z.string().optional(),
+    PING_API_KEY: z.string().optional(),
+    PING_WEBHOOK_SECRET: z.string().optional(),
+    API_DATABASE_URL: z.string().default('file:./marketplace.db'),
+    API_DATABASE_AUTH_TOKEN: z.string().optional(),
+  }),
+
+  context: z.object({
+    nearAccountId: z.string().optional(),
+    reqHeaders: z.custom<Headers>().optional(),
   }),
 
   contract,
@@ -39,36 +50,61 @@ export default createPlugin({
           : null;
 
       const runtime = yield* Effect.promise(() =>
-        createMarketplaceRuntime({
-          printful: config.secrets.PRINTFUL_API_KEY && config.secrets.PRINTFUL_STORE_ID
-            ? {
-              apiKey: config.secrets.PRINTFUL_API_KEY,
-              storeId: config.secrets.PRINTFUL_STORE_ID,
-              webhookSecret: config.secrets.PRINTFUL_WEBHOOK_SECRET,
-            }
-            : undefined,
-          gelato:
-            config.secrets.GELATO_API_KEY && config.secrets.GELATO_WEBHOOK_SECRET
+        createMarketplaceRuntime(
+          {
+            printful: config.secrets.PRINTFUL_API_KEY && config.secrets.PRINTFUL_STORE_ID
               ? {
-                apiKey: config.secrets.GELATO_API_KEY,
-                webhookSecret: config.secrets.GELATO_WEBHOOK_SECRET,
-                returnAddress: config.variables.returnAddress,
+                apiKey: config.secrets.PRINTFUL_API_KEY,
+                storeId: config.secrets.PRINTFUL_STORE_ID,
+                webhookSecret: config.secrets.PRINTFUL_WEBHOOK_SECRET,
               }
               : undefined,
-        })
+            gelato:
+              config.secrets.GELATO_API_KEY && config.secrets.GELATO_WEBHOOK_SECRET
+                ? {
+                  apiKey: config.secrets.GELATO_API_KEY,
+                  webhookSecret: config.secrets.GELATO_WEBHOOK_SECRET,
+                  returnAddress: config.variables.returnAddress,
+                }
+                : undefined,
+          },
+          {
+            stripe: config.secrets.STRIPE_SECRET_KEY && config.secrets.STRIPE_WEBHOOK_SECRET
+              ? {
+                secretKey: config.secrets.STRIPE_SECRET_KEY,
+                webhookSecret: config.secrets.STRIPE_WEBHOOK_SECRET,
+              }
+              : undefined,
+            ping: {
+              apiKey: config.secrets.PING_API_KEY,
+              webhookSecret: config.secrets.PING_WEBHOOK_SECRET,
+            },
+          }
+        )
       );
 
-      const dbLayer = DatabaseLive(config.secrets.DATABASE_URL, config.secrets.DATABASE_AUTH_TOKEN);
+      const dbLayer = DatabaseLive(config.secrets.API_DATABASE_URL, config.secrets.API_DATABASE_AUTH_TOKEN);
 
       const appLayer = ProductServiceLive(runtime).pipe(
         Layer.provide(ProductStoreLive),
         Layer.provide(dbLayer)
       );
 
+      const checkoutLayer = CheckoutServiceLive(runtime).pipe(
+        Layer.provide(OrderStoreLive),
+        Layer.provide(ProductStoreLive),
+        Layer.provide(dbLayer)
+      );
+
       const orderLayer = OrderStoreLive.pipe(Layer.provide(dbLayer));
 
+      // Cache for NEAR price
+      const nearPriceCache: { price: number | null; cachedAt: number } = {
+        price: null,
+        cachedAt: 0,
+      };
+
       console.log('[Marketplace] Plugin initialized');
-      console.log(`[Marketplace] Database: ${config.secrets.DATABASE_URL}`);
       console.log(`[Marketplace] Providers: ${runtime.providers.map((p) => p.name).join(', ') || 'none'}`);
       console.log(`[Marketplace] Stripe: ${stripeService ? 'configured' : 'not configured'}`);
 
@@ -76,8 +112,10 @@ export default createPlugin({
         stripeService,
         runtime,
         appLayer,
+        checkoutLayer,
         orderLayer,
         secrets: config.secrets,
+        nearPriceCache,
       };
     }),
 
@@ -87,26 +125,20 @@ export default createPlugin({
     }),
 
   createRouter: (context, builder) => {
-    const { stripeService, runtime, appLayer, orderLayer, secrets } = context;
+    const { stripeService, runtime, appLayer, checkoutLayer, orderLayer, secrets, nearPriceCache } = context;
 
-    const orderToSchema = (order: any) => ({
-      id: order.id,
-      userId: order.userId,
-      productId: order.items[0]?.productId || '',
-      productName: order.items[0]?.productName || '',
-      quantity: order.items[0]?.quantity || 1,
-      totalAmount: order.totalAmount,
-      currency: order.currency,
-      status: order.status,
-      checkoutSessionId: order.checkoutSessionId,
-      checkoutProvider: order.checkoutProvider,
-      fulfillmentOrderId: order.fulfillmentOrderId,
-      fulfillmentReferenceId: order.fulfillmentReferenceId,
-      shippingAddress: order.shippingAddress,
-      trackingInfo: order.trackingInfo,
-      deliveryEstimate: order.deliveryEstimate,
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
+    const requireAuth = builder.middleware(async ({ context, next }) => {
+      if (!context.nearAccountId) {
+        throw new ORPCError('UNAUTHORIZED', {
+          message: 'Authentication required',
+          data: { authType: 'nearAccountId' }
+        });
+      }
+      return next({
+        context: {
+          nearAccountId: context.nearAccountId,
+        }
+      });
     });
 
     return {
@@ -189,117 +221,136 @@ export default createPlugin({
         );
       }),
 
-      createCheckout: builder.createCheckout.handler(async ({ input }) => {
-        if (!stripeService) {
-          throw new Error('Stripe is not configured');
+      getNearPrice: builder.getNearPrice.handler(async () => {
+        const COINGECKO_URL = 'https://api.coingecko.com/api/v3/simple/price?ids=near&vs_currencies=usd';
+        const CACHE_TTL = 60 * 1000; // 60 seconds
+        const FALLBACK_PRICE = 3.5;
+
+        const now = Date.now();
+        if (nearPriceCache.price && now - nearPriceCache.cachedAt < CACHE_TTL) {
+          return {
+            price: nearPriceCache.price,
+            currency: 'USD' as const,
+            source: 'coingecko',
+            cachedAt: nearPriceCache.cachedAt,
+          };
         }
 
-        if (!input.items || input.items.length === 0) {
-          throw new Error('At least one item is required');
-        }
+        try {
+          const response = await fetch(COINGECKO_URL);
+          if (!response.ok) {
+            throw new Error('Failed to fetch NEAR price');
+          }
+          const data = await response.json() as { near: { usd: number } };
+          const price = data.near.usd;
 
-        const firstItem = input.items[0]!;
-        const productResult = await Effect.runPromise(
+          nearPriceCache.price = price;
+          nearPriceCache.cachedAt = now;
+
+          return {
+            price,
+            currency: 'USD' as const,
+            source: 'coingecko',
+            cachedAt: now,
+          };
+        } catch (error) {
+          console.error('[getNearPrice] Failed to fetch from CoinGecko:', error);
+          return {
+            price: nearPriceCache.price || FALLBACK_PRICE,
+            currency: 'USD' as const,
+            source: nearPriceCache.price ? 'coingecko' : 'fallback',
+            cachedAt: nearPriceCache.cachedAt || now,
+          };
+        }
+      }),
+
+      updateProductListing: builder.updateProductListing.handler(async ({ input }) => {
+        return await Effect.runPromise(
           Effect.gen(function* () {
             const service = yield* ProductService;
-            return yield* service.getProduct(firstItem.productId);
+            return yield* service.updateProductListing(input.id, input.listed);
           }).pipe(Effect.provide(appLayer))
         );
-        const product = productResult.product;
+      }),
+      createCheckout: builder.createCheckout
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const result = await Effect.runPromise(
+            Effect.gen(function* () {
+              const service = yield* CheckoutService;
+              return yield* service.createCheckout({
+                userId: context.nearAccountId,
+                items: input.items,
+                address: input.shippingAddress,
+                selectedRates: input.selectedRates,
+                shippingCost: input.shippingCost,
+                successUrl: input.successUrl,
+                cancelUrl: input.cancelUrl,
+                paymentProvider: input.paymentProvider,
+              });
+            }).pipe(Effect.provide(checkoutLayer))
+          );
 
-        const selectedVariant = firstItem.variantId 
-          ? product.variants.find(v => v.id === firstItem.variantId)
-          : product.variants[0];
-        
-        const unitPrice = selectedVariant?.price ?? product.price;
-        const currency = selectedVariant?.currency ?? product.currency ?? 'USD';
+          return {
+            checkoutSessionId: result.checkoutSessionId,
+            checkoutUrl: result.checkoutUrl,
+            orderId: result.orderId,
+          };
+        }),
 
-        const userId = 'demo-user';
-        const totalAmount = unitPrice * firstItem.quantity;
+      quote: builder.quote.handler(async ({ input }) => {
+        try {
+          return await Effect.runPromise(
+            Effect.gen(function* () {
+              const service = yield* CheckoutService;
+              return yield* service.getQuote(input.items, input.shippingAddress);
+            }).pipe(Effect.provide(checkoutLayer))
+          );
+        } catch (error) {
+          throw new ORPCError('BAD_REQUEST', {
+            message: error instanceof Error ? error.message : 'Failed to calculate shipping',
+          });
+        }
+      }),
 
-        const order = await Effect.runPromise(
-          Effect.gen(function* () {
-            const store = yield* OrderStore;
-            return yield* store.create({
-              userId,
-              items: [{
-                productId: product.id,
-                variantId: selectedVariant?.id,
-                productName: product.title,
-                variantName: selectedVariant?.title,
-                quantity: firstItem.quantity,
-                unitPrice,
-                fulfillmentProvider: product.fulfillmentProvider,
-                fulfillmentConfig: selectedVariant?.fulfillmentConfig,
-              }],
-              totalAmount,
-              currency,
+      getOrders: builder.getOrders
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const result = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.findByUser(context.nearAccountId!, input);
+            }).pipe(Effect.provide(orderLayer))
+          );
+
+          return {
+            orders: result.orders,
+            total: result.total,
+          };
+        }),
+
+      getOrder: builder.getOrder
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const order = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.find(input.id);
+            }).pipe(Effect.provide(orderLayer))
+          );
+
+          if (!order) {
+            throw new Error('Order not found');
+          }
+
+          if (order.userId !== context.nearAccountId) {
+            throw new ORPCError('FORBIDDEN', {
+              message: 'You do not have permission to access this order'
             });
-          }).pipe(Effect.provide(orderLayer))
-        );
+          }
 
-        const checkout = await Effect.runPromise(
-          stripeService.createCheckoutSession({
-            orderId: order.id,
-            productName: product.title,
-            productDescription: product.description,
-            productImage: product.images[0]?.url,
-            unitAmount: Math.round(unitPrice * 100),
-            currency,
-            quantity: firstItem.quantity,
-            successUrl: input.successUrl,
-            cancelUrl: input.cancelUrl,
-          })
-        );
-
-        await Effect.runPromise(
-          Effect.gen(function* () {
-            const store = yield* OrderStore;
-            return yield* store.updateCheckout(order.id, checkout.sessionId, 'stripe');
-          }).pipe(Effect.provide(orderLayer))
-        );
-
-        return {
-          checkoutSessionId: checkout.sessionId,
-          checkoutUrl: checkout.url,
-          orderId: order.id,
-        };
-      }),
-
-      getOrders: builder.getOrders.handler(async ({ input }) => {
-        const userId = 'demo-user';
-        const result = await Effect.runPromise(
-          Effect.gen(function* () {
-            const store = yield* OrderStore;
-            return yield* store.findByUser(userId, input);
-          }).pipe(Effect.provide(orderLayer))
-        );
-
-        return {
-          orders: result.orders.map(orderToSchema),
-          total: result.total,
-        };
-      }),
-
-      getOrder: builder.getOrder.handler(async ({ input }) => {
-        const userId = 'demo-user';
-        const order = await Effect.runPromise(
-          Effect.gen(function* () {
-            const store = yield* OrderStore;
-            return yield* store.find(input.id);
-          }).pipe(Effect.provide(orderLayer))
-        );
-
-        if (!order) {
-          throw new Error('Order not found');
-        }
-
-        if (order.userId !== userId) {
-          throw new Error('Unauthorized');
-        }
-
-        return { order: orderToSchema(order) };
-      }),
+          return { order };
+        }),
 
       getOrderByCheckoutSession: builder.getOrderByCheckoutSession.handler(async ({ input }) => {
         const order = await Effect.runPromise(
@@ -309,8 +360,29 @@ export default createPlugin({
           }).pipe(Effect.provide(orderLayer))
         );
 
-        return { order: order ? orderToSchema(order) : null };
+        return { order };
       }),
+
+      getAllOrders: builder.getAllOrders
+        .use(requireAuth)
+        .handler(async ({ input }) => {
+          const result = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.findAll({
+                limit: input.limit,
+                offset: input.offset,
+                status: input.status,
+                search: input.search,
+              });
+            }).pipe(Effect.provide(orderLayer))
+          );
+
+          return {
+            orders: result.orders,
+            total: result.total,
+          };
+        }),
 
       stripeWebhook: builder.stripeWebhook.handler(async ({ input }) => {
         if (!stripeService) {
@@ -324,100 +396,146 @@ export default createPlugin({
         if (event.type === 'checkout.session.completed') {
           const session = event.data.object;
           const orderId = session.metadata?.orderId;
+          const draftOrderIdsJson = session.metadata?.draftOrderIds;
 
-          if (orderId) {
-            const fullSession = await Effect.runPromise(
-              stripeService.getCheckoutSession(session.id)
+          if (!orderId) {
+            console.log('[Stripe Webhook] No orderId in metadata, skipping');
+            return { received: true };
+          }
+
+          const order = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.find(orderId);
+            }).pipe(Effect.provide(orderLayer))
+          );
+
+          if (!order) {
+            console.error(`[Stripe Webhook] Order not found: ${orderId}`);
+            return { received: true };
+          }
+
+          if (order.status !== 'draft_created' && order.status !== 'pending') {
+            console.log(`[Stripe Webhook] Order ${orderId} already processed (status: ${order.status}), skipping`);
+            return { received: true };
+          }
+
+          await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              yield* store.updateStatus(orderId, 'paid');
+            }).pipe(Effect.provide(orderLayer))
+          );
+
+          if (!draftOrderIdsJson) {
+            console.log('[Stripe Webhook] No draft orders to confirm');
+            return { received: true };
+          }
+
+          try {
+            const draftOrderIds = JSON.parse(draftOrderIdsJson) as Record<string, string>;
+            const confirmationResults: Record<string, { success: boolean; error?: string }> = {};
+
+            for (const [providerName, draftId] of Object.entries(draftOrderIds)) {
+              if (providerName === 'manual') {
+                continue;
+              }
+
+              const provider = runtime.getProvider(providerName);
+              if (!provider) {
+                console.error(`[Stripe Webhook] Provider not found: ${providerName}`);
+                confirmationResults[providerName] = { 
+                  success: false, 
+                  error: 'Provider not configured' 
+                };
+                continue;
+              }
+
+              const confirmEffect = Effect.tryPromise({
+                try: () => provider.client.confirmOrder({ id: draftId }),
+                catch: (error) => 
+                  new Error(
+                    `Failed to confirm order at ${providerName}: ${
+                      error instanceof Error ? error.message : String(error)
+                    }`
+                  ),
+              }).pipe(
+                Effect.retry({ times: 3, schedule: Schedule.exponential('100 millis') })
+              );
+
+              try {
+                const result = await Effect.runPromise(confirmEffect);
+                confirmationResults[providerName] = { success: true };
+                console.log(`[Stripe Webhook] Confirmed draft order ${draftId} at ${providerName}: ${result.status}`);
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                confirmationResults[providerName] = { success: false, error: errorMessage };
+                console.error(`[Stripe Webhook] Failed to confirm ${providerName} draft ${draftId}:`, errorMessage);
+              }
+            }
+
+            const allSuccess = Object.values(confirmationResults).every(r => r.success);
+            const finalStatus = allSuccess ? 'processing' : 'paid_pending_fulfillment';
+
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(orderId, finalStatus);
+              }).pipe(Effect.provide(orderLayer))
             );
 
-            const shippingAddress = stripeService.extractShippingAddress(fullSession);
-
-            if (shippingAddress) {
-              await Effect.runPromise(
-                Effect.gen(function* () {
-                  const store = yield* OrderStore;
-                  yield* store.updateShipping(orderId, shippingAddress);
-                  yield* store.updateStatus(orderId, 'paid');
-                }).pipe(Effect.provide(orderLayer))
-              );
-
-              const order = await Effect.runPromise(
-                Effect.gen(function* () {
-                  const store = yield* OrderStore;
-                  return yield* store.find(orderId);
-                }).pipe(Effect.provide(orderLayer))
-              );
-
-              if (order && order.items.length > 0) {
-                const firstItem = order.items[0]!;
-                const fulfillmentProvider = firstItem.fulfillmentProvider || 'manual';
-
-                try {
-                  const provider = fulfillmentProvider !== 'manual'
-                    ? runtime.getProvider(fulfillmentProvider)
-                    : null;
-
-                  if (provider) {
-                    const fulfillmentOrder = await provider.client.createOrder({
-                      externalId: order.id,
-                      recipient: {
-                        name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
-                        company: shippingAddress.companyName,
-                        address1: shippingAddress.addressLine1,
-                        address2: shippingAddress.addressLine2,
-                        city: shippingAddress.city,
-                        stateCode: shippingAddress.state,
-                        countryCode: shippingAddress.country,
-                        zip: shippingAddress.postCode,
-                        phone: shippingAddress.phone,
-                        email: shippingAddress.email,
-                      },
-                      items: order.items.map(item => {
-                        const config = item.fulfillmentConfig;
-                        const providerData = config?.providerData as Record<string, unknown> | undefined;
-                        return {
-                          externalVariantId: config?.externalVariantId || undefined,
-                          variantId: providerData?.syncVariantId as number | undefined,
-                          productId: providerData?.catalogProductId as number | undefined,
-                          quantity: item.quantity,
-                          files: config?.designFiles?.length
-                            ? config.designFiles.map(df => ({ url: df.url, type: 'default', placement: df.placement }))
-                            : undefined,
-                        };
-                      }),
-                      retailCosts: {
-                        currency: order.currency,
-                      },
-                    });
-
-                    await Effect.runPromise(
-                      Effect.gen(function* () {
-                        const store = yield* OrderStore;
-                        yield* store.updateFulfillment(orderId, fulfillmentOrder.id);
-                      }).pipe(Effect.provide(orderLayer))
-                    );
-                  } else {
-                    console.log('[Fulfillment] Manual fulfillment - no automated order creation');
-                  }
-                } catch (error) {
-                  console.error('Failed to create fulfillment order:', error);
-                }
-              }
-            } else {
-              await Effect.runPromise(
-                Effect.gen(function* () {
-                  const store = yield* OrderStore;
-                  yield* store.updateStatus(orderId, 'paid');
-                }).pipe(Effect.provide(orderLayer))
-              );
+            if (!allSuccess) {
+              console.error(`[Stripe Webhook] Order ${orderId} has failed confirmations:`, confirmationResults);
             }
+          } catch (error) {
+            console.error('[Stripe Webhook] Error processing draft confirmations:', error);
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(orderId, 'paid_pending_fulfillment');
+              }).pipe(Effect.provide(orderLayer))
+            );
           }
         }
 
         return { received: true };
       }),
 
-      printfulWebhook: builder.printfulWebhook.handler(async ({ input }) => {
+      printfulWebhook: builder.printfulWebhook.handler(async ({ input, context }) => {
+        const webhookSecret = secrets.PRINTFUL_WEBHOOK_SECRET;
+        const signature = context.reqHeaders?.get('x-pf-webhook-signature') || input.signature || '';
+
+        if (webhookSecret && signature) {
+          try {
+            const secretBuffer = Buffer.from(webhookSecret, 'hex');
+            const expected = crypto
+              .createHmac('sha256', secretBuffer)
+              .update(input.body)
+              .digest('hex');
+
+            if (signature.length !== expected.length) {
+              console.error('[Printful Webhook] Signature length mismatch');
+              throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
+            }
+
+            const isValid = crypto.timingSafeEqual(
+              Buffer.from(signature, 'hex'),
+              Buffer.from(expected, 'hex')
+            );
+
+            if (!isValid) {
+              console.error('[Printful Webhook] Invalid signature');
+              throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
+            }
+          } catch (error) {
+            if (error instanceof ORPCError) throw error;
+            console.error('[Printful Webhook] Signature verification error:', error);
+            throw new ORPCError('UNAUTHORIZED', { message: 'Webhook signature verification failed' });
+          }
+        } else if (webhookSecret) {
+          console.warn('[Printful Webhook] No signature provided, skipping verification');
+        }
+
         try {
           const payload = JSON.parse(input.body);
           const eventType = payload.type;
@@ -447,6 +565,14 @@ export default createPlugin({
           let newTracking: TrackingInfo[] | undefined = undefined;
 
           switch (eventType) {
+            case 'order_created':
+              console.log(`[Printful Webhook] Order ${externalId} created at Printful`);
+              if (order.status === 'paid' || order.status === 'paid_pending_fulfillment') {
+                newStatus = 'processing';
+              }
+              break;
+
+            case 'shipment_sent':
             case 'package_shipped':
               newStatus = 'shipped';
               if (data.shipment) {
@@ -458,17 +584,32 @@ export default createPlugin({
               }
               break;
 
+            case 'shipment_returned':
+              newStatus = 'returned';
+              console.log(`[Printful Webhook] Shipment returned for order ${externalId}`);
+              break;
+
             case 'order_put_hold':
             case 'order_put_hold_approval':
-              console.log(`[Printful Webhook] Order ${externalId} put on hold`);
+              newStatus = 'on_hold';
+              console.log(`[Printful Webhook] Order ${externalId} put on hold: ${data?.reason || 'No reason provided'}`);
+              break;
+
+            case 'order_remove_hold':
+              if (order.status === 'on_hold') {
+                newStatus = 'processing';
+              }
+              console.log(`[Printful Webhook] Order ${externalId} hold removed`);
               break;
 
             case 'order_canceled':
               newStatus = 'cancelled';
+              console.log(`[Printful Webhook] Order ${externalId} cancelled: ${data?.reason || 'No reason provided'}`);
               break;
 
             case 'order_failed':
-              console.error(`[Printful Webhook] Order ${externalId} failed`);
+              newStatus = 'failed';
+              console.error(`[Printful Webhook] Order ${externalId} failed: ${data?.reason || 'No reason provided'}`);
               break;
 
             default:
@@ -483,6 +624,7 @@ export default createPlugin({
                 yield* store.updateStatus(externalId, statusToUpdate);
               }).pipe(Effect.provide(orderLayer))
             );
+            console.log(`[Printful Webhook] Updated order ${externalId} status to: ${statusToUpdate}`);
           }
 
           if (newTracking) {
@@ -493,8 +635,10 @@ export default createPlugin({
                 yield* store.updateTracking(externalId, trackingToUpdate);
               }).pipe(Effect.provide(orderLayer))
             );
+            console.log(`[Printful Webhook] Updated tracking for order ${externalId}`);
           }
         } catch (error) {
+          if (error instanceof ORPCError) throw error;
           console.error('[Printful Webhook] Error processing webhook:', error);
         }
 
@@ -589,6 +733,163 @@ export default createPlugin({
         }
 
         return { received: true };
+      }),
+
+      pingWebhook: builder.pingWebhook.handler(async ({ input, context }) => {
+        const pingProvider = runtime.getPaymentProvider('pingpay');
+        if (!pingProvider) {
+          console.error('[Ping Webhook] PingPay provider not configured');
+          throw new Error('PingPay provider not configured');
+        }
+
+        const signature = context.reqHeaders?.get('x-ping-signature') || '';
+        const timestamp = context.reqHeaders?.get('x-ping-timestamp') || '';
+        const body = JSON.stringify(input);
+
+        const webhookResult = await Effect.runPromise(
+          Effect.tryPromise({
+            try: async () => {
+              const result = await pingProvider.client.verifyWebhook({
+                body,
+                signature,
+                timestamp,
+              });
+              return result;
+            },
+            catch: (error) =>
+              new Error(`Webhook verification failed: ${error instanceof Error ? error.message : String(error)}`),
+          })
+        );
+
+        const eventType = webhookResult.eventType;
+        console.log(`[Ping Webhook] Received event: ${eventType}`);
+
+        const { orderId, sessionId } = webhookResult;
+
+        let order = orderId
+          ? await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                return yield* store.find(orderId);
+              }).pipe(Effect.provide(orderLayer))
+            )
+          : null;
+
+        if (!order && sessionId) {
+          order = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.findByCheckoutSession(sessionId);
+            }).pipe(Effect.provide(orderLayer))
+          );
+        }
+
+        if (!order) {
+          console.log(`[Ping Webhook] Order not found for sessionId: ${sessionId}, orderId: ${orderId}`);
+          return { received: true };
+        }
+
+        const resolvedOrderId = order.id;
+        const draftOrderIds = order.draftOrderIds || {};
+
+        switch (eventType) {
+          case 'payment.success':
+          case 'checkout.session.completed': {
+            if (order.status !== 'draft_created' && order.status !== 'pending' && order.status !== 'payment_pending') {
+              console.log(`[Ping Webhook] Order ${resolvedOrderId} already processed (status: ${order.status}), skipping`);
+              return { received: true };
+            }
+
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(resolvedOrderId, 'paid');
+              }).pipe(Effect.provide(orderLayer))
+            );
+
+            if (Object.keys(draftOrderIds).length === 0) {
+              console.log('[Ping Webhook] No draft orders to confirm');
+              return { received: true };
+            }
+
+            const confirmationResults: Record<string, { success: boolean; error?: string }> = {};
+
+            for (const [providerName, draftId] of Object.entries(draftOrderIds)) {
+              if (providerName === 'manual') {
+                confirmationResults[providerName] = { success: true };
+                continue;
+              }
+
+              const provider = runtime.getProvider(providerName);
+              if (!provider) {
+                console.error(`[Ping Webhook] Provider not found: ${providerName}`);
+                confirmationResults[providerName] = {
+                  success: false,
+                  error: 'Provider not configured',
+                };
+                continue;
+              }
+
+              const confirmEffect = Effect.tryPromise({
+                try: () => provider.client.confirmOrder({ id: draftId as string }),
+                catch: (error) =>
+                  new Error(
+                    `Failed to confirm order at ${providerName}: ${
+                      error instanceof Error ? error.message : String(error)
+                    }`
+                  ),
+              }).pipe(Effect.retry({ times: 3, schedule: Schedule.exponential('100 millis') }));
+
+              try {
+                const result = await Effect.runPromise(confirmEffect);
+                confirmationResults[providerName] = { success: true };
+                console.log(`[Ping Webhook] Confirmed draft order ${draftId} at ${providerName}: ${result.status}`);
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                confirmationResults[providerName] = { success: false, error: errorMessage };
+                console.error(`[Ping Webhook] Failed to confirm ${providerName} draft ${draftId}:`, errorMessage);
+              }
+            }
+
+            const allSuccess = Object.values(confirmationResults).every((r) => r.success);
+            const finalStatus: OrderStatus = allSuccess ? 'processing' : 'paid_pending_fulfillment';
+
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(resolvedOrderId, finalStatus);
+              }).pipe(Effect.provide(orderLayer))
+            );
+
+            if (!allSuccess) {
+              console.error(`[Ping Webhook] Order ${resolvedOrderId} has failed confirmations:`, confirmationResults);
+            }
+            break;
+          }
+
+          case 'payment.failed':
+            console.error(`[Ping Webhook] Payment failed for order ${resolvedOrderId}`);
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(resolvedOrderId, 'payment_failed');
+              }).pipe(Effect.provide(orderLayer))
+            );
+            break;
+
+          default:
+            console.log(`[Ping Webhook] Unhandled event type: ${eventType}`);
+        }
+
+        return { received: true };
+      }),
+
+      cleanupAbandonedDrafts: builder.cleanupAbandonedDrafts.handler(async ({ input }) => {
+        const maxAgeHours = input?.maxAgeHours || 24;
+
+        return await Effect.runPromise(
+          cleanupAbandonedDrafts(runtime, maxAgeHours).pipe(Effect.provide(orderLayer))
+        );
       }),
     };
   },

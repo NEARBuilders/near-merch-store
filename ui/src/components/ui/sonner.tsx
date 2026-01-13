@@ -17,6 +17,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      toastOptions={{
+        className: "tracking-tight font-[inherit]",
+        classNames: {
+          actionButton: "bg-foreground text-background hover:bg-foreground/90",
+          cancelButton: "bg-muted text-muted-foreground hover:bg-muted/80",
+        },
+      }}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,
@@ -29,7 +36,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--success-bg": "var(--popover)",
+          "--success-text": "var(--near-green)",
+          "--success-border": "var(--near-green)",
+          "--error-bg": "var(--popover)",
+          "--error-text": "var(--destructive)",
+          "--error-border": "var(--destructive)",
+          "--border-radius": "0px",
         } as React.CSSProperties
       }
       {...props}

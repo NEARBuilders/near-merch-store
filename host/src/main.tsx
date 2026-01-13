@@ -3,7 +3,6 @@ import {
   lazy,
   type FC,
   useState,
-  useEffect,
   type CSSProperties,
   useCallback,
 } from 'react';
@@ -13,7 +12,6 @@ import { getRuntimeConfig } from './federation';
 
 const RemoteApp = lazy(async () => {
   const config = getRuntimeConfig();
-  console.log("CONFIG", config);
   const module = await loadRemote<{ default: FC }>(`${config.ui.name}/App`);
   if (!module) throw new Error(`Failed to load ${config.ui.name}/App`);
   return module;
@@ -21,31 +19,6 @@ const RemoteApp = lazy(async () => {
 
 export const Main: FC = () => {
   const [retryKey, setRetryKey] = useState(0);
-
-  useEffect(() => {
-    const config = getRuntimeConfig();
-    document.title = config.title;
-
-    const handleTitleChange = (event: CustomEvent<{ title: string }>) => {
-      const remoteTitle = event.detail?.title;
-      const hostTitle = config.title;
-
-      if (remoteTitle && hostTitle) {
-        document.title = `${remoteTitle} | ${hostTitle}`;
-      }
-    };
-
-    window.addEventListener(
-      'near:title-change',
-      handleTitleChange as EventListener
-    );
-    return () => {
-      window.removeEventListener(
-        'near:title-change',
-        handleTitleChange as EventListener
-      );
-    };
-  }, []);
 
   const handleRetry = useCallback(() => {
     console.log('[Host] Retrying remote app load...');

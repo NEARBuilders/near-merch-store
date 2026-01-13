@@ -88,6 +88,18 @@ export default createPlugin({
           eventType: event.event,
         };
       }),
+
+      quoteOrder: builder.quoteOrder.handler(async ({ input }) => {
+        return await Effect.runPromise(service.quoteOrder(input));
+      }),
+
+      confirmOrder: builder.confirmOrder.handler(async ({ input }) => {
+        return await Effect.runPromise(service.confirmOrder(input.id));
+      }),
+
+      cancelOrder: builder.cancelOrder.handler(async ({ input }) => {
+        return await Effect.runPromise(service.cancelOrder(input.id));
+      }),
     };
   },
 });

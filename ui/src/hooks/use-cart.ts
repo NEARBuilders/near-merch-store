@@ -1,11 +1,11 @@
-import { useMemo } from "react";
 import {
-  useProductsByIds,
   requiresSize,
-  type Product,
+  useProductsByIds,
   type CartItem,
-} from "@/integrations/marketplace-api";
+  type Product,
+} from "@/integrations/api";
 import { useCartStore } from "@/stores/cart-store";
+import { useMemo } from "react";
 
 export interface CartItemWithProduct extends CartItem {
   product: Product;
@@ -22,23 +22,31 @@ export function useCart() {
   const items = useCartStore((state) => state.items);
   const addToCart = useCartStore((state) => state.addToCart);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
-  const updateSize = useCartStore((state) => state.updateSize);
   const removeItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
 
-  // Get product IDs and fetch product data
-  const productIds = useMemo(() => Object.keys(items), [items]);
+  // Get unique product IDs and fetch product data
+  const productIds = useMemo(() => {
+    const uniqueProductIds = new Set<string>();
+    Object.values(items).forEach((item) => {
+      uniqueProductIds.add(item.productId);
+    });
+    return Array.from(uniqueProductIds);
+  }, [items]);
+
   const { data: products, isLoading } = useProductsByIds(productIds);
 
-  // Memoize cart items with product data
   const cartItems: CartItemWithProduct[] = useMemo(() => {
-    return products
-      .map((product) => {
-        const item = items[product.id];
-        if (!item) return null;
-        return { ...item, product };
-      })
-      .filter(Boolean) as CartItemWithProduct[];
+    const result: CartItemWithProduct[] = [];
+
+    Object.values(items).forEach((item) => {
+      const product = products.find((p) => p.slug === item.productId);
+      if (product) {
+        result.push({ ...item, product });
+      }
+    });
+
+    return result;
   }, [products, items]);
 
   // Memoize computed values
@@ -64,7 +72,6 @@ export function useCart() {
     isLoading,
     addToCart,
     updateQuantity,
-    updateSize,
     removeItem,
     clearCart,
     requiresSize,

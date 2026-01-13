@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_marketplace")({
 
 function MarketplaceLayout() {
   return (
-    <div className="bg-background min-h-screen w-full font-['Red_Hat_Mono',monospace]">
+    <div className="bg-background min-h-screen w-full">
       <MarketplaceHeader />
 
       <main>

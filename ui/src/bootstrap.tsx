@@ -1,3 +1,4 @@
+import './public-path'; // must be first
 import { StrictMode } from 'react';
 import { ThemeProvider } from 'next-themes';
 import { RouterProvider, createRouter } from '@tanstack/react-router';

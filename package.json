@@ -1,35 +1,39 @@
 {
-  "name": "marketplace-demo",
+  "name": "monorepo",
   "private": true,
   "workspaces": [
     "api",
-    "host",
-    "ui"
+    "ui",
+    "host"
   ],
   "scripts": {
-    "dev": "turbo dev",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:slow": "SLOW_MO=2000 playwright test --headed --workers=1",
-    "test:e2e:flow": "SLOW_MO=1500 playwright test e2e/full-flow.spec.ts --headed",
-    "dev:ui": "USE_REMOTE_API=true turbo dev --filter=host --filter=marketplace_ui",
-    "dev:api": "USE_REMOTE_UI=true turbo dev --filter=host --filter=marketplace-api",
+    "test": "turbo test --filter=api",
+    "dev": "turbo dev --filter=api --filter=host --filter=ui",
+    "dev:ui": "API_SOURCE=remote turbo dev --filter=host --filter=ui",
+    "dev:api": "UI_SOURCE=remote turbo dev --filter=host --filter=api",
+    "dev:host": "UI_SOURCE=remote API_SOURCE=remote turbo dev --filter=host",
+    "dev:proxy": "API_PROXY=true turbo dev --filter=host --filter=ui",
     "start": "turbo preview --filter=host",
     "build": "turbo build",
-    "build:api": "turbo build --filter=marketplace-api",
+    "build:api": "turbo build --filter=api",
     "build:host": "turbo build --filter=host",
-    "build:ui": "turbo build --filter=marketplace_ui",
-    "deploy": "NODE_ENV=production turbo build --filter=marketplace_ui --filter=marketplace-api",
+    "build:ui": "turbo build --filter=ui",
+    "deploy": "NODE_ENV=production turbo build --filter=ui --filter=api",
     "typecheck": "turbo typecheck",
     "db:push": "turbo db:push",
     "db:studio": "turbo db:studio",
     "db:generate": "turbo db:generate",
-    "db:migrate": "turbo db:migrate"
+    "db:migrate": "turbo db:migrate",
+    "db:sync": "bun run scripts/sync-db.ts"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.45.1",
+    "nanoid": "^5.1.6"
+  },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
+    "drizzle-kit": "^0.31.8",
     "turbo": "^2.6.3"
   },
   "packageManager": "bun@1.2.20"
