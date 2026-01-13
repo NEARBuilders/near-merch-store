@@ -26,7 +26,7 @@ import {
   Minus,
   Plus,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 
 export const Route = createFileRoute("/_marketplace/products/$productId")({
   pendingComponent: LoadingSpinner,
@@ -161,6 +161,11 @@ function ProductDetailPage() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerImageIndex, setViewerImageIndex] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isManualImageSelection, setIsManualImageSelection] = useState(false);
+  
+  // Track previous color/size to detect actual changes (not initial mount)
+  const prevColorSizeRef = useRef<{ color: string; size: string } | null>(null);
+  const isInitialMountRef = useRef(true);
 
   const { data: relatedData } = useProducts({
     category: product.category,
@@ -171,29 +176,73 @@ function ProductDetailPage() {
     .slice(0, 3);
 
   // Determine display images (filter out 'detail' type/blueprints)
-  const validImages = product.images.filter(
-    (img: ProductImage) => img.type !== "detail"
+  // Keep a STABLE order - don't reorder when variant changes
+  const validImages = useMemo(
+    () => product.images.filter((img: ProductImage) => img.type !== "detail"),
+    [product.images]
   );
 
-  // STRICTLY prioritize images over design files.
-  const variantImage = validImages.find((img: ProductImage) =>
-    img.variantIds?.includes(selectedVariantId || "")
+  // Get stable image URLs array - maintain original order
+  const productImages = useMemo(
+    () => validImages.map((img: ProductImage) => img.url),
+    [validImages]
   );
 
-  const sortedImages = variantImage
-    ? [
-        variantImage,
-        ...validImages.filter((img: ProductImage) => img !== variantImage),
-      ]
-    : validImages;
+  // Find variant-specific image for the selected variant
+  const variantImage = useMemo(
+    () =>
+      validImages.find((img: ProductImage) =>
+        img.variantIds?.includes(selectedVariantId || "")
+      ),
+    [validImages, selectedVariantId]
+  );
 
-  const getProductImages = () => {
-    if (sortedImages.length > 0) {
-      return sortedImages.map((img: ProductImage) => img.url);
+  // Reset image index when product changes
+  useEffect(() => {
+    setCurrentImageIndex(0);
+    setIsManualImageSelection(false);
+    isInitialMountRef.current = true;
+    prevColorSizeRef.current = null;
+  }, [product.id]);
+
+  // When color/variant changes via color picker (not thumbnail click), update main image
+  useEffect(() => {
+    // Skip on initial mount - always start with first image
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      prevColorSizeRef.current = { color: selectedColor, size: selectedSize };
+      return;
     }
-    return [];
-  };
-  const productImages = getProductImages();
+
+    // Only auto-update if:
+    // 1. User didn't manually select an image via thumbnail
+    // 2. Color or size actually changed (not just a re-render)
+    const colorSizeChanged = 
+      prevColorSizeRef.current === null ||
+      prevColorSizeRef.current.color !== selectedColor ||
+      prevColorSizeRef.current.size !== selectedSize;
+
+    if (!isManualImageSelection && variantImage && colorSizeChanged) {
+      const variantImageIndex = validImages.findIndex(
+        (img) => img.id === variantImage.id
+      );
+      if (variantImageIndex !== -1 && variantImageIndex !== currentImageIndex) {
+        setCurrentImageIndex(variantImageIndex);
+      }
+    }
+
+    // Update ref for next comparison
+    prevColorSizeRef.current = { color: selectedColor, size: selectedSize };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedColor, selectedSize, variantImage, isManualImageSelection]);
+
+  // Reset manual selection flag after color/size changes settle
+  useEffect(() => {
+    if (isManualImageSelection) {
+      const timer = setTimeout(() => setIsManualImageSelection(false), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isManualImageSelection]);
 
   // Favorites should track the MAIN product
   const isFavorite = favoriteIds.includes(product.id);
@@ -268,6 +317,7 @@ function ProductDetailPage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      setIsManualImageSelection(true);
                       setCurrentImageIndex(
                         (prev) =>
                           (prev - 1 + productImages.length) %
@@ -282,6 +332,7 @@ function ProductDetailPage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      setIsManualImageSelection(true);
                       setCurrentImageIndex(
                         (prev) => (prev + 1) % productImages.length
                       );
@@ -304,20 +355,32 @@ function ProductDetailPage() {
             {productImages.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {productImages.map((img, index) => {
-                  const imageObj = sortedImages[index];
+                  // Use stable validImages array, not sortedImages
+                  const imageObj = validImages[index];
                   
                   return (
                     <button
-                      key={index}
+                      key={`${imageObj?.id || index}-${img}`}
                       onClick={() => {
+                        setIsManualImageSelection(true);
                         setCurrentImageIndex(index);
                         
+                        // Update color if this image is associated with a variant
+                        // Proper matching: Image → Variant(s) → Color (considering current Size)
                         if (imageObj?.variantIds?.length) {
-                          const variant = availableVariants.find(
+                          // Find variants that match this image
+                          const matchingVariants = availableVariants.filter(
                             (v) => imageObj.variantIds?.includes(v.id)
                           );
-                          if (variant) {
-                            const variantColor = getOptionValue(variant.attributes, "Color");
+                          
+                          if (matchingVariants.length > 0) {
+                            // Prefer variant that matches current size, otherwise use first match
+                            const preferredVariant = matchingVariants.find((v) => {
+                              const vSize = getOptionValue(v.attributes, "Size");
+                              return vSize === selectedSize;
+                            }) || matchingVariants[0];
+                            
+                            const variantColor = getOptionValue(preferredVariant.attributes, "Color");
                             if (variantColor && orderedColors.includes(variantColor)) {
                               setSelectedColor(variantColor);
                             }
@@ -390,7 +453,10 @@ function ProductDetailPage() {
                     return (
                       <button
                         key={color}
-                        onClick={() => setSelectedColor(color)}
+                        onClick={() => {
+                          setIsManualImageSelection(false);
+                          setSelectedColor(color);
+                        }}
                         className={cn(
                           "size-8 rounded-full border transition-all p-0.5 relative ring-offset-background",
                           isSelected
