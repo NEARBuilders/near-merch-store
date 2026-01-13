@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_marketplace/_page/privacy-policy")({
   component: PrivacyPolicy,
@@ -9,151 +9,239 @@ function PrivacyPolicy() {
     <>
       <h1 className="text-base font-normal mb-2">Privacy Policy</h1>
       <p className="text-sm text-muted-foreground mb-8">
-        Last updated: December 16, 2025
+        Last updated: January 12, 2026
       </p>
 
-      <div className="bg-muted/30 p-6 rounded-lg mb-8">
-        <p className="text-sm text-muted-foreground">
-          This is a placeholder for the Privacy Policy. Replace this content with your
-          actual privacy practices and policies.
-        </p>
-      </div>
+      <p className="text-muted-foreground mb-6">
+        NEAR Foundation ("we", "us", "our") is committed to protecting your privacy. This 
+        Privacy Policy describes how we collect, use, and share information when you use our 
+        merch store.
+      </p>
+
+      <p className="text-muted-foreground mb-6">
+        This policy applies specifically to the NEAR Merch Store. For NEAR's general privacy 
+        practices, please also review the{" "}
+        <a
+          href="https://near.org/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline"
+        >
+          NEAR Privacy Policy
+        </a>
+        .
+      </p>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">1. Introduction</h2>
+        <h2 className="text-xl font-semibold mb-4">1. Information We Collect</h2>
+        
+        <h3 className="text-lg font-medium mt-6 mb-3">Information You Provide</h3>
         <p className="text-muted-foreground mb-4">
-          [Placeholder: Introduce your commitment to privacy and the purpose of this policy.]
+          When you place an order, we collect:
         </p>
-      </section>
+        <ul className="list-disc pl-6 space-y-2 text-muted-foreground mb-4">
+          <li>Name (first and last)</li>
+          <li>Email address</li>
+          <li>Shipping address (street, city, state/province, postal code, country)</li>
+          <li>Phone number (optional, for delivery purposes)</li>
+          <li>Tax ID (required for certain countries, e.g., Brazil)</li>
+        </ul>
 
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">2. Information We Collect</h2>
-        <p className="text-muted-foreground mb-3">
-          [Placeholder: Describe the types of information collected from users:]
+        <h3 className="text-lg font-medium mt-6 mb-3">Account Information</h3>
+        <p className="text-muted-foreground mb-4">
+          When you sign in with your NEAR wallet, we collect:
         </p>
-        <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-          <li>Personal information (name, email, shipping address)</li>
-          <li>Payment information</li>
-          <li>NEAR wallet addresses</li>
-          <li>Browser and device information</li>
-          <li>Usage data and analytics</li>
+        <ul className="list-disc pl-6 space-y-2 text-muted-foreground mb-4">
+          <li>NEAR account ID (wallet address)</li>
+          <li>Public key associated with your account</li>
+          <li>Network (mainnet/testnet)</li>
+        </ul>
+        <p className="text-muted-foreground mb-4">
+          Note: NEAR wallet addresses are public on the blockchain by nature.
+        </p>
+
+        <h3 className="text-lg font-medium mt-6 mb-3">Order Information</h3>
+        <p className="text-muted-foreground mb-4">
+          We store details about your orders, including:
+        </p>
+        <ul className="list-disc pl-6 space-y-2 text-muted-foreground mb-4">
+          <li>Products purchased and quantities</li>
+          <li>Order total and currency</li>
+          <li>Order status and tracking information</li>
+          <li>Delivery estimates</li>
+        </ul>
+
+        <h3 className="text-lg font-medium mt-6 mb-3">Technical Information</h3>
+        <p className="text-muted-foreground mb-4">
+          We automatically collect certain technical information, including:
+        </p>
+        <ul className="list-disc pl-6 space-y-2 text-muted-foreground mb-4">
+          <li>IP address</li>
+          <li>Browser type and user agent</li>
+          <li>Session information</li>
         </ul>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">3. How We Use Your Information</h2>
+        <h2 className="text-xl font-semibold mb-4">2. How We Use Your Information</h2>
         <p className="text-muted-foreground mb-4">
-          [Placeholder: Explain how collected information is used - order processing,
-          communications, service improvement, etc.]
+          We use your information to:
+        </p>
+        <ul className="list-disc pl-6 space-y-2 text-muted-foreground mb-4">
+          <li>Process and fulfill your orders</li>
+          <li>Communicate with you about your orders (shipping updates, delivery confirmations)</li>
+          <li>Provide customer support</li>
+          <li>Process refunds and handle returns</li>
+          <li>Comply with legal obligations (tax reporting, fraud prevention)</li>
+          <li>Improve our services</li>
+        </ul>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">3. Information Sharing</h2>
+        <p className="text-muted-foreground mb-4">
+          We share your information with the following third parties to fulfill orders:
+        </p>
+
+        <h3 className="text-lg font-medium mt-6 mb-3">Fulfillment Partners</h3>
+        <p className="text-muted-foreground mb-4">
+          We work with print-on-demand fulfillment partners (such as Printful and Gelato) who 
+          produce and ship your orders. We share your shipping address and order details with 
+          these partners to fulfill your orders.
+        </p>
+
+        <h3 className="text-lg font-medium mt-6 mb-3">Payment Processors</h3>
+        <p className="text-muted-foreground mb-4">
+          We use third-party payment processors (such as Stripe and Pingpay) to process 
+          payments. Your payment information is handled directly by these processors according 
+          to their privacy policies.
+        </p>
+
+        <h3 className="text-lg font-medium mt-6 mb-3">Shipping Carriers</h3>
+        <p className="text-muted-foreground mb-4">
+          Your shipping information is shared with carriers to deliver your orders.
         </p>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">4. Information Sharing</h2>
+        <h2 className="text-xl font-semibold mb-4">4. Data Storage and Retention</h2>
         <p className="text-muted-foreground mb-4">
-          [Placeholder: Detail when and with whom information may be shared - payment processors,
-          shipping partners, legal requirements, etc.]
+          We retain your order information for as long as necessary to:
+        </p>
+        <ul className="list-disc pl-6 space-y-2 text-muted-foreground mb-4">
+          <li>Provide customer support for your orders</li>
+          <li>Comply with legal and tax requirements</li>
+          <li>Resolve disputes and enforce our agreements</li>
+        </ul>
+        <p className="text-muted-foreground mb-4">
+          Account information is retained while your account is active. You may request 
+          deletion of your account by contacting us.
         </p>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">5. Blockchain and Cryptocurrency</h2>
+        <h2 className="text-xl font-semibold mb-4">5. Your Rights</h2>
         <p className="text-muted-foreground mb-4">
-          [Placeholder: Explain privacy implications of blockchain transactions, wallet addresses
-          being public, and NEAR Protocol integration.]
+          Depending on your location, you may have certain rights regarding your personal 
+          information, including:
         </p>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">6. Cookies and Tracking</h2>
-        <p className="text-muted-foreground mb-4">
-          [Placeholder: Describe use of cookies, analytics tools, and tracking technologies.]
-        </p>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">7. Data Security</h2>
-        <p className="text-muted-foreground mb-4">
-          [Placeholder: Outline security measures taken to protect user information and
-          limitations of security.]
-        </p>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">8. Data Retention</h2>
-        <p className="text-muted-foreground mb-4">
-          [Placeholder: Explain how long different types of data are retained and deletion
-          policies.]
-        </p>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">9. Your Privacy Rights</h2>
-        <p className="text-muted-foreground mb-3">
-          [Placeholder: Detail user rights regarding their personal information:]
-        </p>
-        <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-          <li>Access and review your data</li>
-          <li>Request corrections or updates</li>
-          <li>Request deletion of your data</li>
-          <li>Opt-out of marketing communications</li>
+        <ul className="list-disc pl-6 space-y-2 text-muted-foreground mb-4">
+          <li>Access to your personal data</li>
+          <li>Correction of inaccurate data</li>
+          <li>Deletion of your data (subject to legal retention requirements)</li>
           <li>Data portability</li>
+          <li>Objection to processing</li>
+        </ul>
+        <p className="text-muted-foreground mb-4">
+          To exercise these rights, contact us at{" "}
+          <a
+            href="mailto:merch@near.foundation"
+            className="text-primary hover:underline"
+          >
+            merch@near.foundation
+          </a>
+          .
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">6. Cookies and Local Storage</h2>
+        <p className="text-muted-foreground mb-4">
+          We use cookies and browser local storage for authentication and functionality. 
+          For detailed information, see our{" "}
+          <Link to="/cookie-policy" className="text-primary hover:underline">
+            Cookie Policy
+          </Link>
+          .
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">7. Security</h2>
+        <p className="text-muted-foreground mb-4">
+          We implement appropriate technical and organizational measures to protect your 
+          information. However, no method of transmission over the Internet is 100% secure.
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">8. Children's Privacy</h2>
+        <p className="text-muted-foreground mb-4">
+          Our store is not intended for children under 18 years of age. We do not knowingly 
+          collect personal information from children under 18.
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">9. Changes to This Policy</h2>
+        <p className="text-muted-foreground mb-4">
+          We may update this Privacy Policy from time to time. We will notify you of any 
+          material changes by posting the new policy on this page with an updated "Last 
+          updated" date.
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">10. Contact Us</h2>
+        <p className="text-muted-foreground mb-4">
+          For questions about this Privacy Policy or to exercise your privacy rights, 
+          contact us at:
+        </p>
+        <ul className="list-none space-y-2 text-muted-foreground mb-4">
+          <li>
+            General inquiries:{" "}
+            <a
+              href="mailto:merch@near.foundation"
+              className="text-primary hover:underline"
+            >
+              merch@near.foundation
+            </a>
+          </li>
+          <li>
+            Legal inquiries:{" "}
+            <a
+              href="mailto:legal@near.org"
+              className="text-primary hover:underline"
+            >
+              legal@near.org
+            </a>
+          </li>
         </ul>
       </section>
 
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">10. Third-Party Services</h2>
-        <p className="text-muted-foreground mb-4">
-          [Placeholder: Describe integration with third-party services and their privacy
-          practices.]
-        </p>
-      </section>
+      <hr className="border-t border-border my-6" />
 
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">11. International Data Transfers</h2>
-        <p className="text-muted-foreground mb-4">
-          [Placeholder: If applicable, explain how data is transferred and protected
-          internationally.]
-        </p>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">12. Children's Privacy</h2>
-        <p className="text-muted-foreground mb-4">
-          [Placeholder: State policies regarding collection of information from children under
-          13.]
-        </p>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">13. Regional Privacy Laws</h2>
-        <p className="text-muted-foreground mb-4">
-          [Placeholder: Address GDPR (California), and other regional privacy
-          regulations as applicable.]
-        </p>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">14. Policy Updates</h2>
-        <p className="text-muted-foreground mb-4">
-          [Placeholder: Explain how users will be notified of privacy policy changes.]
-        </p>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">15. Contact Us</h2>
-        <p className="text-muted-foreground mb-4">
-          [Placeholder: Provide contact information for privacy-related questions and data
-          requests.]
-        </p>
-        <hr className="border-t border-border my-6" />
-        <p className="text-muted-foreground">
-          For privacy-related questions or to exercise your privacy rights, please contact us at{" "}
-          <a href="mailto:privacy@near.org" className="text-primary hover:underline">
-            privacy@near.org
-          </a>
-        </p>
-      </section>
+      <p className="text-muted-foreground">
+        See also: NEAR's general{" "}
+        <a
+          href="https://near.org/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline"
+        >
+          Privacy Policy
+        </a>
+      </p>
     </>
   );
 }

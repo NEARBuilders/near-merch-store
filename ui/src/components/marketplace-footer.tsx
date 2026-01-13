@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-// import { COLLECTIONS } from "@/integrations/api"; // HIDDEN: Collections feature
 import { NearWordmark } from "@/components/near-wordmark";
 
 export function MarketplaceFooter() {
@@ -16,23 +15,6 @@ export function MarketplaceFooter() {
               <NearWordmark className="text-foreground" />
             </a>
           </div>
-
-          {/* HIDDEN: Collections in footer - uncomment to restore */}
-          {/* <div>
-            <h4 className="font-semibold mb-4 text-foreground">Shop</h4>
-            <div className="space-y-4 mt-4">
-              {COLLECTIONS.map((c: string) => (
-                <Link
-                  key={c}
-                  to="/collections/$collection"
-                  params={{ collection: c.toLowerCase() }}
-                  className="block text-muted-foreground hover:text-primary transition-colors text-sm"
-                >
-                  {c}
-                </Link>
-              ))}
-            </div>
-          </div> */}
 
           <div>
             <h4 className="font-semibold mb-4 text-foreground">Shop</h4>
@@ -57,29 +39,23 @@ export function MarketplaceFooter() {
             <h4 className="font-semibold mb-4 text-foreground">Support</h4>
             <div className="space-y-4 mt-4">
               <a
-                href="#"
+                href="mailto:merch@near.foundation"
                 className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
               >
                 Contact Us
               </a>
-              <a
-                href="#"
-                className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
-              >
-                Shipping Info
-              </a>
-              <a
-                href="#"
-                className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
-              >
-                Returns
-              </a>
-              <a
-                href="#"
+              <Link
+                to="/faq"
                 className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
               >
                 FAQ
-              </a>
+              </Link>
+              <Link
+                to="/refunds-returns"
+                className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
+              >
+                Refunds &amp; Returns
+              </Link>
             </div>
           </div>
 
@@ -87,19 +63,9 @@ export function MarketplaceFooter() {
             <h4 className="font-semibold mb-4 text-foreground">Connect</h4>
             <div className="space-y-4 mt-4">
               <a
-                href="#"
-                className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
-              >
-                Twitter
-              </a>
-              <a
-                href="#"
-                className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
-              >
-                Discord
-              </a>
-              <a
-                href="#"
+                href="https://github.com/nearbuilders/near-merch-store"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="block text-muted-foreground hover:text-foreground transition-colors text-sm"
               >
                 GitHub
@@ -124,6 +90,12 @@ export function MarketplaceFooter() {
               className="text-muted-foreground hover:text-foreground transition-colors text-sm"
             >
               Terms of Service
+            </Link>
+            <Link
+              to="/cookie-policy"
+              className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+            >
+              Cookie Policy
             </Link>
           </div>
         </div>

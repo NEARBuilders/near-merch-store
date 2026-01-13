@@ -70,9 +70,9 @@ function CheckoutPage() {
     }
   };
 
-  const shippingCost = shippingQuote?.shippingCost || 0;
-  const tax = shippingQuote?.tax ?? subtotal * 0.08;
-  const total = shippingQuote?.total ?? subtotal + tax + shippingCost;
+  const shippingCost = shippingQuote?.shippingCost ?? 0;
+  const tax = shippingQuote?.tax ?? 0;
+  const total = shippingQuote?.total ?? subtotal;
   const nearAmount = (total / nearPrice).toFixed(2);
 
   const form = useForm({
@@ -759,7 +759,15 @@ function CheckoutPage() {
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-[#717182]">Tax</span>
-                  <span>${tax.toFixed(2)}</span>
+                  <span>
+                    {isCalculatingShipping ? (
+                      <span className="text-muted-foreground">Calculating...</span>
+                    ) : shippingQuote ? (
+                      `$${tax.toFixed(2)}`
+                    ) : (
+                      <span className="text-muted-foreground">Calculated with quote</span>
+                    )}
+                  </span>
                 </div>
               </div>
 

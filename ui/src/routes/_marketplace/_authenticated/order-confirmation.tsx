@@ -476,7 +476,7 @@ function OrderConfirmationPage() {
                           ).toLocaleDateString()} - ${new Date(
                             order.deliveryEstimate.maxDeliveryDate
                           ).toLocaleDateString()}`
-                        : "You'll receive tracking information once your order ships. Standard delivery takes 5-7 business days."}
+                        : "You'll receive tracking information once your order ships."}
                     </p>
                   </div>
                 </div>

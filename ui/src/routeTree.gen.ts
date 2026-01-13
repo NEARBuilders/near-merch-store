@@ -22,7 +22,10 @@ import { Route as MarketplaceCollectionsIndexRouteImport } from './routes/_marke
 import { Route as MarketplaceProductsProductIdRouteImport } from './routes/_marketplace/products/$productId'
 import { Route as MarketplaceCollectionsCollectionRouteImport } from './routes/_marketplace/collections/$collection'
 import { Route as MarketplacePageTermsOfServiceRouteImport } from './routes/_marketplace/_page/terms-of-service'
+import { Route as MarketplacePageRefundsReturnsRouteImport } from './routes/_marketplace/_page/refunds-returns'
 import { Route as MarketplacePagePrivacyPolicyRouteImport } from './routes/_marketplace/_page/privacy-policy'
+import { Route as MarketplacePageFaqRouteImport } from './routes/_marketplace/_page/faq'
+import { Route as MarketplacePageCookiePolicyRouteImport } from './routes/_marketplace/_page/cookie-policy'
 import { Route as MarketplaceAuthenticatedOrderConfirmationRouteImport } from './routes/_marketplace/_authenticated/order-confirmation'
 import { Route as MarketplaceAuthenticatedCheckoutRouteImport } from './routes/_marketplace/_authenticated/checkout'
 import { Route as MarketplaceAuthenticatedAccountRouteImport } from './routes/_marketplace/_authenticated/account'
@@ -104,10 +107,27 @@ const MarketplacePageTermsOfServiceRoute =
     path: '/terms-of-service',
     getParentRoute: () => MarketplacePageRoute,
   } as any)
+const MarketplacePageRefundsReturnsRoute =
+  MarketplacePageRefundsReturnsRouteImport.update({
+    id: '/refunds-returns',
+    path: '/refunds-returns',
+    getParentRoute: () => MarketplacePageRoute,
+  } as any)
 const MarketplacePagePrivacyPolicyRoute =
   MarketplacePagePrivacyPolicyRouteImport.update({
     id: '/privacy-policy',
     path: '/privacy-policy',
+    getParentRoute: () => MarketplacePageRoute,
+  } as any)
+const MarketplacePageFaqRoute = MarketplacePageFaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => MarketplacePageRoute,
+} as any)
+const MarketplacePageCookiePolicyRoute =
+  MarketplacePageCookiePolicyRouteImport.update({
+    id: '/cookie-policy',
+    path: '/cookie-policy',
     getParentRoute: () => MarketplacePageRoute,
   } as any)
 const MarketplaceAuthenticatedOrderConfirmationRoute =
@@ -191,7 +211,10 @@ export interface FileRoutesByFullPath {
   '/account': typeof MarketplaceAuthenticatedAccountRouteWithChildren
   '/checkout': typeof MarketplaceAuthenticatedCheckoutRoute
   '/order-confirmation': typeof MarketplaceAuthenticatedOrderConfirmationRoute
+  '/cookie-policy': typeof MarketplacePageCookiePolicyRoute
+  '/faq': typeof MarketplacePageFaqRoute
   '/privacy-policy': typeof MarketplacePagePrivacyPolicyRoute
+  '/refunds-returns': typeof MarketplacePageRefundsReturnsRoute
   '/terms-of-service': typeof MarketplacePageTermsOfServiceRoute
   '/collections/$collection': typeof MarketplaceCollectionsCollectionRoute
   '/products/$productId': typeof MarketplaceProductsProductIdRoute
@@ -214,7 +237,10 @@ export interface FileRoutesByTo {
   '/': typeof MarketplaceIndexRoute
   '/checkout': typeof MarketplaceAuthenticatedCheckoutRoute
   '/order-confirmation': typeof MarketplaceAuthenticatedOrderConfirmationRoute
+  '/cookie-policy': typeof MarketplacePageCookiePolicyRoute
+  '/faq': typeof MarketplacePageFaqRoute
   '/privacy-policy': typeof MarketplacePagePrivacyPolicyRoute
+  '/refunds-returns': typeof MarketplacePageRefundsReturnsRoute
   '/terms-of-service': typeof MarketplacePageTermsOfServiceRoute
   '/collections/$collection': typeof MarketplaceCollectionsCollectionRoute
   '/products/$productId': typeof MarketplaceProductsProductIdRoute
@@ -242,7 +268,10 @@ export interface FileRoutesById {
   '/_marketplace/_authenticated/account': typeof MarketplaceAuthenticatedAccountRouteWithChildren
   '/_marketplace/_authenticated/checkout': typeof MarketplaceAuthenticatedCheckoutRoute
   '/_marketplace/_authenticated/order-confirmation': typeof MarketplaceAuthenticatedOrderConfirmationRoute
+  '/_marketplace/_page/cookie-policy': typeof MarketplacePageCookiePolicyRoute
+  '/_marketplace/_page/faq': typeof MarketplacePageFaqRoute
   '/_marketplace/_page/privacy-policy': typeof MarketplacePagePrivacyPolicyRoute
+  '/_marketplace/_page/refunds-returns': typeof MarketplacePageRefundsReturnsRoute
   '/_marketplace/_page/terms-of-service': typeof MarketplacePageTermsOfServiceRoute
   '/_marketplace/collections/$collection': typeof MarketplaceCollectionsCollectionRoute
   '/_marketplace/products/$productId': typeof MarketplaceProductsProductIdRoute
@@ -268,7 +297,10 @@ export interface FileRouteTypes {
     | '/account'
     | '/checkout'
     | '/order-confirmation'
+    | '/cookie-policy'
+    | '/faq'
     | '/privacy-policy'
+    | '/refunds-returns'
     | '/terms-of-service'
     | '/collections/$collection'
     | '/products/$productId'
@@ -291,7 +323,10 @@ export interface FileRouteTypes {
     | '/'
     | '/checkout'
     | '/order-confirmation'
+    | '/cookie-policy'
+    | '/faq'
     | '/privacy-policy'
+    | '/refunds-returns'
     | '/terms-of-service'
     | '/collections/$collection'
     | '/products/$productId'
@@ -318,7 +353,10 @@ export interface FileRouteTypes {
     | '/_marketplace/_authenticated/account'
     | '/_marketplace/_authenticated/checkout'
     | '/_marketplace/_authenticated/order-confirmation'
+    | '/_marketplace/_page/cookie-policy'
+    | '/_marketplace/_page/faq'
     | '/_marketplace/_page/privacy-policy'
+    | '/_marketplace/_page/refunds-returns'
     | '/_marketplace/_page/terms-of-service'
     | '/_marketplace/collections/$collection'
     | '/_marketplace/products/$productId'
@@ -431,11 +469,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketplacePageTermsOfServiceRouteImport
       parentRoute: typeof MarketplacePageRoute
     }
+    '/_marketplace/_page/refunds-returns': {
+      id: '/_marketplace/_page/refunds-returns'
+      path: '/refunds-returns'
+      fullPath: '/refunds-returns'
+      preLoaderRoute: typeof MarketplacePageRefundsReturnsRouteImport
+      parentRoute: typeof MarketplacePageRoute
+    }
     '/_marketplace/_page/privacy-policy': {
       id: '/_marketplace/_page/privacy-policy'
       path: '/privacy-policy'
       fullPath: '/privacy-policy'
       preLoaderRoute: typeof MarketplacePagePrivacyPolicyRouteImport
+      parentRoute: typeof MarketplacePageRoute
+    }
+    '/_marketplace/_page/faq': {
+      id: '/_marketplace/_page/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof MarketplacePageFaqRouteImport
+      parentRoute: typeof MarketplacePageRoute
+    }
+    '/_marketplace/_page/cookie-policy': {
+      id: '/_marketplace/_page/cookie-policy'
+      path: '/cookie-policy'
+      fullPath: '/cookie-policy'
+      preLoaderRoute: typeof MarketplacePageCookiePolicyRouteImport
       parentRoute: typeof MarketplacePageRoute
     }
     '/_marketplace/_authenticated/order-confirmation': {
@@ -610,12 +669,18 @@ const MarketplaceAuthenticatedRouteWithChildren =
   )
 
 interface MarketplacePageRouteChildren {
+  MarketplacePageCookiePolicyRoute: typeof MarketplacePageCookiePolicyRoute
+  MarketplacePageFaqRoute: typeof MarketplacePageFaqRoute
   MarketplacePagePrivacyPolicyRoute: typeof MarketplacePagePrivacyPolicyRoute
+  MarketplacePageRefundsReturnsRoute: typeof MarketplacePageRefundsReturnsRoute
   MarketplacePageTermsOfServiceRoute: typeof MarketplacePageTermsOfServiceRoute
 }
 
 const MarketplacePageRouteChildren: MarketplacePageRouteChildren = {
+  MarketplacePageCookiePolicyRoute: MarketplacePageCookiePolicyRoute,
+  MarketplacePageFaqRoute: MarketplacePageFaqRoute,
   MarketplacePagePrivacyPolicyRoute: MarketplacePagePrivacyPolicyRoute,
+  MarketplacePageRefundsReturnsRoute: MarketplacePageRefundsReturnsRoute,
   MarketplacePageTermsOfServiceRoute: MarketplacePageTermsOfServiceRoute,
 }
 
