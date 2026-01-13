@@ -4,6 +4,7 @@ import {
   CollectionSchema,
   CreateCheckoutInputSchema,
   CreateCheckoutOutputSchema,
+  OrderStatusSchema,
   OrderWithItemsSchema,
   ProductCategorySchema,
   ProductSchema,
@@ -202,6 +203,29 @@ export const contract = oc.router({
     })
     .input(z.object({ sessionId: z.string() }))
     .output(z.object({ order: OrderWithItemsSchema.nullable() })),
+
+  getAllOrders: oc
+    .route({
+      method: 'GET',
+      path: '/admin/orders',
+      summary: 'List all orders (Admin)',
+      description: 'Returns a list of all orders. Requires admin authentication.',
+      tags: ['Admin'],
+    })
+    .input(
+      z.object({
+        limit: z.number().int().positive().max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+        status: OrderStatusSchema.optional(),
+        search: z.string().optional(),
+      })
+    )
+    .output(
+      z.object({
+        orders: z.array(OrderWithItemsSchema),
+        total: z.number(),
+      })
+    ),
 
   stripeWebhook: oc
     .route({

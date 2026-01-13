@@ -31,6 +31,10 @@ import { Route as MarketplaceAuthenticatedAccountIndexRouteImport } from './rout
 import { Route as MarketplaceAuthenticatedAccountOrdersRouteImport } from './routes/_marketplace/_authenticated/account/orders'
 import { Route as MarketplaceAuthenticatedAccountConnectedRouteImport } from './routes/_marketplace/_authenticated/account/connected'
 import { Route as MarketplaceAuthenticatedAdminDashboardRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard'
+import { Route as MarketplaceAuthenticatedAdminDashboardIndexRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/index'
+import { Route as MarketplaceAuthenticatedAdminDashboardUsersRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/users'
+import { Route as MarketplaceAuthenticatedAdminDashboardOrdersRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/orders'
+import { Route as MarketplaceAuthenticatedAdminDashboardInventoryRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/inventory'
 
 const MarketplaceRoute = MarketplaceRouteImport.update({
   id: '/_marketplace',
@@ -153,6 +157,30 @@ const MarketplaceAuthenticatedAdminDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => MarketplaceAuthenticatedAdminRoute,
   } as any)
+const MarketplaceAuthenticatedAdminDashboardIndexRoute =
+  MarketplaceAuthenticatedAdminDashboardIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => MarketplaceAuthenticatedAdminDashboardRoute,
+  } as any)
+const MarketplaceAuthenticatedAdminDashboardUsersRoute =
+  MarketplaceAuthenticatedAdminDashboardUsersRouteImport.update({
+    id: '/users',
+    path: '/users',
+    getParentRoute: () => MarketplaceAuthenticatedAdminDashboardRoute,
+  } as any)
+const MarketplaceAuthenticatedAdminDashboardOrdersRoute =
+  MarketplaceAuthenticatedAdminDashboardOrdersRouteImport.update({
+    id: '/orders',
+    path: '/orders',
+    getParentRoute: () => MarketplaceAuthenticatedAdminDashboardRoute,
+  } as any)
+const MarketplaceAuthenticatedAdminDashboardInventoryRoute =
+  MarketplaceAuthenticatedAdminDashboardInventoryRouteImport.update({
+    id: '/inventory',
+    path: '/inventory',
+    getParentRoute: () => MarketplaceAuthenticatedAdminDashboardRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/cart': typeof MarketplaceCartRoute
@@ -169,10 +197,14 @@ export interface FileRoutesByFullPath {
   '/products/$productId': typeof MarketplaceProductsProductIdRoute
   '/collections': typeof MarketplaceCollectionsIndexRoute
   '/products': typeof MarketplaceProductsIndexRoute
-  '/dashboard': typeof MarketplaceAuthenticatedAdminDashboardRoute
+  '/dashboard': typeof MarketplaceAuthenticatedAdminDashboardRouteWithChildren
   '/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
   '/account/': typeof MarketplaceAuthenticatedAccountIndexRoute
+  '/dashboard/inventory': typeof MarketplaceAuthenticatedAdminDashboardInventoryRoute
+  '/dashboard/orders': typeof MarketplaceAuthenticatedAdminDashboardOrdersRoute
+  '/dashboard/users': typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
+  '/dashboard/': typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/cart': typeof MarketplaceCartRoute
@@ -188,10 +220,13 @@ export interface FileRoutesByTo {
   '/products/$productId': typeof MarketplaceProductsProductIdRoute
   '/collections': typeof MarketplaceCollectionsIndexRoute
   '/products': typeof MarketplaceProductsIndexRoute
-  '/dashboard': typeof MarketplaceAuthenticatedAdminDashboardRoute
   '/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
   '/account': typeof MarketplaceAuthenticatedAccountIndexRoute
+  '/dashboard/inventory': typeof MarketplaceAuthenticatedAdminDashboardInventoryRoute
+  '/dashboard/orders': typeof MarketplaceAuthenticatedAdminDashboardOrdersRoute
+  '/dashboard/users': typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
+  '/dashboard': typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -213,10 +248,14 @@ export interface FileRoutesById {
   '/_marketplace/products/$productId': typeof MarketplaceProductsProductIdRoute
   '/_marketplace/collections/': typeof MarketplaceCollectionsIndexRoute
   '/_marketplace/products/': typeof MarketplaceProductsIndexRoute
-  '/_marketplace/_authenticated/_admin/dashboard': typeof MarketplaceAuthenticatedAdminDashboardRoute
+  '/_marketplace/_authenticated/_admin/dashboard': typeof MarketplaceAuthenticatedAdminDashboardRouteWithChildren
   '/_marketplace/_authenticated/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/_marketplace/_authenticated/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
   '/_marketplace/_authenticated/account/': typeof MarketplaceAuthenticatedAccountIndexRoute
+  '/_marketplace/_authenticated/_admin/dashboard/inventory': typeof MarketplaceAuthenticatedAdminDashboardInventoryRoute
+  '/_marketplace/_authenticated/_admin/dashboard/orders': typeof MarketplaceAuthenticatedAdminDashboardOrdersRoute
+  '/_marketplace/_authenticated/_admin/dashboard/users': typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
+  '/_marketplace/_authenticated/_admin/dashboard/': typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -239,6 +278,10 @@ export interface FileRouteTypes {
     | '/account/connected'
     | '/account/orders'
     | '/account/'
+    | '/dashboard/inventory'
+    | '/dashboard/orders'
+    | '/dashboard/users'
+    | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/cart'
@@ -254,10 +297,13 @@ export interface FileRouteTypes {
     | '/products/$productId'
     | '/collections'
     | '/products'
-    | '/dashboard'
     | '/account/connected'
     | '/account/orders'
     | '/account'
+    | '/dashboard/inventory'
+    | '/dashboard/orders'
+    | '/dashboard/users'
+    | '/dashboard'
   id:
     | '__root__'
     | '/_marketplace'
@@ -282,6 +328,10 @@ export interface FileRouteTypes {
     | '/_marketplace/_authenticated/account/connected'
     | '/_marketplace/_authenticated/account/orders'
     | '/_marketplace/_authenticated/account/'
+    | '/_marketplace/_authenticated/_admin/dashboard/inventory'
+    | '/_marketplace/_authenticated/_admin/dashboard/orders'
+    | '/_marketplace/_authenticated/_admin/dashboard/users'
+    | '/_marketplace/_authenticated/_admin/dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -444,17 +494,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketplaceAuthenticatedAdminDashboardRouteImport
       parentRoute: typeof MarketplaceAuthenticatedAdminRoute
     }
+    '/_marketplace/_authenticated/_admin/dashboard/': {
+      id: '/_marketplace/_authenticated/_admin/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof MarketplaceAuthenticatedAdminDashboardIndexRouteImport
+      parentRoute: typeof MarketplaceAuthenticatedAdminDashboardRoute
+    }
+    '/_marketplace/_authenticated/_admin/dashboard/users': {
+      id: '/_marketplace/_authenticated/_admin/dashboard/users'
+      path: '/users'
+      fullPath: '/dashboard/users'
+      preLoaderRoute: typeof MarketplaceAuthenticatedAdminDashboardUsersRouteImport
+      parentRoute: typeof MarketplaceAuthenticatedAdminDashboardRoute
+    }
+    '/_marketplace/_authenticated/_admin/dashboard/orders': {
+      id: '/_marketplace/_authenticated/_admin/dashboard/orders'
+      path: '/orders'
+      fullPath: '/dashboard/orders'
+      preLoaderRoute: typeof MarketplaceAuthenticatedAdminDashboardOrdersRouteImport
+      parentRoute: typeof MarketplaceAuthenticatedAdminDashboardRoute
+    }
+    '/_marketplace/_authenticated/_admin/dashboard/inventory': {
+      id: '/_marketplace/_authenticated/_admin/dashboard/inventory'
+      path: '/inventory'
+      fullPath: '/dashboard/inventory'
+      preLoaderRoute: typeof MarketplaceAuthenticatedAdminDashboardInventoryRouteImport
+      parentRoute: typeof MarketplaceAuthenticatedAdminDashboardRoute
+    }
   }
 }
 
+interface MarketplaceAuthenticatedAdminDashboardRouteChildren {
+  MarketplaceAuthenticatedAdminDashboardInventoryRoute: typeof MarketplaceAuthenticatedAdminDashboardInventoryRoute
+  MarketplaceAuthenticatedAdminDashboardOrdersRoute: typeof MarketplaceAuthenticatedAdminDashboardOrdersRoute
+  MarketplaceAuthenticatedAdminDashboardUsersRoute: typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
+  MarketplaceAuthenticatedAdminDashboardIndexRoute: typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
+}
+
+const MarketplaceAuthenticatedAdminDashboardRouteChildren: MarketplaceAuthenticatedAdminDashboardRouteChildren =
+  {
+    MarketplaceAuthenticatedAdminDashboardInventoryRoute:
+      MarketplaceAuthenticatedAdminDashboardInventoryRoute,
+    MarketplaceAuthenticatedAdminDashboardOrdersRoute:
+      MarketplaceAuthenticatedAdminDashboardOrdersRoute,
+    MarketplaceAuthenticatedAdminDashboardUsersRoute:
+      MarketplaceAuthenticatedAdminDashboardUsersRoute,
+    MarketplaceAuthenticatedAdminDashboardIndexRoute:
+      MarketplaceAuthenticatedAdminDashboardIndexRoute,
+  }
+
+const MarketplaceAuthenticatedAdminDashboardRouteWithChildren =
+  MarketplaceAuthenticatedAdminDashboardRoute._addFileChildren(
+    MarketplaceAuthenticatedAdminDashboardRouteChildren,
+  )
+
 interface MarketplaceAuthenticatedAdminRouteChildren {
-  MarketplaceAuthenticatedAdminDashboardRoute: typeof MarketplaceAuthenticatedAdminDashboardRoute
+  MarketplaceAuthenticatedAdminDashboardRoute: typeof MarketplaceAuthenticatedAdminDashboardRouteWithChildren
 }
 
 const MarketplaceAuthenticatedAdminRouteChildren: MarketplaceAuthenticatedAdminRouteChildren =
   {
     MarketplaceAuthenticatedAdminDashboardRoute:
-      MarketplaceAuthenticatedAdminDashboardRoute,
+      MarketplaceAuthenticatedAdminDashboardRouteWithChildren,
   }
 
 const MarketplaceAuthenticatedAdminRouteWithChildren =

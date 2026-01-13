@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import * as schema from "../db/schema";
 import type { CreateOrderInput, DeliveryEstimate, OrderItem, OrderStatus, OrderWithItems, ShippingAddress, TrackingInfo } from "../schema";
@@ -9,6 +9,7 @@ export class OrderStore extends Context.Tag("OrderStore")<
   {
     readonly create: (input: CreateOrderInput) => Effect.Effect<OrderWithItems, Error>;
     readonly find: (id: string) => Effect.Effect<OrderWithItems | null, Error>;
+    readonly findAll: (options: { limit?: number; offset?: number; status?: OrderStatus; search?: string }) => Effect.Effect<{ orders: OrderWithItems[]; total: number }, Error>;
     readonly findByUser: (userId: string, options: { limit?: number; offset?: number }) => Effect.Effect<{ orders: OrderWithItems[]; total: number }, Error>;
     readonly findByCheckoutSession: (checkoutSessionId: string) => Effect.Effect<OrderWithItems | null, Error>;
     readonly findByFulfillmentRef: (fulfillmentReferenceId: string) => Effect.Effect<OrderWithItems | null, Error>;
@@ -141,6 +142,50 @@ export const OrderStoreLive = Layer.effect(
         Effect.tryPromise({
           try: async () => findOrderById(id),
           catch: (error) => new Error(`Failed to find order: ${error}`),
+        }),
+
+      findAll: (options) =>
+        Effect.tryPromise({
+          try: async () => {
+            const { limit = 50, offset = 0, status, search } = options;
+
+            const conditions = [];
+
+            if (status) {
+              conditions.push(eq(schema.orders.status, status));
+            }
+
+            if (search) {
+              conditions.push(
+                or(
+                  like(schema.orders.id, `%${search}%`),
+                  like(schema.orders.userId, `%${search}%`)
+                )
+              );
+            }
+
+            const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+            const countResult = await db
+              .select({ count: sql<number>`count(*)` })
+              .from(schema.orders)
+              .where(whereClause);
+
+            const total = Number(countResult[0]?.count || 0);
+
+            const results = await db
+              .select()
+              .from(schema.orders)
+              .where(whereClause)
+              .orderBy(desc(schema.orders.createdAt))
+              .limit(limit)
+              .offset(offset);
+
+            const orders = await Promise.all(results.map(rowToOrder));
+
+            return { orders, total };
+          },
+          catch: (error) => new Error(`Failed to find all orders: ${error}`),
         }),
 
       findByUser: (userId, options) =>

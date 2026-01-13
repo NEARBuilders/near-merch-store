@@ -133,10 +133,13 @@ export const OrderStatusSchema = z.enum([
   'payment_failed',
   'expired',
   'processing',
+  'on_hold',
   'shipped',
   'delivered',
+  'returned',
   'cancelled',
   'partially_cancelled',
+  'failed',
   'refunded'
 ]);
 

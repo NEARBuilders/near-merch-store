@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { createPlugin } from 'every-plugin';
 import { Effect, Layer, Schedule } from 'every-plugin/effect';
 import { ORPCError } from 'every-plugin/orpc';
@@ -311,6 +312,27 @@ export default createPlugin({
         return { order };
       }),
 
+      getAllOrders: builder.getAllOrders
+        .use(requireAuth)
+        .handler(async ({ input }) => {
+          const result = await Effect.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              return yield* store.findAll({
+                limit: input.limit,
+                offset: input.offset,
+                status: input.status,
+                search: input.search,
+              });
+            }).pipe(Effect.provide(orderLayer))
+          );
+
+          return {
+            orders: result.orders,
+            total: result.total,
+          };
+        }),
+
       stripeWebhook: builder.stripeWebhook.handler(async ({ input }) => {
         if (!stripeService) {
           throw new Error('Stripe is not configured');
@@ -428,7 +450,41 @@ export default createPlugin({
         return { received: true };
       }),
 
-      printfulWebhook: builder.printfulWebhook.handler(async ({ input }) => {
+      printfulWebhook: builder.printfulWebhook.handler(async ({ input, context }) => {
+        const webhookSecret = secrets.PRINTFUL_WEBHOOK_SECRET;
+        const signature = context.reqHeaders?.get('x-pf-webhook-signature') || input.signature || '';
+
+        if (webhookSecret && signature) {
+          try {
+            const secretBuffer = Buffer.from(webhookSecret, 'hex');
+            const expected = crypto
+              .createHmac('sha256', secretBuffer)
+              .update(input.body)
+              .digest('hex');
+
+            if (signature.length !== expected.length) {
+              console.error('[Printful Webhook] Signature length mismatch');
+              throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
+            }
+
+            const isValid = crypto.timingSafeEqual(
+              Buffer.from(signature, 'hex'),
+              Buffer.from(expected, 'hex')
+            );
+
+            if (!isValid) {
+              console.error('[Printful Webhook] Invalid signature');
+              throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
+            }
+          } catch (error) {
+            if (error instanceof ORPCError) throw error;
+            console.error('[Printful Webhook] Signature verification error:', error);
+            throw new ORPCError('UNAUTHORIZED', { message: 'Webhook signature verification failed' });
+          }
+        } else if (webhookSecret) {
+          console.warn('[Printful Webhook] No signature provided, skipping verification');
+        }
+
         try {
           const payload = JSON.parse(input.body);
           const eventType = payload.type;
@@ -458,6 +514,14 @@ export default createPlugin({
           let newTracking: TrackingInfo[] | undefined = undefined;
 
           switch (eventType) {
+            case 'order_created':
+              console.log(`[Printful Webhook] Order ${externalId} created at Printful`);
+              if (order.status === 'paid' || order.status === 'paid_pending_fulfillment') {
+                newStatus = 'processing';
+              }
+              break;
+
+            case 'shipment_sent':
             case 'package_shipped':
               newStatus = 'shipped';
               if (data.shipment) {
@@ -469,17 +533,32 @@ export default createPlugin({
               }
               break;
 
+            case 'shipment_returned':
+              newStatus = 'returned';
+              console.log(`[Printful Webhook] Shipment returned for order ${externalId}`);
+              break;
+
             case 'order_put_hold':
             case 'order_put_hold_approval':
-              console.log(`[Printful Webhook] Order ${externalId} put on hold`);
+              newStatus = 'on_hold';
+              console.log(`[Printful Webhook] Order ${externalId} put on hold: ${data?.reason || 'No reason provided'}`);
+              break;
+
+            case 'order_remove_hold':
+              if (order.status === 'on_hold') {
+                newStatus = 'processing';
+              }
+              console.log(`[Printful Webhook] Order ${externalId} hold removed`);
               break;
 
             case 'order_canceled':
               newStatus = 'cancelled';
+              console.log(`[Printful Webhook] Order ${externalId} cancelled: ${data?.reason || 'No reason provided'}`);
               break;
 
             case 'order_failed':
-              console.error(`[Printful Webhook] Order ${externalId} failed`);
+              newStatus = 'failed';
+              console.error(`[Printful Webhook] Order ${externalId} failed: ${data?.reason || 'No reason provided'}`);
               break;
 
             default:
@@ -494,6 +573,7 @@ export default createPlugin({
                 yield* store.updateStatus(externalId, statusToUpdate);
               }).pipe(Effect.provide(orderLayer))
             );
+            console.log(`[Printful Webhook] Updated order ${externalId} status to: ${statusToUpdate}`);
           }
 
           if (newTracking) {
@@ -504,8 +584,10 @@ export default createPlugin({
                 yield* store.updateTracking(externalId, trackingToUpdate);
               }).pipe(Effect.provide(orderLayer))
             );
+            console.log(`[Printful Webhook] Updated tracking for order ${externalId}`);
           }
         } catch (error) {
+          if (error instanceof ORPCError) throw error;
           console.error('[Printful Webhook] Error processing webhook:', error);
         }
 

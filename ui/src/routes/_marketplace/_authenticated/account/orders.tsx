@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router';
+import { createFileRoute, useRouter, Link } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ExternalLink, Package } from 'lucide-react';
@@ -6,7 +6,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { apiClient } from '@/utils/orpc';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Link } from '@tanstack/react-router';
+import { getStatusLabel, getStatusColor } from '@/lib/order-status';
 
 export const Route = createFileRoute('/_marketplace/_authenticated/account/orders')({
   loader: () => apiClient.getOrders({ limit: 100, offset: 0 }),
@@ -16,36 +16,6 @@ export const Route = createFileRoute('/_marketplace/_authenticated/account/order
 });
 
 type Order = Awaited<ReturnType<typeof apiClient.getOrders>>['orders'][0];
-
-const statusLabels: Record<string, string> = {
-  pending: 'Pending',
-  draft_created: 'Awaiting Payment',
-  payment_pending: 'Payment Processing',
-  paid: 'Payment Received',
-  paid_pending_fulfillment: 'Processing Order',
-  processing: 'Processing',
-  printing: 'Printing',
-  shipped: 'Shipped',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  payment_failed: 'Payment Failed',
-  expired: 'Session Expired',
-};
-
-const statusColors: Record<string, string> = {
-  pending: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-  draft_created: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-  payment_pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  paid: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  paid_pending_fulfillment: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  processing: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  printing: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  shipped: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  delivered: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-  payment_failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-  expired: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-};
 
 function OrdersLoading() {
   return (
@@ -119,8 +89,8 @@ function OrdersPage() {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <Badge className={`${statusColors[row.original.status] || 'bg-gray-100 text-gray-800'}`}>
-            {statusLabels[row.original.status] || row.original.status}
+          <Badge className={getStatusColor(row.original.status)}>
+            {getStatusLabel(row.original.status)}
           </Badge>
         ),
       },
