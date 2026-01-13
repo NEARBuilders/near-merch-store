@@ -48,7 +48,7 @@ function CheckoutPage() {
         </h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <div className="border border-[rgba(0,0,0,0.1)] p-8">
+          <div className="border border-[rgba(0,0,0,0.1)] p-8" data-testid="order-summary">
             <div className="mb-6">
               <h2 className="text-base font-medium mb-6">Order Summary</h2>
 
@@ -151,6 +151,7 @@ function CheckoutPage() {
               <Link
                 to="/checkout/stripe"
                 className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left"
+                data-testid="pay-with-card-button"
               >
                 <div className="flex items-start gap-3">
                   <div className="size-10 bg-[#d6d3ff] flex items-center justify-center flex-shrink-0">

@@ -295,3 +295,7 @@ fabric.properties
 
 .turbotest-results/
 playwright-report/
+test-results/
+
+# Playwright auth storage state
+.auth/

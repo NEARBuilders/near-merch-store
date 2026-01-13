@@ -40,7 +40,7 @@ function CartPage() {
             <div className="lg:col-span-2">
               <div className="divide-y divide-border">
                 {cartItems.map((item) => (
-                  <div key={item.productId} className="py-6 flex flex-col md:flex-row gap-4 md:gap-6 items-center md:items-start text-center md:text-left">
+                  <div key={item.productId} className="py-6 flex flex-col md:flex-row gap-4 md:gap-6 items-center md:items-start text-center md:text-left" data-testid="cart-item">
                     <div className="bg-muted rounded size-32 md:size-24 shrink-0 overflow-hidden">
                       <img
                         src={item.product.images[0].url}
@@ -148,8 +148,8 @@ function CartPage() {
                   </span>
                 </div>
 
-                <Link to="/checkout">
-                  <Button className="w-full bg-primary text-primary-foreground dark:bg-white dark:text-black dark:hover:bg-white/90 hover:bg-primary/90">
+                <Link to="/checkout" data-testid="checkout-link">
+                  <Button className="w-full bg-primary text-primary-foreground dark:bg-white dark:text-black dark:hover:bg-white/90 hover:bg-primary/90" data-testid="checkout-button">
                     Checkout
                   </Button>
                 </Link>

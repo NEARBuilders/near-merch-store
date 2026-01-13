@@ -21,6 +21,7 @@ export function ProductCard({
       to="/products/$productId"
       params={{ productId: product.id }}
       className="group bg-card border border-border overflow-hidden cursor-pointer"
+      data-testid="product-card"
     >
       <div className="relative bg-muted aspect-square overflow-hidden">
         <img
@@ -42,6 +43,7 @@ export function ProductCard({
               onQuickAdd(product);
             }}
             className="bg-primary text-primary-foreground px-6 py-2 flex items-center gap-2 hover:bg-primary/90 transition-colors"
+            data-testid="quick-add-button"
           >
             <Plus className="size-4" aria-hidden="true" />
             QUICK ADD

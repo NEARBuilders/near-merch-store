@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+/**
+ * Complete Shopping Flow E2E Test
+ *
+ * Tests the full user journey: Home → Product → Cart → Checkout
+ * Uses data-testid attributes for reliable element selection.
+ */
 test('Complete shopping flow: Home → Product → Cart → Checkout', async ({ page }) => {
   // Step 1: Load home page
   console.log('Step 1: Loading home page...');
@@ -7,11 +13,11 @@ test('Complete shopping flow: Home → Product → Cart → Checkout', async ({ 
   await expect(page).toHaveTitle(/Near Merch/i);
   await page.waitForLoadState('networkidle');
 
-  // Step 2: Click on a product
+  // Step 2: Click on a product using data-testid
   console.log('Step 2: Clicking on a product...');
-  const productLink = page.locator('a[href*="/products/"]').first();
-  await expect(productLink).toBeVisible({ timeout: 10000 });
-  await productLink.click();
+  const productCard = page.locator('[data-testid="product-card"]').first();
+  await expect(productCard).toBeVisible({ timeout: 10000 });
+  await productCard.click();
 
   // Step 3: Verify product page loaded
   console.log('Step 3: On product page...');
@@ -40,9 +46,9 @@ test('Complete shopping flow: Home → Product → Cart → Checkout', async ({ 
   // Verify cart page
   await expect(page).toHaveURL('/cart');
 
-  // Step 6: Go to checkout
+  // Step 6: Go to checkout using data-testid
   console.log('Step 6: Going to checkout...');
-  const checkoutLink = page.locator('a[href*="/checkout"]');
+  const checkoutLink = page.locator('[data-testid="checkout-link"]');
 
   if (await checkoutLink.isVisible()) {
     await checkoutLink.click();
