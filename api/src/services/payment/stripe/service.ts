@@ -31,7 +31,7 @@ export class StripePaymentService {
             quantity: item.quantity,
           })),
           mode: 'payment',
-          success_url: `${input.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+          success_url: `${input.successUrl}?sessionId={CHECKOUT_SESSION_ID}`,
           cancel_url: input.cancelUrl,
           customer_email: input.customerEmail,
           metadata: {

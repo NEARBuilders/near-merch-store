@@ -981,30 +981,46 @@ export default createPlugin({
           );
 
           const webhookUrl = input.webhookUrlOverride || '';
-          const result = await Effect.runPromise(
-            printfulService.configureWebhooks({
-              defaultUrl: webhookUrl,
-              events: input.events,
-              expiresAt: input.expiresAt,
-            })
-          );
+          
+          let result;
+          try {
+            result = await Effect.runPromise(
+              printfulService.configureWebhooks({
+                defaultUrl: webhookUrl,
+                events: input.events,
+                expiresAt: input.expiresAt,
+              })
+            );
+          } catch (error) {
+            console.error('[configureWebhook] Failed to configure Printful webhooks:', error);
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : 'Failed to configure webhook',
+            });
+          }
 
-          await Effect.runPromise(
-            Effect.gen(function* () {
-              const store = yield* ProviderConfigStore;
-              yield* store.upsertConfig({
-                provider: input.provider,
-                enabled: true,
-                webhookUrl: result.webhookUrl,
-                webhookUrlOverride: webhookUrl,
-                enabledEvents: result.enabledEvents,
-                publicKey: result.publicKey,
-                secretKey: result.secretKey,
-                lastConfiguredAt: Date.now(),
-                expiresAt: result.expiresAt,
-              });
-            }).pipe(Effect.provide(providerLayer))
-          );
+          try {
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* ProviderConfigStore;
+                yield* store.upsertConfig({
+                  provider: input.provider,
+                  enabled: true,
+                  webhookUrl: result.webhookUrl,
+                  webhookUrlOverride: webhookUrl,
+                  enabledEvents: result.enabledEvents,
+                  publicKey: result.publicKey,
+                  secretKey: result.secretKey,
+                  lastConfiguredAt: Date.now(),
+                  expiresAt: result.expiresAt,
+                });
+              }).pipe(Effect.provide(providerLayer))
+            );
+          } catch (error) {
+            console.error('[configureWebhook] Failed to save webhook config:', error);
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : 'Failed to save webhook configuration',
+            });
+          }
 
           return {
             success: true,
@@ -1029,14 +1045,28 @@ export default createPlugin({
             secrets.PRINTFUL_STORE_ID!
           );
 
-          await Effect.runPromise(printfulService.disableWebhooks());
+          try {
+            await Effect.runPromise(printfulService.disableWebhooks());
+          } catch (error) {
+            console.error('[disableWebhook] Failed to disable Printful webhooks:', error);
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : 'Failed to disable webhook',
+            });
+          }
 
-          await Effect.runPromise(
-            Effect.gen(function* () {
-              const store = yield* ProviderConfigStore;
-              yield* store.clearWebhookConfig(input.provider);
-            }).pipe(Effect.provide(providerLayer))
-          );
+          try {
+            await Effect.runPromise(
+              Effect.gen(function* () {
+                const store = yield* ProviderConfigStore;
+                yield* store.clearWebhookConfig(input.provider);
+              }).pipe(Effect.provide(providerLayer))
+            );
+          } catch (error) {
+            console.error('[disableWebhook] Failed to clear webhook config:', error);
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : 'Failed to clear webhook configuration',
+            });
+          }
 
           return { success: true };
         }),

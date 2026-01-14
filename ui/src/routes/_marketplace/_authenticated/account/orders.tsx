@@ -135,7 +135,7 @@ function OrdersPage() {
                 asChild
                 className="h-8 px-2"
               >
-                <Link to="/order-confirmation" search={{ session_id: order.checkoutSessionId || '' }}>
+                <Link to="/order-confirmation" search={{ sessionId: order.checkoutSessionId || '' }}>
                   View Details
                 </Link>
               </Button>

@@ -1,5 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   CheckCircle,
   XCircle,
@@ -83,7 +84,7 @@ function ProvidersPage() {
   const testProvider = useTestProvider();
 
   const [webhookUrl, setWebhookUrl] = useState(() => 
-    typeof window !== 'undefined' ? `${window.location.origin}/api/rpc/printfulWebhook` : ""
+    typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/printful` : ""
   );
   const [selectedEvents, setSelectedEvents] = useState<PrintfulWebhookEventType[]>([
     "shipment_sent",
@@ -103,6 +104,15 @@ function ProvidersPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
+  const getErrorMessage = (err: unknown): string => {
+    if (err && typeof err === 'object') {
+      const error = err as { message?: string; json?: { message?: string } };
+      if (error.json?.message) return error.json.message;
+      if (error.message) return error.message;
+    }
+    return 'An unexpected error occurred';
+  };
+
   const handleConfigure = async () => {
     try {
       await configureWebhook.mutateAsync({
@@ -110,9 +120,12 @@ function ProvidersPage() {
         webhookUrlOverride: webhookUrl || undefined,
         events: selectedEvents,
       });
+      toast.success("Webhook configured successfully");
       setConfigDialogOpen(false);
       router.invalidate();
     } catch (err) {
+      const message = getErrorMessage(err);
+      toast.error("Failed to configure webhook", { description: message });
       console.error("Failed to configure webhook:", err);
     }
   };
@@ -120,8 +133,11 @@ function ProvidersPage() {
   const handleDisable = async () => {
     try {
       await disableWebhook.mutateAsync({ provider: "printful" });
+      toast.success("Webhook disabled successfully");
       router.invalidate();
     } catch (err) {
+      const message = getErrorMessage(err);
+      toast.error("Failed to disable webhook", { description: message });
       console.error("Failed to disable webhook:", err);
     }
   };
@@ -130,13 +146,14 @@ function ProvidersPage() {
     try {
       const result = await testProvider.mutateAsync({ provider: "printful" });
       if (result.success) {
-        alert("Connection test successful!");
+        toast.success("Connection test successful");
       } else {
-        alert(`Connection test failed: ${result.message || "Unknown error"}`);
+        toast.error("Connection test failed", { description: result.message || "Unknown error" });
       }
     } catch (err) {
+      const message = getErrorMessage(err);
+      toast.error("Connection test failed", { description: message });
       console.error("Failed to test provider:", err);
-      alert("Connection test failed");
     }
   };
 

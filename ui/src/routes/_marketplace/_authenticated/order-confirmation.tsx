@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 type SearchParams = {
   orderNumber?: string;
   email?: string;
-  session_id?: string;
+  sessionId?: string;
 };
 
 export const Route = createFileRoute("/_marketplace/_authenticated/order-confirmation")({
@@ -27,8 +27,8 @@ export const Route = createFileRoute("/_marketplace/_authenticated/order-confirm
     orderNumber:
       typeof search.orderNumber === "string" ? search.orderNumber : undefined,
     email: typeof search.email === "string" ? search.email : undefined,
-    session_id:
-      typeof search.session_id === "string" ? search.session_id : undefined,
+    sessionId:
+      typeof search.sessionId === "string" ? search.sessionId : undefined,
   }),
   component: OrderConfirmationPage,
 });
@@ -242,7 +242,7 @@ function StatusMessage({ status }: { status?: OrderStatus }) {
 const TERMINAL_STATUSES: OrderStatus[] = ['shipped', 'delivered', 'cancelled', 'failed', 'returned', 'refunded', 'on_hold', 'partially_cancelled'];
 
 function OrderConfirmationPage() {
-  const { session_id } = Route.useSearch();
+  const { sessionId } = Route.useSearch();
   const { clearCart } = useCart();
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -250,7 +250,7 @@ function OrderConfirmationPage() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!session_id) {
+    if (!sessionId) {
       setIsLoading(false);
       return;
     }
@@ -259,7 +259,7 @@ function OrderConfirmationPage() {
 
     (async () => {
       try {
-        const initialData = await apiClient.getOrderByCheckoutSession({ sessionId: session_id });
+        const initialData = await apiClient.getOrderByCheckoutSession({ sessionId: sessionId });
         if (initialData.order) {
           setOrder(initialData.order);
           setIsLoading(false);
@@ -270,7 +270,7 @@ function OrderConfirmationPage() {
         }
 
         const stream = await apiClient.subscribeOrderStatus(
-          { sessionId: session_id },
+          { sessionId: sessionId },
           { signal: abortController.signal }
         );
 
@@ -301,7 +301,7 @@ function OrderConfirmationPage() {
     })();
 
     return () => abortController.abort();
-  }, [session_id]);
+  }, [sessionId]);
 
   useEffect(() => {
     if (order && ['paid', 'processing', 'shipped', 'delivered'].includes(order.status)) {
