@@ -422,16 +422,17 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               });
             }
 
+            const paymentRequest = {
+              orderId: order.id,
+              amount: Math.round(totalAmount * 100),
+              currency,
+              items: lineItems,
+              successUrl,
+              cancelUrl,
+            };
+
             const checkout = yield* Effect.tryPromise({
-              try: () =>
-                paymentProvider.client.createCheckout({
-                  orderId: order.id,
-                  amount: Math.round(totalAmount * 100),
-                  currency,
-                  items: lineItems,
-                  successUrl,
-                  cancelUrl,
-                }),
+              try: () => paymentProvider.client.createCheckout(paymentRequest),
               catch: (error) => {
                 console.error(`[Checkout] Payment provider '${providerName}' createCheckout failed:`, error);
                 return new CheckoutError({
@@ -441,6 +442,16 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                   cause: error,
                 });
               },
+            });
+
+            yield* orderStore.updatePaymentDetails(order.id, {
+              provider: providerName,
+              request: paymentRequest,
+              response: {
+                sessionId: checkout.sessionId,
+                url: checkout.url,
+              },
+              createdAt: new Date().toISOString(),
             });
 
             yield* orderStore.updateCheckout(order.id, checkout.sessionId, providerName);

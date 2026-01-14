@@ -827,7 +827,7 @@ function CheckoutPage() {
                 <div className="mt-4 space-y-6">
                   <button
                     onClick={handlePayWithPing}
-                    disabled={checkoutMutation.isPending}
+                    disabled={!shippingQuote || checkoutMutation.isPending}
                     className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     data-testid="pay-with-card-button"
                   >

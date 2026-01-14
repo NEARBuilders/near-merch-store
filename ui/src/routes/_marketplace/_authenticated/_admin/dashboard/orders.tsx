@@ -1,13 +1,20 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ExternalLink, RefreshCw, Search, ShoppingBag } from "lucide-react";
+import { ExternalLink, RefreshCw, Search, ShoppingBag, ChevronDown, ChevronUp, CreditCard } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/utils/orpc";
 import { getStatusLabel, getStatusColor } from "@/lib/order-status";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/orders")({
   loader: () => apiClient.getAllOrders({ limit: 100, offset: 0 }),
@@ -39,6 +46,77 @@ function OrdersError({ error }: { error: Error }) {
       <Button onClick={() => router.invalidate()} variant="outline">
         Try Again
       </Button>
+    </div>
+  );
+}
+
+function PaymentDetailsView({ paymentDetails }: { paymentDetails: Record<string, unknown> }) {
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    request: true,
+    response: true,
+  });
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const request = paymentDetails.request as Record<string, unknown> | undefined;
+  const response = paymentDetails.response as Record<string, unknown> | undefined;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <span className="text-[#717182]">Provider:</span>
+          <span className="ml-2 font-medium">{String(paymentDetails.provider || 'N/A')}</span>
+        </div>
+        <div>
+          <span className="text-[#717182]">Created:</span>
+          <span className="ml-2 font-medium">
+            {paymentDetails.createdAt
+              ? new Date(String(paymentDetails.createdAt)).toLocaleString()
+              : 'N/A'}
+          </span>
+        </div>
+      </div>
+
+      {request && (
+        <div className="border rounded-lg">
+          <button
+            onClick={() => toggleSection('request')}
+            className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+          >
+            <span className="font-medium">Request Payload</span>
+            {expandedSections.request ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {expandedSections.request && (
+            <div className="p-3 border-t bg-muted/30">
+              <pre className="text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                {JSON.stringify(request, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {response && (
+        <div className="border rounded-lg">
+          <button
+            onClick={() => toggleSection('response')}
+            className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+          >
+            <span className="font-medium">Response</span>
+            {expandedSections.response ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {expandedSections.response && (
+            <div className="p-3 border-t bg-muted/30">
+              <pre className="text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                {JSON.stringify(response, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -129,9 +207,26 @@ function AdminOrdersPage() {
         cell: ({ row }) => {
           const order = row.original;
           const hasTracking = order.trackingInfo && order.trackingInfo.length > 0;
+          const hasPaymentDetails = order.paymentDetails && Object.keys(order.paymentDetails).length > 0;
 
           return (
             <div className="flex items-center gap-2">
+              {hasPaymentDetails && (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 px-2">
+                      <CreditCard className="h-3 w-3 mr-1" />
+                      Payment
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Payment Details</DialogTitle>
+                    </DialogHeader>
+                    <PaymentDetailsView paymentDetails={order.paymentDetails!} />
+                  </DialogContent>
+                </Dialog>
+              )}
               {hasTracking && (
                 <Button variant="outline" size="sm" asChild className="h-8 px-2">
                   <a

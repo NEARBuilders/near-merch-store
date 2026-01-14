@@ -105,6 +105,7 @@ export const orders = sqliteTable('orders', {
   checkoutSessionId: text('checkout_session_id'),
   checkoutProvider: text('checkout_provider'),
   draftOrderIds: text('draft_order_ids', { mode: 'json' }).$type<Record<string, string>>(),
+  paymentDetails: text('payment_details', { mode: 'json' }).$type<Record<string, unknown>>(),
 
   shippingMethod: text('shipping_method'),
   shippingAddress: text('shipping_address', { mode: 'json' }).$type<ShippingAddress>(),

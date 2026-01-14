@@ -188,7 +188,7 @@ describe('Printful Webhook Integration', () => {
       expect(result.received).toBe(true);
 
       const order = await client.getOrder({ id: orderId });
-      expect(order.order.status).toBe('processing');
+      expect(order.order.status).toBe('on_hold');
     });
 
     it('should handle order_failed webhook', async () => {

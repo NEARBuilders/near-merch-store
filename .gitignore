@@ -293,7 +293,8 @@ fabric.properties
 # db
 /**/*.db
 
-.turbotest-results/
+.turbo
+test-results/
 playwright-report/
 test-results/
 

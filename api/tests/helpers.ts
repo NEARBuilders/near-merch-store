@@ -42,6 +42,8 @@ export async function createTestProduct(productId: string, overrides: Partial<ty
   
   const productData: typeof schema.products.$inferInsert = {
     id: productId,
+    publicKey: productId.slice(-12),
+    slug: `test-product-${productId}`,
     name: `Test Product ${productId}`,
     description: 'Test product description',
     price: 2500,

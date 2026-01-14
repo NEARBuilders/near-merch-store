@@ -16,6 +16,7 @@ export class OrderStore extends Context.Tag("OrderStore")<
     readonly findAbandonedDrafts: (olderThanHours: number) => Effect.Effect<OrderWithItems[], Error>;
     readonly updateCheckout: (orderId: string, checkoutSessionId: string, checkoutProvider: 'stripe' | 'near' | 'pingpay') => Effect.Effect<OrderWithItems, Error>;
     readonly updateDraftOrderIds: (orderId: string, draftOrderIds: Record<string, string>) => Effect.Effect<OrderWithItems, Error>;
+    readonly updatePaymentDetails: (orderId: string, paymentDetails: Record<string, unknown>) => Effect.Effect<OrderWithItems, Error>;
     readonly updateStatus: (orderId: string, status: OrderStatus) => Effect.Effect<OrderWithItems, Error>;
     readonly updateShipping: (orderId: string, shippingAddress: ShippingAddress) => Effect.Effect<OrderWithItems, Error>;
     readonly updateFulfillment: (orderId: string, fulfillmentOrderId: string) => Effect.Effect<OrderWithItems, Error>;
@@ -64,6 +65,7 @@ export const OrderStoreLive = Layer.effect(
           ? row.checkoutProvider 
           : undefined,
         draftOrderIds: row.draftOrderIds || undefined,
+        paymentDetails: row.paymentDetails || undefined,
         shippingMethod: row.shippingMethod || undefined,
         shippingAddress: row.shippingAddress || undefined,
         fulfillmentOrderId: row.fulfillmentOrderId || undefined,
@@ -308,6 +310,26 @@ export const OrderStoreLive = Layer.effect(
             return order;
           },
           catch: (error) => new Error(`Failed to update draft order IDs: ${error}`),
+        }),
+
+      updatePaymentDetails: (orderId, paymentDetails) =>
+        Effect.tryPromise({
+          try: async () => {
+            await db
+              .update(schema.orders)
+              .set({
+                paymentDetails,
+                updatedAt: new Date(),
+              })
+              .where(eq(schema.orders.id, orderId));
+
+            const order = await findOrderById(orderId);
+            if (!order) {
+              throw new Error('Order not found');
+            }
+            return order;
+          },
+          catch: (error) => new Error(`Failed to update payment details: ${error}`),
         }),
 
       updateStatus: (orderId, status) =>
