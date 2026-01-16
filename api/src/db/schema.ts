@@ -20,6 +20,8 @@ export const products = sqliteTable('products', {
   source: text('source').notNull(),
   lastSyncedAt: integer('last_synced_at', { mode: 'timestamp' }),
   listed: integer('listed', { mode: 'boolean' }).notNull().default(true),
+  tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  groupId: text('group_id'),
 
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
@@ -32,6 +34,7 @@ export const products = sqliteTable('products', {
   index('public_key_idx').on(table.publicKey),
   index('slug_idx').on(table.slug),
   index('external_provider_idx').on(table.externalProductId, table.fulfillmentProvider), // Composite index for matching
+  index('group_id_idx').on(table.groupId),
 ]));
 
 export const productImages = sqliteTable('product_images', {

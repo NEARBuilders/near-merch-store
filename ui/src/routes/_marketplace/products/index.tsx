@@ -11,6 +11,7 @@ import {
   type Product,
   type ProductCategory,
 } from "@/integrations/api";
+import { groupProductsByGroupId } from "@/utils/product-grouping";
 import { queryClient } from "@/utils/orpc";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
@@ -40,7 +41,8 @@ function ProductsIndexPage() {
     limit: 100,
   });
 
-  const products = data?.products ?? [];
+  const rawProducts = data?.products ?? [];
+  const products = groupProductsByGroupId(rawProducts);
 
   const handleQuickAdd = (product: Product) => {
     setSizeModalProduct(product);

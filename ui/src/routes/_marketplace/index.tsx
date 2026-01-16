@@ -10,6 +10,7 @@ import {
   useFeaturedProducts,
   type Product
 } from "@/integrations/api";
+import { groupProductsByGroupId } from "@/utils/product-grouping";
 import { queryClient } from "@/utils/orpc";
 import {
   createFileRoute,
@@ -63,7 +64,8 @@ function MarketplaceHome() {
   const { data: featuredData, isError } = useFeaturedProducts(12);
   // const { data: collectionsData } = useSuspenseCollections(); // HIDDEN: Collections feature
 
-  const featuredProducts = featuredData?.products ?? [];
+  const rawProducts = featuredData?.products ?? [];
+  const featuredProducts = groupProductsByGroupId(rawProducts);
   // const collections = collectionsData. collections; // HIDDEN: Collections feature
 
   const handleQuickAdd = (product: Product) => {

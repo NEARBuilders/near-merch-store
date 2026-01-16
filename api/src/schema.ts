@@ -82,6 +82,7 @@ export const ProductSchema = z.object({
   source: z.string().optional(),
   tags: z.array(z.string()).default([]),
   vendor: z.string().optional(),
+  groupId: z.string().optional(),
   listed: z.boolean().default(true),
 });
 
@@ -281,6 +282,8 @@ export const ProductWithImagesSchema = z.object({
   fulfillmentProvider: z.string(),
   externalProductId: z.string().optional(),
   source: z.string(),
+  tags: z.array(z.string()).default([]),
+  groupId: z.string().optional(),
 });
 
 export const ProductCriteriaSchema = z.object({

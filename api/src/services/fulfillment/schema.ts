@@ -27,6 +27,7 @@ export const ProviderVariantSchema = z.object({
   colorCode: z.string().optional(),
   catalogVariantId: z.number().optional(),
   catalogProductId: z.number().optional(),
+  originalSourceId: z.union([z.string(), z.number()]).optional(), // Original product ID for fulfillment
   designFiles: z.array(DesignFileSchema).optional(),
   files: z.array(z.object({
     id: z.number().optional(),
@@ -39,9 +40,12 @@ export const ProviderVariantSchema = z.object({
 export const ProviderProductSchema = z.object({
   id: z.union([z.string(), z.number()]),
   sourceId: z.number().or(z.string()),
+  externalId: z.string().optional(),
   name: z.string(),
   description: z.string().optional(),
   thumbnailUrl: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  groupId: z.string().optional(),
   variants: z.array(ProviderVariantSchema),
 });
 

@@ -9,6 +9,7 @@ import {
   productLoaders,
   type ProductCategory,
 } from '@/integrations/api';
+import { groupProductsByGroupId } from '@/utils/product-grouping';
 import { queryClient } from '@/utils/orpc';
 
 type SearchParams = {
@@ -47,7 +48,8 @@ function SearchPage() {
     limit: 50,
   });
 
-  const products = q ? (searchData?.products ?? []) : (allProductsData?.products ?? []);
+  const rawProducts = q ? (searchData?.products ?? []) : (allProductsData?.products ?? []);
+  const products = groupProductsByGroupId(rawProducts);
 
   const sortedProducts = [...products].sort((a, b) => {
     if (sortBy === 'Price: Low to High') return a.price - b.price;

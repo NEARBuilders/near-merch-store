@@ -24,7 +24,8 @@
     "db:studio": "turbo db:studio",
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",
-    "db:sync": "bun run scripts/sync-db.ts"
+    "db:sync": "bun run scripts/sync-db.ts",
+    "products:sync": "bun run scripts/sync-products.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

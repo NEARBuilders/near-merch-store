@@ -1,4 +1,4 @@
-import { and, count, eq, like, lt } from 'drizzle-orm';
+import { and, count, eq, like, lt, sql } from 'drizzle-orm';
 import { Context, Effect, Layer } from 'every-plugin/effect';
 import * as schema from '../db/schema';
 import type { Product, ProductCategory, ProductCriteria, ProductImage, ProductVariant, ProductWithImages } from '../schema';
@@ -94,7 +94,8 @@ export const ProductStoreLive = Layer.effect(
         fulfillmentProvider: row.fulfillmentProvider,
         externalProductId: row.externalProductId || undefined,
         source: row.source,
-        tags: [],
+        tags: row.tags || [],
+        groupId: row.groupId || undefined,
         thumbnailImage: row.thumbnailImage || undefined,
         listed: row.listed ?? true,
       };
@@ -268,6 +269,8 @@ export const ProductStoreLive = Layer.effect(
                   source: product.source,
                   publicKey: existingProduct.publicKey || product.publicKey,
                   slug: existingProduct.slug || product.slug,
+                  tags: product.tags,
+                  groupId: product.groupId || null,
                   lastSyncedAt: now,
                   updatedAt: now,
                 })
@@ -338,7 +341,19 @@ export const ProductStoreLive = Layer.effect(
                   inStock: variant.inStock ?? true,
                   createdAt: now,
                 }))
-              );
+              ).onConflictDoUpdate({
+                target: schema.productVariants.id,
+                set: {
+                  name: sql`excluded.name`,
+                  sku: sql`excluded.sku`,
+                  price: sql`excluded.price`,
+                  currency: sql`excluded.currency`,
+                  attributes: sql`excluded.attributes`,
+                  externalVariantId: sql`excluded.external_variant_id`,
+                  fulfillmentConfig: sql`excluded.fulfillment_config`,
+                  inStock: sql`excluded.in_stock`,
+                }
+              });
             }
 
             const results = await db
@@ -353,7 +368,10 @@ export const ProductStoreLive = Layer.effect(
 
             return await rowToProduct(results[0]!);
           },
-          catch: (error) => new Error(`Failed to upsert product: ${error}`),
+          catch: (error) => {
+            console.error(`[ProductStore] Failed to upsert product: ${error}`);
+            return new Error(`Failed to upsert product: ${error}`);
+          },
         }),
 
       delete: (id) =>
