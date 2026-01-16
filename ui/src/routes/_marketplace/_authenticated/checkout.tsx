@@ -1,7 +1,7 @@
 import { useCart } from '@/hooks/use-cart';
 import { useNearPrice } from '@/hooks/use-near-price';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { ChevronLeft, Check, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
 import pingpayLogoDark from '@/assets/pingpay/pingpay-logo-dark.png';
 import pingpayLogoLight from '@/assets/pingpay/pingpay-logo-light.png';
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -222,25 +222,29 @@ function CheckoutPage() {
   };
 
   return (
-    <div className="bg-background min-h-screen">
-      <div className="border-b border-border">
-        <div className="container-app py-4">
+    <div className="bg-background min-h-screen pt-32">
+      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
+        {/* Back and Title Blocks */}
+        <div className="flex flex-row gap-4 mb-8">
+          {/* Back Block */}
           <Link
             to="/cart"
-            className="flex items-center gap-3 hover:opacity-70 transition-opacity"
+            className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
           >
-            <ChevronLeft className="size-4" />
-            <span className="text-sm">Back to Cart</span>
+            <ArrowLeft className="size-5" />
           </Link>
-        </div>
-      </div>
-      <div className="container-app py-8">
-        <h1 className="text-2xl font-medium mb-16 tracking-tight">
-          Shipping Address
-        </h1>
 
-        <div className="grid mt-6 grid-cols-1 lg:grid-cols-2 gap-12">
-          <div>
+          {/* Title Block */}
+          <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Shipping Address
+            </h1>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Form Block */}
+          <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
             <form className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <form.Field
@@ -261,6 +265,7 @@ function CheckoutPage() {
                         onKeyDown={(e) => handleKeyDown(e, 'lastName')}
                         autoComplete="given-name"
                         required
+                        className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                       />
                     </div>
                   )}
@@ -284,6 +289,7 @@ function CheckoutPage() {
                         onKeyDown={(e) => handleKeyDown(e, 'email')}
                         autoComplete="family-name"
                         required
+                        className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                       />
                     </div>
                   )}
@@ -309,6 +315,7 @@ function CheckoutPage() {
                       onKeyDown={(e) => handleKeyDown(e, 'addressLine1')}
                       autoComplete="email"
                       required
+                      className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                     />
                   </div>
                 )}
@@ -333,6 +340,7 @@ function CheckoutPage() {
                       onKeyDown={(e) => handleKeyDown(e, 'addressLine2')}
                       autoComplete="address-line1"
                       required
+                      className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                     />
                   </div>
                 )}
@@ -356,6 +364,7 @@ function CheckoutPage() {
                       onChange={(e) => field.handleChange(e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, 'city')}
                       autoComplete="address-line2"
+                      className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                     />
                   </div>
                 )}
@@ -379,6 +388,7 @@ function CheckoutPage() {
                       onKeyDown={(e) => handleKeyDown(e, 'country')}
                       autoComplete="address-level2"
                       required
+                      className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                     />
                   </div>
                 )}
@@ -417,7 +427,7 @@ function CheckoutPage() {
                           variant="outline"
                           role="combobox"
                           aria-expanded={countryOpen}
-                          className="w-full justify-between font-normal"
+                          className="w-full justify-between font-normal bg-background/70 border border-border/60 rounded-lg hover:border-[#00EC97] focus-visible:border-[#00EC97] transition-colors"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
@@ -488,7 +498,7 @@ function CheckoutPage() {
                               variant="outline"
                               role="combobox"
                               aria-expanded={stateOpen}
-                              className="w-full justify-between font-normal"
+                              className="w-full justify-between font-normal bg-background/70 border border-border/60 rounded-lg hover:border-[#00EC97] focus-visible:border-[#00EC97] transition-colors"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
@@ -553,6 +563,7 @@ function CheckoutPage() {
                         onChange={(e) => field.handleChange(e.target.value)}
                         autoComplete="postal-code"
                         required
+                        className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                       />
                     </div>
                   )}
@@ -586,6 +597,7 @@ function CheckoutPage() {
                         placeholder="000.000.000-00 or 00.000.000/0000-00"
                         maxLength={18}
                         required
+                        className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                       />
                       <p className="text-xs text-muted-foreground">
                         CPF (Individual): 000.000.000-00 • CNPJ (Business): 00.000.000/0000-00
@@ -619,6 +631,7 @@ function CheckoutPage() {
                         }}
                         placeholder="12.345.678-5"
                         maxLength={12}
+                        className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                       />
                       <p className="text-xs text-muted-foreground">
                         Chilean RUT format: 00.000.000-X
@@ -652,6 +665,7 @@ function CheckoutPage() {
                         }}
                         placeholder="P000000000000"
                         maxLength={13}
+                        className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                       />
                       <p className="text-xs text-muted-foreground">
                         Required for customs clearance in South Korea
@@ -666,7 +680,7 @@ function CheckoutPage() {
                   type="button"
                   onClick={() => handleCalculateShipping(form.state.values)}
                   disabled={isCalculatingShipping || quoteMutation.isPending}
-                  className="w-full"
+                  className="w-full bg-[#00EC97] text-black hover:bg-[#00d97f] transition-colors"
                   size="lg"
                 >
                   {isCalculatingShipping || quoteMutation.isPending ? (
@@ -681,16 +695,16 @@ function CheckoutPage() {
                   )}
                 </Button>
                 {shippingQuote && (
-                  <p className="text-sm text-green-600 mt-2 text-center">
+                  <p className="text-sm text-[#00EC97] mt-2 text-center font-medium">
                     ✓ Shipping calculated: ${shippingCost.toFixed(2)}
                   </p>
                 )}
                 {shippingError && (
-                  <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded">
+                  <div className="mt-3 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg">
                     <div className="flex gap-2">
-                      <span className="text-red-600 font-semibold shrink-0">⚠</span>
+                      <span className="text-red-600 dark:text-red-400 font-semibold shrink-0">⚠</span>
                       <div
-                        className="text-sm text-red-800"
+                        className="text-sm text-red-800 dark:text-red-300"
                         dangerouslySetInnerHTML={{ __html: shippingError }}
                       />
                     </div>
@@ -700,24 +714,42 @@ function CheckoutPage() {
             </form>
           </div>
 
-          <div>
-            <div className="border border-border p-8 mb-6" data-testid="order-summary">
+          {/* Order Summary Block */}
+          <div className="space-y-6">
+            <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8" data-testid="order-summary">
               <div className="mb-6">
-                <h2 className="text-base font-medium mb-6">Order Summary</h2>
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight mb-6">Order Summary</h2>
 
                 <div className="space-y-4">
-                  {cartItems.map((item) => (
+                  {cartItems.map((item) => {
+                    // Filter out mockup images and use only variant images
+                    const variantImages = item.product.images?.filter(
+                      (img) => img.type !== "mockup" && img.type !== "detail" && img.variantIds && img.variantIds.length > 0
+                    ) || [];
+                    const displayImage = 
+                      variantImages[0]?.url ||
+                      item.product.variants?.[0]?.fulfillmentConfig?.designFiles?.[0]?.url ||
+                      item.product.images?.find((img) => img.type !== "mockup" && img.type !== "detail")?.url;
+                    
+                    return (
                     <div key={item.productId} className="flex gap-4">
-                      <div className="size-20 bg-muted border border-border shrink-0 overflow-hidden">
-                        <img
-                          src={item.product.images[0].url}
-                          alt={item.product.title}
-                          className="size-full object-cover"
-                        />
+                      <div className="relative size-20 bg-muted border border-border/60 shrink-0 overflow-hidden rounded-lg">
+                        <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/40 to-background/90 dark:from-background/10 dark:via-background/60 dark:to-background z-0"></div>
+                        {displayImage ? (
+                          <img
+                            src={displayImage}
+                            alt={item.product.title}
+                            className="size-full object-cover relative z-10"
+                          />
+                        ) : (
+                          <div className="size-full flex items-center justify-center text-foreground/50 dark:text-muted-foreground relative z-10">
+                            No Image
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1">
                         <p className="text-base mb-1">{item.product.title}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-foreground/70 dark:text-muted-foreground">
                           {item.size !== "N/A" && `Size: ${item.size} • `}Qty:{" "}
                           {item.quantity}
                         </p>
@@ -726,7 +758,8 @@ function CheckoutPage() {
                         ${(item.product.price * item.quantity).toFixed(2)}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -734,68 +767,69 @@ function CheckoutPage() {
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <span className="text-foreground/70 dark:text-muted-foreground">Subtotal</span>
+                  <span className="text-foreground/90 dark:text-muted-foreground">${subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span>
+                  <span className="text-foreground/70 dark:text-muted-foreground">Shipping</span>
+                  <span className="text-foreground/90 dark:text-muted-foreground">
                     {isCalculatingShipping ? (
-                      <span className="text-muted-foreground">Calculating...</span>
+                      <span className="text-foreground/50 dark:text-muted-foreground">Calculating...</span>
                     ) : shippingQuote ? (
                       `$${shippingCost.toFixed(2)}`
                     ) : (
-                      <span className="text-muted-foreground">Waiting for shipping quote...</span>
+                      <span className="text-foreground/50 dark:text-muted-foreground">Waiting for shipping quote...</span>
                     )}
                   </span>
                 </div>
                 {shippingQuote?.estimatedDelivery && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Estimated Delivery</span>
-                    <span className="text-xs">
+                    <span className="text-foreground/70 dark:text-muted-foreground">Estimated Delivery</span>
+                    <span className="text-xs text-foreground/70 dark:text-muted-foreground">
                       {shippingQuote.estimatedDelivery.minDays}-{shippingQuote.estimatedDelivery.maxDays} business days
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span>
+                  <span className="text-foreground/70 dark:text-muted-foreground">Tax</span>
+                  <span className="text-foreground/90 dark:text-muted-foreground">
                     {isCalculatingShipping ? (
-                      <span className="text-muted-foreground">Calculating...</span>
+                      <span className="text-foreground/50 dark:text-muted-foreground">Calculating...</span>
                     ) : shippingQuote ? (
                       `$${tax.toFixed(2)}`
                     ) : (
-                      <span className="text-muted-foreground">Calculated with quote</span>
+                      <span className="text-foreground/50 dark:text-muted-foreground">Calculated with quote</span>
                     )}
                   </span>
                 </div>
               </div>
 
-              <div className="h-px bg-border mb-3" />
+              <div className="h-px bg-border/60 mb-3" />
 
               <div className="flex justify-between items-start">
-                <span className="text-base font-medium">Total</span>
+                <span className="text-lg font-semibold">Total</span>
                 <div className="text-right">
-                  <p className="text-base font-medium">${total.toFixed(2)}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-lg font-semibold">${total.toFixed(2)}</p>
+                  <p className="text-sm text-[#00EC97] font-medium">
                     {isLoadingNearPrice ? '...' : `≈ ${nearAmount} NEAR`}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-6 bg-muted border border-border p-4 flex flex-col sm:flex-row sm:items-center items-start justify-between gap-4">
-                <span className="text-sm">Apply Discount Code</span>
+              <div className="mt-6 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 p-4 flex flex-col sm:flex-row sm:items-center items-start justify-between gap-4">
+                <span className="text-sm text-foreground/90 dark:text-muted-foreground">Apply Discount Code</span>
                 <input
                   type="text"
                   placeholder="Enter Code"
                   value={discountCode}
                   onChange={(e) => setDiscountCode(e.target.value)}
-                  className="bg-background border border-border px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-neutral-950 transition-colors w-full sm:w-60"
+                  className="bg-background/70 border border-border/60 px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-[#00EC97] hover:border-border/60 transition-colors w-full sm:w-60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
             </div>
 
-            <div className="border border-border p-6 mb-6">
+            {/* Terms Checkbox Block */}
+            <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="terms"
@@ -805,21 +839,14 @@ function CheckoutPage() {
                 />
                 <label
                   htmlFor="terms"
-                  className="text-sm leading-relaxed cursor-pointer select-none"
+                  className="text-sm leading-relaxed cursor-pointer select-none text-foreground/90 dark:text-muted-foreground"
                 >
                   By checking this box, you agree to our{' '}
                   <Link
                     to="/terms-of-service"
-                    className="underline hover:text-neutral-950 transition-colors"
+                    className="underline hover:text-[#00EC97] transition-colors"
                   >
                     Terms of Service
-                  </Link>{' '}
-                  and acknowledge our{' '}
-                  <Link
-                    to="/disclaimer"
-                    className="underline hover:text-neutral-950 transition-colors"
-                  >
-                    Disclaimer
                   </Link>
                 </label>
               </div>
@@ -827,17 +854,19 @@ function CheckoutPage() {
 
             {acceptedTerms && (
               <>
-                <h2 className="text-base font-medium mb-6">
-                  Choose Payment Method
-                </h2>
+                {/* Payment Method Block */}
+                <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
+                  <h2 className="text-xl md:text-2xl font-bold tracking-tight mb-6">
+                    Choose Payment Method
+                  </h2>
 
-                <div className="mt-4 space-y-6">
-                  <button
-                    onClick={handlePayWithPing}
-                    disabled={!shippingQuote || checkoutMutation.isPending}
-                    className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                    data-testid="pay-with-card-button"
-                  >
+                  <div className="space-y-4">
+                    <button
+                      onClick={handlePayWithPing}
+                      disabled={!shippingQuote || checkoutMutation.isPending}
+                      className="block w-full rounded-lg border border-border/60 p-6 hover:border-[#00EC97] transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed bg-background/60 backdrop-blur-sm"
+                      data-testid="pay-with-card-button"
+                    >
                     <div className="flex items-start gap-3">
                       <div className="h-10 w-auto px-3 bg-[#1E1E1E] dark:bg-[#FBFAFF] flex items-center justify-center shrink-0 rounded-sm">
                         {checkoutMutation.isPending ? (
@@ -861,12 +890,13 @@ function CheckoutPage() {
                         <p className="font-medium mb-1">
                           {checkoutMutation.isPending ? 'Redirecting...' : 'Pingpay'}
                         </p>
-                        <p className="text-sm text-neutral-500">
+                        <p className="text-sm text-foreground/70 dark:text-muted-foreground">
                           Pay with USDC on NEAR
                         </p>
                       </div>
                     </div>
                   </button>
+                </div>
                 </div>
               </>
             )}

@@ -10,9 +10,14 @@ export function ThemeToggle() {
     };
 
     return (
-        <Button variant="ghost" size="icon" onClick={toggleTheme}>
-            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+        <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleTheme}
+            className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97] group"
+        >
+            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 group-hover:text-[#00EC97]" />
+            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 group-hover:text-[#00EC97]" />
             <span className="sr-only">Toggle theme</span>
         </Button>
     );

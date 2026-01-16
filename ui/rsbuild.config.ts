@@ -118,8 +118,9 @@ function createClientConfig() {
       printUrls: ({ urls }) => urls.filter((url) => url.includes("localhost")),
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS, HEAD",
+        "Access-Control-Allow-Headers": "Content-Type, Accept, Origin, X-Requested-With",
+        "Access-Control-Allow-Credentials": "true",
       },
     },
     tools: {

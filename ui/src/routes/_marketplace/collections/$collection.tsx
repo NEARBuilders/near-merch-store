@@ -129,11 +129,11 @@ function CollectionDetailPage() {
 
               <div className="flex gap-6 pt-4 border-t border-[rgba(0,0,0,0.1)]">
                 <div>
-                  <p className="text-muted-foreground text-sm tracking-[-0.48px] mb-1">Products</p>
+                  <p className="text-foreground/90 dark:text-muted-foreground text-sm tracking-[-0.48px] mb-1">Products</p>
                   <p className="tracking-[-0.48px]">{products.length}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground text-sm tracking-[-0.48px] mb-1">Category</p>
+                  <p className="text-foreground/90 dark:text-muted-foreground text-sm tracking-[-0.48px] mb-1">Category</p>
                   <p className="tracking-[-0.48px]">{collection.name}</p>
                 </div>
               </div>
@@ -171,7 +171,7 @@ function CollectionDetailPage() {
           <h2 className="text-xl font-medium text-foreground mb-4 tracking-[-0.48px]">
             Explore More Collections
           </h2>
-          <p className="text-muted-foreground tracking-[-0.48px] mb-8">
+          <p className="text-foreground/90 dark:text-muted-foreground tracking-[-0.48px] mb-8">
             Discover other curated NEAR Protocol merchandise collections
           </p>
           <Link to="/collections">

@@ -1,7 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { MarketplaceHeader } from "@/components/marketplace-header";
 import { MarketplaceFooter } from "@/components/marketplace-footer";
-import { DisclaimerBanner } from "@/components/disclaimer-banner";
 
 export const Route = createFileRoute("/_marketplace")({
   component: MarketplaceLayout,
@@ -9,12 +8,16 @@ export const Route = createFileRoute("/_marketplace")({
 
 function MarketplaceLayout() {
   return (
-    <div className="bg-background min-h-screen w-full">
-      <DisclaimerBanner />
+    <div className="min-h-screen w-full relative">
       <MarketplaceHeader />
 
-      <main>
+      <main className="border-0 relative">
+        {/* Gradient overlay from bottom (dark) to top (lighter) */}
+        <div className="fixed inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-0 pointer-events-none" style={{ height: '100vh' }}></div>
+        
+        <div className="relative z-10">
         <Outlet />
+        </div>
       </main>
 
       <MarketplaceFooter />

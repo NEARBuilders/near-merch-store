@@ -45,50 +45,56 @@ export function ImageViewer({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
-        className="absolute inset-0 bg-black/90"
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      <div className="relative w-full h-full md:h-auto md:max-w-[838px] md:mx-4 flex flex-col md:block justify-center">
-        <div className="relative flex items-center justify-center gap-6 h-full md:h-auto">
-          <button
-            onClick={handlePrevious}
-            className="absolute left-4 md:static z-20 size-12 bg-card/90 flex items-center justify-center hover:bg-card transition-colors shrink-0 rounded-full"
-            aria-label="Previous image"
-          >
-            <ChevronLeft className="size-4" />
-          </button>
-
-          <div className="relative md:bg-[#ececf0] md:aspect-square overflow-hidden md:shadow-lg max-w-[678px] w-full h-full md:h-auto flex items-center justify-center">
+      <div className="relative w-full h-full md:h-auto md:max-w-[838px] md:mx-4 flex flex-col md:block justify-center px-4 md:px-0">
+        <div className="relative flex items-center justify-center gap-4 md:gap-6 h-full md:h-auto">
+          {/* Image container with background block */}
+          <div className="relative bg-background/60 backdrop-blur-sm border border-border/60 rounded-2xl md:aspect-square overflow-hidden md:shadow-lg w-full max-w-[calc(100vw-2rem)] md:max-w-[678px] max-h-[80vh] md:h-auto flex items-center justify-center">
             <img
               src={images[currentIndex]}
               alt={`${productName} - Image ${currentIndex + 1}`}
               className="w-full h-full object-contain md:object-cover"
             />
 
+            {/* Close button - visible on both mobile and desktop */}
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 z-20 size-10 bg-card/90 flex items-center justify-center hover:bg-card transition-colors rounded-full"
+              className="absolute top-4 right-4 z-20 p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
               aria-label="Close image viewer"
             >
-              <X className="size-4" />
+              <X className="h-5 w-5 text-foreground group-hover:text-black" />
             </button>
-          </div>
 
-          <button
-            onClick={handleNext}
-            className="absolute right-4 md:static z-20 size-12 bg-card/90 flex items-center justify-center hover:bg-card transition-colors shrink-0 rounded-full"
-            aria-label="Next image"
-          >
-            <ChevronRight className="size-4" />
-          </button>
-        </div>
+            {/* Bottom controls - indicator left, navigation buttons right - inside block */}
+            <div className="absolute bottom-4 left-0 right-0 flex items-center justify-between px-4 z-20">
+              {/* Indicator - bottom left */}
+              <div className="px-4 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60">
+                <span className="text-sm text-foreground/90 dark:text-muted-foreground">
+                  {currentIndex + 1} / {images.length}
+                </span>
+              </div>
 
-        <div className="absolute bottom-8 left-0 right-0 md:static flex justify-center md:mt-6 z-20">
-          <div className="bg-card/90 px-3.5 py-2 rounded-full">
-            <span className="tracking-[-0.48px] text-sm">
-              {currentIndex + 1} / {images.length}
-            </span>
+              {/* Navigation buttons - bottom right (both mobile and desktop) */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrevious}
+                  className="p-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="h-6 w-6 text-foreground group-hover:text-black" />
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="p-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="h-6 w-6 text-foreground group-hover:text-black" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -64,7 +64,7 @@
   --primary-foreground: oklch(0.21 0.006 285.885);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
+  --muted: oklch(0.16 0.005 285.823);
   --muted-foreground: oklch(0.705 0.015 286.067);
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
@@ -171,11 +171,11 @@
   }
 
   .link-muted {
-    @apply text-muted-foreground hover:text-foreground transition-colors;
+    @apply text-foreground/90 dark:text-muted-foreground hover:text-foreground transition-colors;
   }
 
   .link-primary {
-    @apply text-muted-foreground hover:text-primary transition-colors;
+    @apply text-foreground/90 dark:text-muted-foreground hover:text-primary transition-colors;
   }
 
   .btn-near {
@@ -183,10 +183,19 @@
   }
 
   .badge-count {
-    @apply absolute -top-1 -right-1 bg-near-green text-near-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium;
+    @apply absolute -top-1 -right-1 bg-near-green text-near-black text-xs rounded-sm px-1.5 min-w-[18px] h-[18px] flex items-center justify-center font-medium z-10;
   }
 
   .section-padding {
     @apply py-12 md:py-16 lg:py-20;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

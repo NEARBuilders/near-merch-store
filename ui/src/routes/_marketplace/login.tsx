@@ -34,10 +34,19 @@ function LoginPage() {
   const recipient = import.meta.env.PUBLIC_ACCOUNT_ID || "every.near";
 
   useEffect(() => {
+    // Check if user is already connected and has session
+    const checkSession = async () => {
+      const { data: session } = await authClient.getSession();
     const existingAccountId = authClient.near.getAccountId();
-    if (existingAccountId) {
-      authClient.near.disconnect();
-    }
+      
+      // Only disconnect if there's a wallet connected but no valid session
+      if (existingAccountId && !session?.user) {
+        // Wallet connected but no session - might be stale connection
+        // Don't auto-disconnect, let user decide
+      }
+    };
+    
+    checkSession();
   }, []);
 
   const handleConnectWallet = async () => {
@@ -72,9 +81,13 @@ function LoginPage() {
       await authClient.signIn.near(
         { recipient },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
             queryClient.invalidateQueries();
-            window.location.href = "/cart";
+            // Wait a bit for session to be saved
+            await new Promise(resolve => setTimeout(resolve, 100));
+            // Use router navigation instead of hard redirect
+            const redirectUrl = new URLSearchParams(window.location.search).get('redirect') || '/cart';
+            window.location.href = redirectUrl;
           },
           onError: (error: any) => {
             setIsSigning(false);
@@ -120,20 +133,39 @@ function LoginPage() {
   };
 
   return (
-    <div className="bg-background min-h-screen w-full flex items-center justify-center py-16 px-4">
-      <div className="w-full max-w-md space-y-12">
-        <div className="text-center space-y-4">
-          <h1 className="text-3xl font-bold tracking-tight">Sign In</h1>
-          <p className="text-base text-muted-foreground">
+    <div className="bg-background h-screen w-full flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Video background - full page including footer */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+        >
+          <source src="https://videos.near.org/BKLDE_v001_NEAR_03_master_h264_small.mp4" type="video/mp4" />
+        </video>
+        {/* Overlay for better readability - only in dark mode */}
+        <div className="absolute inset-0 dark:bg-background/30" />
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Single Block */}
+        <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 py-8 md:py-10 space-y-6 text-center">
+          <div className="space-y-3">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground/90 dark:text-muted-foreground">
+              Sign In
+            </h1>
+            <p className="text-base text-foreground/90 dark:text-muted-foreground">
             {step === 1 
               ? "Connect your NEAR wallet to continue"
               : "Sign the message to complete authentication"}
           </p>
-          <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-foreground/90 dark:text-muted-foreground">
             Don't have a NEAR wallet?{" "}
             <button
               onClick={handleCreateWallet}
-              className="underline hover:text-foreground cursor-pointer"
+                className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
             >
               Create one here
             </button>
@@ -145,13 +177,13 @@ function LoginPage() {
             <button
               onClick={handleConnectWallet}
               disabled={isConnecting}
-              className="w-full bg-foreground text-background px-6 py-4 flex items-center justify-center gap-3 hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#00EC97] text-black px-6 py-4 flex items-center justify-center gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-semibold"
             >
               <div className="size-5 overflow-hidden flex items-center justify-center">
                 <img
                   src={nearLogo}
                   alt="NEAR"
-                  className="w-full h-full object-contain invert dark:invert-0"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <span className="text-sm font-medium">
@@ -160,21 +192,21 @@ function LoginPage() {
             </button>
           ) : (
             <>
-              <div className="bg-muted/50 border border-border px-4 py-4">
-                <p className="text-xs text-muted-foreground mb-1">Connected wallet</p>
-                <p className="text-sm font-medium truncate">{connectedAccountId}</p>
+              <div className="rounded-lg bg-background/40 border border-border/60 px-4 py-4">
+                <p className="text-xs text-foreground/80 dark:text-muted-foreground/60 mb-1">Connected wallet</p>
+                <p className="text-sm font-medium truncate text-foreground/90 dark:text-muted-foreground">{connectedAccountId}</p>
               </div>
               
               <button
                 onClick={handleSignMessage}
                 disabled={isSigning}
-                className="w-full bg-foreground text-background px-6 py-4 flex items-center justify-center gap-3 hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#00EC97] text-black px-6 py-4 flex items-center justify-center gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-semibold"
               >
                 <div className="size-5 overflow-hidden flex items-center justify-center">
                   <img
                     src={nearLogo}
                     alt="NEAR"
-                    className="w-full h-full object-contain invert dark:invert-0"
+                    className="w-full h-full object-contain"
                   />
                 </div>
                 <span className="text-sm font-medium">
@@ -185,20 +217,21 @@ function LoginPage() {
               <button
                 onClick={handleDisconnect}
                 disabled={isSigning}
-                className="w-full text-muted-foreground px-4 py-2 flex items-center justify-center hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full text-foreground/90 dark:text-muted-foreground px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="text-xs underline">Use a different wallet</span>
               </button>
             </>
           )}
-        </div>
 
-        <div className="text-center text-xs text-muted-foreground">
+            <div className="text-center text-xs text-foreground/80 dark:text-muted-foreground/60 pt-2">
           {step === 1 ? (
             <p>Step 1 of 2</p>
           ) : (
             <p>Step 2 of 2 · Free, no transaction required</p>
           )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

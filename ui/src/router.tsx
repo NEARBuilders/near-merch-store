@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import {
   createBrowserHistory,
   createRouter as createTanStackRouter,
+  Link,
 } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import "./styles.css";
@@ -13,16 +14,46 @@ export type {
 
 function NotFoundComponent() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-foreground mb-4">404</h1>
-        <p className="text-muted-foreground mb-8">Page not found</p>
-        <a
-          href="/"
-          className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+    <div className="bg-background h-screen w-full flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Video background - full page */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover"
         >
-          Go Home
-        </a>
+          <source src="https://videos.near.org/BKLDE_v001_NEAR_03_master_h264_small.mp4" type="video/mp4" />
+        </video>
+        {/* Overlay for better readability - only in dark mode */}
+        <div className="absolute inset-0 dark:bg-background/30" />
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Single Block */}
+        <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 py-8 md:py-10 space-y-6 text-center">
+          <div className="space-y-3">
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground/90 dark:text-muted-foreground">
+              404
+            </h1>
+            <p className="text-xl md:text-2xl font-semibold text-foreground/90 dark:text-muted-foreground">
+              Page Not Found
+            </p>
+            <p className="text-base text-foreground/90 dark:text-muted-foreground">
+              The page you're looking for doesn't exist or has been moved.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <Link
+              to="/"
+              className="w-full bg-[#00EC97] text-black px-6 py-4 flex items-center justify-center gap-3 hover:bg-[#00d97f] transition-colors rounded-lg font-semibold"
+            >
+              <span className="text-sm font-medium">Go Home</span>
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

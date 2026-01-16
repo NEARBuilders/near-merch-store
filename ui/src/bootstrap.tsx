@@ -1,4 +1,9 @@
 import './public-path'; // must be first
+import { setupErrorSuppression } from './lib/suppress-extension-errors';
+
+// Suppress known harmless errors from browser extensions and third-party scripts
+setupErrorSuppression();
+
 import { StrictMode } from 'react';
 import { ThemeProvider } from 'next-themes';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
@@ -32,7 +37,7 @@ export function App() {
   return (
     <StrictMode>
       <TanStackQueryProvider.Provider {...TanStackQueryProviderContext}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark" enableSystem={false}>
           <RouterProvider router={router} />
           <Toaster position="bottom-right" richColors closeButton />
         </ThemeProvider>

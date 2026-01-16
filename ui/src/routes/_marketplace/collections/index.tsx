@@ -60,7 +60,7 @@ function CollectionsPage() {
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
           <div className="text-center space-y-6">
             <h1 className="text-2xl md:text-3xl font-medium tracking-[-0.48px]">Our Collections</h1>
-            <p className="text-muted-foreground text-lg leading-7 tracking-[-0.48px] max-w-[723px] mx-auto">
+            <p className="text-foreground/90 dark:text-muted-foreground text-lg leading-7 tracking-[-0.48px] max-w-[723px] mx-auto">
               Discover premium NEAR Protocol merchandise across four curated collections. Each piece is designed with quality and sustainability in mind.
             </p>
           </div>
@@ -123,7 +123,7 @@ function CollectionsPage() {
         <div className="max-w-[672px] mx-auto px-4 text-center space-y-10">
           <div className="space-y-4">
             <h2 className="text-xl font-medium tracking-[-0.48px]">Can't decide?</h2>
-            <p className="text-muted-foreground tracking-[-0.48px]">
+            <p className="text-foreground/90 dark:text-muted-foreground tracking-[-0.48px]">
               Browse our entire collection and find the perfect piece for you.
             </p>
           </div>

@@ -4,23 +4,103 @@ import { Search, Heart, ShoppingCart, User, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetClose,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { CartSidebar } from "@/components/marketplace/cart-sidebar";
 import { useCart } from "@/hooks/use-cart";
 import { useFavorites } from "@/hooks/use-favorites";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { useCartSidebarStore } from "@/stores/cart-sidebar-store";
 import { NearMark } from "@/components/near-mark";
 import { NearWordmark } from "@/components/near-wordmark";
+import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
+import nearLogo from "@/assets/images/pngs/logo_sq.png";
 
 export function MarketplaceHeader() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+  const [isSigningIn] = useState(false);
+  const [walletConnected, setWalletConnected] = useState(false);
+  const isCartSidebarOpen = useCartSidebarStore((state) => state.isOpen);
+  const closeCartSidebar = useCartSidebarStore((state) => state.close);
+  const openCartSidebar = useCartSidebarStore((state) => state.open);
 
   const { totalCount: cartCount } = useCart();
   const { count: favoritesCount } = useFavorites();
+
+  const accountId = authClient.near.getAccountId();
+  const { data: session } = authClient.useSession();
+  const isLoggedIn = !!session?.user;
+
+  const handleConnectWallet = async () => {
+    setIsConnectingWallet(true);
+    try {
+      // Close modal when wallet popout opens
+      setIsLoginOpen(false);
+      
+      await authClient.requestSignIn.near(
+        { recipient: import.meta.env.PUBLIC_ACCOUNT_ID || "every.near" },
+        {
+          onSuccess: () => {
+            setIsConnectingWallet(false);
+            setWalletConnected(true);
+            toast.success("Wallet connected! Now sign the message to complete login.");
+            // Reopen modal after wallet connection to show sign message step
+            setIsLoginOpen(true);
+          },
+          onError: (error: any) => {
+            setIsConnectingWallet(false);
+            console.error("Wallet connection error:", error);
+            // Reopen modal if connection failed
+            setIsLoginOpen(true);
+          },
+        }
+      );
+    } catch (error) {
+      setIsConnectingWallet(false);
+      console.error("Wallet connection error:", error);
+      // Reopen modal if connection failed
+      setIsLoginOpen(true);
+    }
+  };
+
+  const handleSignIn = () => {
+    // Use the dedicated login route for the final SIWN step.
+    // Tas jau ir korekti nokonfigurēts un atver nepieciešamo wallet logu.
+    setIsLoginOpen(false);
+    window.location.href = "/login?redirect=/cart";
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await authClient.near.disconnect();
+      setWalletConnected(false);
+      toast.success("Wallet disconnected");
+    } catch (error) {
+      console.error("Disconnect error:", error);
+      toast.error("Failed to disconnect wallet");
+    }
+  };
+
+  const isWalletConnected = walletConnected || accountId;
+
+  const handleCreateWallet = () => {
+    const width = 500;
+    const height = 700;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+    
+    window.open(
+      'https://wallet.meteorwallet.app/connect/mainnet/login?connectionUid=8Lt_7EFCO9g84frjAdAxw&',
+      'Meteor Wallet',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,38 +110,68 @@ export function MarketplaceHeader() {
   };
 
   return (
-    <header className="bg-background border-b border-border sticky top-0 z-50">
-      <div className="container-app py-3 md:py-6">
-        <div className="flex items-center justify-between gap-4">
+    <>
+      {/* Mobile menu backdrop - darken background when menu is open */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+    <header className="absolute top-4 md:top-6 left-0 right-0 z-50 w-full border-0 shadow-none bg-transparent">
+      {/* Navigation bar container */}
+      <nav className="relative container-app mx-auto px-4 md:px-8 lg:px-16 py-2 border-0 bg-transparent">
+        <div className="flex items-center justify-between h-14 md:h-16 rounded-2xl bg-background/60 backdrop-blur-sm px-6 md:px-8 border border-border/60 shadow-none">
+          {/* Logo */}
           <Link
             to="/"
             aria-label="NEAR"
-            className="text-xl font-bold flex flex-row items-center gap-2 md:gap-4 relative pl-0 pr-0 py-0 md:pl-[26px] md:pr-6 md:py-4 shrink-0 grow-0 text-foreground"
+            className="text-xl font-bold flex flex-row items-center gap-2 md:gap-4 shrink-0 text-foreground hover:opacity-80 transition-opacity"
           >
             <NearMark className="max-w-[28px]" />
             <span aria-hidden="true" className="h-6 w-px bg-border/60" />
             <NearWordmark className="max-w-[70px]" />
           </Link>
 
+          {/* Action Buttons */}
           <div className="flex items-center gap-2 shrink-0">
-            <form
-              onSubmit={handleSearch}
-              className="flex-1 max-w-[400px] hidden lg:flex"
-            >
-              <div className="relative w-full max-w-[260px]">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            {/* Desktop search - icon + inline input */}
+            <div className="hidden lg:flex items-center gap-2">
+              {isSearchOpen && (
+                <form onSubmit={handleSearch} className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search products..."
+                      placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 py-5 bg-muted border-none rounded-none text-base text-foreground font-medium"
+                      className="pl-9 pr-3 h-9 w-52 bg-background/60 border border-border/30 rounded-lg text-sm text-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-b-2 focus-visible:border-[#00EC97] hover:border-border/30"
+                      autoFocus
                 />
               </div>
             </form>
+              )}
 
-            <Link to="/favorites">
-              <Button variant="ghost" size="icon" className="relative">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                onClick={() => setIsSearchOpen((prev) => !prev)}
+              >
+                <Search className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Desktop Favorites */}
+            <Link to="/favorites" className="hidden md:block">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+              >
                 <Heart className="h-5 w-5" />
                 {favoritesCount > 0 && (
                   <span className="badge-count">
@@ -71,8 +181,13 @@ export function MarketplaceHeader() {
               </Button>
             </Link>
 
-            <Link to="/cart">
-              <Button variant="ghost" size="icon" className="relative">
+            {/* Cart - visible on all screens */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={openCartSidebar}
+              className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+            >
                 <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && (
                   <span className="badge-count">
@@ -80,39 +195,308 @@ export function MarketplaceHeader() {
                   </span>
                 )}
               </Button>
-            </Link>
 
+            {/* Desktop Account / Login Modal */}
+            <div className="hidden md:block">
+              {isLoggedIn ? (
             <Link to="/account">
-              <Button variant="ghost" size="icon">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                  >
                 <User className="h-5 w-5" />
               </Button>
             </Link>
+              ) : (
+                <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                    >
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </DialogTrigger>
+                <DialogContent 
+                  showCloseButton={false}
+                  className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-0"
+                >
+                  <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Sign In</h2>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                        onClick={() => setIsLoginOpen(false)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
 
-            <div className="hidden md:block">
-              <ThemeToggle />
+                    <div className="space-y-3 sm:space-y-4">
+                      <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
+                        {!isWalletConnected 
+                          ? "Connect your NEAR wallet to continue"
+                          : "Sign the message to complete authentication"}
+                      </p>
+                      {!isWalletConnected && (
+                        <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
+                          Don't have a NEAR wallet?{" "}
+                          <button
+                            onClick={handleCreateWallet}
+                            className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
+                          >
+                            Create one here
+                          </button>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 sm:space-y-4">
+                      {!isWalletConnected ? (
+                        <button
+                          onClick={handleConnectWallet}
+                          disabled={isConnectingWallet}
+                          className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                        >
+                          <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                            <img
+                              src={nearLogo}
+                              alt="NEAR"
+                              className="w-full h-full object-contain invert dark:invert-0"
+                            />
+                          </div>
+                          <span>
+                            {isConnectingWallet ? "Connecting..." : "Connect NEAR Wallet"}
+                          </span>
+                        </button>
+                      ) : (
+                        <>
+                          <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
+                            <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
+                            <p className="text-xs sm:text-sm font-medium truncate">{accountId || "Wallet connected"}</p>
+                          </div>
+                          
+                          <button
+                            onClick={handleSignIn}
+                            disabled={isSigningIn}
+                            className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                          >
+                            <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                              <img
+                                src={nearLogo}
+                                alt="NEAR"
+                                className="w-full h-full object-contain invert dark:invert-0"
+                              />
+                            </div>
+                            <span>
+                              {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
+                            </span>
+                          </button>
+
+                          <button
+                            onClick={handleDisconnect}
+                            disabled={isSigningIn}
+                            className="w-full text-muted-foreground px-3 sm:px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <span className="text-[10px] sm:text-xs underline">Use a different wallet</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
+                      {!isWalletConnected ? (
+                        <p>Step 1 of 2</p>
+                      ) : (
+                        <p>Step 2 of 2 · Free, no transaction required</p>
+                      )}
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              )}
             </div>
 
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden -mr-2">
+
+            {/* Mobile Menu toggle button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            >
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
                   <Menu className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile Menu dropdown below navigation (as block) */}
+        {mobileMenuOpen && (
+          <div className="md:hidden mt-3 relative z-50 space-y-3">
+            {/* Action buttons block - above search */}
+            <div className="rounded-2xl bg-background/80 backdrop-blur-sm border border-border/60 px-4 py-3">
+              <div className="flex items-center justify-center gap-4">
+                {/* Mobile Favorites */}
+                <Link to="/favorites" onClick={() => setMobileMenuOpen(false)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                  >
+                    <Heart className="h-5 w-5" />
+                    {favoritesCount > 0 && (
+                      <span className="badge-count">
+                        {favoritesCount}
+                      </span>
+                    )}
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] sm:w-[350px] flex flex-col" hideCloseButton>
-                <div className="flex items-center justify-between px-4 mt-6 mb-6">
-                  <ThemeToggle />
-                  <SheetClose asChild>
-                    <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-muted rounded-full">
-                      <X className="h-5 w-5" />
+                </Link>
+
+                {/* Mobile Account / Login Modal */}
+                {isLoggedIn ? (
+                  <Link to="/account" onClick={() => setMobileMenuOpen(false)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                    >
+                      <User className="h-5 w-5" />
                     </Button>
-                  </SheetClose>
+                  </Link>
+                ) : (
+                  <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <User className="h-5 w-5" />
+                      </Button>
+                    </DialogTrigger>
+                  <DialogContent 
+                    showCloseButton={false}
+                    className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-0"
+                  >
+                    <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Sign In</h2>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                          onClick={() => setIsLoginOpen(false)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <div className="space-y-3 sm:space-y-4">
+                        <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
+                          {!isWalletConnected 
+                            ? "Connect your NEAR wallet to continue"
+                            : "Sign the message to complete authentication"}
+                        </p>
+                        {!isWalletConnected && (
+                          <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
+                            Don't have a NEAR wallet?{" "}
+                            <button
+                              onClick={handleCreateWallet}
+                              className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
+                            >
+                              Create one here
+                            </button>
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-3 sm:space-y-4">
+                        {!isWalletConnected ? (
+                          <button
+                            onClick={handleConnectWallet}
+                            disabled={isConnectingWallet}
+                            className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                          >
+                            <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                              <img
+                                src={nearLogo}
+                                alt="NEAR"
+                                className="w-full h-full object-contain invert dark:invert-0"
+                              />
+                            </div>
+                            <span>
+                              {isConnectingWallet ? "Connecting..." : "Connect NEAR Wallet"}
+                            </span>
+                          </button>
+                        ) : (
+                          <>
+                            <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
+                              <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
+                              <p className="text-xs sm:text-sm font-medium truncate">{accountId || "Wallet connected"}</p>
                 </div>
 
-                <div className="px-4 mb-6">
-                  <form onSubmit={(e) => {
+                            <button
+                              onClick={handleSignIn}
+                              disabled={isSigningIn}
+                              className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                            >
+                              <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                                <img
+                                  src={nearLogo}
+                                  alt="NEAR"
+                                  className="w-full h-full object-contain invert dark:invert-0"
+                                />
+                              </div>
+                              <span>
+                                {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={handleDisconnect}
+                              disabled={isSigningIn}
+                              className="w-full text-muted-foreground px-3 sm:px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <span className="text-[10px] sm:text-xs underline">Use a different wallet</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
+                        {!isWalletConnected ? (
+                          <p>Step 1 of 2</p>
+                        ) : (
+                          <p>Step 2 of 2 · Free, no transaction required</p>
+                        )}
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                )}
+
+              </div>
+            </div>
+
+            {/* Search block - below action buttons */}
+            <div className="rounded-2xl bg-background/80 backdrop-blur-sm border border-border/60 px-6 md:px-8 py-4">
+              <form
+                onSubmit={(e) => {
                     handleSearch(e);
                     setMobileMenuOpen(false);
-                  }}>
+                }}
+                className="mb-3"
+              >
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -120,22 +504,23 @@ export function MarketplaceHeader() {
                         placeholder="Search products..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 h-10 bg-muted border-transparent focus:border-primary rounded-md text-sm"
+                    className="pl-10 h-10 bg-background/70 border border-border/60 rounded-md text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-b-2 focus-visible:border-[#00EC97] hover:border-border/60"
                       />
                     </div>
                   </form>
+              <p className="text-foreground/90 dark:text-muted-foreground text-xs">
+                Browse our products and discover the latest NEAR merch drops.
+              </p>
                 </div>
-
-                <div className="flex-1 overflow-y-auto px-4">
-                  <div className="space-y-4">
-                    <p className="text-muted-foreground text-sm">Browse our products</p>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
           </div>
-        </div>
-      </div>
+        )}
+      </nav>
     </header>
+
+    <CartSidebar
+      isOpen={isCartSidebarOpen}
+      onClose={closeCartSidebar}
+    />
+    </>
   );
 }

@@ -1,14 +1,10 @@
-import { TanStackDevtools } from "@tanstack/react-devtools";
 import {
-  ClientOnly,
   createRootRouteWithContext,
   Outlet,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import type { RouterContext } from "@/types";
-import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   loader: ({ context }) => {
@@ -36,7 +32,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { title },
         { name: "description", content: description },
         { name: "theme-color", content: "#171717" },
-        { name: "color-scheme", content: "light dark" },
+        { name: "color-scheme", content: "dark" },
         { name: "application-name", content: siteName },
         { name: "mobile-web-app-capable", content: "yes" },
         {
@@ -86,7 +82,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
           }),
         },
         {
-          children: `(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}})();`,
+          children: `(function(){document.documentElement.classList.add('dark');localStorage.setItem('theme','dark');})();`,
         },
       ],
     };
@@ -96,21 +92,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootComponent() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark" enableSystem={false}>
       <Outlet />
       <Toaster position="bottom-right" richColors closeButton />
-      <ClientOnly>
-        <TanStackDevtools
-          config={{ position: "bottom-right" }}
-          plugins={[
-            {
-              name: "Tanstack Router",
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-            TanStackQueryDevtools,
-          ]}
-        />
-      </ClientOnly>
     </ThemeProvider>
   );
 }
