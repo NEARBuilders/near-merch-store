@@ -16,6 +16,7 @@ import { NearMark } from "@/components/near-mark";
 import { NearWordmark } from "@/components/near-wordmark";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
+import { queryClient } from "@/utils/orpc";
 import nearLogo from "@/assets/images/pngs/logo_sq.png";
 
 export function MarketplaceHeader() {
@@ -24,8 +25,9 @@ export function MarketplaceHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
-  const [isSigningIn] = useState(false);
-  const [walletConnected, setWalletConnected] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [loginStep, setLoginStep] = useState<1 | 2>(1);
+  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const isCartSidebarOpen = useCartSidebarStore((state) => state.isOpen);
   const closeCartSidebar = useCartSidebarStore((state) => state.close);
   const openCartSidebar = useCartSidebarStore((state) => state.open);
@@ -47,10 +49,11 @@ export function MarketplaceHeader() {
         { recipient: import.meta.env.PUBLIC_ACCOUNT_ID || "every.near" },
         {
           onSuccess: () => {
+            const walletAccountId = authClient.near.getAccountId();
+            setConnectedAccountId(walletAccountId);
+            setLoginStep(2);
             setIsConnectingWallet(false);
-            setWalletConnected(true);
             toast.success("Wallet connected! Now sign the message to complete login.");
-            // Reopen modal after wallet connection to show sign message step
             setIsLoginOpen(true);
           },
           onError: (error: any) => {
@@ -69,25 +72,49 @@ export function MarketplaceHeader() {
     }
   };
 
-  const handleSignIn = () => {
-    // Use the dedicated login route for the final SIWN step.
-    // Tas jau ir korekti nokonfigurēts un atver nepieciešamo wallet logu.
-    setIsLoginOpen(false);
-    window.location.href = "/login?redirect=/cart";
+  const handleSignIn = async () => {
+    setIsSigningIn(true);
+    try {
+      await authClient.signIn.near(
+        { recipient: import.meta.env.PUBLIC_ACCOUNT_ID || "every.near" },
+        {
+          onSuccess: async () => {
+            queryClient.invalidateQueries();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            setIsLoginOpen(false);
+            window.location.href = "/cart";
+          },
+          onError: (error: any) => {
+            setIsSigningIn(false);
+            console.error("Sign in error:", error);
+            
+            if (error?.code === "NONCE_NOT_FOUND" || error?.message?.includes("nonce")) {
+              toast.error("Session expired. Please reconnect your wallet.");
+              handleDisconnect();
+            } else {
+              toast.error("Failed to sign in. Please try again.");
+            }
+          },
+        }
+      );
+    } catch (error) {
+      setIsSigningIn(false);
+      console.error("Sign in error:", error);
+      toast.error("Failed to sign in. Please try again.");
+    }
   };
 
   const handleDisconnect = async () => {
     try {
       await authClient.near.disconnect();
-      setWalletConnected(false);
-      toast.success("Wallet disconnected");
     } catch (error) {
       console.error("Disconnect error:", error);
-      toast.error("Failed to disconnect wallet");
     }
+    setConnectedAccountId(null);
+    setLoginStep(1);
   };
 
-  const isWalletConnected = walletConnected || accountId;
+  const isWalletConnected = loginStep === 2;
 
   const handleCreateWallet = () => {
     const width = 500;
@@ -277,7 +304,7 @@ export function MarketplaceHeader() {
                         <>
                           <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
                             <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
-                            <p className="text-xs sm:text-sm font-medium truncate">{accountId || "Wallet connected"}</p>
+                            <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
                           </div>
                           
                           <button
@@ -442,8 +469,8 @@ export function MarketplaceHeader() {
                           <>
                             <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
                               <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
-                              <p className="text-xs sm:text-sm font-medium truncate">{accountId || "Wallet connected"}</p>
-                </div>
+                              <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
+                            </div>
 
                             <button
                               onClick={handleSignIn}

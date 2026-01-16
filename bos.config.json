@@ -5,19 +5,19 @@
       "title": "Near Merch",
       "description": "NEAR-powered merch store for the NEAR ecosystem",
       "development": "http://localhost:3001",
-      "production": "https://merch.nearlegion.com"
+      "production": "https://main-staging-5bd5.up.railway.app"
     },
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-1503-ui-near-merch-store-nearbuilder-116d6486b-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1508-ui-near-merch-store-nearbuilder-8699baaed-ze.zephyrcloud.app",
       "exposes": {
         "App": "./App",
         "components": "./components",
         "providers": "./providers",
         "types": "./types"
       },
-      "ssr": "https://elliot-braem-1504-ui-near-merch-store-nearbuilder-ef6230738-ze.zephyrcloud.app"
+      "ssr": "https://elliot-braem-1509-ui-near-merch-store-nearbuilder-42e2b1726-ze.zephyrcloud.app"
     },
     "api": {
       "name": "api",

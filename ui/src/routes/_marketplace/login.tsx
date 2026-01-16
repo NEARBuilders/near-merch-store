@@ -150,87 +150,88 @@ function LoginPage() {
       </div>
 
       <div className="w-full max-w-md relative z-10">
-        {/* Single Block */}
-        <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 py-8 md:py-10 space-y-6 text-center">
-          <div className="space-y-3">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground/90 dark:text-muted-foreground">
+        <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+          <div className="space-y-3 sm:space-y-4">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
               Sign In
             </h1>
-            <p className="text-base text-foreground/90 dark:text-muted-foreground">
-            {step === 1 
-              ? "Connect your NEAR wallet to continue"
-              : "Sign the message to complete authentication"}
-          </p>
-            <p className="text-sm text-foreground/90 dark:text-muted-foreground">
-            Don't have a NEAR wallet?{" "}
-            <button
-              onClick={handleCreateWallet}
-                className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
-            >
-              Create one here
-            </button>
-          </p>
-        </div>
+            <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
+              {step === 1 
+                ? "Connect your NEAR wallet to continue"
+                : "Sign the message to complete authentication"}
+            </p>
+            {step === 1 && (
+              <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
+                Don't have a NEAR wallet?{" "}
+                <button
+                  onClick={handleCreateWallet}
+                  className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
+                >
+                  Create one here
+                </button>
+              </p>
+            )}
+          </div>
 
-        <div className="space-y-4">
-          {step === 1 ? (
-            <button
-              onClick={handleConnectWallet}
-              disabled={isConnecting}
-              className="w-full bg-[#00EC97] text-black px-6 py-4 flex items-center justify-center gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-semibold"
-            >
-              <div className="size-5 overflow-hidden flex items-center justify-center">
-                <img
-                  src={nearLogo}
-                  alt="NEAR"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <span className="text-sm font-medium">
-                {isConnecting ? "Connecting..." : "Connect NEAR Wallet"}
-              </span>
-            </button>
-          ) : (
-            <>
-              <div className="rounded-lg bg-background/40 border border-border/60 px-4 py-4">
-                <p className="text-xs text-foreground/80 dark:text-muted-foreground/60 mb-1">Connected wallet</p>
-                <p className="text-sm font-medium truncate text-foreground/90 dark:text-muted-foreground">{connectedAccountId}</p>
-              </div>
-              
+          <div className="space-y-3 sm:space-y-4">
+            {step === 1 ? (
               <button
-                onClick={handleSignMessage}
-                disabled={isSigning}
-                className="w-full bg-[#00EC97] text-black px-6 py-4 flex items-center justify-center gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-semibold"
+                onClick={handleConnectWallet}
+                disabled={isConnecting}
+                className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
               >
-                <div className="size-5 overflow-hidden flex items-center justify-center">
+                <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
                   <img
                     src={nearLogo}
                     alt="NEAR"
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain invert dark:invert-0"
                   />
                 </div>
-                <span className="text-sm font-medium">
-                  {isSigning ? "Signing in..." : "Sign Message & Continue"}
+                <span>
+                  {isConnecting ? "Connecting..." : "Connect NEAR Wallet"}
                 </span>
               </button>
+            ) : (
+              <>
+                <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
+                  <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
+                  <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
+                </div>
+                
+                <button
+                  onClick={handleSignMessage}
+                  disabled={isSigning}
+                  className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                >
+                  <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                    <img
+                      src={nearLogo}
+                      alt="NEAR"
+                      className="w-full h-full object-contain invert dark:invert-0"
+                    />
+                  </div>
+                  <span>
+                    {isSigning ? "Signing in..." : "Sign Message & Continue"}
+                  </span>
+                </button>
 
-              <button
-                onClick={handleDisconnect}
-                disabled={isSigning}
-                className="w-full text-foreground/90 dark:text-muted-foreground px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="text-xs underline">Use a different wallet</span>
-              </button>
-            </>
-          )}
+                <button
+                  onClick={handleDisconnect}
+                  disabled={isSigning}
+                  className="w-full text-muted-foreground px-3 sm:px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="text-[10px] sm:text-xs underline">Use a different wallet</span>
+                </button>
+              </>
+            )}
+          </div>
 
-            <div className="text-center text-xs text-foreground/80 dark:text-muted-foreground/60 pt-2">
-          {step === 1 ? (
-            <p>Step 1 of 2</p>
-          ) : (
-            <p>Step 2 of 2 · Free, no transaction required</p>
-          )}
-            </div>
+          <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
+            {step === 1 ? (
+              <p>Step 1 of 2</p>
+            ) : (
+              <p>Step 2 of 2 · Free, no transaction required</p>
+            )}
           </div>
         </div>
       </div>
