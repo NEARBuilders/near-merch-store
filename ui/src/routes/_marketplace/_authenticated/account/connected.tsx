@@ -59,9 +59,9 @@ function ConnectedAccountsPage() {
     : null;
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8 space-y-6">
           <div>
-        <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">Connected Accounts</h2>
+        <h2 className="text-3xl font-bold tracking-tight mb-2">Connected Accounts</h2>
         <p className="text-sm text-foreground/90 dark:text-muted-foreground">
               Manage your linked authentication providers
             </p>
@@ -74,10 +74,10 @@ function ConnectedAccountsPage() {
           {linkedAccounts.map((account) => (
             <div
               key={account.providerId || account.accountId}
-                className={`rounded-lg p-4 flex items-center justify-between border transition-colors ${
+                className={`rounded-2xl p-4 flex items-center justify-between border transition-colors ${
                   account === primaryAccount
                     ? "bg-[#00EC97]/10 dark:bg-[#00EC97]/20 border-[#00EC97]/60"
-                    : "bg-background/60 backdrop-blur-sm border-border/60"
+                    : "bg-background border-border/60"
                 }`}
             >
               <div className="flex items-center gap-3">
@@ -135,7 +135,7 @@ function ConnectedAccountsPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-12 text-center">
+        <div className="rounded-2xl bg-background border border-border/60 p-12 text-center">
           <Link2 className="mx-auto h-12 w-12 text-foreground/50 dark:text-muted-foreground mb-4" />
           <p className="text-foreground/90 dark:text-muted-foreground font-medium mb-1">No linked accounts</p>
           <p className="text-sm text-foreground/70 dark:text-muted-foreground">Your linked accounts will appear here</p>

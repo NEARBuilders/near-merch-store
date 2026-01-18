@@ -297,14 +297,19 @@ function ProductDetailPage() {
                 router.navigate({ to: "/" });
               }
             }}
-            className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
+            className="rounded-2xl border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
           >
             <ArrowLeft className="size-5" />
           </button>
 
           {/* Title Block */}
           <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-3">
+              {product.category === 'Exclusives' && (
+                <div className="h-[40px] flex items-center justify-center bg-muted/30 px-3 py-2 text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60 rounded-lg">
+                  EXCLUSIVE
+                </div>
+              )}
               <FavoriteButton
                 isFavorite={isFavorite}
                 onToggle={() => toggleFavorite(product.id, product.title)}
@@ -321,11 +326,6 @@ function ProductDetailPage() {
           <div className="lg:hidden">
             <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 py-4 md:py-5 mb-6">
               <div className="space-y-2">
-                {product.category === 'Exclusives' && (
-                  <div className="bg-muted/30 px-2.5 py-0.5 text-[10px] md:text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60 rounded-md">
-                    EXCLUSIVE
-                  </div>
-                )}
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground/90 dark:text-muted-foreground">
                   {product.title}
                 </h1>
@@ -454,11 +454,6 @@ function ProductDetailPage() {
             {/* Title Block - Desktop only */}
             <div className="hidden lg:block rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 py-4 md:py-5">
               <div className="space-y-2">
-                {product.category === 'Exclusives' && (
-                  <div className="bg-muted/30 px-2.5 py-0.5 text-[10px] md:text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60 rounded-md">
-                    EXCLUSIVE
-                  </div>
-                )}
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground/90 dark:text-muted-foreground">
                   {product.title}
                 </h1>
@@ -549,7 +544,7 @@ function ProductDetailPage() {
 
               {/* Size Selection */}
             {hasVariants && orderedSizes.length > 0 && !(orderedSizes.length === 1 && orderedSizes[0] === "One size") && (
-              <div className="space-y-3">
+              <div className="space-y-3 min-h-[80px]">
                   <label className="block text-sm font-semibold tracking-[-0.48px] text-foreground/90 dark:text-muted-foreground uppercase">
                     Size
                   </label>
@@ -563,10 +558,10 @@ function ProductDetailPage() {
                         onClick={() => setSelectedSize(size)}
                         disabled={!isAvailable}
                         className={cn(
-                            "px-5 py-2.5 tracking-[-0.48px] transition-all rounded-lg font-medium text-sm",
+                            "px-5 py-2.5 tracking-[-0.48px] transition-all rounded-lg font-medium text-sm border-2",
                           size === selectedSize
-                              ? "bg-[#00EC97] text-black border-2 border-[#00EC97]"
-                              : "bg-background/40 border border-border/60 hover:border-[#00EC97] hover:text-[#00EC97] hover:bg-background/60",
+                              ? "bg-[#00EC97] text-black border-[#00EC97]"
+                              : "bg-background/40 border-border/60 hover:border-[#00EC97] hover:text-[#00EC97] hover:bg-background/60",
                           !isAvailable &&
                             "opacity-50 cursor-not-allowed line-through"
                         )}

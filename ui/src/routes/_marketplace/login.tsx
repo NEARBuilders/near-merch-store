@@ -193,7 +193,7 @@ function LoginPage() {
               </button>
             ) : (
               <>
-                <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
+                <div className="bg-muted/50 border border-border/60 rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3">
                   <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
                   <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
                 </div>

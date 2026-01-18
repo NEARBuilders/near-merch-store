@@ -7,9 +7,6 @@ import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
 } from "@/components/ui/sheet";
 import { useCart } from "@/hooks/use-cart";
 import { cn } from "@/lib/utils";
@@ -34,7 +31,6 @@ export const Route = createFileRoute("/_marketplace/products/")({
     };
   },
   loader: async () => {
-    // Prefetch all products
     try {
       await queryClient.ensureQueryData(productLoaders.list({ limit: 100 }));
     } catch (error) {
@@ -294,17 +290,14 @@ function ProductsIndexPage() {
   return (
     <div className="bg-background w-full min-h-screen pt-32">
       <div className="container-app mx-auto px-4 md:px-8 lg:px-16">
-        {/* Back and Title Blocks */}
         <div className="flex flex-row gap-4 mb-8">
-          {/* Back Block */}
           <Link
             to="/"
-            className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
+            className="rounded-2xl border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
           >
             <ArrowLeft className="size-5" />
           </Link>
 
-          {/* Page Title Block */}
           <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
@@ -392,25 +385,26 @@ function ProductsIndexPage() {
 
         {/* Mobile Filter Sheet - Full Width */}
         <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
-          <SheetContent side="left" hideCloseButton={true} className="w-full sm:w-full overflow-y-auto p-0">
+          <SheetContent side="left" hideCloseButton={true} className="w-full sm:w-full p-0 bg-background flex flex-col">
             <div className="flex flex-col h-full">
-              <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/60">
-                <div className="flex items-center justify-between">
-                  <SheetTitle>Filters</SheetTitle>
-              <Button
-                    variant="ghost"
-                    size="icon"
+              <div className="px-6 py-5">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold tracking-tight">Filters</h2>
+                  </div>
+                  <button
+                    type="button"
                     onClick={() => setIsFilterSheetOpen(false)}
-                    className="h-8 w-8"
+                    className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-background/60 hover:text-[#00EC97] transition-colors"
+                    aria-label="Close filters"
                   >
-                    <X className="h-4 w-4" />
-              </Button>
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
                 </div>
-              </SheetHeader>
+              </div>
 
-              <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="flex-1 overflow-y-auto px-6 min-h-0 pb-4">
                 <div className="flex flex-col">
-                  {/* Search in Filter - At the top */}
                   <div className="relative mb-6">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -422,8 +416,7 @@ function ProductsIndexPage() {
                     />
                   </div>
 
-                  {/* Sort - Collapsible Section */}
-                  <div className="border-b border-border/60">
+                  <div>
                     <button
                       onClick={() => toggleSection('sort')}
                       className="w-full flex items-center justify-between py-4 hover:opacity-80 transition-opacity"
@@ -482,8 +475,7 @@ function ProductsIndexPage() {
                     )}
                   </div>
 
-                  {/* Category - Collapsible Section */}
-                  <div className="border-b border-border/60">
+                  <div>
                     <button
                       onClick={() => toggleSection('category')}
                       className="w-full flex items-center justify-between py-4 hover:opacity-80 transition-opacity"
@@ -529,9 +521,8 @@ function ProductsIndexPage() {
                     )}
                   </div>
 
-                  {/* Sizes - Collapsible Section */}
                   {availableSizes.length > 0 && (
-                    <div className="border-b border-border/60">
+                    <div>
                       <button
                         onClick={() => toggleSection('sizes')}
                         className="w-full flex items-center justify-between py-4 hover:opacity-80 transition-opacity"
@@ -582,7 +573,7 @@ function ProductsIndexPage() {
 
                   {/* Color - Collapsible Section with Swatches */}
                   {availableColors.length > 0 && (
-                    <div className="border-b border-border/60">
+                    <div>
                       <button
                         onClick={() => toggleSection('color')}
                         className="w-full flex items-center justify-between py-4 hover:opacity-80 transition-opacity"
@@ -643,7 +634,7 @@ function ProductsIndexPage() {
 
                   {/* Brand - Collapsible Section */}
                   {availableBrands.length > 0 && (
-                    <div className="border-b border-border/60">
+                    <div>
                       <button
                         onClick={() => toggleSection('brand')}
                         className="w-full flex items-center justify-between py-4 hover:opacity-80 transition-opacity"
@@ -691,7 +682,7 @@ function ProductsIndexPage() {
                   )}
 
                   {/* Price - Collapsible Section */}
-                  <div className="border-b border-border/60">
+                  <div>
                     <button
                       onClick={() => toggleSection('price')}
                       className="w-full flex items-center justify-between py-4 hover:opacity-80 transition-opacity"
@@ -782,34 +773,37 @@ function ProductsIndexPage() {
                 </div>
               </div>
 
-              <SheetFooter className="flex-col gap-2 px-6 pb-6 pt-4 border-t border-border/60 mt-auto">
-                <Button
-                  onClick={() => setIsFilterSheetOpen(false)}
-                  className="w-full bg-[#00EC97] text-black hover:bg-[#00EC97]/90 h-11"
-                >
-                  See Results ({products.length})
-                </Button>
-                <Button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setPriceRange("all");
-                    setDiscountFilter("all");
-                    setSizeFilter("all");
-                    setColorFilter("all");
-                    setCategoryFilter("all");
-                    setBrandFilter("all");
-                    setSortBy("relevance");
-                  }}
-                  className="w-full h-11 bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-background/80 hover:border-[#00EC97] text-foreground"
-                >
-                  Clear All
-                </Button>
-              </SheetFooter>
+              <div className="px-6 pt-4 pb-5 mt-auto shrink-0">
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterSheetOpen(false)}
+                    className="w-full px-8 py-3 rounded-lg bg-[#00EC97] text-black flex items-center justify-center font-semibold text-base hover:bg-[#00d97f] transition-colors"
+                  >
+                    See Results ({products.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setPriceRange("all");
+                      setDiscountFilter("all");
+                      setSizeFilter("all");
+                      setColorFilter("all");
+                      setCategoryFilter("all");
+                      setBrandFilter("all");
+                      setSortBy("relevance");
+                    }}
+                    className="w-full px-8 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-base hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
           </div>
           </SheetContent>
         </Sheet>
 
-        {/* Products Grid - No Container Block */}
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <LoadingSpinner />

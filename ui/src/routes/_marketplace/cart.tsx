@@ -26,13 +26,13 @@ function CartPage() {
           {/* Back Block */}
           <Link
             to="/"
-            className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
+            className="rounded-2xl border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
           >
             <ArrowLeft className="size-5" />
           </Link>
 
           {/* Title Block */}
-          <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
+          <div className="flex-1 rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
               Shopping Cart
             </h1>
@@ -40,21 +40,21 @@ function CartPage() {
         </div>
 
         {cartItems.length === 0 ? (
-          <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-12 md:py-16 text-center">
-            <p className="text-foreground/90 dark:text-muted-foreground text-lg mb-6">
+          <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-12 md:py-16 text-center">
+            <p className="text-foreground/90 dark:text-muted-foreground text-lg mb-6 font-medium">
               Your cart is empty
             </p>
             <Link to="/">
-              <Button className="bg-[#00EC97] text-black hover:bg-[#00d97f] h-10 px-6">
+              <button className="px-8 py-3 rounded-lg bg-[#00EC97] text-black font-semibold text-sm hover:bg-[#00d97f] transition-colors">
                 Continue Shopping
-              </Button>
+              </button>
             </Link>
           </div>
         ) : (
           <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
             {/* Cart Items Block */}
             <div className="lg:col-span-2">
-              <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8 space-y-6">
+              <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8 space-y-4">
                 {cartItems.map((item) => {
                   const availableVariants = item.product.variants || [];
                   const selectedVariant = availableVariants.find(
@@ -73,66 +73,69 @@ function CartPage() {
                     null;
 
                   return (
-                    <div key={item.variantId} className="pb-6 border-b border-border/60 last:border-0 last:pb-0">
+                    <div key={item.variantId}>
                     <ProductCard
                       product={item.product}
                       variant="horizontal"
                       hideFavorite
                       hidePrice
-                        className="hover:shadow-none bg-transparent gap-4 md:gap-6"
+                        className="hover:shadow-none !bg-transparent !p-0"
                       actionSlot={
                         <button
                           onClick={() => removeItem(item.variantId)}
-                            className="size-8 flex items-center justify-center shrink-0 hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97] transition-colors rounded-lg"
+                            className="size-8 flex items-center justify-center shrink-0 rounded-lg hover:bg-background/60 hover:text-[#00EC97] transition-colors"
                           aria-label={`Remove ${item.product.title}`}
                         >
-                          <X className="size-4" />
+                          <X className="size-4" aria-hidden="true" />
                         </button>
                       }
                     >
                       <div className="w-full flex flex-col gap-3 mt-2">
-                        {item.color && item.color !== "N/A" && (
-                          <div className="flex items-center gap-2">
-                            {colorHex && (
-                              <div
-                                className="size-5 rounded-full border border-border"
-                                style={{ backgroundColor: colorHex }}
-                              />
-                            )}
-                            <span className="text-sm text-foreground/90 dark:text-muted-foreground">
-                              {item.color}
-                            </span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-4">
+                          {item.color && item.color !== "N/A" && (
+                            <div className="flex items-center gap-2">
+                              {colorHex && (
+                                <div
+                                  className="size-5 rounded-full border border-border/60"
+                                  style={{ backgroundColor: colorHex }}
+                                />
+                              )}
+                              <span className="text-sm text-foreground/90 dark:text-muted-foreground">
+                                {item.color}
+                              </span>
+                            </div>
+                          )}
 
-                        {item.size !== "N/A" && item.size !== "One size" && (
-                          <div className="text-sm text-foreground/90 dark:text-muted-foreground">
-                            Size: {item.size}
-                          </div>
-                        )}
+                          {item.size !== "N/A" && item.size !== "One size" && (
+                            <div className="text-sm text-foreground/90 dark:text-muted-foreground">
+                              Size: {item.size}
+                            </div>
+                          )}
+                        </div>
 
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between gap-3 w-full">
-                          <div className="flex items-center border border-border/60 rounded-lg h-[34px] w-full sm:w-auto bg-background/40">
+                        <div className="flex items-center justify-between gap-3 w-full">
+                          <div className="flex items-center border border-border/60 rounded-lg h-[38px]">
                             <button
                               onClick={() => updateQuantity(item.variantId, -1)}
-                              className="size-8 flex items-center justify-center disabled:opacity-50 hover:bg-background/60 hover:text-[#00EC97] transition-colors rounded-l-lg"
+                              disabled={item.quantity <= 1}
+                              className="size-9 flex items-center justify-center disabled:opacity-50 hover:text-[#00EC97] transition-colors rounded-l-lg"
                               aria-label="Decrease quantity"
                             >
-                              <Minus className="size-4" />
+                              <Minus className="size-4" aria-hidden="true" />
                             </button>
-                            <span className="flex-1 sm:w-8 text-center text-sm font-medium">
+                            <span className="w-10 text-center text-sm font-medium">
                               {item.quantity}
                             </span>
                             <button
                               onClick={() => updateQuantity(item.variantId, 1)}
-                              className="size-8 flex items-center justify-center hover:bg-background/60 hover:text-[#00EC97] transition-colors rounded-r-lg"
+                              className="size-9 flex items-center justify-center hover:text-[#00EC97] transition-colors rounded-r-lg"
                               aria-label="Increase quantity"
                             >
-                              <Plus className="size-4" />
+                              <Plus className="size-4" aria-hidden="true" />
                             </button>
                           </div>
 
-                          <div className="text-lg sm:text-base font-medium tracking-tight whitespace-nowrap text-center sm:text-right">
+                          <div className="text-base font-semibold whitespace-nowrap h-[38px] flex items-center">
                             ${(item.product.price * item.quantity).toFixed(2)}
                           </div>
                         </div>
@@ -146,15 +149,15 @@ function CartPage() {
 
             {/* Order Summary Block */}
             <div className="lg:col-span-1">
-              <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-6 md:p-8 sticky top-24">
-                <h2 className="text-lg font-medium tracking-tight mb-6">
+              <div className="rounded-2xl bg-background border border-border/60 p-6 md:p-8 lg:sticky lg:top-24">
+                <h2 className="text-xl font-bold tracking-tight mb-6">
                   Order Summary
                 </h2>
 
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-sm">
                     <span className="text-foreground/90 dark:text-muted-foreground">Subtotal</span>
-                    <span className="text-foreground">${subtotal.toFixed(2)}</span>
+                    <span className="text-foreground font-medium">${subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-foreground/90 dark:text-muted-foreground">Shipping</span>
@@ -165,8 +168,6 @@ function CartPage() {
                     <span className="text-foreground/90 dark:text-muted-foreground">Calculated at checkout</span>
                   </div>
                 </div>
-
-                <div className="h-px bg-border/60 mb-4" />
 
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-base font-semibold">Estimated Total</span>
@@ -181,18 +182,17 @@ function CartPage() {
 
                 <div className="flex flex-col gap-3">
                   <Link to="/" className="w-full">
-                    <Button 
-                      variant="outline" 
-                      className="w-full border-border/60 hover:border-[#00EC97] hover:text-[#00EC97] h-10"
+                    <button 
+                      className="w-full px-8 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-base hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
                     >
                       <ArrowLeft className="size-4 mr-2" />
                       Continue Shopping
-                    </Button>
+                    </button>
                   </Link>
-                <Link to="/checkout" data-testid="checkout-link">
-                    <Button className="w-full bg-[#00EC97] text-black hover:bg-[#00d97f] h-10" data-testid="checkout-button">
+                <Link to="/checkout" data-testid="checkout-link" className="w-full">
+                    <button className="w-full px-8 py-3 rounded-lg bg-[#00EC97] text-black font-semibold text-base hover:bg-[#00d97f] transition-colors" data-testid="checkout-button">
                     Checkout
-                  </Button>
+                  </button>
                 </Link>
                 </div>
 

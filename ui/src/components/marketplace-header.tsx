@@ -223,6 +223,147 @@ export function MarketplaceHeader() {
                 )}
               </Button>
 
+            {/* Mobile Favorites */}
+            <Link to="/favorites" className="md:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+              >
+                <Heart className="h-5 w-5" />
+                {favoritesCount > 0 && (
+                  <span className="badge-count">
+                    {favoritesCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
+
+            {/* Mobile Account / Login Modal */}
+            <div className="md:hidden">
+              {isLoggedIn ? (
+                <Link to="/account">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                  >
+                    <User className="h-5 w-5" />
+                  </Button>
+                </Link>
+              ) : (
+                <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                    >
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent 
+                    showCloseButton={false}
+                    className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-0"
+                  >
+                    <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Sign In</h2>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                          onClick={() => setIsLoginOpen(false)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <div className="space-y-3 sm:space-y-4">
+                        <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
+                          {!isWalletConnected 
+                            ? "Connect your NEAR wallet to continue"
+                            : "Sign the message to complete authentication"}
+                        </p>
+                        {!isWalletConnected && (
+                          <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
+                            Don't have a NEAR wallet?{" "}
+                            <button
+                              onClick={handleCreateWallet}
+                              className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
+                            >
+                              Create one here
+                            </button>
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-3 sm:space-y-4">
+                        {!isWalletConnected ? (
+                          <button
+                            onClick={handleConnectWallet}
+                            disabled={isConnectingWallet}
+                            className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                          >
+                            <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                              <img
+                                src={nearLogo}
+                                alt="NEAR"
+                                className="w-full h-full object-contain invert dark:invert-0"
+                              />
+                            </div>
+                            <span>
+                              {isConnectingWallet ? "Connecting..." : "Connect NEAR Wallet"}
+                            </span>
+                          </button>
+                        ) : (
+                          <>
+                            <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
+                              <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
+                              <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
+                            </div>
+                            
+                            <button
+                              onClick={handleSignIn}
+                              disabled={isSigningIn}
+                              className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                            >
+                              <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                                <img
+                                  src={nearLogo}
+                                  alt="NEAR"
+                                  className="w-full h-full object-contain invert dark:invert-0"
+                                />
+                              </div>
+                              <span>
+                                {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={handleDisconnect}
+                              disabled={isSigningIn}
+                              className="w-full text-muted-foreground px-3 sm:px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <span className="text-[10px] sm:text-xs underline">Use a different wallet</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
+                        {!isWalletConnected ? (
+                          <p>Step 1 of 2</p>
+                        ) : (
+                          <p>Step 2 of 2 · Free, no transaction required</p>
+                        )}
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+
             {/* Desktop Account / Login Modal */}
             <div className="hidden md:block">
               {isLoggedIn ? (
@@ -369,153 +510,7 @@ export function MarketplaceHeader() {
         {/* Mobile Menu dropdown below navigation (as block) */}
         {mobileMenuOpen && (
           <div className="md:hidden mt-3 relative z-50 space-y-3">
-            {/* Action buttons block - above search */}
-            <div className="rounded-2xl bg-background/80 backdrop-blur-sm border border-border/60 px-4 py-3">
-              <div className="flex items-center justify-center gap-4">
-                {/* Mobile Favorites */}
-                <Link to="/favorites" onClick={() => setMobileMenuOpen(false)}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                  >
-                    <Heart className="h-5 w-5" />
-                    {favoritesCount > 0 && (
-                      <span className="badge-count">
-                        {favoritesCount}
-                      </span>
-                    )}
-                </Button>
-                </Link>
-
-                {/* Mobile Account / Login Modal */}
-                {isLoggedIn ? (
-                  <Link to="/account" onClick={() => setMobileMenuOpen(false)}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                    >
-                      <User className="h-5 w-5" />
-                    </Button>
-                  </Link>
-                ) : (
-                  <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        <User className="h-5 w-5" />
-                      </Button>
-                    </DialogTrigger>
-                  <DialogContent 
-                    showCloseButton={false}
-                    className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-0"
-                  >
-                    <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Sign In</h2>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                          onClick={() => setIsLoginOpen(false)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="space-y-3 sm:space-y-4">
-                        <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
-                          {!isWalletConnected 
-                            ? "Connect your NEAR wallet to continue"
-                            : "Sign the message to complete authentication"}
-                        </p>
-                        {!isWalletConnected && (
-                          <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
-                            Don't have a NEAR wallet?{" "}
-                            <button
-                              onClick={handleCreateWallet}
-                              className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
-                            >
-                              Create one here
-                            </button>
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="space-y-3 sm:space-y-4">
-                        {!isWalletConnected ? (
-                          <button
-                            onClick={handleConnectWallet}
-                            disabled={isConnectingWallet}
-                            className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                          >
-                            <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                              <img
-                                src={nearLogo}
-                                alt="NEAR"
-                                className="w-full h-full object-contain invert dark:invert-0"
-                              />
-                            </div>
-                            <span>
-                              {isConnectingWallet ? "Connecting..." : "Connect NEAR Wallet"}
-                            </span>
-                          </button>
-                        ) : (
-                          <>
-                            <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
-                              <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
-                              <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
-                            </div>
-
-                            <button
-                              onClick={handleSignIn}
-                              disabled={isSigningIn}
-                              className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                            >
-                              <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                                <img
-                                  src={nearLogo}
-                                  alt="NEAR"
-                                  className="w-full h-full object-contain invert dark:invert-0"
-                                />
-                              </div>
-                              <span>
-                                {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
-                              </span>
-                            </button>
-
-                            <button
-                              onClick={handleDisconnect}
-                              disabled={isSigningIn}
-                              className="w-full text-muted-foreground px-3 sm:px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <span className="text-[10px] sm:text-xs underline">Use a different wallet</span>
-                            </button>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
-                        {!isWalletConnected ? (
-                          <p>Step 1 of 2</p>
-                        ) : (
-                          <p>Step 2 of 2 · Free, no transaction required</p>
-                        )}
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                )}
-
-              </div>
-            </div>
-
-            {/* Search block - below action buttons */}
+            {/* Search block */}
             <div className="rounded-2xl bg-background/80 backdrop-blur-sm border border-border/60 px-6 md:px-8 py-4">
               <form
                 onSubmit={(e) => {

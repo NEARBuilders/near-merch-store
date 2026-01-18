@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { MarketplaceHeader } from "@/components/marketplace-header";
 import { MarketplaceFooter } from "@/components/marketplace-footer";
 
@@ -7,16 +7,16 @@ export const Route = createFileRoute("/_marketplace")({
 });
 
 function MarketplaceLayout() {
+  const routerState = useRouterState();
+  const isPending = routerState.isLoading;
+
   return (
-    <div className="min-h-screen w-full relative">
+    <div className="min-h-screen w-full relative bg-background">
       <MarketplaceHeader />
 
-      <main className="border-0 relative">
-        {/* Gradient overlay from bottom (dark) to top (lighter) */}
-        <div className="fixed inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-0 pointer-events-none" style={{ height: '100vh' }}></div>
-        
-        <div className="relative z-10">
-        <Outlet />
+      <main className="border-0 relative bg-background">
+        <div className={`relative z-10 transition-opacity duration-300 ${isPending ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+          <Outlet />
         </div>
       </main>
 

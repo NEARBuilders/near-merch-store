@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { queryClient } from "@/utils/orpc";
 import {
@@ -33,7 +32,9 @@ function MyAccountPage() {
     }
   };
 
-  const userEmail = session?.user?.email || "No email";
+  const accountId = authClient.near.getAccountId();
+  const userEmail = session?.user?.email;
+  const displayName = accountId || (userEmail && !userEmail.includes("http") ? userEmail : null) || "Account";
   const isOrdersActive = !!matchRoute({ to: "/account/orders" });
   const isConnectedActive = !!matchRoute({ to: "/account/connected" });
 
@@ -45,13 +46,13 @@ function MyAccountPage() {
           {/* Back Button */}
           <Link
             to="/"
-            className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
+            className="rounded-2xl border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
           >
             <ArrowLeft className="size-5" />
         </Link>
 
           {/* Account Header Block */}
-          <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
+          <div className="flex-1 rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
                 <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">My Account</h1>
@@ -69,16 +70,16 @@ function MyAccountPage() {
                   d="M13.333 14v-1.333A2.667 2.667 0 0010.666 10H5.333a2.667 2.667 0 00-2.666 2.667V14M8 7.333A2.667 2.667 0 108 2a2.667 2.667 0 000 5.333z"
                 />
               </svg>
-              <span className="truncate max-w-[200px] md:max-w-none">{userEmail}</span>
+              <span className="truncate max-w-[200px] md:max-w-none">{displayName}</span>
             </div>
           </div>
-          <Button
-            variant="outline"
+          <button
+            type="button"
             onClick={handleSignOut}
-                className="border-border/60 hover:border-[#00EC97] hover:text-[#00EC97] transition-colors"
+                className="px-8 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-base hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
           >
             Sign Out
-          </Button>
+          </button>
             </div>
           </div>
         </div>
@@ -91,12 +92,12 @@ function MyAccountPage() {
               preload="intent"
               className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg ${
                 isOrdersActive
-                  ? "bg-[#00EC97]/10 dark:bg-[#00EC97]/20 border border-[#00EC97]/60 text-[#00EC97]"
-                  : "hover:bg-background/60 border border-border/60 hover:border-[#00EC97]/40"
+                  ? "bg-[#00EC97] border border-[#00EC97] text-black"
+                  : "bg-background border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
                 }`}
             >
               <Package className="size-4" />
-              <span className="flex-1 text-sm font-medium">My Orders</span>
+              <span className="flex-1 text-sm font-semibold">My Orders</span>
               <ChevronRight className="size-4" />
             </Link>
 
@@ -105,18 +106,18 @@ function MyAccountPage() {
               preload="intent"
               className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg ${
                 isConnectedActive
-                  ? "bg-[#00EC97]/10 dark:bg-[#00EC97]/20 border border-[#00EC97]/60 text-[#00EC97]"
-                  : "hover:bg-background/60 border border-border/60 hover:border-[#00EC97]/40"
+                  ? "bg-[#00EC97] border border-[#00EC97] text-black"
+                  : "bg-background border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
                 }`}
             >
               <Link2 className="size-4" />
-              <span className="flex-1 text-sm font-medium">Connected Accounts</span>
+              <span className="flex-1 text-sm font-semibold">Connected Accounts</span>
               <ChevronRight className="size-4" />
             </Link>
           </div>
 
           {/* Content Area */}
-          <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
+          <div>
             <Outlet />
           </div>
         </div>

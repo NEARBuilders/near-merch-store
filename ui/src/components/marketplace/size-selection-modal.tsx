@@ -110,7 +110,7 @@ export function SizeSelectionModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         showCloseButton={false}
-        className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-0 max-w-md"
+        className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-0 !max-w-[calc(100%-2.5rem)] sm:!max-w-md !left-[50%] !translate-x-[-50%]"
       >
         <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
           <div className="flex items-center justify-between">

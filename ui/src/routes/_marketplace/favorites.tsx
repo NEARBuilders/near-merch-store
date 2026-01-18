@@ -41,18 +41,18 @@ function FavoritesPage() {
           {/* Back Block */}
           <Link
             to="/"
-            className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
+            className="rounded-2xl border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
           >
             <ArrowLeft className="size-5" />
           </Link>
 
           {/* Title Block */}
-          <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
+          <div className="flex-1 rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
             <div className="flex items-center gap-3">
               <Heart className="size-6 fill-[#00EC97] stroke-[#00EC97]" />
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Favorites</h1>
               {!isLoading && (
-                <span className="text-foreground/90 dark:text-muted-foreground">
+                <span className="text-foreground/90 dark:text-muted-foreground text-sm">
                   ({favoritesCount} {favoritesCount === 1 ? 'item' : 'items'})
                 </span>
               )}
@@ -61,26 +61,26 @@ function FavoritesPage() {
         </div>
 
         {isLoading ? (
-          <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-12 md:py-16 text-center">
+          <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-12 md:py-16 text-center">
             <p className="text-foreground/90 dark:text-muted-foreground">Loading favorites...</p>
           </div>
         ) : favoritesCount === 0 ? (
-          <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-12 md:py-16 text-center">
+          <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-12 md:py-16 text-center">
             <div className="mb-6 flex justify-center">
-              <Heart className="size-12 text-foreground/40 dark:text-muted-foreground" />
+              <Heart className="size-12 text-foreground/50 dark:text-muted-foreground" />
             </div>
-            <h3 className="text-lg text-foreground/90 dark:text-muted-foreground mb-2">No favorites yet</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">No favorites yet</h3>
             <p className="text-sm text-foreground/90 dark:text-muted-foreground max-w-[200px] mx-auto mb-6">
               Click the heart icon on products to save them here
             </p>
             <Link to="/">
-              <Button className="bg-[#00EC97] text-black hover:bg-[#00d97f]">
+              <button className="px-8 py-3 rounded-lg bg-[#00EC97] text-black font-semibold text-sm hover:bg-[#00d97f] transition-colors">
                 Browse Products
-              </Button>
+              </button>
             </Link>
           </div>
         ) : (
-          <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
+          <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {favoritesList.map((product) => (
               <ProductCard

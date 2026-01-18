@@ -7,7 +7,7 @@ setupErrorSuppression();
 import { StrictMode } from 'react';
 import { ThemeProvider } from 'next-themes';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 
 import * as TanStackQueryProvider from './integrations/tanstack-query/root-provider.tsx';
 
@@ -39,7 +39,7 @@ export function App() {
       <TanStackQueryProvider.Provider {...TanStackQueryProviderContext}>
         <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark" enableSystem={false}>
           <RouterProvider router={router} />
-          <Toaster position="bottom-right" richColors closeButton />
+          <Toaster position="bottom-right" />
         </ThemeProvider>
       </TanStackQueryProvider.Provider>
     </StrictMode>

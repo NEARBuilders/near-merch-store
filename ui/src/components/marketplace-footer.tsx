@@ -39,7 +39,7 @@ export function MarketplaceFooter() {
             <h4 className="font-semibold mb-4 text-foreground">Shop</h4>
             <div className="space-y-4 mt-4">
               <Link
-                to="/"
+                to="/products"
                 className="block link-primary text-sm"
               >
                 All Products
@@ -63,6 +63,10 @@ export function MarketplaceFooter() {
                 className="block link-muted text-sm"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.open('mailto:merch@near.foundation', '_blank', 'noopener,noreferrer');
+                }}
               >
                 Contact Us
               </a>

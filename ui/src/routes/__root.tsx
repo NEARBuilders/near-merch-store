@@ -3,7 +3,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import type { RouterContext } from "@/types";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -94,7 +94,7 @@ function RootComponent() {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark" enableSystem={false}>
       <Outlet />
-      <Toaster position="bottom-right" richColors closeButton />
+      <Toaster position="bottom-right" />
     </ThemeProvider>
   );
 }

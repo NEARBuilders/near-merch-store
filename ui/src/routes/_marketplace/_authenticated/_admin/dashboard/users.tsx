@@ -7,13 +7,16 @@ export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashbo
 
 function UsersManagement() {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-medium">Users</h2>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight mb-2">Users</h2>
+        <p className="text-sm text-foreground/90 dark:text-muted-foreground">
+          Manage user accounts and permissions
+        </p>
       </div>
-      <div className="bg-[#ececf0] dark:bg-muted p-8 text-center">
-        <Users className="size-8 mx-auto mb-4 text-[#717182]" />
-        <p className="text-[#717182]">User management coming soon</p>
+      <div className="rounded-2xl bg-background border border-border/60 p-12 text-center">
+        <Users className="size-12 mx-auto mb-4 text-foreground/50 dark:text-muted-foreground" />
+        <p className="text-foreground/90 dark:text-muted-foreground font-medium">User management coming soon</p>
       </div>
     </div>
   );

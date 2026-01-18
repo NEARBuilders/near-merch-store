@@ -215,50 +215,51 @@ function InventoryManagement() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 h-20 animate-pulse" />
-        <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 h-64 animate-pulse" />
+        <div className="rounded-2xl bg-background border border-border/60 h-20 animate-pulse" />
+        <div className="rounded-2xl bg-background border border-border/60 h-64 animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-6 overflow-x-hidden max-w-full">
       {/* Header Block */}
-      <div className="rounded-lg md:rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 lg:px-10 py-4 md:py-6 lg:py-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
-          <h2 className="text-xl md:text-2xl lg:text-3xl font-bold tracking-tight">Inventory Management</h2>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSync}
-              disabled={isSyncing}
-              className="border-border/60 hover:border-[#00EC97] hover:text-[#00EC97] transition-colors text-xs md:text-sm"
-            >
-              <RefreshCw className={cn("size-3 md:size-4 mr-1 md:mr-2", isSyncing && "animate-spin")} />
-              {isSyncing ? "Syncing..." : "Sync Products"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              disabled={isRefetching}
-              className="border-border/60 hover:border-[#00EC97] hover:text-[#00EC97] transition-colors text-xs md:text-sm"
-            >
-              <RefreshCw className={cn("size-3 md:size-4 mr-1 md:mr-2", isRefetching && "animate-spin")} />
-              Refresh
-            </Button>
-          </div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-3xl font-bold tracking-tight mb-2">Inventory Management</h2>
+          <p className="text-sm text-foreground/90 dark:text-muted-foreground">
+            Manage your product inventory and listings
+          </p>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap shrink-0">
+          <button
+            type="button"
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={cn("size-4 mr-2", isSyncing && "animate-spin")} />
+            {isSyncing ? "Syncing..." : "Sync Products"}
+          </button>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={cn("size-4 mr-2", isRefetching && "animate-spin")} />
+            Refresh
+          </button>
         </div>
       </div>
 
       {/* Sync Status Block */}
       {syncStatusData && (
         <div className={cn(
-          "rounded-lg p-3 md:p-4 text-xs md:text-sm border",
-          syncStatusData.status === "running" && "bg-[#3d7fff]/10 text-[#3d7fff] border-[#3d7fff]/30",
-          syncStatusData.status === "error" && "bg-red-500/10 text-red-500 border-red-500/30",
-          syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && "bg-[#00EC97]/10 text-[#00EC97] border-[#00EC97]/30"
+          "rounded-2xl p-4 text-sm border",
+          syncStatusData.status === "running" && "bg-background border-[#3d7fff]/60 text-[#3d7fff]",
+          syncStatusData.status === "error" && "bg-background border-red-500/60 text-red-500",
+          syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && "bg-background border-[#00EC97]/60 text-[#00EC97]"
         )}>
           {syncStatusData.status === "running" && "Syncing products from fulfillment providers..."}
           {syncStatusData.status === "error" && `Sync error: ${syncStatusData.errorMessage || "Unknown error"}`}
@@ -269,23 +270,23 @@ function InventoryManagement() {
       )}
 
       {/* Search Block */}
-      <div className="rounded-lg md:rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 lg:px-10 py-4 md:py-6 lg:py-8">
+      <div className="rounded-2xl bg-background border border-border/60 px-6 py-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3 md:size-4 text-foreground/50 dark:text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-foreground/50 dark:text-muted-foreground" />
           <Input
             placeholder="Search products..."
             value={globalFilter ?? ""}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-8 md:pl-10 bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60 text-sm md:text-base"
+            className="pl-10 bg-background/60 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60 text-sm"
           />
         </div>
       </div>
 
       {/* Desktop Table / Mobile Cards */}
-      <div className="rounded-lg md:rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 overflow-hidden">
+      <div className="rounded-2xl bg-background border border-border/60 overflow-hidden max-w-full">
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-0">
             <thead className="bg-background/40 backdrop-blur-sm">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
@@ -325,7 +326,7 @@ function InventoryManagement() {
         </div>
 
         {/* Mobile Cards */}
-        <div className="md:hidden divide-y divide-border/60">
+        <div className="md:hidden divide-y divide-border/60 overflow-x-hidden max-w-full">
           {table.getRowModel().rows.length === 0 ? (
             <div className="px-4 py-8 text-center text-foreground/70 dark:text-muted-foreground text-sm">
               No products found
@@ -335,7 +336,7 @@ function InventoryManagement() {
               const product = row.original;
               const isListed = product.listed !== false;
               return (
-                <div key={row.id} className="p-4 space-y-3 hover:bg-background/40 transition-colors">
+                <div key={row.id} className="p-4 space-y-3 hover:bg-background/40 transition-colors max-w-full overflow-x-hidden">
                   <div className="flex items-start gap-3">
                     <div className="size-16 bg-muted border border-border/60 overflow-hidden rounded-lg shrink-0">
                       {product.thumbnailImage ? (
@@ -406,9 +407,9 @@ function InventoryManagement() {
       </div>
 
       {/* Pagination Block */}
-      <div className="rounded-lg md:rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 lg:px-10 py-3 md:py-4 lg:py-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4">
-          <p className="text-xs md:text-sm text-foreground/70 dark:text-muted-foreground text-center md:text-left">
+      <div className="rounded-2xl bg-background border border-border/60 px-6 py-4 overflow-x-hidden max-w-full">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 min-w-0">
+          <p className="text-sm text-foreground/90 dark:text-muted-foreground text-center md:text-left min-w-0 flex-1">
             Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{" "}
             {Math.min(
               (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
@@ -417,27 +418,25 @@ function InventoryManagement() {
             of {table.getFilteredRowModel().rows.length} products
           </p>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              type="button"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              className="border-border/60 hover:border-[#00EC97] hover:text-[#00EC97] transition-colors disabled:opacity-50 h-8 px-2"
+              className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-colors disabled:opacity-50"
             >
-              <ChevronLeft className="size-3 md:size-4" />
-            </Button>
-            <span className="text-xs md:text-sm text-foreground/90 dark:text-muted-foreground">
+              <ChevronLeft className="size-4" />
+            </button>
+            <span className="text-sm text-foreground font-medium">
               Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              type="button"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              className="border-border/60 hover:border-[#00EC97] hover:text-[#00EC97] transition-colors disabled:opacity-50 h-8 px-2"
+              className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-colors disabled:opacity-50"
             >
-              <ChevronRight className="size-3 md:size-4" />
-            </Button>
+              <ChevronRight className="size-4" />
+            </button>
           </div>
         </div>
       </div>
