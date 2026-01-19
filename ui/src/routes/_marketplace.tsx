@@ -16,7 +16,7 @@ function MarketplaceLayout() {
 
       <main className="border-0 relative bg-background">
         <div className={`relative z-10 transition-opacity duration-300 ${isPending ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-          <Outlet />
+        <Outlet />
         </div>
       </main>
 

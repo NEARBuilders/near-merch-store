@@ -322,20 +322,15 @@ function ProductDetailPage() {
 
       <div className="container-app mx-auto px-4 md:px-8 lg:px-16 pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* Title Block - Mobile: above image, Desktop: in right column */}
-          <div className="lg:hidden">
-            <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 py-4 md:py-5 mb-6">
-              <div className="space-y-2">
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground/90 dark:text-muted-foreground">
-                  {product.title}
-                </h1>
-              </div>
-            </div>
-          </div>
-
           {/* Image Block */}
           <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-4 md:p-6">
           <div className="w-full space-y-4">
+            {/* Title - Mobile only, inside image block */}
+            <div className="lg:hidden">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground/90 dark:text-muted-foreground">
+                {product.title}
+              </h1>
+            </div>
               <div className="relative w-full aspect-square rounded-lg overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/40 to-background/90 dark:from-background/10 dark:via-background/60 dark:to-background z-0"></div>
               {productImages.map((img, index) => (

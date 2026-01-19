@@ -56,7 +56,7 @@ function CollectionsPage() {
 
   return (
     <div className="bg-background min-h-screen pt-32">
-      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
+        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
         {/* Back and Title Blocks */}
         <div className="flex flex-row gap-4 mb-8">
           {/* Back Block */}
@@ -72,11 +72,11 @@ function CollectionsPage() {
             <div className="text-center space-y-4">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Our Collections</h1>
               <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base max-w-[723px] mx-auto">
-                Discover premium NEAR Protocol merchandise across four curated collections. Each piece is designed with quality and sustainability in mind.
-              </p>
-            </div>
+              Discover premium NEAR Protocol merchandise across four curated collections. Each piece is designed with quality and sustainability in mind.
+            </p>
           </div>
         </div>
+      </div>
 
         {/* Collections Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
@@ -127,25 +127,25 @@ function CollectionsPage() {
               </Link>
             );
           })}
-        </div>
+      </div>
 
         {/* Bottom CTA */}
         <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-12 md:py-16 mb-12">
           <div className="max-w-[672px] mx-auto text-center space-y-6">
-            <div className="space-y-4">
+          <div className="space-y-4">
               <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Can't decide?</h2>
               <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base">
-                Browse our entire collection and find the perfect piece for you.
-              </p>
-            </div>
+              Browse our entire collection and find the perfect piece for you.
+            </p>
+          </div>
             <Link to="/products">
               <button
                 type="button"
                 className="px-8 py-3 rounded-lg bg-[#00EC97] text-black flex items-center justify-center font-semibold text-base hover:bg-[#00d97f] transition-colors mx-auto"
               >
-                View All Products
+              View All Products
               </button>
-            </Link>
+          </Link>
           </div>
         </div>
       </div>

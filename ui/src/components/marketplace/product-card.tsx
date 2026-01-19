@@ -234,8 +234,7 @@ function VerticalProductLayout({
 
   const titleSize =
     variant === "sm" ? "text-sm" : variant === "lg" ? "text-xl" : "text-lg";
-  const priceSize =
-    variant === "sm" ? "text-xs" : variant === "lg" ? "text-lg" : "text-base";
+  const priceSize = "text-sm";
 
   return (
     <div

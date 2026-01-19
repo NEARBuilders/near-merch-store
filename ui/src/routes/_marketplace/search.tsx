@@ -1,13 +1,16 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { ProductCard } from '@/components/marketplace/product-card';
+import { LoadingSpinner } from '@/components/loading';
 import {
   useSearchProducts,
   useProducts,
   productLoaders,
   type ProductCategory,
+  type Product,
 } from '@/integrations/api';
 import { queryClient } from '@/utils/orpc';
+import { useMemo } from 'react';
 
 type SearchParams = {
   q?: string;
@@ -28,17 +31,57 @@ export const Route = createFileRoute('/_marketplace/search')({
 function SearchPage() {
   const { q, category } = Route.useSearch();
 
-  const { data: searchData } = useSearchProducts(q || '', {
+  const { data: searchData, isFetching: isSearching } = useSearchProducts(q || '', {
     category: category as ProductCategory | undefined,
     limit: 50,
   });
 
-  const { data: allProductsData } = useProducts({
+  const { data: allProductsData, isLoading } = useProducts({
     category: category as ProductCategory | undefined,
     limit: 50,
   });
 
-  const products = q ? (searchData?.products ?? []) : (allProductsData?.products ?? []);
+  const normalizeSearchTerm = (term: string): string => {
+    const normalized = term.toLowerCase().trim();
+    const words = normalized.split(/\s+/);
+    
+    return words.map(word => {
+      if (word.endsWith('ies')) return word.slice(0, -3) + 'y';
+      if (word.endsWith('es') && word.length > 3) return word.slice(0, -2);
+      if (word.endsWith('s') && word.length > 2) return word.slice(0, -1);
+      return word;
+    }).join(' ');
+  };
+
+  const matchesSearchQuery = (product: Product, query: string): boolean => {
+    if (!query.trim()) return true;
+    
+    const queryLower = query.toLowerCase().trim();
+    const normalizedQuery = normalizeSearchTerm(query);
+    const searchText = `${product.title} ${product.productType || ''} ${product.brand || ''} ${product.category || ''}`.toLowerCase();
+    const normalizedSearchText = normalizeSearchTerm(searchText);
+    
+    return searchText.includes(queryLower) || 
+           normalizedSearchText.includes(normalizedQuery) ||
+           product.title.toLowerCase().includes(queryLower) ||
+           normalizeSearchTerm(product.title).includes(normalizedQuery);
+  };
+
+  const products = useMemo(() => {
+    if (!q) {
+      return allProductsData?.products ?? [];
+    }
+    
+    const apiResults = searchData?.products ?? [];
+    const allProducts = allProductsData?.products ?? [];
+    
+    const apiResultIds = new Set(apiResults.map(p => p.id));
+    const additionalResults = allProducts.filter(
+      product => !apiResultIds.has(product.id) && matchesSearchQuery(product, q)
+    );
+    
+    return [...apiResults, ...additionalResults];
+  }, [q, searchData, allProductsData]);
 
   return (
     <section className="section-padding relative z-10 bg-background pt-32">
@@ -65,12 +108,17 @@ function SearchPage() {
           </div>
         </div>
 
-        {products.length > 0 ? (
+        {(isLoading || (isSearching && q)) ? (
+          <div className="flex items-center justify-center py-20">
+            <LoadingSpinner />
+          </div>
+        ) : products.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {products.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
+                variant="sm"
               />
             ))}
           </div>

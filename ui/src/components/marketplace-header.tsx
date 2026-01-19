@@ -1,6 +1,6 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useMatchRoute, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
-import { Search, Heart, ShoppingCart, User, Menu, X } from "lucide-react";
+import { Search, Heart, ShoppingCart, User, Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -8,6 +8,12 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CartSidebar } from "@/components/marketplace/cart-sidebar";
 import { useCart } from "@/hooks/use-cart";
 import { useFavorites } from "@/hooks/use-favorites";
@@ -18,6 +24,51 @@ import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { queryClient } from "@/utils/orpc";
 import nearLogo from "@/assets/images/pngs/logo_sq.png";
+
+const PRODUCT_CATEGORIES = [
+  { key: 'tshirt', label: 'T-Shirts' },
+  { key: 'hats', label: 'Hats' },
+  { key: 'hoodies', label: 'Hoodies' },
+  { key: 'long sleeved shirts', label: 'Long Sleeved Shirts' },
+] as const;
+
+function CollectionsDropdown() {
+  const matchRoute = useMatchRoute();
+  const location = useLocation();
+  const searchParams = location.search as { category?: string };
+  const currentCategory = searchParams?.category || null;
+
+  const isCategoryActive = (categoryKey: string) => {
+    return matchRoute({ to: '/products' }) && currentCategory === categoryKey;
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="text-sm font-semibold text-foreground hover:text-[#00EC97] transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg focus:outline-none focus:ring-0 border-0">
+          Collections
+          <ChevronDown className="h-4 w-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={20} className="w-56 bg-background/60 backdrop-blur-sm border border-border/60 rounded-2xl p-2 shadow-lg">
+        {PRODUCT_CATEGORIES.map((category) => {
+          const isActive = isCategoryActive(category.key);
+          return (
+            <DropdownMenuItem key={category.key} asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97]">
+              <Link
+                to="/products"
+                search={{ category: category.key }}
+                className={`cursor-pointer rounded-lg px-3 py-2 hover:text-[#00EC97] focus:text-[#00EC97] transition-colors ${isActive ? 'text-[#00EC97]' : ''}`}
+              >
+                {category.label}
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export function MarketplaceHeader() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,14 +86,21 @@ export function MarketplaceHeader() {
   const { totalCount: cartCount } = useCart();
   const { count: favoritesCount } = useFavorites();
 
-  const accountId = authClient.near.getAccountId();
   const { data: session } = authClient.useSession();
   const isLoggedIn = !!session?.user;
+
+  const matchRoute = useMatchRoute();
+  const location = useLocation();
+  const searchParams = location.search as { category?: string };
+  const currentCategory = searchParams?.category || null;
+
+  const isProductsActive = !!matchRoute({ to: '/products' });
+  const isExclusivesActive = isProductsActive && currentCategory === 'Exclusives';
+  const isTrackOrderActive = !!matchRoute({ to: '/account/orders' });
 
   const handleConnectWallet = async () => {
     setIsConnectingWallet(true);
     try {
-      // Close modal when wallet popout opens
       setIsLoginOpen(false);
       
       await authClient.requestSignIn.near(
@@ -59,7 +117,6 @@ export function MarketplaceHeader() {
           onError: (error: any) => {
             setIsConnectingWallet(false);
             console.error("Wallet connection error:", error);
-            // Reopen modal if connection failed
             setIsLoginOpen(true);
           },
         }
@@ -67,7 +124,6 @@ export function MarketplaceHeader() {
     } catch (error) {
       setIsConnectingWallet(false);
       console.error("Wallet connection error:", error);
-      // Reopen modal if connection failed
       setIsLoginOpen(true);
     }
   };
@@ -161,9 +217,39 @@ export function MarketplaceHeader() {
             <NearWordmark className="max-w-[70px]" />
           </Link>
 
-          {/* Action Buttons */}
+          <nav className="hidden lg:flex items-center gap-2">
+            <Link
+              to="/products"
+              className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
+                isProductsActive && !currentCategory ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+              }`}
+            >
+              Shop Merch
+            </Link>
+            
+            <CollectionsDropdown />
+            
+            <Link
+              to="/products"
+              search={{ category: 'Exclusives' }}
+              className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
+                isExclusivesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+              }`}
+            >
+              Exclusives
+            </Link>
+            
+            <Link
+              to="/account/orders"
+              className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
+                isTrackOrderActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+              }`}
+            >
+              Track Order
+            </Link>
+          </nav>
+
           <div className="flex items-center gap-2 shrink-0">
-            {/* Desktop search - icon + inline input */}
             <div className="hidden lg:flex items-center gap-2">
               {isSearchOpen && (
                 <form onSubmit={handleSearch} className="flex items-center gap-2">
@@ -192,7 +278,6 @@ export function MarketplaceHeader() {
               </Button>
             </div>
 
-            {/* Desktop Favorites */}
             <Link to="/favorites" className="hidden md:block">
               <Button
                 variant="ghost"
@@ -208,7 +293,6 @@ export function MarketplaceHeader() {
               </Button>
             </Link>
 
-            {/* Cart - visible on all screens */}
             <Button
               variant="ghost"
               size="icon"
@@ -223,7 +307,6 @@ export function MarketplaceHeader() {
                 )}
               </Button>
 
-            {/* Mobile Favorites */}
             <Link to="/favorites" className="md:hidden">
               <Button
                 variant="ghost"
@@ -239,133 +322,7 @@ export function MarketplaceHeader() {
               </Button>
             </Link>
 
-            {/* Mobile Account / Login Modal */}
             <div className="md:hidden">
-              {isLoggedIn ? (
-                <Link to="/account">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                  >
-                    <User className="h-5 w-5" />
-                  </Button>
-                </Link>
-              ) : (
-                <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                    >
-                      <User className="h-5 w-5" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent 
-                    showCloseButton={false}
-                    className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-0"
-                  >
-                    <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Sign In</h2>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                          onClick={() => setIsLoginOpen(false)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="space-y-3 sm:space-y-4">
-                        <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
-                          {!isWalletConnected 
-                            ? "Connect your NEAR wallet to continue"
-                            : "Sign the message to complete authentication"}
-                        </p>
-                        {!isWalletConnected && (
-                          <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
-                            Don't have a NEAR wallet?{" "}
-                            <button
-                              onClick={handleCreateWallet}
-                              className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
-                            >
-                              Create one here
-                            </button>
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="space-y-3 sm:space-y-4">
-                        {!isWalletConnected ? (
-                          <button
-                            onClick={handleConnectWallet}
-                            disabled={isConnectingWallet}
-                            className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                          >
-                            <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                              <img
-                                src={nearLogo}
-                                alt="NEAR"
-                                className="w-full h-full object-contain invert dark:invert-0"
-                              />
-                            </div>
-                            <span>
-                              {isConnectingWallet ? "Connecting..." : "Connect NEAR Wallet"}
-                            </span>
-                          </button>
-                        ) : (
-                          <>
-                            <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
-                              <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
-                              <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
-                            </div>
-                            
-                            <button
-                              onClick={handleSignIn}
-                              disabled={isSigningIn}
-                              className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                            >
-                              <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                                <img
-                                  src={nearLogo}
-                                  alt="NEAR"
-                                  className="w-full h-full object-contain invert dark:invert-0"
-                                />
-                              </div>
-                              <span>
-                                {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
-                              </span>
-                            </button>
-
-                            <button
-                              onClick={handleDisconnect}
-                              disabled={isSigningIn}
-                              className="w-full text-muted-foreground px-3 sm:px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <span className="text-[10px] sm:text-xs underline">Use a different wallet</span>
-                            </button>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
-                        {!isWalletConnected ? (
-                          <p>Step 1 of 2</p>
-                        ) : (
-                          <p>Step 2 of 2 · Free, no transaction required</p>
-                        )}
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-
-            {/* Desktop Account / Login Modal */}
-            <div className="hidden md:block">
               {isLoggedIn ? (
             <Link to="/account">
                   <Button
@@ -485,12 +442,134 @@ export function MarketplaceHeader() {
                     </div>
                   </div>
                 </DialogContent>
-              </Dialog>
-              )}
+                </Dialog>
+                )}
             </div>
 
+            <div className="hidden md:block">
+              {isLoggedIn ? (
+            <Link to="/account">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                      className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                    >
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                      >
+                        <User className="h-5 w-5" />
+                      </Button>
+                    </DialogTrigger>
+                  <DialogContent 
+                    showCloseButton={false}
+                    className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-0"
+                  >
+                    <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Sign In</h2>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                          onClick={() => setIsLoginOpen(false)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
 
-            {/* Mobile Menu toggle button */}
+                      <div className="space-y-3 sm:space-y-4">
+                        <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
+                          {!isWalletConnected 
+                            ? "Connect your NEAR wallet to continue"
+                            : "Sign the message to complete authentication"}
+                        </p>
+                        {!isWalletConnected && (
+                          <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
+                            Don't have a NEAR wallet?{" "}
+                            <button
+                              onClick={handleCreateWallet}
+                              className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
+                            >
+                              Create one here
+                            </button>
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-3 sm:space-y-4">
+                        {!isWalletConnected ? (
+                          <button
+                            onClick={handleConnectWallet}
+                            disabled={isConnectingWallet}
+                            className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                          >
+                            <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                              <img
+                                src={nearLogo}
+                                alt="NEAR"
+                                className="w-full h-full object-contain invert dark:invert-0"
+                              />
+                            </div>
+                            <span>
+                              {isConnectingWallet ? "Connecting..." : "Connect NEAR Wallet"}
+                            </span>
+                          </button>
+                        ) : (
+                          <>
+                            <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
+                              <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
+                              <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
+                            </div>
+
+                            <button
+                              onClick={handleSignIn}
+                              disabled={isSigningIn}
+                              className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                            >
+                              <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                                <img
+                                  src={nearLogo}
+                                  alt="NEAR"
+                                  className="w-full h-full object-contain invert dark:invert-0"
+                                />
+                              </div>
+                              <span>
+                                {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={handleDisconnect}
+                              disabled={isSigningIn}
+                              className="w-full text-muted-foreground px-3 sm:px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <span className="text-[10px] sm:text-xs underline">Use a different wallet</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
+                        {!isWalletConnected ? (
+                          <p>Step 1 of 2</p>
+                        ) : (
+                          <p>Step 2 of 2 · Free, no transaction required</p>
+                        )}
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                )}
+            </div>
+
             <Button
               variant="ghost"
               size="icon"
@@ -507,10 +586,8 @@ export function MarketplaceHeader() {
           </div>
         </div>
 
-        {/* Mobile Menu dropdown below navigation (as block) */}
         {mobileMenuOpen && (
           <div className="md:hidden mt-3 relative z-50 space-y-3">
-            {/* Search block */}
             <div className="rounded-2xl bg-background/80 backdrop-blur-sm border border-border/60 px-6 md:px-8 py-4">
               <form
                 onSubmit={(e) => {
@@ -526,18 +603,71 @@ export function MarketplaceHeader() {
                         placeholder="Search products..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 h-10 bg-background/70 border border-border/60 rounded-md text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-b-2 focus-visible:border-[#00EC97] hover:border-border/60"
+                        className="pl-10 h-10 bg-background/70 border border-border/60 rounded-md text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-b-2 focus-visible:border-[#00EC97] hover:border-border/60"
                       />
                     </div>
                   </form>
               <p className="text-foreground/90 dark:text-muted-foreground text-xs">
                 Browse our products and discover the latest NEAR merch drops.
               </p>
-                </div>
+            </div>
+
+            <div className="rounded-2xl bg-background/80 backdrop-blur-sm border border-border/60 px-6 py-4 space-y-2">
+              <Link
+                to="/products"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                  isProductsActive && !currentCategory ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                }`}
+              >
+                Shop Merch
+              </Link>
+              
+              <div className="space-y-1">
+                <div className="text-sm font-semibold text-foreground px-3 py-2">Collections</div>
+                {PRODUCT_CATEGORIES.map((category) => {
+                  const isActive = isProductsActive && currentCategory === category.key;
+                  return (
+                    <Link
+                      key={category.key}
+                      to="/products"
+                      search={{ category: category.key }}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block pl-6 pr-3 py-2 text-sm transition-colors rounded-lg ${
+                        isActive ? 'text-[#00EC97]' : 'text-foreground/90 hover:text-[#00EC97]'
+                      }`}
+                    >
+                      {category.label}
+                    </Link>
+                  );
+                })}
+              </div>
+              
+              <Link
+                to="/products"
+                search={{ category: 'Exclusives' }}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                  isExclusivesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                }`}
+              >
+                Exclusives
+              </Link>
+              
+              <Link
+                to="/account/orders"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                  isTrackOrderActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                }`}
+              >
+                Track Order
+              </Link>
+            </div>
           </div>
         )}
-      </nav>
-    </header>
+          </nav>
+        </header>
 
     <CartSidebar
       isOpen={isCartSidebarOpen}

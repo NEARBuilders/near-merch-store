@@ -326,28 +326,28 @@ function OrderConfirmationPage() {
   return (
     <div className="bg-background min-h-screen pt-32">
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 mb-8">
-        <Link
-          to="/"
+          <Link
+            to="/"
           className="inline-flex items-center gap-2 rounded-2xl border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 hover:border-[#00EC97] hover:text-[#00EC97] transition-colors"
-        >
+          >
           <svg className="size-5" fill="none" viewBox="0 0 16 16">
-            <path
-              d="M8 12.6667L3.33333 8L8 3.33333"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.33333"
-            />
-            <path
-              d="M12.6667 8H3.33333"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.33333"
-            />
-          </svg>
+              <path
+                d="M8 12.6667L3.33333 8L8 3.33333"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.33333"
+              />
+              <path
+                d="M12.6667 8H3.33333"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.33333"
+              />
+            </svg>
           <span className="text-sm font-semibold">Back to Store</span>
-        </Link>
+          </Link>
       </div>
 
       <div className="max-w-[672px] mx-auto px-4 md:px-8 lg:px-16 pb-16">

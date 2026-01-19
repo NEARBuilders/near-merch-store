@@ -115,12 +115,12 @@ function OrdersPage() {
           return (
             <div className="flex items-center gap-2">
               {hasTracking && (
-                <a
-                  href={order.trackingInfo![0]!.trackingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  <a
+                    href={order.trackingInfo![0]!.trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
                   className="px-3 py-1.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
-                >
+              >
                   Track <ExternalLink className="h-3 w-3 ml-1" />
                 </a>
               )}
@@ -129,8 +129,8 @@ function OrdersPage() {
                 search={{ sessionId: order.checkoutSessionId || '' }}
                 className="px-3 py-1.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
               >
-                View Details
-              </Link>
+                  View Details
+                </Link>
             </div>
           );
         },
@@ -141,7 +141,7 @@ function OrdersPage() {
 
   return (
     <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8 space-y-6">
-      <div>
+    <div>
         <h2 className="text-3xl font-bold tracking-tight mb-2">My Orders</h2>
         <p className="text-sm text-foreground/90 dark:text-muted-foreground">View and track your order history</p>
       </div>
@@ -156,8 +156,8 @@ function OrdersPage() {
         <>
           {/* Desktop Table */}
           <div className="hidden md:block overflow-hidden">
-            <DataTable columns={columns} data={orders} />
-          </div>
+        <DataTable columns={columns} data={orders} />
+        </div>
 
           {/* Mobile Cards */}
           <div className="md:hidden space-y-4">

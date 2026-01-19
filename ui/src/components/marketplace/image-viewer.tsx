@@ -70,32 +70,32 @@ export function ImageViewer({
 
             {/* Bottom controls - indicator left, navigation buttons right - inside block */}
             {images.length > 1 && (
-              <div className="absolute bottom-4 left-0 right-0 flex items-center justify-between px-4 z-20">
-                {/* Indicator - bottom left */}
-                <div className="px-4 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60">
-                  <span className="text-sm text-foreground/90 dark:text-muted-foreground">
-                    {currentIndex + 1} / {images.length}
-                  </span>
-                </div>
-
-                {/* Navigation buttons - bottom right (both mobile and desktop) */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handlePrevious}
-                    className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
-                    aria-label="Previous image"
-                  >
-                    <ChevronLeft className="h-5 w-5 text-foreground group-hover:text-black" />
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
-                    aria-label="Next image"
-                  >
-                    <ChevronRight className="h-5 w-5 text-foreground group-hover:text-black" />
-                  </button>
-                </div>
+            <div className="absolute bottom-4 left-0 right-0 flex items-center justify-between px-4 z-20">
+              {/* Indicator - bottom left */}
+              <div className="px-4 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60">
+                <span className="text-sm text-foreground/90 dark:text-muted-foreground">
+                  {currentIndex + 1} / {images.length}
+                </span>
               </div>
+
+              {/* Navigation buttons - bottom right (both mobile and desktop) */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrevious}
+                    className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
+                  aria-label="Previous image"
+                >
+                    <ChevronLeft className="h-5 w-5 text-foreground group-hover:text-black" />
+                </button>
+                <button
+                  onClick={handleNext}
+                    className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
+                  aria-label="Next image"
+                >
+                    <ChevronRight className="h-5 w-5 text-foreground group-hover:text-black" />
+                </button>
+              </div>
+            </div>
             )}
           </div>
         </div>

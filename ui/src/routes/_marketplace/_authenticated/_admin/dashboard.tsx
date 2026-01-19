@@ -70,80 +70,80 @@ function AdminDashboard() {
         <div className="grid lg:grid-cols-[280px_1fr] gap-8 overflow-x-hidden min-w-0">
           {/* Sidebar Navigation */}
           <div className="space-y-2 min-w-0">
-            <Link
-              to="/dashboard"
-              preload="intent"
-              className={cn(
+              <Link
+                to="/dashboard"
+                preload="intent"
+                className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
-                isOverviewActive
+                  isOverviewActive
                   ? "bg-[#00EC97] border border-[#00EC97] text-black"
                   : "bg-background border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
-              )}
-            >
+                )}
+              >
               <LayoutDashboard className="size-4" />
               <span className="flex-1 text-sm font-semibold">Overview</span>
               <ChevronRight className="size-4" />
-            </Link>
+              </Link>
 
-            <Link
-              to="/dashboard/inventory"
-              preload="intent"
-              className={cn(
+              <Link
+                to="/dashboard/inventory"
+                preload="intent"
+                className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
-                isInventoryActive
+                  isInventoryActive
                   ? "bg-[#00EC97] border border-[#00EC97] text-black"
                   : "bg-background border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
-              )}
-            >
+                )}
+              >
               <Package className="size-4" />
               <span className="flex-1 text-sm font-semibold">Inventory</span>
               <ChevronRight className="size-4" />
-            </Link>
+              </Link>
 
-            <Link
-              to="/dashboard/orders"
-              preload="intent"
-              className={cn(
+              <Link
+                to="/dashboard/orders"
+                preload="intent"
+                className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
-                isOrdersActive
+                  isOrdersActive
                   ? "bg-[#00EC97] border border-[#00EC97] text-black"
                   : "bg-background border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
-              )}
-            >
+                )}
+              >
               <ShoppingBag className="size-4" />
               <span className="flex-1 text-sm font-semibold">Orders</span>
               <ChevronRight className="size-4" />
-            </Link>
+              </Link>
 
-            <Link
-              to="/dashboard/users"
-              preload="intent"
-              className={cn(
+              <Link
+                to="/dashboard/users"
+                preload="intent"
+                className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
-                isUsersActive
+                  isUsersActive
                   ? "bg-[#00EC97] border border-[#00EC97] text-black"
                   : "bg-background border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
-              )}
-            >
+                )}
+              >
               <Users className="size-4" />
               <span className="flex-1 text-sm font-semibold">Users</span>
               <ChevronRight className="size-4" />
-            </Link>
+              </Link>
 
-            <Link
-              to="/dashboard/providers"
-              preload="intent"
-              className={cn(
+              <Link
+                to="/dashboard/providers"
+                preload="intent"
+                className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
-                isProvidersActive
+                  isProvidersActive
                   ? "bg-[#00EC97] border border-[#00EC97] text-black"
                   : "bg-background border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
-              )}
-            >
+                )}
+              >
               <Settings className="size-4" />
               <span className="flex-1 text-sm font-semibold">Providers</span>
               <ChevronRight className="size-4" />
-            </Link>
+              </Link>
           </div>
 
           {/* Content Area */}

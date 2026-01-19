@@ -45,7 +45,7 @@ type DiscountFilter = 'all' | 'on-sale' | 'no-discount';
 type SortOption = 'relevance' | 'price-low-high' | 'price-high-low';
 type SizeFilter = 'all' | string;
 type ColorFilter = 'all' | string;
-type CategoryFilter = 'all' | 'tshirt' | 'hats' | 'hoodies' | 'long sleeved shirts';
+type CategoryFilter = 'all' | 'tshirt' | 'hats' | 'hoodies' | 'long sleeved shirts' | 'Exclusives';
 type BrandFilter = 'all' | string;
 
 // Define product type categories
@@ -144,7 +144,7 @@ function ProductsIndexPage() {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  const { data: searchData } = useSearchProducts(searchQuery, {
+  const { data: searchData, isFetching: isSearching } = useSearchProducts(searchQuery, {
     limit: 100,
   });
 
@@ -188,17 +188,61 @@ function ProductsIndexPage() {
     };
   }, [searchQuery, searchData, allProductsData]);
 
-  const products = useMemo(() => {
-    let filteredProducts = searchQuery.trim()
-      ? (searchData?.products ?? [])
-      : (allProductsData?.products ?? []);
+  const normalizeSearchTerm = (term: string): string => {
+    const normalized = term.toLowerCase().trim();
+    const words = normalized.split(/\s+/);
+    
+    return words.map(word => {
+      if (word.endsWith('ies')) return word.slice(0, -3) + 'y';
+      if (word.endsWith('es') && word.length > 3) return word.slice(0, -2);
+      if (word.endsWith('s') && word.length > 2) return word.slice(0, -1);
+      return word;
+    }).join(' ');
+  };
 
-    // Filter by product type category
+  const matchesSearchQuery = (product: Product, query: string): boolean => {
+    if (!query.trim()) return true;
+    
+    const queryLower = query.toLowerCase().trim();
+    const normalizedQuery = normalizeSearchTerm(query);
+    const searchText = `${product.title} ${product.productType || ''} ${product.brand || ''} ${product.category || ''}`.toLowerCase();
+    const normalizedSearchText = normalizeSearchTerm(searchText);
+    
+    return searchText.includes(queryLower) || 
+           normalizedSearchText.includes(normalizedQuery) ||
+           product.title.toLowerCase().includes(queryLower) ||
+           normalizeSearchTerm(product.title).includes(normalizedQuery);
+  };
+
+  const products = useMemo(() => {
+    let filteredProducts: Product[] = [];
+    
+    if (searchQuery.trim()) {
+      const apiResults = searchData?.products ?? [];
+      const allProducts = allProductsData?.products ?? [];
+      
+      const apiResultIds = new Set(apiResults.map(p => p.id));
+      const additionalResults = allProducts.filter(
+        product => !apiResultIds.has(product.id) && matchesSearchQuery(product, searchQuery)
+      );
+      
+      filteredProducts = [...apiResults, ...additionalResults];
+    } else {
+      filteredProducts = allProductsData?.products ?? [];
+    }
+
+    // Filter by product type category or Exclusives
     if (categoryFilter !== 'all') {
-      filteredProducts = filteredProducts.filter((product) => {
-        const normalizedType = normalizeProductType(product);
-        return normalizedType === categoryFilter;
-      });
+      if (categoryFilter === 'Exclusives') {
+        filteredProducts = filteredProducts.filter((product) => {
+          return product.category === 'Exclusives';
+        });
+      } else {
+        filteredProducts = filteredProducts.filter((product) => {
+          const normalizedType = normalizeProductType(product);
+          return normalizedType === categoryFilter;
+        });
+      }
     }
 
     // Filter by brand
@@ -304,6 +348,8 @@ function ProductsIndexPage() {
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
                 {categoryFilter === 'all' 
                   ? 'All Products' 
+                  : categoryFilter === 'Exclusives'
+                  ? 'Exclusives'
                   : PRODUCT_TYPE_CATEGORIES.find(cat => cat.key === categoryFilter)?.label || 'Products'}
               </h1>
               </div>
@@ -311,7 +357,6 @@ function ProductsIndexPage() {
           </div>
         </div>
 
-        {/* Category Filter Buttons - Mobile: Grid layout, Desktop: Flex with Filter button */}
         <div className="mb-8">
           {/* Mobile: Grid layout - 3 buttons first row, 2 buttons second row, full width */}
           <div className="md:hidden grid grid-cols-3 gap-2 mb-8">
@@ -359,7 +404,6 @@ function ProductsIndexPage() {
               </button>
             ))}
             
-            {/* Filter Button - Desktop: Same style as category buttons, positioned on the right */}
             <button
               onClick={() => setIsFilterSheetOpen(true)}
               className={cn(
@@ -372,7 +416,6 @@ function ProductsIndexPage() {
           </div>
         </div>
 
-        {/* Mobile: Sticky Filter Button - Bottom Right */}
         <button
           onClick={() => setIsFilterSheetOpen(true)}
           className={cn(
@@ -804,7 +847,7 @@ function ProductsIndexPage() {
           </SheetContent>
         </Sheet>
 
-          {isLoading ? (
+          {(isLoading || (isSearching && searchQuery.trim())) ? (
             <div className="flex items-center justify-center py-20">
               <LoadingSpinner />
             </div>
@@ -859,6 +902,7 @@ function ProductsIndexPage() {
                   <ProductCard
                     key={product.id}
                     product={product}
+                    variant="sm"
                     onQuickAdd={handleQuickAdd}
                   />
                 ))}

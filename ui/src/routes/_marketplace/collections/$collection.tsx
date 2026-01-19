@@ -86,7 +86,7 @@ function CollectionDetailPage() {
 
   return (
     <div className="bg-background min-h-screen pt-32">
-      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
+        <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
         {/* Back and Title Blocks */}
         <div className="flex flex-row gap-4 mb-8">
           {/* Back Block */}
@@ -100,18 +100,18 @@ function CollectionDetailPage() {
           {/* Title Block */}
           <div className="flex-1 rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{collection.name}</h1>
-          </div>
         </div>
+      </div>
 
         {/* Collection Hero Section */}
         <div className="grid md:grid-cols-2 gap-6 mb-12">
           <div className="rounded-2xl bg-background border border-border/60 overflow-hidden">
             <div className="bg-[#ececf0] h-[400px] md:h-[529px] overflow-hidden">
-              <img
-                src={collection.image}
-                alt={collection.name}
-                className="w-full h-full object-cover"
-              />
+            <img
+              src={collection.image}
+              alt={collection.name}
+              className="w-full h-full object-cover"
+            />
             </div>
           </div>
 
@@ -140,11 +140,11 @@ function CollectionDetailPage() {
                 <div>
                   <p className="text-foreground/70 dark:text-muted-foreground text-sm mb-1">Category</p>
                   <p className="text-lg font-semibold">{collection.name}</p>
-                </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
         {/* Products Section */}
         <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-8 md:py-10 mb-12">
