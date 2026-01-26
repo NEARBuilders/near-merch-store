@@ -1,7 +1,4 @@
-import {
-  createFileRoute,
-  redirect,
-} from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
@@ -29,23 +26,23 @@ function LoginPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
-  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
-  
-  const recipient = import.meta.env.PUBLIC_ACCOUNT_ID || "every.near";
+  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     // Check if user is already connected and has session
     const checkSession = async () => {
       const { data: session } = await authClient.getSession();
-    const existingAccountId = authClient.near.getAccountId();
-      
+      const existingAccountId = authClient.near.getAccountId();
+
       // Only disconnect if there's a wallet connected but no valid session
       if (existingAccountId && !session?.user) {
         // Wallet connected but no session - might be stale connection
         // Don't auto-disconnect, let user decide
       }
     };
-    
+
     checkSession();
   }, []);
 
@@ -53,21 +50,23 @@ function LoginPage() {
     setIsConnecting(true);
     try {
       await authClient.requestSignIn.near(
-        { recipient },
+        { recipient: window.__RUNTIME_CONFIG__?.account ?? "every.near" },
         {
           onSuccess: () => {
             const accountId = authClient.near.getAccountId();
             setConnectedAccountId(accountId);
             setStep(2);
             setIsConnecting(false);
-            toast.success("Wallet connected! Now sign the message to complete login.");
+            toast.success(
+              "Wallet connected! Now sign the message to complete login.",
+            );
           },
           onError: (error: any) => {
             setIsConnecting(false);
             console.error("Wallet connection error:", error);
             toast.error("Failed to connect wallet. Please try again.");
           },
-        }
+        },
       );
     } catch (error) {
       setIsConnecting(false);
@@ -79,28 +78,33 @@ function LoginPage() {
     setIsSigning(true);
     try {
       await authClient.signIn.near(
-        { recipient },
+        { recipient: window.__RUNTIME_CONFIG__?.account ?? "every.near" },
         {
           onSuccess: async () => {
             queryClient.invalidateQueries();
             // Wait a bit for session to be saved
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
             // Use router navigation instead of hard redirect
-            const redirectUrl = new URLSearchParams(window.location.search).get('redirect') || '/cart';
+            const redirectUrl =
+              new URLSearchParams(window.location.search).get("redirect") ||
+              "/cart";
             window.location.href = redirectUrl;
           },
           onError: (error: any) => {
             setIsSigning(false);
             console.error("Sign in error:", error);
-            
-            if (error?.code === "NONCE_NOT_FOUND" || error?.message?.includes("nonce")) {
+
+            if (
+              error?.code === "NONCE_NOT_FOUND" ||
+              error?.message?.includes("nonce")
+            ) {
               toast.error("Session expired. Please reconnect your wallet.");
               handleDisconnect();
             } else {
               toast.error("Failed to sign in. Please try again.");
             }
           },
-        }
+        },
       );
     } catch (error) {
       setIsSigning(false);
@@ -124,11 +128,11 @@ function LoginPage() {
     const height = 700;
     const left = (window.screen.width - width) / 2;
     const top = (window.screen.height - height) / 2;
-    
+
     window.open(
-      'https://wallet.meteorwallet.app/connect/mainnet/login?connectionUid=8Lt_7EFCO9g84frjAdAxw&',
-      'Meteor Wallet',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+      "https://wallet.meteorwallet.app/connect/mainnet/login?connectionUid=8Lt_7EFCO9g84frjAdAxw&",
+      "Meteor Wallet",
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
     );
   };
 
@@ -143,7 +147,10 @@ function LoginPage() {
           playsInline
           className="w-full h-full object-cover"
         >
-          <source src="https://videos.near.org/BKLDE_v001_NEAR_03_master_h264_small.mp4" type="video/mp4" />
+          <source
+            src="https://videos.near.org/BKLDE_v001_NEAR_03_master_h264_small.mp4"
+            type="video/mp4"
+          />
         </video>
         {/* Overlay for better readability - only in dark mode */}
         <div className="absolute inset-0 dark:bg-background/30" />
@@ -156,7 +163,7 @@ function LoginPage() {
               Sign In
             </h1>
             <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
-              {step === 1 
+              {step === 1
                 ? "Connect your NEAR wallet to continue"
                 : "Sign the message to complete authentication"}
             </p>
@@ -194,10 +201,14 @@ function LoginPage() {
             ) : (
               <>
                 <div className="bg-muted/50 border border-border/60 rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3">
-                  <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
-                  <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
+                  <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">
+                    Connected wallet
+                  </p>
+                  <p className="text-xs sm:text-sm font-medium truncate">
+                    {connectedAccountId}
+                  </p>
                 </div>
-                
+
                 <button
                   onClick={handleSignMessage}
                   disabled={isSigning}
@@ -220,7 +231,9 @@ function LoginPage() {
                   disabled={isSigning}
                   className="w-full text-muted-foreground px-3 sm:px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span className="text-[10px] sm:text-xs underline">Use a different wallet</span>
+                  <span className="text-[10px] sm:text-xs underline">
+                    Use a different wallet
+                  </span>
                 </button>
               </>
             )}

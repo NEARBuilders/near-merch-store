@@ -104,7 +104,7 @@ export function MarketplaceHeader() {
       setIsLoginOpen(false);
       
       await authClient.requestSignIn.near(
-        { recipient: import.meta.env.PUBLIC_ACCOUNT_ID || "every.near" },
+        { recipient: window.__RUNTIME_CONFIG__?.account ?? "every.near" },
         {
           onSuccess: () => {
             const walletAccountId = authClient.near.getAccountId();
@@ -132,7 +132,7 @@ export function MarketplaceHeader() {
     setIsSigningIn(true);
     try {
       await authClient.signIn.near(
-        { recipient: import.meta.env.PUBLIC_ACCOUNT_ID || "every.near" },
+        { recipient: window.__RUNTIME_CONFIG__?.account ?? "every.near" },
         {
           onSuccess: async () => {
             queryClient.invalidateQueries();

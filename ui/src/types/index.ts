@@ -6,8 +6,10 @@ import type { AnyRouteMatch, AnyRouter, RouterHistory } from "@tanstack/react-ro
 // TODO: shared with host
 export interface ClientRuntimeConfig {
   env: string;
+  account: string;
   title: string;
   hostUrl: string;
+  assetsUrl: string;
   apiBase: string;
   rpcBase: string;
 }
@@ -33,6 +35,17 @@ export interface HeadData {
   scripts: HeadScript[];
 }
 
+export interface RenderOptions {
+  assetsUrl: string;
+  runtimeConfig: ClientRuntimeConfig;
+}
+
+export interface RenderResult {
+  stream: ReadableStream;
+  statusCode: number;
+  headers: Headers;
+}
+
 export interface RouterModule {
   createRouter: (opts?: CreateRouterOptions) => {
     router: AnyRouter;
@@ -42,5 +55,9 @@ export interface RouterModule {
     pathname: string,
     context?: Partial<RouterContext>
   ) => Promise<HeadData>;
+  renderToStream: (
+    request: Request,
+    options: RenderOptions
+  ) => Promise<RenderResult>;
   routeTree: AnyRouter["routeTree"];
 }

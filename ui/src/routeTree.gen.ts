@@ -210,11 +210,11 @@ const MarketplaceAuthenticatedAdminDashboardInventoryRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof MarketplaceIndexRoute
   '/cart': typeof MarketplaceCartRoute
   '/favorites': typeof MarketplaceFavoritesRoute
   '/login': typeof MarketplaceLoginRoute
   '/search': typeof MarketplaceSearchRoute
-  '/': typeof MarketplaceIndexRoute
   '/account': typeof MarketplaceAuthenticatedAccountRouteWithChildren
   '/checkout': typeof MarketplaceAuthenticatedCheckoutRoute
   '/order-confirmation': typeof MarketplaceAuthenticatedOrderConfirmationRoute
@@ -225,8 +225,8 @@ export interface FileRoutesByFullPath {
   '/terms-of-service': typeof MarketplacePageTermsOfServiceRoute
   '/collections/$collection': typeof MarketplaceCollectionsCollectionRoute
   '/products/$productId': typeof MarketplaceProductsProductIdRoute
-  '/collections': typeof MarketplaceCollectionsIndexRoute
-  '/products': typeof MarketplaceProductsIndexRoute
+  '/collections/': typeof MarketplaceCollectionsIndexRoute
+  '/products/': typeof MarketplaceProductsIndexRoute
   '/dashboard': typeof MarketplaceAuthenticatedAdminDashboardRouteWithChildren
   '/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
@@ -238,11 +238,11 @@ export interface FileRoutesByFullPath {
   '/dashboard/': typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof MarketplaceIndexRoute
   '/cart': typeof MarketplaceCartRoute
   '/favorites': typeof MarketplaceFavoritesRoute
   '/login': typeof MarketplaceLoginRoute
   '/search': typeof MarketplaceSearchRoute
-  '/': typeof MarketplaceIndexRoute
   '/checkout': typeof MarketplaceAuthenticatedCheckoutRoute
   '/order-confirmation': typeof MarketplaceAuthenticatedOrderConfirmationRoute
   '/cookie-policy': typeof MarketplacePageCookiePolicyRoute
@@ -299,11 +299,11 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/cart'
     | '/favorites'
     | '/login'
     | '/search'
-    | '/'
     | '/account'
     | '/checkout'
     | '/order-confirmation'
@@ -314,8 +314,8 @@ export interface FileRouteTypes {
     | '/terms-of-service'
     | '/collections/$collection'
     | '/products/$productId'
-    | '/collections'
-    | '/products'
+    | '/collections/'
+    | '/products/'
     | '/dashboard'
     | '/account/connected'
     | '/account/orders'
@@ -327,11 +327,11 @@ export interface FileRouteTypes {
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/cart'
     | '/favorites'
     | '/login'
     | '/search'
-    | '/'
     | '/checkout'
     | '/order-confirmation'
     | '/cookie-policy'
@@ -394,7 +394,7 @@ declare module '@tanstack/react-router' {
     '/_marketplace': {
       id: '/_marketplace'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof MarketplaceRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -436,28 +436,28 @@ declare module '@tanstack/react-router' {
     '/_marketplace/_page': {
       id: '/_marketplace/_page'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof MarketplacePageRouteImport
       parentRoute: typeof MarketplaceRoute
     }
     '/_marketplace/_authenticated': {
       id: '/_marketplace/_authenticated'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof MarketplaceAuthenticatedRouteImport
       parentRoute: typeof MarketplaceRoute
     }
     '/_marketplace/products/': {
       id: '/_marketplace/products/'
       path: '/products'
-      fullPath: '/products'
+      fullPath: '/products/'
       preLoaderRoute: typeof MarketplaceProductsIndexRouteImport
       parentRoute: typeof MarketplaceRoute
     }
     '/_marketplace/collections/': {
       id: '/_marketplace/collections/'
       path: '/collections'
-      fullPath: '/collections'
+      fullPath: '/collections/'
       preLoaderRoute: typeof MarketplaceCollectionsIndexRouteImport
       parentRoute: typeof MarketplaceRoute
     }
@@ -534,7 +534,7 @@ declare module '@tanstack/react-router' {
     '/_marketplace/_authenticated/_admin': {
       id: '/_marketplace/_authenticated/_admin'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof MarketplaceAuthenticatedAdminRouteImport
       parentRoute: typeof MarketplaceAuthenticatedRoute
     }

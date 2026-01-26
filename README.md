@@ -12,7 +12,7 @@ bun db:migrate    # Run database migrations
 bun dev           # Start all services (API, UI, Host)
 ```
 
-Visit http://localhost:3001 to see the application.
+Visit http://localhost:3000 to see the application.
 
 ## Documentation
 
@@ -79,7 +79,7 @@ All runtime configuration lives in `bos.config.json`:
   "app": {
     "host": {
       "title": "App Title",
-      "development": "http://localhost:3001",
+      "development": "http://localhost:3000",
       "production": "https://example.com"
     },
     "ui": {
@@ -107,7 +107,7 @@ All runtime configuration lives in `bos.config.json`:
 
 ```bash
 # Development
-bun dev              # All services (API: 3014, UI: 3002, Host: 3001)
+bun dev              # All services (API: 3014, UI: 3002, Host: 3000)
 bun dev:api          # API plugin only
 bun dev:ui           # UI remote only
 bun dev:host         # Host server only

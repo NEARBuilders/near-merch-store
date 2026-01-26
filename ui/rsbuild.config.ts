@@ -1,11 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { ModuleFederationPlugin } from "@module-federation/enhanced/rspack";
 import { pluginModuleFederation } from "@module-federation/rsbuild-plugin";
 import { defineConfig } from "@rsbuild/core";
 import { pluginReact } from "@rsbuild/plugin-react";
 import { TanStackRouterRspack } from "@tanstack/router-plugin/rspack";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { getUISharedDependencies } from "every-plugin/build/rspack";
 import { withZephyr } from "zephyr-rsbuild-plugin";
 import pkg from "./package.json";
 
@@ -15,9 +16,6 @@ const normalizedName = pkg.name;
 const isProduction = process.env.NODE_ENV === "production";
 const buildTarget = process.env.BUILD_TARGET as "client" | "server" | undefined;
 const isServerBuild = buildTarget === "server";
-
-const configPath = path.resolve(__dirname, "../bos.config.json");
-const bosConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
 function updateBosConfig(field: "production" | "ssr", url: string) {
   try {
@@ -30,7 +28,7 @@ function updateBosConfig(field: "production" | "ssr", url: string) {
     }
 
     config.app.ui[field] = url;
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+    fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
     console.log(`   ✅ Updated bos.config.json: app.ui.${field}`);
   } catch (err) {
     console.error(
@@ -40,25 +38,7 @@ function updateBosConfig(field: "production" | "ssr", url: string) {
   }
 }
 
-const sharedDeps = [
-  "react",
-  "react-dom",
-  "@tanstack/react-query",
-  "@tanstack/react-router",
-  "@hot-labs/near-connect",
-  "near-kit",
-] as const;
-
-const sharedConfig = Object.fromEntries(
-  sharedDeps.map((dep) => [
-    dep,
-    {
-      singleton: true,
-      eager: true,
-      requiredVersion: pkg.dependencies[dep],
-    },
-  ])
-);
+const uiSharedDeps = getUISharedDependencies();
 
 function createClientConfig() {
   const plugins = [
@@ -69,12 +49,13 @@ function createClientConfig() {
       dts: false,
       exposes: {
         "./Router": "./src/router.tsx",
+        "./Hydrate": "./src/hydrate.tsx",
         "./components": "./src/components/index.ts",
         "./providers": "./src/providers/index.tsx",
         "./hooks": "./src/hooks/index.ts",
         "./types": "./src/types/index.ts",
       },
-      shared: sharedConfig,
+      shared: uiSharedDeps,
     }),
   ];
 
@@ -94,11 +75,8 @@ function createClientConfig() {
   return defineConfig({
     plugins,
     source: {
-      define: {
-        "import.meta.env.PUBLIC_ACCOUNT_ID": JSON.stringify(bosConfig.account),
-        "import.meta.env.BETTER_AUTH_URL": JSON.stringify(
-          bosConfig.app.host[isProduction ? "production" : "development"]
-        ),
+      entry: {
+        index: "./src/hydrate.tsx",
       },
     },
     resolve: {
@@ -118,9 +96,12 @@ function createClientConfig() {
       printUrls: ({ urls }) => urls.filter((url) => url.includes("localhost")),
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS, HEAD",
-        "Access-Control-Allow-Headers": "Content-Type, Accept, Origin, X-Requested-With",
-        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+      publicDir: {
+        name: "dist",
+        copyOnBuild: false,
       },
     },
     tools: {
@@ -128,10 +109,6 @@ function createClientConfig() {
         target: "web",
         output: {
           uniqueName: normalizedName,
-          library: {
-            name: normalizedName,
-            type: "var",
-          },
         },
         infrastructureLogging: { level: "error" },
         stats: "errors-warnings",
@@ -144,12 +121,9 @@ function createClientConfig() {
       },
     },
     output: {
-      distPath: { root: "dist" },
+      distPath: { root: "dist", css: "static/css", js: "static/js" },
       assetPrefix: "auto",
-      // assetPrefix: isProduction
-      //   ? `${bosConfig.app.ui.production}/`
-      //   : `${bosConfig.app.ui.development}/`,
-      filename: { css: "static/css/style.css" },
+      filename: { js: "[name].js", css: "style.css" },
       copy: [{ from: path.resolve(__dirname, "public"), to: "./" }],
     },
   });
@@ -177,12 +151,6 @@ function createServerConfig() {
       entry: {
         index: "./src/router.server.tsx",
       },
-      define: {
-        "import.meta.env.PUBLIC_ACCOUNT_ID": JSON.stringify(bosConfig.account),
-        "import.meta.env.BETTER_AUTH_URL": JSON.stringify(
-          bosConfig.app.host[isProduction ? "production" : "development"]
-        ),
-      },
     },
     resolve: {
       alias: {
@@ -200,10 +168,6 @@ function createServerConfig() {
           library: { type: "commonjs-module" },
         },
         externals: [
-          ...sharedDeps,
-          "react/jsx-runtime",
-          "react/jsx-dev-runtime",
-          "react-dom/server",
           /^node:/,
         ],
         infrastructureLogging: { level: "error" },
@@ -217,6 +181,7 @@ function createServerConfig() {
             runtimePlugins: [require.resolve("@module-federation/node/runtimePlugin")],
             library: { type: "commonjs-module" },
             exposes: { "./Router": "./src/router.server.tsx" },
+            shared: uiSharedDeps,
           }),
         ],
       },
