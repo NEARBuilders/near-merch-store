@@ -21,14 +21,14 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-1872-ui-near-merch-store-nearbuilder-886198f35-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1874-ui-near-merch-store-nearbuilder-6985ef2b6-ze.zephyrcloud.app",
       "exposes": {
         "App": "./App",
         "components": "./components",
         "providers": "./providers",
         "types": "./types"
       },
-      "ssr": "https://elliot-braem-1873-ui-near-merch-store-nearbuilder-ccd75b529-ze.zephyrcloud.app"
+      "ssr": "https://elliot-braem-1875-ui-near-merch-store-nearbuilder-3b123bffe-ze.zephyrcloud.app"
     },
     "api": {
       "name": "api",
