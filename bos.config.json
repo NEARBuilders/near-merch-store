@@ -21,19 +21,19 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-1818-host-every-plugin-near-everythi-fdf320911-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1872-ui-near-merch-store-nearbuilder-886198f35-ze.zephyrcloud.app",
       "exposes": {
         "App": "./App",
         "components": "./components",
         "providers": "./providers",
         "types": "./types"
       },
-      "ssr": "https://elliot-braem-1870-ui-near-merch-store-nearbuilder-6cf7aa727-ze.zephyrcloud.app"
+      "ssr": "https://elliot-braem-1873-ui-near-merch-store-nearbuilder-ccd75b529-ze.zephyrcloud.app"
     },
     "api": {
       "name": "api",
       "development": "http://localhost:3014",
-      "production": "https://elliot-braem-1622-api-near-merch-store-nearbuilde-cfcd408cd-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1871-api-near-merch-store-nearbuilde-6219a1b24-ze.zephyrcloud.app",
       "proxy": "https://merch.nearlegion.com",
       "variables": {
         "network": "mainnet",
