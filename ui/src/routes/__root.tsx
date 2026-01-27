@@ -1,3 +1,5 @@
+import { Toaster } from "@/components/ui/sonner";
+import type { RouterContext } from "@/types";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import {
   ClientOnly,
@@ -8,8 +10,6 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { ThemeProvider } from "next-themes";
-import { Toaster } from "@/components/ui/sonner";
-import type { RouterContext } from "@/types";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -22,8 +22,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const runtimeConfig = loaderData?.runtimeConfig;
     const siteUrl = runtimeConfig?.hostUrl || "";
     const title = runtimeConfig?.title || "demo.everything";
-    const description =
-      "Demo application showcasing Module Federation with SSR, TanStack Router, and oRPC";
+    const description = "NEAR-powered merch store for the NEAR ecosystem";
     const ogImage = `${assetsUrl}/metadata.png`;
 
     return {
@@ -134,7 +133,12 @@ function RootComponent() {
         />
       </head>
       <body>
-        <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark" enableSystem={false}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          forcedTheme="dark"
+          enableSystem={false}
+        >
           <div id="root">
             <Outlet />
           </div>

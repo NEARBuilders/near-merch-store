@@ -10,7 +10,7 @@
       "title": "Near Merch",
       "description": "NEAR-powered merch store for the NEAR ecosystem",
       "development": "http://localhost:3000",
-      "production": "https://elliot-braem-1862-host-every-plugin-near-everythi-ee9103c77-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1877-host-every-plugin-near-everythi-fc51c686d-ze.zephyrcloud.app",
       "secrets": [
         "HOST_DATABASE_URL",
         "HOST_DATABASE_AUTH_TOKEN",
@@ -21,14 +21,14 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-1874-ui-near-merch-store-nearbuilder-6985ef2b6-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1878-ui-near-merch-store-nearbuilder-c0b6c0c3f-ze.zephyrcloud.app",
       "exposes": {
         "App": "./App",
         "components": "./components",
         "providers": "./providers",
         "types": "./types"
       },
-      "ssr": "https://elliot-braem-1875-ui-near-merch-store-nearbuilder-3b123bffe-ze.zephyrcloud.app"
+      "ssr": "https://elliot-braem-1879-ui-near-merch-store-nearbuilder-903fef3a0-ze.zephyrcloud.app"
     },
     "api": {
       "name": "api",
