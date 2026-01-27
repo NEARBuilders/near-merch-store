@@ -10,7 +10,7 @@
       "title": "Near Merch",
       "description": "NEAR-powered merch store for the NEAR ecosystem",
       "development": "http://localhost:3000",
-      "production": "https://elliot-braem-1895-host-every-plugin-near-everythi-29dc186fd-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1898-host-every-plugin-near-everythi-3d798c463-ze.zephyrcloud.app",
       "secrets": [
         "HOST_DATABASE_URL",
         "HOST_DATABASE_AUTH_TOKEN",
