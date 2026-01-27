@@ -47,16 +47,23 @@ function createApiLink() {
     url: getApiUrl,
     interceptors: [
       onError((error: unknown) => {
-        console.error('oRPC API Error:', error);
-        
-        if (error && typeof error === 'object' && 'message' in error) {
-          const message = String(error.message).toLowerCase();
-          if (message.includes('fetch') || message.includes('network') || message.includes('failed to fetch')) {
-            toast.error('Unable to connect to API', {
-              id: 'api-connection-error',
-              description: 'The API is currently unavailable. Please try again later.',
-            });
-          }
+        let message = 'Unknown error';
+        let code = '';
+
+        if (error && typeof error === 'object') {
+          if ('message' in error) message = String(error.message);
+          if ('code' in error) code = String(error.code);
+          if ('data' in error) console.error('oRPC Error Data:', error.data);
+        }
+
+        console.error(`oRPC API Error [${code}]: ${message}`, error);
+
+        const lowerMessage = message.toLowerCase();
+        if (lowerMessage.includes('fetch') || lowerMessage.includes('network') || lowerMessage.includes('failed to fetch')) {
+          toast.error('Unable to connect to API', {
+            id: 'api-connection-error',
+            description: 'The API is currently unavailable. Please try again later.',
+          });
         }
       }),
     ],
