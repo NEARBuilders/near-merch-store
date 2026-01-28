@@ -11,6 +11,7 @@ import {
   COLOR_MAP,
   getAttributeHex,
   getOptionValue,
+  getVariantImageUrl,
 } from "@/lib/product-utils";
 
 interface ProductCardProps {
@@ -24,6 +25,7 @@ interface ProductCardProps {
   hidePrice?: boolean;
   actionSlot?: React.ReactNode;
   children?: React.ReactNode;
+  imageOverride?: string;
 }
 
 export function ProductCard({
@@ -37,6 +39,7 @@ export function ProductCard({
   hidePrice = false,
   actionSlot,
   children,
+  imageOverride,
 }: ProductCardProps) {
   if (product) {
     return (
@@ -49,6 +52,7 @@ export function ProductCard({
         hideFavorite={hideFavorite}
         hidePrice={hidePrice}
         actionSlot={actionSlot}
+        imageOverride={imageOverride}
       >
         {children}
       </ProductCardContent>
@@ -85,6 +89,7 @@ function SuspendedProductCard({
   hidePrice,
   actionSlot,
   children,
+  imageOverride,
 }: { productId: string } & Omit<ProductCardProps, "product" | "productId">) {
   const { data } = useSuspenseProduct(productId);
   return (
@@ -97,6 +102,7 @@ function SuspendedProductCard({
       hideFavorite={hideFavorite}
       hidePrice={hidePrice}
       actionSlot={actionSlot}
+      imageOverride={imageOverride}
     >
       {children}
     </ProductCardContent>
@@ -106,6 +112,7 @@ function SuspendedProductCard({
 interface ProductCardContentProps
   extends Omit<ProductCardProps, "product" | "productId"> {
   product: Product;
+  imageOverride?: string;
 }
 
 function ProductCardContent(props: ProductCardContentProps) {
@@ -128,6 +135,7 @@ function VerticalProductLayout({
   hidePrice,
   actionSlot,
   children,
+  imageOverride,
 }: ProductCardContentProps) {
   const { favoriteIds, toggleFavorite } = useFavorites();
   const { addToCart } = useCart();
@@ -140,7 +148,7 @@ function VerticalProductLayout({
   const sizeOption = product?.options?.find((opt) => opt.name === "Size");
   const orderedColors = colorOption?.values || [];
   const orderedSizes = sizeOption?.values || [];
-  const needsSize = product ? requiresSize(product.category) : false;
+  const needsSize = product ? requiresSize(product.categories) : false;
   const availableSizes = needsSize && orderedSizes.length > 0 ? orderedSizes : ["N/A"];
   const availableVariants = product?.variants || [];
 
@@ -212,7 +220,8 @@ function VerticalProductLayout({
       }
 
       if (selectedVariantId) {
-        addToCart(product.slug, selectedVariantId, finalSize, finalColor);
+        const variantImageUrl = getVariantImageUrl(product, selectedVariantId);
+        addToCart(product.slug, selectedVariantId, finalSize, finalColor, variantImageUrl);
         setIsExpanded(false);
         openCartSidebar();
       }
@@ -294,9 +303,11 @@ function VerticalProductLayout({
               >
                 {product.title}
               </h3>
-              <p className="text-foreground/90 dark:text-muted-foreground text-xs uppercase tracking-wider drop-shadow-lg">
-                {product.category}
-              </p>
+              {product.categories && product.categories.length > 0 && (
+                <p className="text-foreground/90 dark:text-muted-foreground text-xs uppercase tracking-wider drop-shadow-lg">
+                  {product.categories[0]?.name}
+                </p>
+              )}
             </div>
           </Link>
         </div>
@@ -446,13 +457,14 @@ function HorizontalProductLayout({
   hidePrice,
   actionSlot,
   children,
+  imageOverride,
 }: ProductCardContentProps) {
-  // Filter out mockup images and use only variant images
+  // Use imageOverride if provided, otherwise use default logic
   const variantImages = product.images?.filter(
     (img) => img.type !== "mockup" && img.type !== "detail" && img.variantIds && img.variantIds.length > 0
   ) || [];
   
-  const displayImage =
+  const displayImage = imageOverride ||
     variantImages[0]?.url ||
     product.variants?.[0]?.fulfillmentConfig?.designFiles?.[0]?.url ||
     product.images?.find((img) => img.type !== "mockup" && img.type !== "detail")?.url;
@@ -500,9 +512,11 @@ function HorizontalProductLayout({
                 {product.title}
               </h3>
             </Link>
-            <p className="text-foreground/90 dark:text-muted-foreground text-xs uppercase tracking-wider mt-1">
-              {product.category}
-            </p>
+            {product.categories && product.categories.length > 0 && (
+              <p className="text-foreground/90 dark:text-muted-foreground text-xs uppercase tracking-wider mt-1">
+                {product.categories[0]?.name}
+              </p>
+            )}
           </div>
 
           {actionSlot}

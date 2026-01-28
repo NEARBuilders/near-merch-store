@@ -24,7 +24,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useProducts, useSyncStatus, useSyncProducts, useUpdateProductListing, type Product } from "@/integrations/api";
+import {
+  useProducts,
+  useCategories,
+  useSyncStatus,
+  useSyncProducts,
+  useUpdateProductCategories,
+  useUpdateProductListing,
+  type Product,
+} from "@/integrations/api";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/inventory")({
@@ -38,6 +48,9 @@ function InventoryManagement() {
   const { data: syncStatusData } = useSyncStatus();
   const syncMutation = useSyncProducts();
   const updateListingMutation = useUpdateProductListing();
+  const updateCategoriesMutation = useUpdateProductCategories();
+  const { data: categoriesData } = useCategories();
+  const categories = categoriesData?.categories ?? [];
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -101,22 +114,78 @@ function InventoryManagement() {
       ),
     },
     {
-      accessorKey: "category",
+      accessorKey: "categories",
       header: ({ column }) => (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="h-auto p-0 font-medium hover:bg-transparent"
         >
-          Category
+          Collections
           <ArrowUpDown className="ml-2 size-4" />
         </Button>
       ),
-      cell: ({ row }) => (
-        <Badge variant="outline" className="font-normal">
-          {row.original.category}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const selected = row.original.categories ?? [];
+        const selectedIds = selected.map((c) => c.id);
+
+        return (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8"
+                disabled={updateCategoriesMutation.isPending}
+                title="Edit categories"
+              >
+                {selected.length === 0 ? (
+                  <span className="text-xs text-foreground/60 dark:text-muted-foreground">No collections</span>
+                ) : (
+                  selected.slice(0, 2).map((c) => (
+                    <Badge key={c.id} variant="outline" className="font-normal text-xs">
+                      {c.name}
+                    </Badge>
+                  ))
+                )}
+                {selected.length > 2 && (
+                  <Badge variant="outline" className="font-normal text-xs">
+                    +{selected.length - 2}
+                  </Badge>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="start">
+              <div className="text-sm font-medium mb-2">Collections</div>
+              <div className="space-y-2 max-h-64 overflow-auto pr-1">
+                {categories.length === 0 ? (
+                  <div className="text-xs text-foreground/60 dark:text-muted-foreground">
+                    No collections yet. Create some in Dashboard → Collections.
+                  </div>
+                ) : (
+                  categories.map((cat) => {
+                    const checked = selectedIds.includes(cat.id);
+                    return (
+                      <label key={cat.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(next) => {
+                            const nextChecked = Boolean(next);
+                            const nextIds = nextChecked
+                              ? Array.from(new Set([...selectedIds, cat.id]))
+                              : selectedIds.filter((id) => id !== cat.id);
+                            updateCategoriesMutation.mutate({ id: row.original.id, categoryIds: nextIds });
+                          }}
+                        />
+                        <span className="truncate">{cat.name}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        );
+      },
     },
     {
       accessorKey: "price",
@@ -215,8 +284,22 @@ function InventoryManagement() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl bg-background border border-border/60 h-20 animate-pulse" />
-        <div className="rounded-2xl bg-background border border-border/60 h-64 animate-pulse" />
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-3xl font-bold tracking-tight mb-2">Inventory Management</h2>
+            <p className="text-sm text-foreground/90 dark:text-muted-foreground">
+              Manage your product inventory and listings
+            </p>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-background border border-border/60 px-6 py-12">
+          <div className="flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00EC97] mx-auto mb-2"></div>
+              <p className="text-sm text-foreground/90 dark:text-muted-foreground">Loading inventory...</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -355,9 +438,11 @@ function InventoryManagement() {
                       <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground truncate">{product.title}</p>
                       <p className="text-xs text-foreground/50 dark:text-muted-foreground truncate">{product.id}</p>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="outline" className="font-normal text-xs">
-                          {product.category}
-                        </Badge>
+                        {product.categories && product.categories.length > 0 && (
+                          <Badge variant="outline" className="font-normal text-xs">
+                            {product.categories[0]?.name}
+                          </Badge>
+                        )}
                         <Badge
                           variant="outline"
                           className={cn(

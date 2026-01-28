@@ -77,16 +77,29 @@ function MarketplaceHome() {
   
   const isLoading = isLoadingFeatured || isLoadingAll;
   
-  const nearAiProduct = allProducts.find((p: Product) => 
-    p.title.toLowerCase().includes('near ai') && 
-    p.title.toLowerCase().includes('black') && 
-    p.title.toLowerCase().includes('long-sleeved')
-  );
+  // Find NEAR AI product - try multiple search patterns
+  const nearAiProduct = allProducts.find((p: Product) => {
+    const title = p.title.toLowerCase();
+    return (
+      (title.includes('near ai') || title.includes('nearai')) &&
+      (title.includes('black') || title.includes('long-sleeved') || title.includes('long sleeve') || title.includes('longsleeve'))
+    );
+  }) || allProducts.find((p: Product) => {
+    const title = p.title.toLowerCase();
+    return title.includes('near ai') || title.includes('nearai');
+  });
   
-  const legionProduct = allProducts.find((p: Product) => 
-    p.title.toLowerCase().includes('legion') && 
-    p.title.toLowerCase().includes('nearvana')
-  );
+  // Find Legion product - try multiple search patterns
+  const legionProduct = allProducts.find((p: Product) => {
+    const title = p.title.toLowerCase();
+    return (
+      title.includes('legion') && 
+      (title.includes('nearvana') || title.includes('near vana'))
+    );
+  }) || allProducts.find((p: Product) => {
+    const title = p.title.toLowerCase();
+    return title.includes('legion');
+  });
 
   const getProductImage = (product: Product | undefined) => {
     if (!product) return null;
@@ -106,8 +119,8 @@ function MarketplaceHome() {
     setSizeModalProduct(product);
   };
 
-  const handleAddToCartFromModal = (productId: string, variantId: string, size: string, color: string) => {
-    addToCart(productId, variantId, size, color);
+  const handleAddToCartFromModal = (productId: string, variantId: string, size: string, color: string, imageUrl?: string) => {
+    addToCart(productId, variantId, size, color, imageUrl);
     setSizeModalProduct(null);
     openCartSidebar();
   };
@@ -214,7 +227,8 @@ function MarketplaceHome() {
       },
     ];
     
-    return allSlides.filter(slide => slide.product && slide.image);
+    // Show slides even if product or image is missing - they can still navigate to products page
+    return allSlides.filter(slide => slide.title && slide.description);
   }, [legionImageUrl, nearAiImageUrl, legionProduct, nearAiProduct]);
 
   const nextSlide = () => {
@@ -304,60 +318,27 @@ function MarketplaceHome() {
                   <p className="text-sm md:text-base text-foreground/90 dark:text-muted-foreground max-w-xl">
                     {activeSlide.description}
                   </p>
-
-                  <div className="flex items-center gap-4 pt-2">
-                    <Link to="/products" search={{ category: 'all' }}>
-                      <button
-                        type="button"
-                        className="px-6 md:px-7 py-2.5 md:py-3 rounded-lg bg-[#00EC97] text-black font-semibold text-sm shadow-sm hover:bg-[#00d97f] transition-colors"
-                      >
-                        {activeSlide.buttonText}
-                      </button>
-                    </Link>
-
-                    <div className="hidden md:flex items-center gap-2 text-xs text-foreground/90 dark:text-muted-foreground">
-                      <span className="inline-flex h-2 w-2 rounded-full bg-[#00EC97]" />
-                      Curated NEAR merch drops
-                    </div>
-                  </div>
                 </div>
 
                 <div className="hidden lg:flex flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 py-6 md:py-8 flex flex-col justify-center">
                   <div className="flex flex-col gap-4">
-    <div>
+                    <div>
                       <h3 className="text-xl md:text-2xl font-bold tracking-tight text-foreground mb-2">
-                        Stay Updated
+                        Represent the NEAR protocol IRL
                       </h3>
                       <p className="text-sm md:text-base text-foreground/90 dark:text-muted-foreground">
-                        Subscribe to receive the latest NEAR merch updates and exclusive offers
+                        Discover curated drops and official merch to show your support for NEAR in the real world.
                       </p>
                     </div>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        if (newsletterEmail.trim()) {
-                          toast.success("Thank you for subscribing!");
-                          setNewsletterEmail("");
-                        } else {
-                          toast.error("Please enter a valid email address");
-                        }
-                      }}
-                      className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
-                    >
-                      <Input
-                        type="email"
-                        placeholder="Enter your email"
-                        value={newsletterEmail}
-                        onChange={(e) => setNewsletterEmail(e.target.value)}
-                        className="flex-1 h-[42px] bg-background/60 border-border/60 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-b-2 focus-visible:border-[#00EC97] hover:border-border/60"
-                      />
-                      <button
-                        type="submit"
-                        className="px-6 py-2.5 h-[42px] rounded-lg bg-[#00EC97] text-black font-semibold text-sm hover:bg-[#00d97f] transition-colors whitespace-nowrap"
+                    <div>
+                      <Link
+                        to="/products"
+                        search={{ category: "all" }}
+                        className="inline-flex items-center justify-center gap-2 px-4 md:px-8 py-2 md:py-3 h-[40px] md:h-[48px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-base hover:bg-[#00d97f] transition-colors whitespace-nowrap"
                       >
-                        Subscribe
-                      </button>
-                    </form>
+                        Shop Items
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -368,23 +349,34 @@ function MarketplaceHome() {
                 onMouseLeave={() => setIsPaused(false)}
               >
               <div className="absolute inset-0 rounded-2xl overflow-hidden bg-black/40 flex items-end md:items-center justify-center p-8">
-            {activeSlide.image && (
-              <img
-                    src={activeSlide.image}
-                    alt={activeSlide.title}
-                    className="h-auto w-auto max-h-[70%] max-w-[70%] object-contain object-center"
-              />
-            )}
-
+            {/* Gradient layer - behind image */}
             <div
-                  className="absolute inset-0"
+                  className="absolute inset-0 z-0"
               style={{
                     background: `radial-gradient(circle at top left, ${activeSlide.glowColor}33 0, transparent 55%)`,
               }}
             />
+            
+            {/* Image layer - above gradient */}
+            {activeSlide.image ? (
+              <img
+                    src={activeSlide.image}
+                    alt={activeSlide.title}
+                    className="relative z-[15] h-auto w-auto max-h-[70%] max-w-[70%] object-contain object-center"
+              />
+            ) : (
+              <div className="relative z-[15] flex items-center justify-center h-full w-full">
+                <div className="text-white/60 text-lg md:text-xl font-semibold">
+                  {activeSlide.title}
+                </div>
+              </div>
+            )}
               </div>
 
-              <div className="absolute inset-0 lg:hidden z-20 flex flex-col justify-between p-6 md:p-8">
+              {/* Mobile overlay gradient - behind text but above image */}
+              <div className="absolute inset-0 lg:hidden bg-gradient-to-b from-black/60 via-black/40 to-black/60 rounded-2xl z-[12] pointer-events-none" />
+
+              <div className="absolute inset-0 lg:hidden z-[20] flex flex-col justify-between p-6 md:p-8">
                 <div className="flex flex-col gap-3">
                   <div className="inline-block rounded-md bg-black/40 px-2.5 py-0.5 text-[10px] md:text-xs font-semibold tracking-[0.16em] uppercase text-white border border-white/60 w-fit dark:bg-[#00EC97]/20 dark:text-[#00EC97] dark:border-[#00EC97]/70">
                     {activeSlide.badge}
@@ -404,8 +396,6 @@ function MarketplaceHome() {
                   </p>
                 </div>
               </div>
-
-              <div className="absolute inset-0 lg:hidden bg-gradient-to-b from-black/60 via-black/40 to-black/60 rounded-2xl z-10 pointer-events-none" />
 
               {activeSlide.product && (
                 <>
@@ -466,7 +456,7 @@ function MarketplaceHome() {
                   <Link to="/products" search={{ category: 'all' }} className="lg:hidden">
                     <button
                       type="button"
-                      className="flex items-center justify-center px-4 py-2 rounded-lg bg-[#00EC97] text-black font-semibold text-sm shadow-lg hover:bg-[#00d97f] transition-colors"
+                      className="inline-flex items-center justify-center px-4 py-2.5 h-[40px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs hover:bg-[#00d97f] transition-colors whitespace-nowrap"
                     >
                       {activeSlide.buttonText}
                     </button>
@@ -519,38 +509,12 @@ function MarketplaceHome() {
               <div className="flex flex-col gap-3 md:gap-4">
                 <div>
                   <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground mb-1.5 md:mb-2">
-                    Stay Updated
+                    Represent the NEAR protocol IRL
                   </h3>
                   <p className="text-xs md:text-sm text-foreground/90 dark:text-muted-foreground">
-                    Subscribe to receive the latest NEAR merch updates and exclusive offers
+                    Discover curated drops and official merch to show your support for NEAR in the real world.
                   </p>
                 </div>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (newsletterEmail.trim()) {
-                      toast.success("Thank you for subscribing!");
-                      setNewsletterEmail("");
-                    } else {
-                      toast.error("Please enter a valid email address");
-                    }
-                  }}
-                  className="flex flex-row items-stretch gap-2"
-                >
-                  <Input
-                    type="email"
-                    placeholder="Enter your email"
-                    value={newsletterEmail}
-                    onChange={(e) => setNewsletterEmail(e.target.value)}
-                    className="flex-1 h-[40px] md:h-[42px] text-sm bg-background/60 border-border/60 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-b-2 focus-visible:border-[#00EC97] hover:border-border/60"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 md:px-6 py-2 md:py-2.5 h-[40px] md:h-[42px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-sm hover:bg-[#00d97f] transition-colors whitespace-nowrap"
-                  >
-                    Subscribe
-                  </button>
-                </form>
               </div>
             </div>
       )}
@@ -660,14 +624,14 @@ function MarketplaceHome() {
                     <div className="md:hidden flex items-center gap-2">
                       <button
                         onClick={() => setCurrentProductIndex((prev) => (prev - 1 + displayProducts.length) % displayProducts.length)}
-                        className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
+                        className="inline-flex items-center justify-center px-4 py-2.5 h-[40px] rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
                         aria-label="Previous product"
                       >
                         <ChevronLeft className="h-5 w-5 text-foreground" />
                       </button>
                       <button
                         onClick={() => setCurrentProductIndex((prev) => (prev + 1) % displayProducts.length)}
-                        className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
+                        className="inline-flex items-center justify-center px-4 py-2.5 h-[40px] rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
                         aria-label="Next product"
                       >
                         <ChevronRight className="h-5 w-5 text-foreground" />
@@ -678,7 +642,7 @@ function MarketplaceHome() {
                   <Link
                     to="/products"
                     search={{ category: selectedProductCategory === 'all' ? 'all' : selectedProductCategory }}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 md:px-8 md:py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-xs md:text-base"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 md:px-8 md:py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-xs md:text-base h-[40px] md:h-auto"
                   >
                     {selectedProductCategory === 'all' 
                       ? 'View All Products'
@@ -689,6 +653,77 @@ function MarketplaceHome() {
               </div>
             </>
           )}
+        </div>
+      </section>
+
+      {/* Stay Updated + Request for Featuring Merch Collection Section */}
+      <section className="relative z-10 py-12 md:py-16 lg:py-20">
+        <div className="w-full max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+            {/* Stay Updated Newsletter Block */}
+            <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 lg:px-10 py-4 md:py-8">
+              <div className="flex flex-col gap-3 md:gap-5">
+                <div className="text-left">
+                  <h3 className="text-lg md:text-2xl lg:text-3xl font-bold tracking-tight text-foreground mb-1.5 md:mb-3">
+                    Stay Updated
+                  </h3>
+                  <p className="text-xs md:text-sm lg:text-base text-foreground/90 dark:text-muted-foreground">
+                    Subscribe to receive the latest NEAR merch updates and exclusive offers
+                  </p>
+                </div>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (newsletterEmail.trim()) {
+                      toast.success("Thank you for subscribing!");
+                      setNewsletterEmail("");
+                    } else {
+                      toast.error("Please enter a valid email address");
+                    }
+                  }}
+                  className="flex flex-row items-stretch gap-2 md:gap-3"
+                >
+                  <Input
+                    type="email"
+                    placeholder="Enter your email"
+                    value={newsletterEmail}
+                    onChange={(e) => setNewsletterEmail(e.target.value)}
+                    className="flex-1 h-[40px] md:h-[48px] text-sm md:text-base bg-background/60 border-border/60 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-b-2 focus-visible:border-[#00EC97] hover:border-border/60"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 md:px-8 py-2 md:py-3 h-[40px] md:h-[48px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-base hover:bg-[#00d97f] transition-colors whitespace-nowrap"
+                  >
+                    Subscribe
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* Request for Featuring Merch Collection Block */}
+            <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 lg:px-10 py-4 md:py-8">
+              <div className="flex flex-col gap-3 md:gap-5 h-full justify-between">
+                <div className="text-left">
+                  <h3 className="text-lg md:text-2xl lg:text-3xl font-bold tracking-tight text-foreground mb-1.5 md:mb-3">
+                    Request for featuring merch collection
+                  </h3>
+                  <p className="text-xs md:text-sm lg:text-base text-foreground/90 dark:text-muted-foreground">
+                    Have a NEAR-related merch collection you want to feature in this store? Submit a request and our team will review it.
+                  </p>
+                </div>
+                <div className="flex justify-start">
+                  <a
+                    href="https://near-foundation.notion.site/2d365bc975504078b8b0bded040a4e2e?pvs=105"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center px-4 md:px-8 py-2 md:py-3 h-[40px] md:h-[48px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-base hover:bg-[#00d97f] transition-colors whitespace-nowrap"
+                  >
+                    Open request form
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

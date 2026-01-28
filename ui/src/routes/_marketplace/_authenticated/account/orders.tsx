@@ -11,23 +11,12 @@ import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/_marketplace/_authenticated/account/orders')({
   loader: () => apiClient.getOrders({ limit: 100, offset: 0 }),
-  pendingComponent: OrdersLoading,
   errorComponent: OrdersError,
   component: OrdersPage,
 });
 
 type Order = Awaited<ReturnType<typeof apiClient.getOrders>>['orders'][0];
 
-function OrdersLoading() {
-  return (
-    <div className="flex items-center justify-center py-12">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00EC97] mx-auto mb-2"></div>
-        <p className="text-sm text-foreground/90 dark:text-muted-foreground">Loading orders...</p>
-      </div>
-    </div>
-  );
-}
 function OrdersError({ error }: { error: Error }) {
   const router = useRouter();
 
@@ -47,7 +36,30 @@ function OrdersError({ error }: { error: Error }) {
 }
 
 function OrdersPage() {
-  const { orders } = Route.useLoaderData();
+  const loaderData = Route.useLoaderData();
+
+  if (!loaderData) {
+    return (
+      <div className="space-y-4 md:space-y-6">
+        <div>
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-bold tracking-tight mb-1 md:mb-2">My Orders</h2>
+          <p className="text-xs md:text-sm text-foreground/90 dark:text-muted-foreground">
+            View your order history and track shipments
+          </p>
+        </div>
+        <div className="rounded-xl md:rounded-2xl bg-background border border-border/60 px-4 md:px-6 py-8 md:py-12">
+          <div className="flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-6 w-6 md:h-8 md:w-8 border-b-2 border-[#00EC97] mx-auto mb-2"></div>
+              <p className="text-xs md:text-sm text-foreground/90 dark:text-muted-foreground">Loading orders...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { orders } = loaderData;
 
   const columns: ColumnDef<Order>[] = useMemo(
     () => [
@@ -140,17 +152,17 @@ function OrdersPage() {
   );
 
   return (
-    <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8 space-y-6">
-    <div>
-        <h2 className="text-3xl font-bold tracking-tight mb-2">My Orders</h2>
-        <p className="text-sm text-foreground/90 dark:text-muted-foreground">View and track your order history</p>
+    <div className="space-y-4 md:space-y-6">
+      <div>
+        <h2 className="text-xl md:text-2xl lg:text-3xl font-bold tracking-tight mb-1 md:mb-2">My Orders</h2>
+        <p className="text-xs md:text-sm text-foreground/90 dark:text-muted-foreground">View and track your order history</p>
       </div>
 
       {orders.length === 0 ? (
-        <div className="rounded-2xl bg-background/40 border border-border/60 p-12 text-center">
-          <Package className="mx-auto h-12 w-12 text-foreground/50 dark:text-muted-foreground mb-4" />
-          <p className="text-foreground/90 dark:text-muted-foreground font-medium mb-1">No orders yet</p>
-          <p className="text-sm text-foreground/70 dark:text-muted-foreground">Your orders will appear here once you make a purchase</p>
+        <div className="rounded-xl md:rounded-2xl bg-background/40 border border-border/60 p-8 md:p-12 text-center">
+          <Package className="mx-auto h-8 w-8 md:h-12 md:w-12 text-foreground/50 dark:text-muted-foreground mb-3 md:mb-4" />
+          <p className="text-sm md:text-base text-foreground/90 dark:text-muted-foreground font-medium mb-1">No orders yet</p>
+          <p className="text-xs md:text-sm text-foreground/70 dark:text-muted-foreground">Your orders will appear here once you make a purchase</p>
         </div>
       ) : (
         <>
@@ -160,7 +172,7 @@ function OrdersPage() {
         </div>
 
           {/* Mobile Cards */}
-          <div className="md:hidden space-y-4">
+          <div className="md:hidden space-y-3">
             {orders.map((order) => {
               const hasTracking = order.trackingInfo && order.trackingInfo.length > 0;
               const items = order.items;
@@ -168,11 +180,11 @@ function OrdersPage() {
               const productNames = items.map((item: any) => item.productName).join(', ');
 
               return (
-                <div key={order.id} className="rounded-lg bg-background/40 border border-border/60 p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
+                <div key={order.id} className="rounded-xl bg-background border border-border/60 p-4">
+                  <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-mono text-sm font-semibold text-foreground">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="font-mono text-xs font-semibold text-foreground">
                           {order.id.substring(0, 8)}...
                         </span>
                         <Badge className={getStatusColor(order.status)}>
@@ -182,24 +194,18 @@ function OrdersPage() {
                       <p className="text-xs text-foreground/70 dark:text-muted-foreground mb-1">
                         {new Date(order.createdAt).toLocaleDateString()}
                       </p>
+                      <p className="text-xs font-medium text-foreground mb-0.5">
+                        {totalQty} item{totalQty !== 1 ? 's' : ''} · {productNames}
+                      </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-base font-semibold text-foreground">
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold text-foreground">
                         ${order.totalAmount.toFixed(2)} {order.currency}
                       </p>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-border/60">
-                    <p className="text-sm font-medium text-foreground mb-1">
-                      {totalQty} item{totalQty !== 1 ? 's' : ''}
-                    </p>
-                    <p className="text-xs text-foreground/70 dark:text-muted-foreground line-clamp-2" title={productNames}>
-                      {productNames}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-2">
+                  <div className="flex items-center gap-2">
                     {hasTracking && (
                       <a
                         href={order.trackingInfo![0]!.trackingUrl}

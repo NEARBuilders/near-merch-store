@@ -42,17 +42,6 @@ import {
   type PrintfulWebhookEventType,
 } from "@/integrations/api/providers";
 
-function ProvidersLoading() {
-  return (
-    <div className="flex items-center justify-center py-12">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00EC97] mx-auto mb-2"></div>
-        <p className="text-sm text-foreground/90 dark:text-muted-foreground">Loading provider configuration...</p>
-      </div>
-    </div>
-  );
-}
-
 function ProvidersError({ error }: { error: Error }) {
   const router = useRouter();
 
@@ -75,14 +64,36 @@ export const Route = createFileRoute(
   "/_marketplace/_authenticated/_admin/dashboard/providers"
 )({
   loader: () => apiClient.getProviderConfig({ provider: "printful" }),
-  pendingComponent: ProvidersLoading,
   errorComponent: ProvidersError,
   component: ProvidersPage,
 });
 
 function ProvidersPage() {
   const router = useRouter();
-  const { config } = Route.useLoaderData();
+  const loaderData = Route.useLoaderData();
+
+  if (!loaderData) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight mb-2">Provider Configuration</h2>
+          <p className="text-sm text-foreground/90 dark:text-muted-foreground">
+            Configure fulfillment providers and webhooks
+          </p>
+        </div>
+        <div className="rounded-2xl bg-background border border-border/60 px-6 py-12">
+          <div className="flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00EC97] mx-auto mb-2"></div>
+              <p className="text-sm text-foreground/90 dark:text-muted-foreground">Loading provider configuration...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { config } = loaderData;
   const configureWebhook = useConfigureWebhook();
   const disableWebhook = useDisableWebhook();
   const testProvider = useTestProvider();

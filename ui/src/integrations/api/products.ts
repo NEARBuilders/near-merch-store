@@ -1,26 +1,31 @@
 import { apiClient, queryClient } from '@/utils/orpc';
 import { useMutation, useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { productKeys, type ProductCategory } from './keys';
+import { productKeys } from './keys';
+import type { CategoryId } from './keys';
 
 export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'];
 export type ProductImage = Product['images'][number];
 
+export function getPrimaryCategoryName(product: Product): string {
+  return product.categories?.[0]?.name ?? '';
+}
+
 export function useProducts(options?: {
-  category?: ProductCategory;
+  categoryIds?: CategoryId[];
   limit?: number;
   offset?: number;
   includeUnlisted?: boolean;
 }) {
   return useQuery({
     queryKey: productKeys.list({
-      category: options?.category,
+      categoryIds: options?.categoryIds,
       limit: options?.limit,
       offset: options?.offset,
       includeUnlisted: options?.includeUnlisted,
     }),
     queryFn: async () => {
       const data = await apiClient.getProducts({
-        category: options?.category,
+        categoryIds: options?.categoryIds,
         limit: options?.limit ?? 50,
         offset: options?.offset ?? 0,
         includeUnlisted: options?.includeUnlisted,
@@ -80,15 +85,15 @@ export function useSuspenseFeaturedProducts(limit = 12) {
 }
 
 export function useSearchProducts(query: string, options?: {
-  category?: ProductCategory;
+  categoryIds?: CategoryId[];
   limit?: number;
 }) {
   return useQuery({
-    queryKey: productKeys.search(query, options?.category, options?.limit),
+    queryKey: productKeys.search(query, options?.categoryIds, options?.limit),
     queryFn: async () => {
       const data = await apiClient.searchProducts({
         query,
-        category: options?.category,
+        categoryIds: options?.categoryIds,
         limit: options?.limit ?? 20,
       });
       return data;
@@ -98,15 +103,15 @@ export function useSearchProducts(query: string, options?: {
 }
 
 export function useSuspenseSearchProducts(query: string, options?: {
-  category?: ProductCategory;
+  categoryIds?: CategoryId[];
   limit?: number;
 }) {
   return useSuspenseQuery({
-    queryKey: productKeys.search(query, options?.category, options?.limit),
+    queryKey: productKeys.search(query, options?.categoryIds, options?.limit),
     queryFn: async () => {
       const data = await apiClient.searchProducts({
         query,
-        category: options?.category,
+        categoryIds: options?.categoryIds,
         limit: options?.limit ?? 20,
       });
       return data;
@@ -140,26 +145,26 @@ export const productLoaders = {
     queryFn: () => apiClient.getProduct({ id }),
   }),
 
-  list: (options?: { category?: ProductCategory; limit?: number; offset?: number }) => ({
+  list: (options?: { categoryIds?: CategoryId[]; limit?: number; offset?: number }) => ({
     queryKey: productKeys.list({
-      category: options?.category,
+      categoryIds: options?.categoryIds,
       limit: options?.limit,
       offset: options?.offset,
     }),
     queryFn: () =>
       apiClient.getProducts({
-        category: options?.category,
+        categoryIds: options?.categoryIds,
         limit: options?.limit ?? 50,
         offset: options?.offset ?? 0,
       }),
   }),
 
-  search: (query: string, options?: { category?: ProductCategory; limit?: number }) => ({
-    queryKey: productKeys.search(query, options?.category, options?.limit),
+  search: (query: string, options?: { categoryIds?: CategoryId[]; limit?: number }) => ({
+    queryKey: productKeys.search(query, options?.categoryIds, options?.limit),
     queryFn: () =>
       apiClient.searchProducts({
         query,
-        category: options?.category,
+        categoryIds: options?.categoryIds,
         limit: options?.limit ?? 50,
       }),
   }),
@@ -172,11 +177,11 @@ export const productLoaders = {
     await queryClient.prefetchQuery(productLoaders.detail(id));
   },
 
-  prefetchList: async (options?: { category?: ProductCategory; limit?: number; offset?: number }) => {
+  prefetchList: async (options?: { categoryIds?: CategoryId[]; limit?: number; offset?: number }) => {
     await queryClient.prefetchQuery(productLoaders.list(options));
   },
 
-  prefetchSearch: async (query: string, options?: { category?: ProductCategory; limit?: number }) => {
+  prefetchSearch: async (query: string, options?: { categoryIds?: CategoryId[]; limit?: number }) => {
     await queryClient.prefetchQuery(productLoaders.search(query, options));
   },
 };
@@ -245,6 +250,30 @@ export function useUpdateProductListing() {
     },
     onSettled: () => {
       // Refetch to ensure sync with server
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+  });
+}
+
+export function useUpdateProductCategories() {
+  return useMutation({
+    mutationFn: ({ id, categoryIds }: { id: string; categoryIds: string[] }) =>
+      apiClient.updateProductCategories({ id, categoryIds }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: productKeys.all });
+
+      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+
+      return { previousProducts };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.all });
     },
   });

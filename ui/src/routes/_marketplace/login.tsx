@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
@@ -23,6 +23,8 @@ export const Route = createFileRoute("/_marketplace/login")({
 });
 
 function LoginPage() {
+  const navigate = useNavigate();
+  const { redirect: redirectPath } = useSearch({ from: "/_marketplace/login" });
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
@@ -84,11 +86,9 @@ function LoginPage() {
             queryClient.invalidateQueries();
             // Wait a bit for session to be saved
             await new Promise((resolve) => setTimeout(resolve, 100));
-            // Use router navigation instead of hard redirect
-            const redirectUrl =
-              new URLSearchParams(window.location.search).get("redirect") ||
-              "/cart";
-            window.location.href = redirectUrl;
+            // Navigate back to the page user came from, or default to account page
+            const targetPath = redirectPath || "/account";
+            navigate({ to: targetPath });
           },
           onError: (error: any) => {
             setIsSigning(false);

@@ -87,6 +87,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                       hideFavorite
                       hidePrice
                       className="pb-4 hover:shadow-none !p-0 !bg-transparent"
+                      imageOverride={item.imageUrl}
                       actionSlot={
                         <button
                           type="button"

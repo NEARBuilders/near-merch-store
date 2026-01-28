@@ -49,3 +49,57 @@ export function getAttributeHex(
   );
   return (attr as unknown as { hex?: string })?.hex;
 }
+
+/**
+ * Finds the image URL for a specific variant.
+ * Prioritizes variant-specific images (with variantIds), excluding mockup and detail types.
+ * Falls back to first variant image, then product image, then variant fulfillment design file.
+ */
+export function getVariantImageUrl(
+  product: { images?: Array<{ url: string; type?: string; variantIds?: string[] }>; variants?: Array<{ id: string; fulfillmentConfig?: { designFiles?: Array<{ url: string }> } }> },
+  variantId: string
+): string | undefined {
+  if (!product.images || product.images.length === 0) {
+    // Fallback to variant fulfillment design file
+    const variant = product.variants?.find((v) => v.id === variantId);
+    return variant?.fulfillmentConfig?.designFiles?.[0]?.url;
+  }
+
+  // First, try to find a variant-specific image (not mockup, not detail)
+  const variantImage = product.images.find(
+    (img) =>
+      img.variantIds?.includes(variantId) &&
+      img.type !== "mockup" &&
+      img.type !== "detail"
+  );
+
+  if (variantImage) {
+    return variantImage.url;
+  }
+
+  // Fallback to first non-mockup, non-detail image with variantIds
+  const fallbackImage = product.images.find(
+    (img) =>
+      img.variantIds &&
+      img.variantIds.length > 0 &&
+      img.type !== "mockup" &&
+      img.type !== "detail"
+  );
+
+  if (fallbackImage) {
+    return fallbackImage.url;
+  }
+
+  // Fallback to any non-mockup, non-detail image
+  const anyImage = product.images.find(
+    (img) => img.type !== "mockup" && img.type !== "detail"
+  );
+
+  if (anyImage) {
+    return anyImage.url;
+  }
+
+  // Last resort: variant fulfillment design file
+  const variant = product.variants?.find((v) => v.id === variantId);
+  return variant?.fulfillmentConfig?.designFiles?.[0]?.url;
+}

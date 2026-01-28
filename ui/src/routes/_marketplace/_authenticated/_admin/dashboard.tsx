@@ -5,14 +5,23 @@ import {
   ShoppingBag,
   Users,
   Settings,
+  Tags,
   ChevronRight,
+  ChevronDown,
   ArrowLeft,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard")({
   component: AdminDashboard,
+  pendingComponent: () => null,
 });
 
 function AdminDashboard() {
@@ -27,6 +36,19 @@ function AdminDashboard() {
   const isOrdersActive = !!matchRoute({ to: "/dashboard/orders" });
   const isUsersActive = !!matchRoute({ to: "/dashboard/users" });
   const isProvidersActive = !!matchRoute({ to: "/dashboard/providers" });
+  const isCategoriesActive = !!matchRoute({ to: "/dashboard/categories" });
+
+  const getActiveSectionName = () => {
+    if (isOverviewActive) return "Overview";
+    if (isInventoryActive) return "Inventory";
+    if (isOrdersActive) return "Orders";
+    if (isUsersActive) return "Users";
+    if (isProvidersActive) return "Providers";
+    if (isCategoriesActive) return "Collections";
+    return "Overview";
+  };
+
+  const hasActiveSection = isOverviewActive || isInventoryActive || isOrdersActive || isUsersActive || isProvidersActive || isCategoriesActive;
 
   return (
     <div className="bg-background min-h-screen pt-32 overflow-x-hidden">
@@ -67,12 +89,114 @@ function AdminDashboard() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-[280px_1fr] gap-8 overflow-x-hidden min-w-0">
-          {/* Sidebar Navigation */}
-          <div className="space-y-2 min-w-0">
+        <div className="flex flex-col lg:grid lg:grid-cols-[280px_1fr] gap-4 md:gap-6 lg:gap-8">
+          <div className="flex flex-row lg:flex-col gap-2 lg:space-y-2 overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0 -mx-4 md:-mx-0 px-4 md:px-0">
+            <div className="lg:hidden w-full relative">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={`w-full flex items-center justify-between gap-2 px-4 md:px-8 py-2 md:py-3 text-left transition-colors rounded-lg whitespace-nowrap bg-background/60 backdrop-blur-sm border border-border/60 text-foreground font-semibold text-sm md:text-base hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black ${
+                      hasActiveSection
+                        ? "bg-[#00EC97] border-[#00EC97] text-black"
+                        : ""
+                    }`}
+                  >
+                    <span className="text-sm md:text-base font-semibold">
+                      {getActiveSectionName()}
+                    </span>
+                    <ChevronDown className="size-4 md:size-5 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  align="start" 
+                  alignOffset={-16}
+                  sideOffset={8}
+                  collisionPadding={16}
+                  className="!w-[calc(100vw-2rem)] md:!w-full md:!max-w-none bg-background/80 backdrop-blur-sm border border-border/60 rounded-2xl px-6 py-4 shadow-lg"
+                >
+                  <div className="space-y-2">
+                    <DropdownMenuItem asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97] p-0">
+                      <Link
+                        to="/dashboard"
+                        preload="intent"
+                        preloadDelay={0}
+                        className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                          isOverviewActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                        }`}
+                      >
+                        Overview
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97] p-0">
+                      <Link
+                        to="/dashboard/inventory"
+                        preload="intent"
+                        preloadDelay={0}
+                        className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                          isInventoryActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                        }`}
+                      >
+                        Inventory
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97] p-0">
+                      <Link
+                        to="/dashboard/orders"
+                        preload="intent"
+                        preloadDelay={0}
+                        className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                          isOrdersActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                        }`}
+                      >
+                        Orders
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97] p-0">
+                      <Link
+                        to="/dashboard/users"
+                        preload="intent"
+                        preloadDelay={0}
+                        className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                          isUsersActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                        }`}
+                      >
+                        Users
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97] p-0">
+                      <Link
+                        to="/dashboard/providers"
+                        preload="intent"
+                        preloadDelay={0}
+                        className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                          isProvidersActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                        }`}
+                      >
+                        Providers
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97] p-0">
+                      <Link
+                        to="/dashboard/categories"
+                        preload="intent"
+                        preloadDelay={0}
+                        className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                          isCategoriesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                        }`}
+                      >
+                        Collections
+                      </Link>
+                    </DropdownMenuItem>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <div className="hidden lg:flex flex-col gap-2">
               <Link
                 to="/dashboard"
                 preload="intent"
+                preloadDelay={0}
                 className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
                   isOverviewActive
@@ -88,6 +212,7 @@ function AdminDashboard() {
               <Link
                 to="/dashboard/inventory"
                 preload="intent"
+                preloadDelay={0}
                 className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
                   isInventoryActive
@@ -103,6 +228,7 @@ function AdminDashboard() {
               <Link
                 to="/dashboard/orders"
                 preload="intent"
+                preloadDelay={0}
                 className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
                   isOrdersActive
@@ -118,6 +244,7 @@ function AdminDashboard() {
               <Link
                 to="/dashboard/users"
                 preload="intent"
+                preloadDelay={0}
                 className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
                   isUsersActive
@@ -133,6 +260,7 @@ function AdminDashboard() {
               <Link
                 to="/dashboard/providers"
                 preload="intent"
+                preloadDelay={0}
                 className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
                   isProvidersActive
@@ -144,9 +272,25 @@ function AdminDashboard() {
               <span className="flex-1 text-sm font-semibold">Providers</span>
               <ChevronRight className="size-4" />
               </Link>
+
+              <Link
+                to="/dashboard/categories"
+                preload="intent"
+                preloadDelay={0}
+                className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
+                  isCategoriesActive
+                  ? "bg-[#00EC97] border border-[#00EC97] text-black"
+                  : "bg-background border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
+                )}
+              >
+              <Tags className="size-4" />
+              <span className="flex-1 text-sm font-semibold">Collections</span>
+              <ChevronRight className="size-4" />
+              </Link>
+            </div>
           </div>
 
-          {/* Content Area */}
           <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8 overflow-x-hidden min-w-0 max-w-full">
             <Outlet />
           </div>

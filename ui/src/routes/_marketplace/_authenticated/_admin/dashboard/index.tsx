@@ -16,7 +16,9 @@ function DashboardOverview() {
     const listedProducts = products.filter((p) => p.listed !== false).length;
     const totalVariants = products.reduce((acc, p) => acc + (p.variants?.length || 0), 0);
     const providers = new Set(products.map((p) => p.fulfillmentProvider)).size;
-    const categories = new Set(products.map((p) => p.category)).size;
+    const categories = new Set(
+      products.flatMap((p) => (p.categories ?? []).map((c) => c.id))
+    ).size;
 
     return { totalProducts, listedProducts, totalVariants, providers, categories };
   }, [products]);

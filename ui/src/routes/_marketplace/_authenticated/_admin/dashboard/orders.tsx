@@ -19,23 +19,11 @@ import {
 
 export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/orders")({
   loader: () => apiClient.getAllOrders({ limit: 100, offset: 0 }),
-  pendingComponent: OrdersLoading,
   errorComponent: OrdersError,
   component: AdminOrdersPage,
 });
 
 type Order = Awaited<ReturnType<typeof apiClient.getAllOrders>>["orders"][0];
-
-function OrdersLoading() {
-  return (
-    <div className="flex items-center justify-center py-12">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00EC97] mx-auto mb-2"></div>
-        <p className="text-sm text-foreground/90 dark:text-muted-foreground">Loading orders...</p>
-      </div>
-    </div>
-  );
-}
 
 function OrdersError({ error }: { error: Error }) {
   const router = useRouter();
@@ -130,8 +118,31 @@ function PaymentDetailsView({ paymentDetails }: { paymentDetails: Record<string,
 
 function AdminOrdersPage() {
   const router = useRouter();
-  const { orders } = Route.useLoaderData();
+  const loaderData = Route.useLoaderData();
   const [search, setSearch] = useState("");
+
+  if (!loaderData) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight mb-2">Orders Management</h2>
+            <p className="text-sm text-foreground/90 dark:text-muted-foreground">View and manage all customer orders</p>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-background border border-border/60 px-6 py-12">
+          <div className="flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00EC97] mx-auto mb-2"></div>
+              <p className="text-sm text-foreground/90 dark:text-muted-foreground">Loading orders...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { orders } = loaderData;
 
   const filteredOrders = useMemo(() => {
     if (!search) return orders;

@@ -3,10 +3,10 @@ import { ArrowLeft } from 'lucide-react';
 import { ProductCard } from '@/components/marketplace/product-card';
 import { LoadingSpinner } from '@/components/loading';
 import {
+  getPrimaryCategoryName,
   useSearchProducts,
   useProducts,
   productLoaders,
-  type ProductCategory,
   type Product,
 } from '@/integrations/api';
 import { queryClient } from '@/utils/orpc';
@@ -29,15 +29,13 @@ export const Route = createFileRoute('/_marketplace/search')({
 });
 
 function SearchPage() {
-  const { q, category } = Route.useSearch();
+  const { q } = Route.useSearch();
 
   const { data: searchData, isFetching: isSearching } = useSearchProducts(q || '', {
-    category: category as ProductCategory | undefined,
     limit: 50,
   });
 
   const { data: allProductsData, isLoading } = useProducts({
-    category: category as ProductCategory | undefined,
     limit: 50,
   });
 
@@ -58,7 +56,7 @@ function SearchPage() {
     
     const queryLower = query.toLowerCase().trim();
     const normalizedQuery = normalizeSearchTerm(query);
-    const searchText = `${product.title} ${product.productType || ''} ${product.brand || ''} ${product.category || ''}`.toLowerCase();
+    const searchText = `${product.title} ${product.productType || ''} ${product.brand || ''} ${getPrimaryCategoryName(product) || ''}`.toLowerCase();
     const normalizedSearchText = normalizeSearchTerm(searchText);
     
     return searchText.includes(queryLower) || 

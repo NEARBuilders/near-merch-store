@@ -24,6 +24,14 @@ export function MarketplaceFooter() {
             <h4 className="font-semibold mb-4 text-foreground">Connect</h4>
             <div className="space-y-4 mt-4">
               <a
+                href="https://x.com/nearmerch"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block link-muted text-sm"
+              >
+                Near Merch on X
+              </a>
+              <a
                 href="https://github.com/nearbuilders/near-merch-store"
                 target="_blank"
                 rel="noopener noreferrer"

@@ -5,6 +5,7 @@ import {
   COLOR_MAP,
   getAttributeHex,
   getOptionValue,
+  getVariantImageUrl,
 } from "@/lib/product-utils";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
@@ -18,7 +19,8 @@ interface SizeSelectionModalProps {
     productId: string,
     variantId: string,
     size: string,
-    color: string
+    color: string,
+    imageUrl?: string
   ) => void;
 }
 
@@ -40,7 +42,7 @@ export function SizeSelectionModal({
     orderedSizes.includes("M") ? "M" : orderedSizes[0] || ""
   );
 
-  const needsSize = product ? requiresSize(product.category) : false;
+  const needsSize = product ? requiresSize(product.categories) : false;
   const availableSizes =
     needsSize && orderedSizes.length > 0 ? orderedSizes : ["N/A"];
 
@@ -102,7 +104,8 @@ export function SizeSelectionModal({
       return;
     }
 
-    onAddToCart(product.slug, selectedVariantId, finalSize, finalColor);
+    const variantImageUrl = getVariantImageUrl(product, selectedVariantId);
+    onAddToCart(product.slug, selectedVariantId, finalSize, finalColor, variantImageUrl);
     onClose();
   };
 

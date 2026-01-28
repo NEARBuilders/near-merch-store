@@ -1,5 +1,5 @@
 export * from './keys';
-import type { ProductCategory } from './keys';
+import type { Category } from './keys';
 
 export interface CartItem {
   productId: string;
@@ -7,15 +7,15 @@ export interface CartItem {
   quantity: number;
   size: string;
   color: string;
+  imageUrl?: string;
 }
-
-export const COLLECTIONS: ProductCategory[] = ['Men', 'Women', 'Accessories', 'Exclusives'];
 
 export const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
 export type Size = (typeof SIZES)[number];
 
-export const requiresSize = (category: ProductCategory): boolean => {
-  return ['Men', 'Women', 'Exclusives'].includes(category);
+export const requiresSize = (categories: Category[] | undefined): boolean => {
+  const names = (categories ?? []).map((c) => c.name.toLowerCase());
+  return names.some((n) => ['men', 'women', 'exclusives'].includes(n));
 };
 
 export {
@@ -31,6 +31,8 @@ export {
   useSyncStatus,
   useSyncProducts,
   useUpdateProductListing,
+  useUpdateProductCategories,
+  getPrimaryCategoryName,
   type Product,
   type ProductImage,
 } from './products';
@@ -43,6 +45,13 @@ export {
   collectionLoaders,
   type Collection,
 } from './collections';
+
+export {
+  useCategories,
+  useCreateCategory,
+  useDeleteCategory,
+  type Category,
+} from './categories';
 
 export {
   useOrders,

@@ -21,8 +21,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const assetsUrl = loaderData?.assetsUrl || "";
     const runtimeConfig = loaderData?.runtimeConfig;
     const siteUrl = runtimeConfig?.hostUrl || "";
-    const title = runtimeConfig?.title || "demo.everything";
-    const description = "NEAR-powered merch store for the NEAR ecosystem";
+    const title = runtimeConfig?.title || "NEAR Merch Store";
+    const description = "Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles for the NEAR ecosystem";
     const ogImage = `${assetsUrl}/metadata.png`;
 
     return {
@@ -34,7 +34,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         },
         { title },
         { name: "description", content: description },
-        { name: "theme-color", content: "#171717" },
+        { name: "theme-color", content: "#00EC97" },
         { name: "color-scheme", content: "dark" },
         { name: "application-name", content: title },
         { name: "mobile-web-app-capable", content: "yes" },
@@ -49,11 +49,15 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { property: "og:type", content: "website" },
         { property: "og:url", content: siteUrl },
         { property: "og:image", content: ogImage },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
         { property: "og:site_name", content: title },
+        { property: "og:locale", content: "en_US" },
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: description },
         { name: "twitter:image", content: ogImage },
+        { name: "twitter:site", content: "@nearmerch" },
       ],
       links: [
         { rel: "canonical", href: siteUrl },
@@ -84,10 +88,18 @@ export const Route = createRootRouteWithContext<RouterContext>()({
           type: "application/ld+json",
           children: JSON.stringify({
             "@context": "https://schema.org",
-            "@type": "WebSite",
+            "@type": "OnlineStore",
             name: title,
             url: siteUrl,
             description,
+            brand: {
+              "@type": "Brand",
+              name: "NEAR Protocol"
+            },
+            offers: {
+              "@type": "AggregateOffer",
+              priceCurrency: "USD"
+            }
           }),
         },
         {

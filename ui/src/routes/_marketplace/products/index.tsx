@@ -16,6 +16,8 @@ import {
   productLoaders,
   useProducts,
   useSearchProducts,
+  getPrimaryCategoryName,
+  useCategories,
   type Product,
 } from "@/integrations/api";
 import { queryClient } from "@/utils/orpc";
@@ -28,6 +30,7 @@ export const Route = createFileRoute("/_marketplace/products/")({
   validateSearch: (search: Record<string, unknown>) => {
     return {
       category: (search.category as string) || 'all',
+      categoryId: (search.categoryId as string | undefined) || undefined,
     };
   },
   loader: async () => {
@@ -109,7 +112,7 @@ const normalizeProductType = (product: Product): string | null => {
 
 function ProductsIndexPage() {
   const { addToCart } = useCart();
-  const { category: urlCategory } = Route.useSearch();
+  const { category: urlCategory, categoryId } = Route.useSearch();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [priceRange, setPriceRange] = useState<PriceRange>('all');
@@ -118,6 +121,7 @@ function ProductsIndexPage() {
   const [colorFilter, setColorFilter] = useState<ColorFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>((urlCategory as CategoryFilter) || 'all');
   const [brandFilter, setBrandFilter] = useState<BrandFilter>('all');
+  const [collectionFilter, setCollectionFilter] = useState<'all' | string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
   
   // Update category filter when URL changes
@@ -134,6 +138,7 @@ function ProductsIndexPage() {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     sort: true,
     category: false,
+    collections: false,
     sizes: false,
     color: false,
     brand: false,
@@ -144,13 +149,20 @@ function ProductsIndexPage() {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
+  const categoryIdsForFilter = categoryId ? [categoryId] : undefined;
+
   const { data: searchData, isFetching: isSearching } = useSearchProducts(searchQuery, {
     limit: 100,
+    categoryIds: categoryIdsForFilter,
   });
 
   const { data: allProductsData, isLoading, isError } = useProducts({
     limit: 100,
+    categoryIds: categoryIdsForFilter,
   });
+
+  const { data: collectionsData } = useCategories();
+  const collections = collectionsData?.categories ?? [];
 
   // Get unique filter options from products
   const { availableSizes, availableColors, availableBrands } = useMemo(() => {
@@ -205,7 +217,7 @@ function ProductsIndexPage() {
     
     const queryLower = query.toLowerCase().trim();
     const normalizedQuery = normalizeSearchTerm(query);
-    const searchText = `${product.title} ${product.productType || ''} ${product.brand || ''} ${product.category || ''}`.toLowerCase();
+    const searchText = `${product.title} ${product.productType || ''} ${product.brand || ''} ${getPrimaryCategoryName(product) || ''}`.toLowerCase();
     const normalizedSearchText = normalizeSearchTerm(searchText);
     
     return searchText.includes(queryLower) || 
@@ -235,7 +247,7 @@ function ProductsIndexPage() {
     if (categoryFilter !== 'all') {
       if (categoryFilter === 'Exclusives') {
         filteredProducts = filteredProducts.filter((product) => {
-          return product.category === 'Exclusives';
+          return (product.categories ?? []).some((c) => c.name === 'Exclusives');
         });
       } else {
         filteredProducts = filteredProducts.filter((product) => {
@@ -243,6 +255,13 @@ function ProductsIndexPage() {
           return normalizedType === categoryFilter;
         });
       }
+    }
+
+    // Filter by collection (dynamic categories)
+    if (collectionFilter !== 'all') {
+      filteredProducts = filteredProducts.filter((product) =>
+        (product.categories ?? []).some((c) => c.id === collectionFilter)
+      );
     }
 
     // Filter by brand
@@ -325,8 +344,8 @@ function ProductsIndexPage() {
     setSizeModalProduct(product);
   };
 
-  const handleAddToCartFromModal = (productId: string, variantId: string, size: string, color: string) => {
-    addToCart(productId, variantId, size, color);
+  const handleAddToCartFromModal = (productId: string, variantId: string, size: string, color: string, imageUrl?: string) => {
+    addToCart(productId, variantId, size, color, imageUrl);
     setSizeModalProduct(null);
     setIsCartSidebarOpen(true);
   };
@@ -514,6 +533,74 @@ function ProductsIndexPage() {
                           )} />
                           <span className="text-sm">Price: High to Low</span>
                         </label>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Collections filter */}
+                  <div>
+                    <button
+                      onClick={() => toggleSection('collections')}
+                      className="w-full flex items-center justify-between py-4 hover:opacity-80 transition-opacity"
+                    >
+                      <span className="font-medium text-base">Collections</span>
+                      {expandedSections.collections ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </button>
+                    {expandedSections.collections && (
+                      <div className="pb-4 space-y-3">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={collectionFilter === 'all'}
+                            onChange={() => setCollectionFilter('all')}
+                            className="sr-only"
+                          />
+                          <div
+                            className={cn(
+                              "h-4 w-4 rounded border-2 transition-colors flex-shrink-0",
+                              collectionFilter === 'all'
+                                ? "bg-[#00EC97] border-[#00EC97]"
+                                : "bg-transparent border-border/60"
+                            )}
+                          />
+                          <span className="text-sm">All collections</span>
+                        </label>
+                        {collections.length === 0 ? (
+                          <p className="text-xs text-foreground/60 dark:text-muted-foreground px-1">
+                            No collections yet.
+                          </p>
+                        ) : (
+                          collections.map((collection) => (
+                            <label
+                              key={collection.id}
+                              className="flex items-center gap-3 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={collectionFilter === collection.id}
+                                onChange={() =>
+                                  setCollectionFilter(
+                                    collection.id === collectionFilter ? 'all' : collection.id
+                                  )
+                                }
+                                className="sr-only"
+                              />
+                              <div
+                                className={cn(
+                                  "h-4 w-4 rounded border-2 transition-colors flex-shrink-0",
+                                  collectionFilter === collection.id
+                                    ? "bg-[#00EC97] border-[#00EC97]"
+                                    : "bg-transparent border-border/60"
+                                )}
+                              />
+                              <span className="text-sm">{collection.name}</span>
+                            </label>
+                          ))
+                        )}
                       </div>
                     )}
                   </div>

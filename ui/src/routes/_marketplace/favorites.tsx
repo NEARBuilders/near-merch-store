@@ -24,8 +24,8 @@ function FavoritesPage() {
     setSizeModalProduct(product);
   };
 
-  const handleAddToCartFromModal = (productId: string, variantId: string, size: string, color: string) => {
-    addToCart(productId, variantId, size, color);
+  const handleAddToCartFromModal = (productId: string, variantId: string, size: string, color: string, imageUrl?: string) => {
+    addToCart(productId, variantId, size, color, imageUrl);
     setSizeModalProduct(null);
     setIsCartSidebarOpen(true);
   };

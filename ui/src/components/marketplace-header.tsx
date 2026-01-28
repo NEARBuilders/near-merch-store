@@ -1,5 +1,5 @@
 import { Link, useMatchRoute, useLocation } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Heart, ShoppingCart, User, Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,23 +24,16 @@ import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { queryClient } from "@/utils/orpc";
 import nearLogo from "@/assets/images/pngs/logo_sq.png";
-
-const PRODUCT_CATEGORIES = [
-  { key: 'tshirt', label: 'T-Shirts' },
-  { key: 'hats', label: 'Hats' },
-  { key: 'hoodies', label: 'Hoodies' },
-  { key: 'long sleeved shirts', label: 'Long Sleeved Shirts' },
-] as const;
+import { useCategories } from "@/integrations/api";
 
 function CollectionsDropdown() {
   const matchRoute = useMatchRoute();
   const location = useLocation();
-  const searchParams = location.search as { category?: string };
-  const currentCategory = searchParams?.category || null;
+  const searchParams = location.search as { categoryId?: string };
+  const currentCategoryId = searchParams?.categoryId || null;
 
-  const isCategoryActive = (categoryKey: string) => {
-    return matchRoute({ to: '/products' }) && currentCategory === categoryKey;
-  };
+  const { data, isLoading } = useCategories();
+  const categories = data?.categories ?? [];
 
   return (
     <DropdownMenu>
@@ -51,16 +44,46 @@ function CollectionsDropdown() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={20} className="w-56 bg-background/60 backdrop-blur-sm border border-border/60 rounded-2xl p-2 shadow-lg">
-        {PRODUCT_CATEGORIES.map((category) => {
-          const isActive = isCategoryActive(category.key);
+        <DropdownMenuItem asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97]">
+          <Link
+            to="/products"
+            search={{ category: "all", categoryId: currentCategoryId ?? undefined }}
+            className={`cursor-pointer rounded-lg px-3 py-2 hover:text-[#00EC97] focus:text-[#00EC97] transition-colors ${
+              matchRoute({ to: "/products" }) && !currentCategoryId ? "text-[#00EC97]" : ""
+            }`}
+          >
+            All products
+          </Link>
+        </DropdownMenuItem>
+
+        {isLoading && (
+          <div className="px-3 py-2 text-xs text-foreground/60 dark:text-muted-foreground">
+            Loading categories…
+          </div>
+        )}
+
+        {!isLoading && categories.length === 0 && (
+          <div className="px-3 py-2 text-xs text-foreground/60 dark:text-muted-foreground">
+            No collections yet.
+          </div>
+        )}
+
+        {categories.map((cat) => {
+          const isActive = matchRoute({ to: "/products" }) && currentCategoryId === cat.id;
           return (
-            <DropdownMenuItem key={category.key} asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97]">
+            <DropdownMenuItem
+              key={cat.id}
+              asChild
+              className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97]"
+            >
               <Link
                 to="/products"
-                search={{ category: category.key }}
-                className={`cursor-pointer rounded-lg px-3 py-2 hover:text-[#00EC97] focus:text-[#00EC97] transition-colors ${isActive ? 'text-[#00EC97]' : ''}`}
+                search={{ category: "all", categoryId: cat.id }}
+                className={`cursor-pointer rounded-lg px-3 py-2 hover:text-[#00EC97] focus:text-[#00EC97] transition-colors ${
+                  isActive ? "text-[#00EC97]" : ""
+                }`}
               >
-                {category.label}
+                {cat.name}
               </Link>
             </DropdownMenuItem>
           );
@@ -86,13 +109,26 @@ export function MarketplaceHeader() {
   const { totalCount: cartCount } = useCart();
   const { count: favoritesCount } = useFavorites();
 
-  const { data: session } = authClient.useSession();
+  const { data: session, refetch: refetchSession } = authClient.useSession();
   const isLoggedIn = !!session?.user;
+
+  // Close login modal when user becomes logged in
+  useEffect(() => {
+    if (isLoggedIn && isLoginOpen) {
+      setIsLoginOpen(false);
+      setLoginStep(1);
+      setConnectedAccountId(null);
+    }
+  }, [isLoggedIn, isLoginOpen]);
 
   const matchRoute = useMatchRoute();
   const location = useLocation();
-  const searchParams = location.search as { category?: string };
+  const searchParams = location.search as { category?: string; categoryId?: string };
   const currentCategory = searchParams?.category || null;
+  const currentCategoryId = searchParams?.categoryId || null;
+
+  const { data: categoriesData } = useCategories();
+  const categories = categoriesData?.categories ?? [];
 
   const isProductsActive = !!matchRoute({ to: '/products' });
   const isExclusivesActive = isProductsActive && currentCategory === 'Exclusives';
@@ -135,10 +171,18 @@ export function MarketplaceHeader() {
         { recipient: window.__RUNTIME_CONFIG__?.account ?? "every.near" },
         {
           onSuccess: async () => {
+            // Wait for session to be saved
+            await new Promise(resolve => setTimeout(resolve, 200));
+            // Refetch session to update UI state
+            await refetchSession();
+            // Invalidate all queries to refresh UI state
             queryClient.invalidateQueries();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            setIsSigningIn(false);
             setIsLoginOpen(false);
-            window.location.href = "/cart";
+            setLoginStep(1);
+            setConnectedAccountId(null);
+            // Stay on the same page after signing in; just close the dialog.
+            // Route-guarded pages handle their own redirects via `redirect` search param.
           },
           onError: (error: any) => {
             setIsSigningIn(false);
@@ -220,8 +264,9 @@ export function MarketplaceHeader() {
           <nav className="hidden lg:flex items-center gap-2">
             <Link
               to="/products"
+              search={{ category: "all", categoryId: undefined }}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
-                isProductsActive && !currentCategory ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                isProductsActive && !currentCategoryId ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
               }`}
             >
               Shop Merch
@@ -230,8 +275,8 @@ export function MarketplaceHeader() {
             <CollectionsDropdown />
             
             <Link
-              to="/products"
-              search={{ category: 'Exclusives' }}
+            to="/products"
+            search={{ category: 'Exclusives', categoryId: undefined }}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
                 isExclusivesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
               }`}
@@ -571,10 +616,15 @@ export function MarketplaceHeader() {
             </div>
 
             <Button
+              type="button"
               variant="ghost"
               size="icon"
-              className="md:hidden hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="md:hidden hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97] relative z-50"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setMobileMenuOpen((open) => !open);
+              }}
               aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             >
               {mobileMenuOpen ? (
@@ -587,7 +637,7 @@ export function MarketplaceHeader() {
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden mt-3 relative z-50 space-y-3">
+          <div className="md:hidden mt-3 relative z-[60] space-y-3">
             <div className="rounded-2xl bg-background/80 backdrop-blur-sm border border-border/60 px-6 md:px-8 py-4">
               <form
                 onSubmit={(e) => {
@@ -615,9 +665,10 @@ export function MarketplaceHeader() {
             <div className="rounded-2xl bg-background/80 backdrop-blur-sm border border-border/60 px-6 py-4 space-y-2">
               <Link
                 to="/products"
+                search={{ category: "all", categoryId: undefined }}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
-                  isProductsActive && !currentCategory ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                  isProductsActive && !currentCategoryId ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
                 }`}
               >
                 Shop Merch
@@ -625,27 +676,33 @@ export function MarketplaceHeader() {
               
               <div className="space-y-1">
                 <div className="text-sm font-semibold text-foreground px-3 py-2">Collections</div>
-                {PRODUCT_CATEGORIES.map((category) => {
-                  const isActive = isProductsActive && currentCategory === category.key;
-                  return (
-                    <Link
-                      key={category.key}
-                      to="/products"
-                      search={{ category: category.key }}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`block pl-6 pr-3 py-2 text-sm transition-colors rounded-lg ${
-                        isActive ? 'text-[#00EC97]' : 'text-foreground/90 hover:text-[#00EC97]'
-                      }`}
-                    >
-                      {category.label}
-                    </Link>
-                  );
-                })}
+                {categories.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-foreground/60 dark:text-muted-foreground">
+                    No collections yet.
+                  </div>
+                ) : (
+                  categories.map((cat: { id: string; name: string }) => {
+                    const isActive = isProductsActive && currentCategoryId === cat.id;
+                    return (
+                      <Link
+                        key={cat.id}
+                        to="/products"
+                        search={{ category: "all", categoryId: cat.id }}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`block pl-6 pr-3 py-2 text-sm transition-colors rounded-lg ${
+                          isActive ? 'text-[#00EC97]' : 'text-foreground/90 hover:text-[#00EC97]'
+                        }`}
+                      >
+                        {cat.name}
+                      </Link>
+                    );
+                  })
+                )}
               </div>
               
               <Link
                 to="/products"
-                search={{ category: 'Exclusives' }}
+                search={{ category: 'Exclusives', categoryId: undefined }}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
                   isExclusivesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'

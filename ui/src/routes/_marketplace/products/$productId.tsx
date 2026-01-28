@@ -16,6 +16,7 @@ import {
   COLOR_MAP,
   getAttributeHex,
   getOptionValue,
+  getVariantImageUrl,
 } from "@/lib/product-utils";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/utils/orpc";
@@ -43,10 +44,10 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
   head: ({ loaderData }) => {
     const product = loaderData?.data?.product;
     const title = product?.title
-      ? `${product.title} | Near Merch`
-      : "Near Merch";
+      ? `${product.title} | NEAR Merch Store`
+      : "NEAR Merch Store";
     const description =
-      product?.description || "NEAR-powered merch store for the NEAR ecosystem";
+      product?.description || "Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles";
     const image = product?.images?.[0]?.url;
 
     return {
@@ -56,10 +57,15 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
         { property: "og:title", content: title },
         { property: "og:description", content: description },
         { property: "og:type", content: "product" },
-        ...(image ? [{ property: "og:image", content: image }] : []),
+        ...(image ? [
+          { property: "og:image", content: image },
+          { property: "og:image:width", content: "1200" },
+          { property: "og:image:height", content: "630" }
+        ] : []),
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: description },
+        { name: "twitter:site", content: "@nearmerch" },
         ...(image ? [{ name: "twitter:image", content: image }] : []),
       ],
     };
@@ -172,7 +178,7 @@ function ProductDetailPage() {
   const isInitialMountRef = useRef(true);
 
   const { data: relatedData } = useProducts({
-    category: product.category,
+    categoryIds: product.categories?.map((c) => c.id) ?? [],
     limit: 4,
   });
   const relatedProducts = (relatedData?.products ?? [])
@@ -259,12 +265,13 @@ function ProductDetailPage() {
   const isFavorite = favoriteIds.includes(product.id);
 
   const needsSize =
-    requiresSize(product.category) && hasVariants && orderedSizes.length > 0;
+    requiresSize(product.categories) && hasVariants && orderedSizes.length > 0;
 
   const handleAddToCart = () => {
     if (!selectedVariant) return;
+    const variantImageUrl = selectedVariantId ? getVariantImageUrl(product, selectedVariantId) : undefined;
     for (let i = 0; i < quantity; i++) {
-      addToCart(product.slug, selectedVariantId || '', selectedSize, selectedColor);
+      addToCart(product.slug, selectedVariantId || '', selectedSize, selectedColor, variantImageUrl);
     }
     openCartSidebar();
   };
@@ -305,7 +312,7 @@ function ProductDetailPage() {
           {/* Title Block */}
           <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
             <div className="flex items-center justify-end gap-3">
-              {product.category === 'Exclusives' && (
+              {(product.categories ?? []).some((c) => c.name === "Exclusives") && (
                 <div className="h-[40px] flex items-center justify-center bg-muted/30 px-3 py-2 text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60 rounded-lg">
                   EXCLUSIVE
                 </div>

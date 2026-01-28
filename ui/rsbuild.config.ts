@@ -17,6 +17,9 @@ const isProduction = process.env.NODE_ENV === "production";
 const buildTarget = process.env.BUILD_TARGET as "client" | "server" | undefined;
 const isServerBuild = buildTarget === "server";
 
+// Must match bos.config.json app.ui.development so host loads chunks from correct origin
+const UI_DEV_URL = "http://localhost:3002";
+
 function updateBosConfig(field: "production" | "ssr", url: string) {
   try {
     const configPath = path.resolve(__dirname, "../bos.config.json");
@@ -122,7 +125,8 @@ function createClientConfig() {
     },
     output: {
       distPath: { root: "dist", css: "static/css", js: "static/js" },
-      assetPrefix: "auto",
+      // Explicit dev URL so host (3000) loading this remote gets chunks from 3002, not 3000
+      assetPrefix: isProduction ? "auto" : `${UI_DEV_URL}/`,
       filename: { js: "[name].js", css: "style.css" },
       copy: [{ from: path.resolve(__dirname, "public"), to: "./" }],
     },

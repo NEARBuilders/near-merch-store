@@ -122,7 +122,7 @@ export function createRouter(opts: CreateRouterOptions = {}) {
     defaultNotFoundComponent: NotFoundComponent,
     defaultErrorComponent: ErrorComponent,
     defaultPendingComponent: PendingComponent,
-    defaultPendingMinMs: 100,
+    defaultPendingMinMs: 0, // Show loading immediately
   });
 
   return { router, queryClient };
