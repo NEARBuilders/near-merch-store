@@ -6,19 +6,19 @@ import { pluginModuleFederation } from "@module-federation/rsbuild-plugin";
 import { defineConfig } from "@rsbuild/core";
 import { pluginReact } from "@rsbuild/plugin-react";
 import { TanStackRouterRspack } from "@tanstack/router-plugin/rspack";
-import { getUISharedDependencies } from "every-plugin/build/rspack";
 import { withZephyr } from "zephyr-rsbuild-plugin";
 import pkg from "./package.json";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const normalizedName = pkg.name;
-const isProduction = process.env.NODE_ENV === "production";
+const shouldDeploy = process.env.DEPLOY === "true";
 const buildTarget = process.env.BUILD_TARGET as "client" | "server" | undefined;
 const isServerBuild = buildTarget === "server";
 
-// Must match bos.config.json app.ui.development so host loads chunks from correct origin
-const UI_DEV_URL = "http://localhost:3002";
+const bosConfigPath = path.resolve(__dirname, "../bos.config.json");
+const bosConfig = JSON.parse(fs.readFileSync(bosConfigPath, "utf8"));
+const uiSharedDeps = bosConfig.shared?.ui ?? {};
 
 function updateBosConfig(field: "production" | "ssr", url: string) {
   try {
@@ -41,8 +41,6 @@ function updateBosConfig(field: "production" | "ssr", url: string) {
   }
 }
 
-const uiSharedDeps = getUISharedDependencies();
-
 function createClientConfig() {
   const plugins = [
     pluginReact(),
@@ -53,6 +51,7 @@ function createClientConfig() {
       exposes: {
         "./Router": "./src/router.tsx",
         "./Hydrate": "./src/hydrate.tsx",
+        "./remote": "./src/remote/index.ts",
         "./components": "./src/components/index.ts",
         "./providers": "./src/providers/index.tsx",
         "./hooks": "./src/hooks/index.ts",
@@ -62,7 +61,7 @@ function createClientConfig() {
     }),
   ];
 
-  if (isProduction) {
+  if (shouldDeploy) {
     plugins.push(
       withZephyr({
         hooks: {
@@ -125,8 +124,7 @@ function createClientConfig() {
     },
     output: {
       distPath: { root: "dist", css: "static/css", js: "static/js" },
-      // Explicit dev URL so host (3000) loading this remote gets chunks from 3002, not 3000
-      assetPrefix: isProduction ? "auto" : `${UI_DEV_URL}/`,
+      assetPrefix: "auto",
       filename: { js: "[name].js", css: "style.css" },
       copy: [{ from: path.resolve(__dirname, "public"), to: "./" }],
     },
@@ -136,7 +134,7 @@ function createClientConfig() {
 function createServerConfig() {
   const plugins = [pluginReact()];
 
-  if (isProduction) {
+  if (shouldDeploy) {
     plugins.push(
       withZephyr({
         hooks: {
