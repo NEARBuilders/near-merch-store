@@ -73,7 +73,7 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-1956-ui-every-plugin-near-everything-7f28a41ea-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1965-ui-near-merch-store-nearbuilder-79cd8bfb0-ze.zephyrcloud.app",
       "exposes": {
         "./Router": "./src/router.tsx",
         "./Hydrate": "./src/hydrate.tsx",
@@ -83,7 +83,7 @@
         "./hooks": "./src/hooks/index.ts",
         "./types": "./src/types/index.ts"
       },
-      "ssr": "https://elliot-braem-1957-ui-every-plugin-near-everything-afdb5d0d1-ze.zephyrcloud.app",
+      "ssr": "https://elliot-braem-1966-ui-near-merch-store-nearbuilder-c789d4484-ze.zephyrcloud.app",
       "template": "near-everything/every-plugin/demo/ui",
       "files": [
         "rsbuild.config.ts",
@@ -107,7 +107,7 @@
     "api": {
       "name": "api",
       "development": "http://localhost:3014",
-      "production": "https://elliot-braem-1958-api-every-plugin-near-everythin-5b95b8406-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1967-api-near-merch-store-nearbuilde-38ff1317c-ze.zephyrcloud.app",
       "proxy": "https://elliot-braem-1811-api-every-plugin-near-everythin-2defcb105-ze.zephyrcloud.app",
       "variables": {
         "network": "mainnet",
