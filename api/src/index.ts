@@ -84,7 +84,7 @@ export default createPlugin({
         )
       );
 
-      const dbLayer = DatabaseLive(config.secrets.API_DATABASE_URL, config.secrets.API_DATABASE_AUTH_TOKEN);
+      const dbLayer = DatabaseLive(config.secrets.API_DATABASE_URL);
 
       const appLayer = ProductServiceLive(runtime).pipe(
         Layer.provide(ProductStoreLive),
@@ -167,43 +167,27 @@ export default createPlugin({
       }),
 
       getProduct: builder.getProduct.handler(async ({ input, errors }) => {
-        console.log('[API DEBUG] getProduct called with input:', input);
-        
         const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
-            console.log('[API DEBUG] Calling service.getProduct for id:', input.id);
             return yield* service.getProduct(input.id);
           }).pipe(Effect.provide(appLayer))
         );
 
-        console.log('[API DEBUG] Exit result:', Exit.isFailure(exit) ? 'FAILURE' : 'SUCCESS');
-
         if (Exit.isFailure(exit)) {
           const error = Cause.squash(exit.cause);
-          console.log('[API DEBUG] Error type:', error?.constructor?.name);
-          console.log('[API DEBUG] Error message:', error instanceof Error ? error.message : String(error));
-          console.log('[API DEBUG] Error instanceof ORPCError:', error instanceof ORPCError);
-          console.log('[API DEBUG] Full error:', error);
-          
           if (error instanceof ORPCError) {
-            console.log('[API DEBUG] Re-throwing ORPCError as-is');
             throw error;
           }
           if (error instanceof Error && error.message.includes('Product not found')) {
-            console.log('[API DEBUG] Creating NOT_FOUND error');
-            const notFoundError = errors.NOT_FOUND({
+            throw errors.NOT_FOUND({
               message: error.message,
               data: { resource: 'product', resourceId: input.id }
             });
-            console.log('[API DEBUG] NOT_FOUND error created:', notFoundError);
-            throw notFoundError;
           }
-          console.log('[API DEBUG] Re-throwing error as-is');
           throw error;
         }
 
-        console.log('[API DEBUG] Success, returning product');
         return exit.value;
       }),
 
@@ -543,7 +527,6 @@ export default createPlugin({
           const draftOrderIdsJson = session.metadata?.draftOrderIds;
 
           if (!orderId) {
-            console.log('[Stripe Webhook] No orderId in metadata, skipping');
             return { received: true };
           }
 
@@ -555,12 +538,10 @@ export default createPlugin({
           );
 
           if (!order) {
-            console.error(`[Stripe Webhook] Order not found: ${orderId}`);
             return { received: true };
           }
 
           if (order.status !== 'draft_created' && order.status !== 'pending') {
-            console.log(`[Stripe Webhook] Order ${orderId} already processed (status: ${order.status}), skipping`);
             return { received: true };
           }
 
@@ -572,7 +553,6 @@ export default createPlugin({
           );
 
           if (!draftOrderIdsJson) {
-            console.log('[Stripe Webhook] No draft orders to confirm');
             return { received: true };
           }
 
@@ -587,7 +567,6 @@ export default createPlugin({
 
               const provider = runtime.getProvider(providerName);
               if (!provider) {
-                console.error(`[Stripe Webhook] Provider not found: ${providerName}`);
                 confirmationResults[providerName] = { 
                   success: false, 
                   error: 'Provider not configured' 
@@ -610,11 +589,9 @@ export default createPlugin({
               try {
                 const result = await Effect.runPromise(confirmEffect);
                 confirmationResults[providerName] = { success: true };
-                console.log(`[Stripe Webhook] Confirmed draft order ${draftId} at ${providerName}: ${result.status}`);
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 confirmationResults[providerName] = { success: false, error: errorMessage };
-                console.error(`[Stripe Webhook] Failed to confirm ${providerName} draft ${draftId}:`, errorMessage);
               }
             }
 
@@ -627,12 +604,7 @@ export default createPlugin({
                 yield* store.updateStatus(orderId, finalStatus);
               }).pipe(Effect.provide(orderLayer))
             );
-
-            if (!allSuccess) {
-              console.error(`[Stripe Webhook] Order ${orderId} has failed confirmations:`, confirmationResults);
-            }
           } catch (error) {
-            console.error('[Stripe Webhook] Error processing draft confirmations:', error);
             await Effect.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
@@ -678,16 +650,12 @@ export default createPlugin({
             );
 
             if (!isValid) {
-              console.error('[Printful Webhook] Invalid signature');
               throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
             }
           } catch (error) {
             if (error instanceof ORPCError) throw error;
-            console.error('[Printful Webhook] Signature verification error:', error);
             throw new ORPCError('UNAUTHORIZED', { message: 'Webhook signature verification failed' });
           }
-        } else if (webhookSecret) {
-          console.warn('[Printful Webhook] No signature provided, skipping verification');
         }
 
         try {
@@ -695,11 +663,8 @@ export default createPlugin({
           const eventType = payload.type;
           const data = payload.data;
 
-          console.log(`[Printful Webhook] Received event: ${eventType}`);
-
           const externalId = data?.order?.external_id;
           if (!externalId) {
-            console.log('[Printful Webhook] No external_id found, skipping');
             return { received: true };
           }
 
@@ -711,7 +676,6 @@ export default createPlugin({
           );
 
           if (!order) {
-            console.log(`[Printful Webhook] Order not found: ${externalId}`);
             return { received: true };
           }
 
@@ -720,7 +684,6 @@ export default createPlugin({
 
           switch (eventType) {
             case 'order_created':
-              console.log(`[Printful Webhook] Order ${externalId} created at Printful`);
               if (order.status === 'paid' || order.status === 'paid_pending_fulfillment') {
                 newStatus = 'processing';
               }
@@ -740,39 +703,33 @@ export default createPlugin({
 
             case 'shipment_delivered':
               newStatus = 'delivered';
-              console.log(`[Printful Webhook] Shipment delivered for order ${externalId}`);
               break;
 
             case 'shipment_returned':
               newStatus = 'returned';
-              console.log(`[Printful Webhook] Shipment returned for order ${externalId}`);
               break;
 
             case 'order_put_hold':
             case 'order_put_hold_approval':
               newStatus = 'on_hold';
-              console.log(`[Printful Webhook] Order ${externalId} put on hold: ${data?.reason || 'No reason provided'}`);
               break;
 
             case 'order_remove_hold':
               if (order.status === 'on_hold') {
                 newStatus = 'processing';
               }
-              console.log(`[Printful Webhook] Order ${externalId} hold removed`);
               break;
 
             case 'order_canceled':
               newStatus = 'cancelled';
-              console.log(`[Printful Webhook] Order ${externalId} cancelled: ${data?.reason || 'No reason provided'}`);
               break;
 
             case 'order_failed':
               newStatus = 'failed';
-              console.error(`[Printful Webhook] Order ${externalId} failed: ${data?.reason || 'No reason provided'}`);
               break;
 
             default:
-              console.log(`[Printful Webhook] Unhandled event type: ${eventType}`);
+              break;
           }
 
           if (newStatus) {
@@ -783,7 +740,6 @@ export default createPlugin({
                 yield* store.updateStatus(externalId, statusToUpdate);
               }).pipe(Effect.provide(orderLayer))
             );
-            console.log(`[Printful Webhook] Updated order ${externalId} status to: ${statusToUpdate}`);
           }
 
           if (newTracking) {
@@ -794,11 +750,9 @@ export default createPlugin({
                 yield* store.updateTracking(externalId, trackingToUpdate);
               }).pipe(Effect.provide(orderLayer))
             );
-            console.log(`[Printful Webhook] Updated tracking for order ${externalId}`);
           }
         } catch (error) {
           if (error instanceof ORPCError) throw error;
-          console.error('[Printful Webhook] Error processing webhook:', error);
         }
 
         return { received: true };
@@ -810,11 +764,8 @@ export default createPlugin({
           const eventType = payload.event;
           const orderData = payload.order || payload;
 
-          console.log(`[Gelato Webhook] Received event: ${eventType}`);
-
           const externalId = orderData.orderReferenceId || orderData.externalId;
           if (!externalId) {
-            console.log('[Gelato Webhook] No external ID found, skipping');
             return { received: true };
           }
 
@@ -826,7 +777,6 @@ export default createPlugin({
           );
 
           if (!order) {
-            console.log(`[Gelato Webhook] Order not found: ${externalId}`);
             return { received: true };
           }
 
@@ -865,7 +815,7 @@ export default createPlugin({
               break;
 
             default:
-              console.log(`[Gelato Webhook] Unhandled event type: ${eventType}`);
+              break;
           }
 
           if (newStatus) {
@@ -888,7 +838,6 @@ export default createPlugin({
             );
           }
         } catch (error) {
-          console.error('[Gelato Webhook] Error processing webhook:', error);
         }
 
         return { received: true };
@@ -897,7 +846,6 @@ export default createPlugin({
       pingWebhook: builder.pingWebhook.handler(async ({ input, context }) => {
         const pingProvider = runtime.getPaymentProvider('pingpay');
         if (!pingProvider) {
-          console.error('[Ping Webhook] PingPay provider not configured');
           throw new Error('PingPay provider not configured');
         }
 
@@ -921,7 +869,6 @@ export default createPlugin({
         );
 
         const eventType = webhookResult.eventType;
-        console.log(`[Ping Webhook] Received event: ${eventType}`);
 
         const { orderId, sessionId } = webhookResult;
 
@@ -944,7 +891,6 @@ export default createPlugin({
         }
 
         if (!order) {
-          console.log(`[Ping Webhook] Order not found for sessionId: ${sessionId}, orderId: ${orderId}`);
           return { received: true };
         }
 
@@ -955,7 +901,6 @@ export default createPlugin({
           case 'payment.success':
           case 'checkout.session.completed': {
             if (order.status !== 'draft_created' && order.status !== 'pending' && order.status !== 'payment_pending') {
-              console.log(`[Ping Webhook] Order ${resolvedOrderId} already processed (status: ${order.status}), skipping`);
               return { received: true };
             }
 
@@ -967,7 +912,6 @@ export default createPlugin({
             );
 
             if (Object.keys(draftOrderIds).length === 0) {
-              console.log('[Ping Webhook] No draft orders to confirm');
               return { received: true };
             }
 
@@ -981,7 +925,6 @@ export default createPlugin({
 
               const provider = runtime.getProvider(providerName);
               if (!provider) {
-                console.error(`[Ping Webhook] Provider not found: ${providerName}`);
                 confirmationResults[providerName] = {
                   success: false,
                   error: 'Provider not configured',
@@ -1002,11 +945,9 @@ export default createPlugin({
               try {
                 const result = await Effect.runPromise(confirmEffect);
                 confirmationResults[providerName] = { success: true };
-                console.log(`[Ping Webhook] Confirmed draft order ${draftId} at ${providerName}: ${result.status}`);
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 confirmationResults[providerName] = { success: false, error: errorMessage };
-                console.error(`[Ping Webhook] Failed to confirm ${providerName} draft ${draftId}:`, errorMessage);
               }
             }
 
@@ -1019,15 +960,10 @@ export default createPlugin({
                 yield* store.updateStatus(resolvedOrderId, finalStatus);
               }).pipe(Effect.provide(orderLayer))
             );
-
-            if (!allSuccess) {
-              console.error(`[Ping Webhook] Order ${resolvedOrderId} has failed confirmations:`, confirmationResults);
-            }
             break;
           }
 
           case 'payment.failed':
-            console.error(`[Ping Webhook] Payment failed for order ${resolvedOrderId}`);
             await Effect.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
@@ -1037,7 +973,7 @@ export default createPlugin({
             break;
 
           default:
-            console.log(`[Ping Webhook] Unhandled event type: ${eventType}`);
+            break;
         }
 
         return { received: true };

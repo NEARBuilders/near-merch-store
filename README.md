@@ -20,7 +20,6 @@ Visit http://localhost:3000 to see the application.
 - **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contribution guidelines and development workflow
 - **[API README](./api/README.md)** - API plugin documentation
 - **[UI README](./ui/README.md)** - Frontend documentation
-- **[Host README](./host/README.md)** - Server host documentation
 
 ## Architecture
 
@@ -28,8 +27,8 @@ Visit http://localhost:3000 to see the application.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                  host (Server)                          │
-│  Hono.js + oRPC + bos.config.json loader                │
+│                  Gateway/Hono.js                         │
+│  Runtime Configuration Loader + Plugin System             │
 │  ┌──────────────────┐      ┌──────────────────┐         │
 │  │ Module Federation│      │ every-plugin     │         │
 │  │ Runtime          │      │ Runtime          │         │
@@ -37,7 +36,7 @@ Visit http://localhost:3000 to see the application.
 │           ↓                         ↓                   │
 │  Loads UI Remote           Loads API Plugins            │
 └───────────┬─────────────────────────┬───────────────────┘
-            ↓                         ↓
+             ↓                         ↓
 ┌───────────────────────┐ ┌───────────────────────┐
 │    ui/ (Remote)       │ │   api/ (Plugin)       │
 │  React + TanStack     │ │  oRPC + Effect        │
@@ -66,7 +65,7 @@ See [LLM.txt](./LLM.txt) for complete architecture details.
 - Effect-TS for service composition
 
 **Database & Auth:**
-- SQLite (libsql) + Drizzle ORM
+- PostgreSQL + Drizzle ORM
 - Better-Auth with NEAR Protocol support
 
 ## Configuration
@@ -77,11 +76,6 @@ All runtime configuration lives in `bos.config.json`:
 {
   "account": "example.near",
   "app": {
-    "host": {
-      "title": "App Title",
-      "development": "http://localhost:3000",
-      "production": "https://example.com"
-    },
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
@@ -107,16 +101,14 @@ All runtime configuration lives in `bos.config.json`:
 
 ```bash
 # Development
-bun dev              # All services (API: 3014, UI: 3002, Host: 3000)
+bun dev              # All services (API: 3014, UI: 3002)
 bun dev:api          # API plugin only
 bun dev:ui           # UI remote only
-bun dev:host         # Host server only
 
 # Production
 bun build            # Build all packages
 bun build:api        # Build API plugin → uploads to CDN
 bun build:ui         # Build UI remote → uploads to CDN
-bun build:host       # Build host server
 
 # Database
 bun db:migrate       # Run migrations
@@ -131,12 +123,12 @@ bun typecheck        # Type checking
 
 ## Development Workflow
 
-1. **Make changes** to any workspace (ui/, api/, host/)
+1. **Make changes** to any workspace (ui/, api/)
 2. **Hot reload** works automatically during development
 3. **Build & deploy** independently:
-   - `bun build:ui` → uploads to CDN → updates `bos.config.json`
-   - `bun build:api` → uploads to CDN → updates `bos.config.json`
-   - Host automatically loads new versions!
+    - `bun build:ui` → uploads to CDN → updates `bos.config.json`
+    - `bun build:api` → uploads to CDN → updates `bos.config.json`
+    - Gateway automatically loads new versions!
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed development workflow.
 

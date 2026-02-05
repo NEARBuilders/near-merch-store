@@ -37,7 +37,7 @@ Built with **every-plugin** framework (Rspack + Module Federation):
 
 - **Framework**: every-plugin + oRPC
 - **Effects**: Effect-TS for service composition
-- **Database**: SQLite (libsql) + Drizzle ORM
+- **Database**: PostgreSQL + Drizzle ORM
 
 ## Available Scripts
 

@@ -46,26 +46,6 @@
     "production": "https://nearmerch.com"
   },
   "app": {
-    "host": {
-      "title": "Near Merch",
-      "description": "NEAR-powered merch store for the NEAR ecosystem",
-      "development": "http://localhost:3000",
-      "production": "https://elliot-braem-2010-host-every-plugin-near-everythi-1766c2d8b-ze.zephyrcloud.app",
-      "secrets": [
-        "HOST_DATABASE_URL",
-        "HOST_DATABASE_AUTH_TOKEN",
-        "BETTER_AUTH_SECRET",
-        "BETTER_AUTH_URL"
-      ],
-      "template": "near-everything/every-plugin/demo/host",
-      "files": [
-        "rsbuild.config.ts",
-        "tsconfig.json",
-        "vitest.config.ts",
-        "drizzle.config.ts"
-      ],
-      "variables": {}
-    },
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",

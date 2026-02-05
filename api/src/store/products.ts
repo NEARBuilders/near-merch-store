@@ -83,6 +83,8 @@ export const ProductStoreLive = Layer.effect(
           name: schema.collections.name,
           description: schema.collections.description,
           image: schema.collections.image,
+          showInCarousel: schema.collections.showInCarousel,
+          carouselOrder: schema.collections.carouselOrder,
         })
         .from(schema.productCollections)
         .innerJoin(
@@ -96,6 +98,8 @@ export const ProductStoreLive = Layer.effect(
         name: row.name,
         description: row.description || undefined,
         image: row.image || undefined,
+        showInCarousel: row.showInCarousel,
+        carouselOrder: row.carouselOrder,
       }));
     };
 
@@ -119,11 +123,31 @@ export const ProductStoreLive = Layer.effect(
       };
     };
 
+    const safeParseJsonArray = (value: unknown, fieldName: string, rowId: string): any[] => {
+      if (!value) return [];
+      if (Array.isArray(value)) return value;
+      
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          console.error(`[ProductStore] Invalid JSON in ${fieldName} for product ${rowId}: ${value}`);
+          return [];
+        }
+      }
+      
+      return [];
+    };
+
     const rowToProduct = async (row: typeof schema.products.$inferSelect): Promise<Product> => {
       const images = await getProductImages(row.id);
       const variants = await getProductVariants(row.id);
       const collections = await getProductCollections(row.id);
       const productType = await getProductType(row.productTypeSlug);
+
+      const tags = safeParseJsonArray(row.tags, 'tags', row.id);
+      const options = safeParseJsonArray(row.options, 'options', row.id);
 
       return {
         id: row.id,
@@ -134,10 +158,10 @@ export const ProductStoreLive = Layer.effect(
         currency: row.currency,
         brand: row.brand || undefined,
         productType,
-        tags: row.tags || [],
+        tags,
         featured: row.featured ?? false,
         collections,
-        options: row.options || [],
+        options,
         images,
         variants,
         designFiles: [],
@@ -282,7 +306,6 @@ export const ProductStoreLive = Layer.effect(
 
             const conditions = [
               eq(schema.products.listed, true),
-              like(schema.products.name, searchTerm),
             ];
 
             const results = await db
@@ -291,7 +314,13 @@ export const ProductStoreLive = Layer.effect(
               .where(and(...conditions))
               .limit(limit);
 
-            return await Promise.all(results.map(rowToProduct));
+            const allProducts = await Promise.all(results.map(rowToProduct));
+            
+            return allProducts.filter((product) => {
+              const nameMatch = product.title.toLowerCase().includes(query.toLowerCase());
+              const tagMatch = product.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()));
+              return nameMatch || tagMatch;
+            });
           },
           catch: (error) => new Error(`Failed to search products: ${error}`),
         }),
