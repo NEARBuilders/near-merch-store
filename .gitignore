@@ -300,3 +300,5 @@ test-results/
 
 # Playwright auth storage state
 .auth/
+
+.bos

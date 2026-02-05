@@ -43,7 +43,7 @@
   },
   "gateway": {
     "development": "http://localhost:8787",
-    "production": "https://nearmerch.com",
+    "production": "https://nearmerch.com"
   },
   "app": {
     "host": {
