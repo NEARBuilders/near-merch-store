@@ -1,31 +1,39 @@
 import { apiClient, queryClient } from '@/utils/orpc';
 import { useMutation, useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { productKeys } from './keys';
-import type { CategoryId } from './keys';
+import { productKeys, productTypeKeys } from './keys';
 
 export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'];
 export type ProductImage = Product['images'][number];
 
 export function getPrimaryCategoryName(product: Product): string {
-  return product.categories?.[0]?.name ?? '';
+  return product.collections?.[0]?.name ?? '';
 }
 
 export function useProducts(options?: {
-  categoryIds?: CategoryId[];
+  productTypeSlug?: string;
+  collectionSlugs?: string[];
+  tags?: string[];
+  featured?: boolean;
   limit?: number;
   offset?: number;
   includeUnlisted?: boolean;
 }) {
   return useQuery({
     queryKey: productKeys.list({
-      categoryIds: options?.categoryIds,
+      productTypeSlug: options?.productTypeSlug,
+      collectionSlugs: options?.collectionSlugs,
+      tags: options?.tags,
+      featured: options?.featured,
       limit: options?.limit,
       offset: options?.offset,
       includeUnlisted: options?.includeUnlisted,
     }),
     queryFn: async () => {
       const data = await apiClient.getProducts({
-        categoryIds: options?.categoryIds,
+        productTypeSlug: options?.productTypeSlug,
+        collectionSlugs: options?.collectionSlugs,
+        tags: options?.tags,
+        featured: options?.featured,
         limit: options?.limit ?? 50,
         offset: options?.offset ?? 0,
         includeUnlisted: options?.includeUnlisted,
@@ -85,15 +93,13 @@ export function useSuspenseFeaturedProducts(limit = 12) {
 }
 
 export function useSearchProducts(query: string, options?: {
-  categoryIds?: CategoryId[];
   limit?: number;
 }) {
   return useQuery({
-    queryKey: productKeys.search(query, options?.categoryIds, options?.limit),
+    queryKey: productKeys.search(query, options?.limit),
     queryFn: async () => {
       const data = await apiClient.searchProducts({
         query,
-        categoryIds: options?.categoryIds,
         limit: options?.limit ?? 20,
       });
       return data;
@@ -103,15 +109,13 @@ export function useSearchProducts(query: string, options?: {
 }
 
 export function useSuspenseSearchProducts(query: string, options?: {
-  categoryIds?: CategoryId[];
   limit?: number;
 }) {
   return useSuspenseQuery({
-    queryKey: productKeys.search(query, options?.categoryIds, options?.limit),
+    queryKey: productKeys.search(query, options?.limit),
     queryFn: async () => {
       const data = await apiClient.searchProducts({
         query,
-        categoryIds: options?.categoryIds,
         limit: options?.limit ?? 20,
       });
       return data;
@@ -145,26 +149,38 @@ export const productLoaders = {
     queryFn: () => apiClient.getProduct({ id }),
   }),
 
-  list: (options?: { categoryIds?: CategoryId[]; limit?: number; offset?: number }) => ({
+  list: (options?: { 
+    productTypeSlug?: string;
+    collectionSlugs?: string[];
+    tags?: string[];
+    featured?: boolean;
+    limit?: number; 
+    offset?: number;
+  }) => ({
     queryKey: productKeys.list({
-      categoryIds: options?.categoryIds,
+      productTypeSlug: options?.productTypeSlug,
+      collectionSlugs: options?.collectionSlugs,
+      tags: options?.tags,
+      featured: options?.featured,
       limit: options?.limit,
       offset: options?.offset,
     }),
     queryFn: () =>
       apiClient.getProducts({
-        categoryIds: options?.categoryIds,
+        productTypeSlug: options?.productTypeSlug,
+        collectionSlugs: options?.collectionSlugs,
+        tags: options?.tags,
+        featured: options?.featured,
         limit: options?.limit ?? 50,
         offset: options?.offset ?? 0,
       }),
   }),
 
-  search: (query: string, options?: { categoryIds?: CategoryId[]; limit?: number }) => ({
-    queryKey: productKeys.search(query, options?.categoryIds, options?.limit),
+  search: (query: string, options?: { limit?: number }) => ({
+    queryKey: productKeys.search(query, options?.limit),
     queryFn: () =>
       apiClient.searchProducts({
         query,
-        categoryIds: options?.categoryIds,
         limit: options?.limit ?? 50,
       }),
   }),
@@ -177,22 +193,27 @@ export const productLoaders = {
     await queryClient.prefetchQuery(productLoaders.detail(id));
   },
 
-  prefetchList: async (options?: { categoryIds?: CategoryId[]; limit?: number; offset?: number }) => {
+  prefetchList: async (options?: { 
+    productTypeSlug?: string;
+    collectionSlugs?: string[];
+    tags?: string[];
+    featured?: boolean;
+    limit?: number; 
+    offset?: number;
+  }) => {
     await queryClient.prefetchQuery(productLoaders.list(options));
   },
 
-  prefetchSearch: async (query: string, options?: { categoryIds?: CategoryId[]; limit?: number }) => {
+  prefetchSearch: async (query: string, options?: { limit?: number }) => {
     await queryClient.prefetchQuery(productLoaders.search(query, options));
   },
 };
 
-// Admin functions for sync and listing management
 export function useSyncStatus() {
   return useQuery({
     queryKey: productKeys.syncStatus(),
     queryFn: () => apiClient.getSyncStatus(),
     refetchInterval: (query) => {
-      // Poll every 2 seconds while syncing
       if (query.state.data?.status === 'running') {
         return 2000;
       }
@@ -205,9 +226,7 @@ export function useSyncProducts() {
   return useMutation({
     mutationFn: () => apiClient.sync(),
     onSuccess: () => {
-      // Invalidate sync status to trigger refetch
       queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
-      // Invalidate product lists to show new products
       queryClient.invalidateQueries({ queryKey: productKeys.all });
     },
   });
@@ -218,13 +237,10 @@ export function useUpdateProductListing() {
     mutationFn: ({ id, listed }: { id: string; listed: boolean }) =>
       apiClient.updateProductListing({ id, listed }),
     onMutate: async ({ id, listed }) => {
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: productKeys.all });
 
-      // Snapshot previous value
       const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
 
-      // Optimistically update all product lists
       queryClient.setQueriesData(
         { queryKey: productKeys.lists() },
         (old: { products: Product[]; total: number } | undefined) => {
@@ -241,7 +257,6 @@ export function useUpdateProductListing() {
       return { previousProducts };
     },
     onError: (_err, _variables, context) => {
-      // Rollback on error
       if (context?.previousProducts) {
         context.previousProducts.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
@@ -249,7 +264,6 @@ export function useUpdateProductListing() {
       }
     },
     onSettled: () => {
-      // Refetch to ensure sync with server
       queryClient.invalidateQueries({ queryKey: productKeys.all });
     },
   });
@@ -261,8 +275,42 @@ export function useUpdateProductCategories() {
       apiClient.updateProductCategories({ id, categoryIds }),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
-
       const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+      return { previousProducts };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+  });
+}
+
+export function useUpdateProductTags() {
+  return useMutation({
+    mutationFn: ({ id, tags }: { id: string; tags: string[] }) =>
+      apiClient.updateProductTags({ id, tags }),
+    onMutate: async ({ id, tags }) => {
+      await queryClient.cancelQueries({ queryKey: productKeys.all });
+      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+
+      queryClient.setQueriesData(
+        { queryKey: productKeys.lists() },
+        (old: { products: Product[]; total: number } | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            products: old.products.map((p) =>
+              p.id === id ? { ...p, tags } : p
+            ),
+          };
+        }
+      );
 
       return { previousProducts };
     },
@@ -275,6 +323,106 @@ export function useUpdateProductCategories() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+  });
+}
+
+export function useUpdateProductFeatured() {
+  return useMutation({
+    mutationFn: ({ id, featured }: { id: string; featured: boolean }) =>
+      apiClient.updateProductFeatured({ id, featured }),
+    onMutate: async ({ id, featured }) => {
+      await queryClient.cancelQueries({ queryKey: productKeys.all });
+      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+
+      queryClient.setQueriesData(
+        { queryKey: productKeys.lists() },
+        (old: { products: Product[]; total: number } | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            products: old.products.map((p) =>
+              p.id === id ? { ...p, featured } : p
+            ),
+          };
+        }
+      );
+
+      return { previousProducts };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+  });
+}
+
+export function useUpdateProductType() {
+  return useMutation({
+    mutationFn: ({ id, productTypeSlug }: { id: string; productTypeSlug: string | null }) =>
+      apiClient.updateProductType({ id, productTypeSlug }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: productKeys.all });
+      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+      return { previousProducts };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+  });
+}
+
+export type ProductTypeData = Awaited<ReturnType<typeof apiClient.getProductTypes>>['productTypes'][number];
+
+export function useProductTypes() {
+  return useQuery({
+    queryKey: productTypeKeys.list(),
+    queryFn: async () => {
+      const data = await apiClient.getProductTypes();
+      return data;
+    },
+  });
+}
+
+export function useCreateProductType() {
+  return useMutation({
+    mutationFn: (data: { slug: string; label: string; description?: string; displayOrder?: number }) =>
+      apiClient.createProductType(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
+    },
+  });
+}
+
+export function useUpdateProductTypeItem() {
+  return useMutation({
+    mutationFn: ({ slug, ...data }: { slug: string; label?: string; description?: string; displayOrder?: number }) =>
+      apiClient.updateProductTypeItem({ slug, ...data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
+    },
+  });
+}
+
+export function useDeleteProductType() {
+  return useMutation({
+    mutationFn: ({ slug }: { slug: string }) =>
+      apiClient.deleteProductType({ slug }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
     },
   });
 }

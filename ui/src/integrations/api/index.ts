@@ -32,9 +32,17 @@ export {
   useSyncProducts,
   useUpdateProductListing,
   useUpdateProductCategories,
+  useUpdateProductTags,
+  useUpdateProductFeatured,
+  useUpdateProductType,
+  useProductTypes,
+  useCreateProductType,
+  useUpdateProductTypeItem,
+  useDeleteProductType,
   getPrimaryCategoryName,
   type Product,
   type ProductImage,
+  type ProductTypeData,
 } from './products';
 
 export {

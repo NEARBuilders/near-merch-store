@@ -64,6 +64,13 @@
       "when": 1768363788542,
       "tag": "0008_far_sinister_six",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1770263067321,
+      "tag": "0009_vengeful_celestials",
+      "breakpoints": true
     }
   ]
 }

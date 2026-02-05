@@ -1,5 +1,3 @@
-import { getBaseStyles, getRemoteScriptsWithMetadata } from "@/remote/head";
-import type { RouterContext } from "@/types";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import {
   ClientOnly,
@@ -11,6 +9,8 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
+import { getBaseStyles, getRemoteScripts } from "@/remote/head";
+import type { RouterContext } from "@/types";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -22,9 +22,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const assetsUrl = loaderData?.assetsUrl || "";
     const runtimeConfig = loaderData?.runtimeConfig;
     const siteUrl = runtimeConfig?.hostUrl || "";
-    const title = runtimeConfig?.title || "NEAR Merch Store";
-    const description =
-      "Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles for the NEAR ecosystem";
+    const title = "NEAR Merch Store";
+    const description = "Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles for the NEAR ecosystem";
     const ogImage = `${assetsUrl}/metadata.png`;
 
     return {
@@ -98,11 +97,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
             },
           }),
         },
-        ...getRemoteScriptsWithMetadata(
-          { assetsUrl, runtimeConfig },
-          { siteName: title, siteUrl, description },
-        ),
-      ],
+        ...getRemoteScripts({ assetsUrl, runtimeConfig }),
+      ]
     };
   },
   component: RootComponent,

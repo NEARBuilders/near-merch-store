@@ -10,7 +10,7 @@ import { ReturnAddressSchema, type OrderStatus, type TrackingInfo } from './sche
 import { CheckoutService, CheckoutServiceLive } from './services/checkout';
 import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
-import { DatabaseLive, OrderStore, OrderStoreLive, ProductStoreLive } from './store';
+import { DatabaseLive, OrderStore, OrderStoreLive, ProductStore, ProductStoreLive, ProductTypeStore, ProductTypeStoreLive, CollectionStoreLive } from './store';
 import { ProviderConfigStore, ProviderConfigStoreLive } from './store/providers';
 export * from './schema';
 
@@ -88,6 +88,7 @@ export default createPlugin({
 
       const appLayer = ProductServiceLive(runtime).pipe(
         Layer.provide(ProductStoreLive),
+        Layer.provide(CollectionStoreLive),
         Layer.provide(dbLayer)
       );
 
@@ -99,6 +100,8 @@ export default createPlugin({
 
       const orderLayer = OrderStoreLive.pipe(Layer.provide(dbLayer));
       const providerLayer = ProviderConfigStoreLive.pipe(Layer.provide(dbLayer));
+      const productTypeLayer = ProductTypeStoreLive.pipe(Layer.provide(dbLayer));
+      const productStoreLayer = ProductStoreLive.pipe(Layer.provide(dbLayer));
 
       // Cache for NEAR price
       const nearPriceCache: { price: number | null; cachedAt: number } = {
@@ -117,6 +120,8 @@ export default createPlugin({
         checkoutLayer,
         orderLayer,
         providerLayer,
+        productTypeLayer,
+        productStoreLayer,
         secrets: config.secrets,
         nearPriceCache,
       };
@@ -128,7 +133,7 @@ export default createPlugin({
     }),
 
   createRouter: (context, builder) => {
-    const { stripeService, runtime, appLayer, checkoutLayer, orderLayer, providerLayer, secrets, nearPriceCache } = context;
+    const { stripeService, runtime, appLayer, checkoutLayer, orderLayer, providerLayer, productTypeLayer, productStoreLayer, secrets, nearPriceCache } = context;
 
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.nearAccountId) {
@@ -1099,6 +1104,117 @@ export default createPlugin({
             };
           }
         }),
+
+      getCategories: builder.getCategories.handler(async () => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.getCategories();
+          }).pipe(Effect.provide(appLayer))
+        );
+      }),
+
+      createCategory: builder.createCategory.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.createCategory(input);
+          }).pipe(Effect.provide(appLayer))
+        );
+      }),
+
+      deleteCategory: builder.deleteCategory.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.deleteCategory(input.id);
+          }).pipe(Effect.provide(appLayer))
+        );
+      }),
+
+      updateProductCategories: builder.updateProductCategories.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateProductCollections(input.id, input.categoryIds);
+          }).pipe(Effect.provide(appLayer))
+        );
+      }),
+
+      updateProductTags: builder.updateProductTags.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateProductTags(input.id, input.tags);
+          }).pipe(Effect.provide(appLayer))
+        );
+      }),
+
+      updateProductFeatured: builder.updateProductFeatured.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateProductFeatured(input.id, input.featured);
+          }).pipe(Effect.provide(appLayer))
+        );
+      }),
+
+      updateProductType: builder.updateProductType.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const productStore = yield* ProductStore;
+            const product = yield* productStore.updateProductType(input.id, input.productTypeSlug);
+            if (!product) {
+              return { success: false };
+            }
+            return { success: true, product };
+          }).pipe(Effect.provide(productStoreLayer))
+        );
+      }),
+
+      getProductTypes: builder.getProductTypes.handler(async () => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const store = yield* ProductTypeStore;
+            const productTypes = yield* store.findAll();
+            return { productTypes };
+          }).pipe(Effect.provide(productTypeLayer))
+        );
+      }),
+
+      createProductType: builder.createProductType.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const store = yield* ProductTypeStore;
+            const productType = yield* store.create(input);
+            return { productType };
+          }).pipe(Effect.provide(productTypeLayer))
+        );
+      }),
+
+      updateProductTypeItem: builder.updateProductTypeItem.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const store = yield* ProductTypeStore;
+            const productType = yield* store.update(input.slug, {
+              label: input.label,
+              description: input.description,
+              displayOrder: input.displayOrder,
+            });
+            return { productType };
+          }).pipe(Effect.provide(productTypeLayer))
+        );
+      }),
+
+      deleteProductType: builder.deleteProductType.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const store = yield* ProductTypeStore;
+            const success = yield* store.delete(input.slug);
+            return { success };
+          }).pipe(Effect.provide(productTypeLayer))
+        );
+      }),
     };
   },
 });

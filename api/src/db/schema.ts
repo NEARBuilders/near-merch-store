@@ -1,19 +1,29 @@
 import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { Attribute, FulfillmentConfig, PrintfulWebhookEventType, ProductOption } from '../schema';
 
+export const productTypes = sqliteTable('product_types', {
+  slug: text('slug').primaryKey(),
+  label: text('label').notNull(),
+  description: text('description'),
+  displayOrder: integer('display_order').notNull().default(0),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const products = sqliteTable('products', {
-  id: text('id').primaryKey(), // UUID v7
+  id: text('id').primaryKey(),
   publicKey: text('public_key').notNull().unique(),
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
   description: text('description'),
   price: integer('price').notNull(),
   currency: text('currency').notNull().default('USD'),
-  category: text('category').notNull(),
   brand: text('brand'),
-  productType: text('product_type'),
+  productTypeSlug: text('product_type_slug').references(() => productTypes.slug, { onDelete: 'set null' }),
+  tags: text('tags', { mode: 'json' }).$type<string[]>(),
   options: text('options', { mode: 'json' }).$type<ProductOption[]>(),
   thumbnailImage: text('thumbnail_image'),
+  featured: integer('featured', { mode: 'boolean' }).notNull().default(false),
 
   fulfillmentProvider: text('fulfillment_provider').notNull(),
   externalProductId: text('external_product_id'),
@@ -24,14 +34,15 @@ export const products = sqliteTable('products', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 }, (table) => ([
-  index('category_idx').on(table.category),
   index('source_idx').on(table.source),
   index('external_product_idx').on(table.externalProductId),
   index('fulfillment_provider_idx').on(table.fulfillmentProvider),
   index('listed_idx').on(table.listed),
   index('public_key_idx').on(table.publicKey),
   index('slug_idx').on(table.slug),
-  index('external_provider_idx').on(table.externalProductId, table.fulfillmentProvider), // Composite index for matching
+  index('external_provider_idx').on(table.externalProductId, table.fulfillmentProvider),
+  index('products_type_slug_idx').on(table.productTypeSlug),
+  index('featured_idx').on(table.featured),
 ]));
 
 export const productImages = sqliteTable('product_images', {

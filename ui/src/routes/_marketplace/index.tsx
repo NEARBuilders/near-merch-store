@@ -12,6 +12,7 @@ import {
   productLoaders,
   useFeaturedProducts,
   useProducts,
+  useProductTypes,
   type Product
 } from "@/integrations/api";
 import { queryClient } from "@/utils/orpc";
@@ -29,11 +30,12 @@ import { useEffect, useRef, useState, useMemo } from "react";
 export const Route = createFileRoute("/_marketplace/")({
   pendingComponent: LoadingSpinner,
   loader: async () => {
-    try {
-      await queryClient.ensureQueryData(productLoaders.featured(3));
-    } catch (error) {
+    await Promise.all([
+      queryClient.ensureQueryData(productLoaders.featured(6)),
+      queryClient.ensureQueryData(productLoaders.list({ limit: 100 })),
+    ]).catch((error) => {
       console.warn('Failed to prefetch products:', error);
-    }
+    });
   },
   component: MarketplaceHome,
 });
@@ -54,8 +56,11 @@ function MarketplaceHome() {
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: featuredData, isLoading: isLoadingFeatured } = useFeaturedProducts(3);
+  const { data: featuredData, isLoading: isLoadingFeatured } = useFeaturedProducts(6);
   const featuredProducts = featuredData?.products ?? [];
+  
+  const { data: productTypesData, isLoading: isLoadingProductTypes } = useProductTypes();
+  const productTypes = productTypesData?.productTypes ?? [];
   
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>('all');
   const [currentProductIndex, setCurrentProductIndex] = useState(0);
@@ -64,42 +69,15 @@ function MarketplaceHome() {
     setCurrentProductIndex(0);
   }, [selectedProductCategory]);
   
-  const productTypeCategoriesForFilter = [
+  const productTypeCategoriesForFilter = useMemo(() => [
     { key: 'all', label: 'All' },
-    { key: 'tshirt', label: 'T-Shirts' },
-    { key: 'hats', label: 'Hats' },
-    { key: 'hoodies', label: 'Hoodies' },
-    { key: 'long sleeved shirts', label: 'Long Sleeved Shirts' },
-  ];
+    ...productTypes.map(pt => ({ key: pt.slug, label: pt.label }))
+  ], [productTypes]);
 
   const { data: allProductsData, isLoading: isLoadingAll } = useProducts({ limit: 100 });
   const allProducts = allProductsData?.products || [];
   
   const isLoading = isLoadingFeatured || isLoadingAll;
-  
-  // Find NEAR AI product - try multiple search patterns
-  const nearAiProduct = allProducts.find((p: Product) => {
-    const title = p.title.toLowerCase();
-    return (
-      (title.includes('near ai') || title.includes('nearai')) &&
-      (title.includes('black') || title.includes('long-sleeved') || title.includes('long sleeve') || title.includes('longsleeve'))
-    );
-  }) || allProducts.find((p: Product) => {
-    const title = p.title.toLowerCase();
-    return title.includes('near ai') || title.includes('nearai');
-  });
-  
-  // Find Legion product - try multiple search patterns
-  const legionProduct = allProducts.find((p: Product) => {
-    const title = p.title.toLowerCase();
-    return (
-      title.includes('legion') && 
-      (title.includes('nearvana') || title.includes('near vana'))
-    );
-  }) || allProducts.find((p: Product) => {
-    const title = p.title.toLowerCase();
-    return title.includes('legion');
-  });
 
   const getProductImage = (product: Product | undefined) => {
     if (!product) return null;
@@ -109,11 +87,9 @@ function MarketplaceHome() {
     return variantImages[0]?.url ||
            product.variants?.[0]?.fulfillmentConfig?.designFiles?.[0]?.url ||
            product.images?.find((img) => img.type !== "mockup" && img.type !== "detail")?.url ||
+           product.thumbnailImage ||
            null;
   };
-
-  const nearAiImageUrl = getProductImage(nearAiProduct);
-  const legionImageUrl = getProductImage(legionProduct);
 
   const handleQuickAdd = (product: Product) => {
     setSizeModalProduct(product);
@@ -130,55 +106,12 @@ function MarketplaceHome() {
     return product.price ? `$${product.price.toFixed(2)}` : null;
   };
 
-  const normalizeProductTypeForFilter = (product: Product): string | null => {
-    if (product.productType) {
-      const normalized = product.productType.toLowerCase().trim();
-      
-      if (normalized.includes('t-shirt') || normalized.includes('tshirt') || normalized.includes('tee') || normalized.includes('t shirt')) {
-        return 'tshirt';
-      }
-      if (normalized.includes('hat') || normalized.includes('cap') || normalized.includes('beanie') || normalized.includes('cepure')) {
-        return 'hats';
-      }
-      if (normalized.includes('hoodie') || normalized.includes('hoody') || normalized.includes('hood')) {
-        return 'hoodies';
-      }
-      if (normalized.includes('long sleeve') || normalized.includes('long-sleeve') || normalized.includes('longsleeve') || normalized.includes('long sleeve')) {
-        return 'long sleeved shirts';
-      }
-    }
-    
-    if (product.title) {
-      const normalizedTitle = product.title.toLowerCase().trim();
-      
-      if (normalizedTitle.includes(' hat ') || normalizedTitle.endsWith(' hat') || normalizedTitle.startsWith('hat ') || 
-          normalizedTitle.includes(' hat,') || normalizedTitle.includes(' hat.') ||
-          normalizedTitle.includes('cap ') || normalizedTitle.includes(' beanie') || normalizedTitle.includes('cap,') || normalizedTitle.includes('cap.') ||
-          normalizedTitle.includes('cap') || normalizedTitle.includes('beanie')) {
-        return 'hats';
-      }
-      if (normalizedTitle.includes('t-shirt') || normalizedTitle.includes('tshirt') || normalizedTitle.includes(' tee ') || normalizedTitle.includes('t shirt')) {
-        return 'tshirt';
-      }
-      if (normalizedTitle.includes('hoodie') || normalizedTitle.includes('hoody') || normalizedTitle.includes(' hood ')) {
-        return 'hoodies';
-      }
-      if (normalizedTitle.includes('long sleeve') || normalizedTitle.includes('long-sleeve') || normalizedTitle.includes('longsleeve')) {
-        return 'long sleeved shirts';
-      }
-    }
-    
-    return null;
-  };
-  
   const filteredProducts = useMemo(() => {
     if (selectedProductCategory === 'all') {
       return featuredProducts;
     }
-    
     return featuredProducts.filter((product) => {
-      const normalizedType = normalizeProductTypeForFilter(product);
-      return normalizedType === selectedProductCategory;
+      return product.productType?.slug === selectedProductCategory;
     });
   }, [featuredProducts, selectedProductCategory]);
   
@@ -188,48 +121,30 @@ function MarketplaceHome() {
     }
     
     const additionalProducts = allProducts.filter((product) => {
-      const normalizedType = normalizeProductTypeForFilter(product);
-      return normalizedType === selectedProductCategory && !filteredProducts.some(p => p.id === product.id);
+      return product.productType?.slug === selectedProductCategory && 
+             !filteredProducts.some(p => p.id === product.id);
     }).slice(0, 3 - filteredProducts.length);
     
     return [...filteredProducts, ...additionalProducts].slice(0, 3);
   }, [filteredProducts, allProducts, selectedProductCategory]);
 
   const slides = useMemo(() => {
-    const allSlides = [
-      {
-        badge: "EXCLUSIVE",
-        title: "NEW LEGION",
-        subtitle: "MERCH LAUNCHED",
-        description:
-          "Represent the NEAR Legion with New Styles",
-        buttonText: "Shop Items",
-        image: legionImageUrl,
-        gradientFrom: "#012216",
-        gradientTo: "#00ec97",
-        glowColor: "#00ec97",
-        price: getProductPrice(legionProduct) || "$24",
-        product: legionProduct,
-      },
-      {
-        badge: "EXCLUSIVE",
-        title: "NEAR AI STYLES",
-        subtitle: "AVAILABLE",
-        description:
-          "New styles for NEAR AI",
-        buttonText: "Shop Items",
-        image: nearAiImageUrl,
-        gradientFrom: "#001a3d",
-        gradientTo: "#0066cc",
-        glowColor: "#0066ff",
-        price: getProductPrice(nearAiProduct) || "$22",
-        product: nearAiProduct,
-      },
-    ];
+    const glowColors = ["#00ec97", "#0066ff", "#ff6b6b", "#ffd93d", "#6c5ce7", "#00b894"];
     
-    // Show slides even if product or image is missing - they can still navigate to products page
-    return allSlides.filter(slide => slide.title && slide.description);
-  }, [legionImageUrl, nearAiImageUrl, legionProduct, nearAiProduct]);
+    return featuredProducts.slice(0, 4).map((product, index) => ({
+      badge: "FEATURED",
+      title: product.title.split(' ').slice(0, 3).join(' ').toUpperCase(),
+      subtitle: product.title.split(' ').slice(3).join(' ').toUpperCase() || "MERCH",
+      description: product.description || `Discover ${product.title} - exclusive NEAR merch`,
+      buttonText: "Shop Now",
+      image: getProductImage(product),
+      gradientFrom: "#012216",
+      gradientTo: glowColors[index % glowColors.length],
+      glowColor: glowColors[index % glowColors.length],
+      price: getProductPrice(product) || "$24",
+      product: product,
+    }));
+  }, [featuredProducts]);
 
   const nextSlide = () => {
     if (!isAnimating && slides.length > 0) {
@@ -521,16 +436,19 @@ function MarketplaceHome() {
 
       <div className="relative w-full h-64 md:h-96 bg-gradient-to-b from-transparent via-background/50 to-background pointer-events-none -mt-64 md:-mt-96 z-[5]" />
 
-      <section className="section-padding relative z-10 bg-background" id="categories">
+      <section className="section-padding relative z-10" id="categories">
         <div className="container-app">
-          <CategoryCarousel allProducts={allProducts} />
+          <CategoryCarousel allProducts={allProducts} productTypes={productTypes} />
         </div>
       </section>
 
-      <section className="section-padding relative z-10 bg-background pt-8 md:pt-16" id="products">
+      <section className={cn(
+ 
+        featuredProducts.length === 0 ? "pt-32 md:pt-40" : "pt-8 md:pt-16"
+      )} id="products">
         <div className="container-app">
           {featuredProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="flex flex-col items-center justify-center min-h-[400px] py-16 text-center">
               <div className="text-foreground/90 dark:text-muted-foreground mb-4">
                 <svg
                   className="mx-auto h-16 w-16 mb-4"
@@ -743,9 +661,11 @@ function MarketplaceHome() {
 }
 
 function CategoryCarousel({ 
-  allProducts
+  allProducts,
+  productTypes
 }: { 
-  allProducts: Product[]; 
+  allProducts: Product[];
+  productTypes: Array<{ slug: string; label: string; description?: string; displayOrder: number }>;
 }) {
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -763,80 +683,35 @@ function CategoryCarousel({
            null;
   };
 
-  const productTypeCategories = [
-    { key: 'tshirt', label: 'T-Shirts' },
-    { key: 'hats', label: 'Hats' },
-    { key: 'hoodies', label: 'Hoodies' },
-    { key: 'long sleeved shirts', label: 'Long Sleeved Shirts' },
-  ];
-  
-  const normalizeProductType = (product: Product): string | null => {
-    if (product.productType) {
-      const normalized = product.productType.toLowerCase().trim();
-      
-      if (normalized.includes('t-shirt') || normalized.includes('tshirt') || normalized.includes('tee') || normalized.includes('t shirt')) {
-        return 'tshirt';
-      }
-      if (normalized.includes('hat') || normalized.includes('cap') || normalized.includes('beanie') || normalized.includes('cepure')) {
-        return 'hats';
-      }
-      if (normalized.includes('hoodie') || normalized.includes('hoody') || normalized.includes('hood')) {
-        return 'hoodies';
-      }
-      if (normalized.includes('long sleeve') || normalized.includes('long-sleeve') || normalized.includes('longsleeve') || normalized.includes('long sleeve')) {
-        return 'long sleeved shirts';
-      }
-    }
-    
-    if (product.title) {
-      const normalizedTitle = product.title.toLowerCase().trim();
-      
-      if (normalizedTitle.includes('hat') || normalizedTitle.includes('cap') || normalizedTitle.includes('beanie')) {
-        return 'hats';
-      }
-      if (normalizedTitle.includes('t-shirt') || normalizedTitle.includes('tshirt') || normalizedTitle.includes('tee') || normalizedTitle.includes('t shirt')) {
-        return 'tshirt';
-      }
-      if (normalizedTitle.includes('hoodie') || normalizedTitle.includes('hoody') || normalizedTitle.includes('hood')) {
-        return 'hoodies';
-      }
-      if (normalizedTitle.includes('long sleeve') || normalizedTitle.includes('long-sleeve') || normalizedTitle.includes('longsleeve')) {
-        return 'long sleeved shirts';
-      }
-    }
-    
-    return null;
-  };
-
   const categoriesWithImages = useMemo(() => {
     const grouped: Record<string, Product[]> = {};
     
-    productTypeCategories.forEach((type) => {
-      grouped[type.key] = [];
+    productTypes.forEach((type) => {
+      grouped[type.slug] = [];
     });
     
     allProducts.forEach((product) => {
-      const normalizedType = normalizeProductType(product);
-      if (normalizedType && grouped[normalizedType]) {
-        grouped[normalizedType].push(product);
+      const slug = product.productType?.slug;
+      if (slug && grouped[slug]) {
+        grouped[slug].push(product);
       }
     });
     
-    return productTypeCategories
-      .filter((type) => grouped[type.key].length > 0)
+    return productTypes
+      .filter((type) => grouped[type.slug].length > 0)
       .map((type) => {
-        const products = grouped[type.key];
+        const products = grouped[type.slug];
         const randomIndex = Math.floor(Math.random() * products.length);
         const selectedProduct = products[randomIndex];
         return {
           category: type.label,
-          categoryKey: type.key,
+          categoryKey: type.slug,
           image: getProductImage(selectedProduct),
           product: selectedProduct,
           allProducts: products,
         };
       });
-  }, [allProducts]);
+  }, [allProducts, productTypes]);
 
   const nextCategory = () => {
     setUserInteracted(true);
