@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useCategories, useCreateCategory, useDeleteCategory } from "@/integrations/api";
 
-export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/categories")({
-  component: AdminCategories,
+export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/collections")({
+  component: AdminCollections,
 });
 
 function slugify(value: string): string {
@@ -18,9 +18,9 @@ function slugify(value: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
-function AdminCategories() {
+function AdminCollections() {
   const { data, isLoading } = useCategories();
-  const categories = data?.categories ?? [];
+  const collections = data?.categories ?? [];
 
   const createMutation = useCreateCategory();
   const deleteMutation = useDeleteCategory();
@@ -64,7 +64,7 @@ function AdminCategories() {
 
         {createMutation.isError && (
           <div className="text-sm text-red-500">
-            Failed to create category.
+            Failed to create collection.
           </div>
         )}
       </div>
@@ -77,15 +77,15 @@ function AdminCategories() {
               <p className="text-sm text-foreground/90 dark:text-muted-foreground">Loading collections...</p>
             </div>
           </div>
-        ) : categories.length === 0 ? (
+        ) : collections.length === 0 ? (
           <div className="text-sm text-foreground/70 dark:text-muted-foreground">
             No collections yet.
           </div>
         ) : (
           <div className="space-y-2">
-            {categories.map((c) => (
+            {collections.map((c) => (
               <div
-                key={c.id}
+                key={c.slug}
                 className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2"
               >
                 <div className="min-w-0">
@@ -100,7 +100,7 @@ function AdminCategories() {
                   variant="outline"
                   className={cn("shrink-0", "hover:border-red-500/60 hover:text-red-500")}
                   disabled={deleteMutation.isPending}
-                  onClick={() => deleteMutation.mutate({ id: c.id })}
+                  onClick={() => deleteMutation.mutate({ id: c.slug })}
                 >
                   Delete
                 </Button>

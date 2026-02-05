@@ -1,5 +1,7 @@
 import { LoadingSpinner } from "@/components/loading";
 import { PageLoader } from "@/components/page-loader";
+import { PageTransition } from "@/components/page-transition";
+import { VideoBackground } from "@/components/video-background";
 import { CartSidebar } from "@/components/marketplace/cart-sidebar";
 import { useCartSidebarStore } from "@/stores/cart-sidebar-store";
 import { ProductCard } from "@/components/marketplace/product-card";
@@ -13,7 +15,10 @@ import {
   useFeaturedProducts,
   useProducts,
   useProductTypes,
-  type Product
+  useCarouselCollections,
+  collectionLoaders,
+  type Product,
+  type CarouselCollection
 } from "@/integrations/api";
 import { queryClient } from "@/utils/orpc";
 import {
@@ -33,8 +38,9 @@ export const Route = createFileRoute("/_marketplace/")({
     await Promise.all([
       queryClient.ensureQueryData(productLoaders.featured(6)),
       queryClient.ensureQueryData(productLoaders.list({ limit: 100 })),
+      queryClient.ensureQueryData(collectionLoaders.carousel()),
     ]).catch((error) => {
-      console.warn('Failed to prefetch products:', error);
+      console.warn('Failed to prefetch:', error);
     });
   },
   component: MarketplaceHome,
@@ -196,19 +202,8 @@ function MarketplaceHome() {
   }
 
   return (
-    <div className="m-0 p-0 relative">
-      <div className="absolute top-0 left-0 w-full z-0 pointer-events-none" style={{ height: 'calc(100vh - 80px)' }}>
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-        >
-          <source src="https://videos.near.org/BKLDE_v001_NEAR_03_master_h264_small.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 dark:bg-background/30" />
-      </div>
+    <PageTransition className="m-0 p-0 relative">
+      <VideoBackground position="absolute" height="calc(100vh - 80px)" />
 
       {activeSlide && (
       <section className="pt-28 md:pt-32 relative z-10 min-h-[calc(100vh-120px)] flex items-center">
@@ -248,7 +243,7 @@ function MarketplaceHome() {
                     <div>
                       <Link
                         to="/products"
-                        search={{ category: "all" }}
+                        search={{ category: "all", categoryId: undefined, collection: undefined }}
                         className="inline-flex items-center justify-center gap-2 px-4 md:px-8 py-2 md:py-3 h-[40px] md:h-[48px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-base hover:bg-[#00d97f] transition-colors whitespace-nowrap"
                       >
                         Shop Items
@@ -368,7 +363,7 @@ function MarketplaceHome() {
 
               <div className="absolute inset-x-0 bottom-4 flex items-center justify-between px-4 z-30">
                 <div className="flex items-center gap-2">
-                  <Link to="/products" search={{ category: 'all' }} className="lg:hidden">
+                  <Link to="/products" search={{ category: 'all', categoryId: undefined, collection: undefined }} className="lg:hidden">
                     <button
                       type="button"
                       className="inline-flex items-center justify-center px-4 py-2.5 h-[40px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs hover:bg-[#00d97f] transition-colors whitespace-nowrap"
@@ -436,9 +431,9 @@ function MarketplaceHome() {
 
       <div className="relative w-full h-64 md:h-96 bg-gradient-to-b from-transparent via-background/50 to-background pointer-events-none -mt-64 md:-mt-96 z-[5]" />
 
-      <section className="section-padding relative z-10" id="categories">
+      <section className="section-padding relative z-10" id="collections">
         <div className="container-app">
-          <CategoryCarousel allProducts={allProducts} productTypes={productTypes} />
+          <CollectionCarousel />
         </div>
       </section>
 
@@ -559,7 +554,7 @@ function MarketplaceHome() {
                   
                   <Link
                     to="/products"
-                    search={{ category: selectedProductCategory === 'all' ? 'all' : selectedProductCategory }}
+                    search={{ category: selectedProductCategory === 'all' ? 'all' : selectedProductCategory, categoryId: undefined, collection: undefined }}
                     className="inline-flex items-center justify-center gap-2 px-4 py-2.5 md:px-8 md:py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-xs md:text-base h-[40px] md:h-auto"
                   >
                     {selectedProductCategory === 'all' 
@@ -656,75 +651,40 @@ function MarketplaceHome() {
         isOpen={isCartSidebarOpen}
         onClose={closeCartSidebar}
       />
-    </div>
+    </PageTransition>
   );
 }
 
-function CategoryCarousel({ 
-  allProducts,
-  productTypes
-}: { 
-  allProducts: Product[];
-  productTypes: Array<{ slug: string; label: string; description?: string; displayOrder: number }>;
-}) {
-  const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
+function CollectionCarousel() {
+  const { data: carouselData, isLoading } = useCarouselCollections();
+  const collections = carouselData?.collections ?? [];
+
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [userInteracted, setUserInteracted] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const getProductImage = (product: Product | undefined) => {
-    if (!product) return null;
-    const variantImages = product.images?.filter(
-      (img) => img.type !== "mockup" && img.type !== "detail" && img.variantIds && img.variantIds.length > 0
-    ) || [];
-    return variantImages[0]?.url ||
-           product.variants?.[0]?.fulfillmentConfig?.designFiles?.[0]?.url ||
-           product.images?.find((img) => img.type !== "mockup" && img.type !== "detail")?.url ||
-           null;
+  const carouselItems = useMemo(() => {
+    return collections.map((collection) => ({
+      name: collection.carouselTitle || collection.name,
+      slug: collection.slug,
+      description: collection.carouselDescription || collection.description,
+      image: collection.featuredProduct?.thumbnailImage || null,
+    }));
+  }, [collections]);
+
+  const nextItem = () => {
+    setUserInteracted(true);
+    setCurrentIndex((prev) => (prev + 1) % carouselItems.length);
   };
 
-  const categoriesWithImages = useMemo(() => {
-    const grouped: Record<string, Product[]> = {};
-    
-    productTypes.forEach((type) => {
-      grouped[type.slug] = [];
-    });
-    
-    allProducts.forEach((product) => {
-      const slug = product.productType?.slug;
-      if (slug && grouped[slug]) {
-        grouped[slug].push(product);
-      }
-    });
-    
-    return productTypes
-      .filter((type) => grouped[type.slug].length > 0)
-      .map((type) => {
-        const products = grouped[type.slug];
-        const randomIndex = Math.floor(Math.random() * products.length);
-        const selectedProduct = products[randomIndex];
-        return {
-          category: type.label,
-          categoryKey: type.slug,
-          image: getProductImage(selectedProduct),
-          product: selectedProduct,
-          allProducts: products,
-        };
-      });
-  }, [allProducts, productTypes]);
-
-  const nextCategory = () => {
+  const prevItem = () => {
     setUserInteracted(true);
-    setCurrentCategoryIndex((prev) => (prev + 1) % categoriesWithImages.length);
-  };
-
-  const prevCategory = () => {
-    setUserInteracted(true);
-    setCurrentCategoryIndex((prev) => (prev - 1 + categoriesWithImages.length) % categoriesWithImages.length);
+    setCurrentIndex((prev) => (prev - 1 + carouselItems.length) % carouselItems.length);
   };
 
   useEffect(() => {
-    if (categoriesWithImages.length === 0 || isPaused || userInteracted) {
+    if (carouselItems.length === 0 || isPaused || userInteracted) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -733,7 +693,7 @@ function CategoryCarousel({
     }
 
     intervalRef.current = setInterval(() => {
-      setCurrentCategoryIndex((prev) => (prev + 1) % categoriesWithImages.length);
+      setCurrentIndex((prev) => (prev + 1) % carouselItems.length);
     }, 5000);
 
     return () => {
@@ -742,30 +702,38 @@ function CategoryCarousel({
         intervalRef.current = null;
       }
     };
-  }, [categoriesWithImages.length, isPaused, userInteracted]);
+  }, [carouselItems.length, isPaused, userInteracted]);
 
-  if (categoriesWithImages.length === 0) {
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (carouselItems.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-foreground/90 dark:text-muted-foreground">
-          No product categories found. Please check product types in your inventory.
+          No collections to display. Create collections and enable them for carousel in the admin dashboard.
         </p>
       </div>
     );
   }
 
-  const getVisibleCategories = () => {
-    const prevIndex = (currentCategoryIndex - 1 + categoriesWithImages.length) % categoriesWithImages.length;
-    const nextIndex = (currentCategoryIndex + 1) % categoriesWithImages.length;
+  const getVisibleItems = () => {
+    const prevIdx = (currentIndex - 1 + carouselItems.length) % carouselItems.length;
+    const nextIdx = (currentIndex + 1) % carouselItems.length;
     
     return [
-      { ...categoriesWithImages[prevIndex], position: 'left' as const },
-      { ...categoriesWithImages[currentCategoryIndex], position: 'center' as const },
-      { ...categoriesWithImages[nextIndex], position: 'right' as const },
+      { ...carouselItems[prevIdx], position: 'left' as const },
+      { ...carouselItems[currentIndex], position: 'center' as const },
+      { ...carouselItems[nextIdx], position: 'right' as const },
     ];
   };
 
-  const visibleCategories = getVisibleCategories();
+  const visibleItems = getVisibleItems();
 
   return (
     <div 
@@ -774,23 +742,19 @@ function CategoryCarousel({
       onMouseLeave={() => setIsPaused(false)}
     >
       <div className="md:hidden relative w-full overflow-hidden">
-        <div 
-          className="relative h-[450px] flex items-center justify-start w-full px-4"
-        >
-          {categoriesWithImages.map((item, index) => {
-            const isCurrent = index === currentCategoryIndex;
-            const isNext = index === (currentCategoryIndex + 1) % categoriesWithImages.length;
+        <div className="relative h-[450px] flex items-center justify-start w-full px-4">
+          {carouselItems.map((item, index) => {
+            const isCurrent = index === currentIndex;
+            const isNext = index === (currentIndex + 1) % carouselItems.length;
             const isVisible = isCurrent || isNext;
             
             if (!isVisible) return null;
             
             return (
               <div
-                key={`${item.category}-${index}`}
+                key={`${item.slug}-${index}`}
                 className={`absolute transition-all duration-500 ease-out ${
-                  isCurrent
-                    ? 'z-30'
-                    : 'z-10 opacity-50'
+                  isCurrent ? 'z-30' : 'z-10 opacity-50'
                 }`}
                 style={{
                   transform: isCurrent
@@ -802,7 +766,7 @@ function CategoryCarousel({
               >
                 <Link
                   to="/products"
-                  search={{ category: item.categoryKey }}
+                  search={{ category: 'all', categoryId: undefined, collection: item.slug }}
                   className="block group"
                 >
                   <div className="relative w-[calc(100vw-3rem)] max-w-[340px] h-[400px] rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 overflow-hidden transition-all duration-500 hover:border-[#00EC97] hover:shadow-xl">
@@ -810,7 +774,7 @@ function CategoryCarousel({
                       <div className="absolute inset-0">
                         <img
                           src={item.image}
-                          alt={item.category}
+                          alt={item.name}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent" />
@@ -821,11 +785,13 @@ function CategoryCarousel({
                     
                     <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
                       <h4 className="text-2xl font-bold text-foreground mb-2 drop-shadow-lg">
-                        {item.category}
+                        {item.name}
                       </h4>
-                      <p className="text-foreground/90 dark:text-muted-foreground text-sm">
-                        Explore {item.category.toLowerCase()} collection
-                      </p>
+                      {item.description && (
+                        <p className="text-foreground/90 dark:text-muted-foreground text-sm line-clamp-2">
+                          {item.description}
+                        </p>
+                      )}
                     </div>
 
                     {isCurrent && (
@@ -834,10 +800,10 @@ function CategoryCarousel({
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            nextCategory();
+                            nextItem();
                           }}
                           className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
-                          aria-label="Next category"
+                          aria-label="Next collection"
                         >
                           <ChevronRight className="h-5 w-5 text-foreground" />
                         </button>
@@ -855,17 +821,15 @@ function CategoryCarousel({
         className="hidden md:block relative h-[700px] lg:h-[800px] flex items-center justify-center w-full"
         style={{ perspective: '1000px' }}
       >
-        {visibleCategories.map((item, index) => {
+        {visibleItems.map((item, index) => {
           const isCenter = item.position === 'center';
           const isLeft = item.position === 'left';
           
           return (
             <div
-              key={`${item.category}-${currentCategoryIndex}-${index}`}
+              key={`${item.slug}-${currentIndex}-${index}`}
               className={`absolute transition-all duration-500 ease-out ${
-                isCenter
-                  ? 'z-30 left-1/2'
-                  : 'z-10 opacity-70 left-1/2'
+                isCenter ? 'z-30 left-1/2' : 'z-10 opacity-70 left-1/2'
               }`}
               style={{
                 transform: isCenter
@@ -879,7 +843,7 @@ function CategoryCarousel({
             >
               <Link
                 to="/products"
-                search={{ category: item.categoryKey }}
+                search={{ category: 'all', categoryId: undefined, collection: item.slug }}
                 className="block group"
               >
                 <div className="relative w-[580px] lg:w-[680px] h-[650px] lg:h-[720px] rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 overflow-hidden transition-all duration-500 hover:border-[#00EC97] hover:shadow-xl">
@@ -887,7 +851,7 @@ function CategoryCarousel({
                     <div className="absolute inset-0">
                       <img
                         src={item.image}
-                        alt={item.category}
+                        alt={item.name}
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent" />
@@ -898,11 +862,13 @@ function CategoryCarousel({
                   
                   <div className="absolute bottom-0 left-0 right-0 p-6 z-30 pointer-events-auto" style={{ backfaceVisibility: 'visible' }}>
                     <h4 className="text-3xl md:text-4xl font-bold text-foreground mb-2 drop-shadow-lg">
-                      {item.category}
+                      {item.name}
                     </h4>
-                    <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base">
-                      Explore {item.category.toLowerCase()} collection
-                    </p>
+                    {item.description && (
+                      <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base line-clamp-2">
+                        {item.description}
+                      </p>
+                    )}
                   </div>
                 </div>
               </Link>
@@ -913,17 +879,17 @@ function CategoryCarousel({
 
       <div className="hidden md:flex lg:hidden absolute w-full items-center justify-between px-4 pointer-events-none z-40" style={{ top: 'calc(50% + 220px)' }}>
         <button
-          onClick={prevCategory}
+          onClick={prevItem}
           className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 pointer-events-auto shadow-lg hover:shadow-xl"
-          aria-label="Previous category"
+          aria-label="Previous collection"
         >
           <ChevronLeft className="h-5 w-5 text-foreground" />
         </button>
         
         <button
-          onClick={nextCategory}
+          onClick={nextItem}
           className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 pointer-events-auto shadow-lg hover:shadow-xl"
-          aria-label="Next category"
+          aria-label="Next collection"
         >
           <ChevronRight className="h-5 w-5 text-foreground" />
         </button>
@@ -931,22 +897,21 @@ function CategoryCarousel({
       
       <div className="hidden lg:flex absolute w-full items-center justify-between px-6 pointer-events-none z-40" style={{ top: 'calc(50% + 240px)' }}>
         <button
-          onClick={prevCategory}
+          onClick={prevItem}
           className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 pointer-events-auto shadow-lg hover:shadow-xl"
-          aria-label="Previous category"
+          aria-label="Previous collection"
         >
           <ChevronLeft className="h-5 w-5 text-foreground" />
         </button>
         
         <button
-          onClick={nextCategory}
+          onClick={nextItem}
           className="p-2.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 pointer-events-auto shadow-lg hover:shadow-xl"
-          aria-label="Next category"
+          aria-label="Next collection"
         >
           <ChevronRight className="h-5 w-5 text-foreground" />
         </button>
       </div>
-
     </div>
   );
 }

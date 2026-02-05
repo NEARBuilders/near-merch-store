@@ -1,4 +1,5 @@
 import { LoadingSpinner } from "@/components/loading";
+import { PageTransition } from "@/components/page-transition";
 import { CartSidebar } from "@/components/marketplace/cart-sidebar";
 import { ProductCard } from "@/components/marketplace/product-card";
 import { SizeSelectionModal } from "@/components/marketplace/size-selection-modal";
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/_marketplace/products/")({
     return {
       category: (search.category as string) || 'all',
       categoryId: (search.categoryId as string | undefined) || undefined,
+      collection: (search.collection as string | undefined) || undefined,
     };
   },
   loader: async () => {
@@ -64,7 +66,7 @@ const PRODUCT_TYPE_CATEGORIES = [
 const normalizeProductType = (product: Product): string | null => {
   // Check productType first
   if (product.productType) {
-    const normalized = product.productType.toLowerCase().trim();
+    const normalized = product.productType?.toLowerCase().trim();
     
     // Map variations to standard categories
     if (normalized.includes('t-shirt') || normalized.includes('tshirt') || normalized.includes('tee') || normalized.includes('t shirt')) {
@@ -112,7 +114,7 @@ const normalizeProductType = (product: Product): string | null => {
 
 function ProductsIndexPage() {
   const { addToCart } = useCart();
-  const { category: urlCategory, categoryId } = Route.useSearch();
+  const { category: urlCategory, categoryId, collection: urlCollection } = Route.useSearch();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [priceRange, setPriceRange] = useState<PriceRange>('all');
@@ -153,12 +155,10 @@ function ProductsIndexPage() {
 
   const { data: searchData, isFetching: isSearching } = useSearchProducts(searchQuery, {
     limit: 100,
-    categoryIds: categoryIdsForFilter,
   });
 
   const { data: allProductsData, isLoading, isError } = useProducts({
-    limit: 100,
-    categoryIds: categoryIdsForFilter,
+    limit: 100
   });
 
   const { data: collectionsData } = useCategories();
@@ -247,7 +247,7 @@ function ProductsIndexPage() {
     if (categoryFilter !== 'all') {
       if (categoryFilter === 'Exclusives') {
         filteredProducts = filteredProducts.filter((product) => {
-          return (product.categories ?? []).some((c) => c.name === 'Exclusives');
+          return (product.collections ?? []).some((c) => c.name === 'Exclusives');
         });
       } else {
         filteredProducts = filteredProducts.filter((product) => {
@@ -260,7 +260,7 @@ function ProductsIndexPage() {
     // Filter by collection (dynamic categories)
     if (collectionFilter !== 'all') {
       filteredProducts = filteredProducts.filter((product) =>
-        (product.categories ?? []).some((c) => c.id === collectionFilter)
+        (product.collections ?? []).some((c) => c.id === collectionFilter)
       );
     }
 
@@ -351,7 +351,7 @@ function ProductsIndexPage() {
   };
 
   return (
-    <div className="bg-background w-full min-h-screen pt-32">
+    <PageTransition className="bg-background w-full min-h-screen pt-32">
       <div className="container-app mx-auto px-4 md:px-8 lg:px-16">
         <div className="flex flex-row gap-4 mb-8">
           <Link
@@ -576,15 +576,15 @@ function ProductsIndexPage() {
                         ) : (
                           collections.map((collection) => (
                             <label
-                              key={collection.id}
+                              key={collection.slug}
                               className="flex items-center gap-3 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={collectionFilter === collection.id}
+                                checked={collectionFilter === collection.slug}
                                 onChange={() =>
                                   setCollectionFilter(
-                                    collection.id === collectionFilter ? 'all' : collection.id
+                                    collection.slug === collectionFilter ? 'all' : collection.slug
                                   )
                                 }
                                 className="sr-only"
@@ -592,7 +592,7 @@ function ProductsIndexPage() {
                               <div
                                 className={cn(
                                   "h-4 w-4 rounded border-2 transition-colors flex-shrink-0",
-                                  collectionFilter === collection.id
+                                  collectionFilter === collection.slug
                                     ? "bg-[#00EC97] border-[#00EC97]"
                                     : "bg-transparent border-border/60"
                                 )}
@@ -1008,6 +1008,6 @@ function ProductsIndexPage() {
         isOpen={isCartSidebarOpen}
         onClose={() => setIsCartSidebarOpen(false)}
       />
-    </div>
+    </PageTransition>
   );
 }

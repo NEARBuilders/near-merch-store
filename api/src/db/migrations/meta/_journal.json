@@ -71,6 +71,13 @@
       "when": 1770263067321,
       "tag": "0009_vengeful_celestials",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1770270969501,
+      "tag": "0010_dark_cardiac",
+      "breakpoints": true
     }
   ]
 }

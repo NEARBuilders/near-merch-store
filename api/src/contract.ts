@@ -140,6 +140,67 @@ export const contract = oc.router({
       })
     ),
 
+  getCarouselCollections: oc
+    .route({
+      method: 'GET',
+      path: '/collections/carousel',
+      summary: 'Get carousel collections',
+      description: 'Returns collections configured to show in the carousel, with featured products.',
+      tags: ['Collections'],
+    })
+    .output(
+      z.object({
+        collections: z.array(CollectionSchema),
+      })
+    ),
+
+  updateCollection: oc
+    .route({
+      method: 'PUT',
+      path: '/collections/{slug}',
+      summary: 'Update collection settings',
+      description: 'Updates collection details and carousel settings.',
+      tags: ['Collections'],
+    })
+    .input(
+      z.object({
+        slug: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        image: z.string().optional(),
+        badge: z.string().optional(),
+        carouselTitle: z.string().optional(),
+        carouselDescription: z.string().optional(),
+        showInCarousel: z.boolean().optional(),
+        carouselOrder: z.number().optional(),
+      })
+    )
+    .output(
+      z.object({
+        collection: CollectionSchema.nullable(),
+      })
+    ),
+
+  updateCollectionFeaturedProduct: oc
+    .route({
+      method: 'POST',
+      path: '/collections/{slug}/featured-product',
+      summary: 'Update collection featured product',
+      description: 'Sets the featured product for a collection carousel slide.',
+      tags: ['Collections'],
+    })
+    .input(
+      z.object({
+        slug: z.string(),
+        productId: z.string().nullable(),
+      })
+    )
+    .output(
+      z.object({
+        collection: CollectionSchema.nullable(),
+      })
+    ),
+
   createCheckout: oc
     .route({
       method: 'POST',

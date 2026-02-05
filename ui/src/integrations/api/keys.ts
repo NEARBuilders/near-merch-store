@@ -55,6 +55,7 @@ export const collectionKeys = {
   all: ['collections'] as const,
   lists: () => [...collectionKeys.all, 'list'] as const,
   list: () => [...collectionKeys.lists()] as const,
+  carousel: () => [...collectionKeys.all, 'carousel'] as const,
   details: () => [...collectionKeys.all, 'detail'] as const,
   detail: (slug: string) => [...collectionKeys.details(), slug] as const,
 };

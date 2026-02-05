@@ -85,9 +85,17 @@ export const collections = sqliteTable('collections', {
   name: text('name').notNull(),
   description: text('description'),
   image: text('image'),
+  badge: text('badge'),
+  featuredProductId: text('featured_product_id').references(() => products.id, { onDelete: 'set null' }),
+  carouselTitle: text('carousel_title'),
+  carouselDescription: text('carousel_description'),
+  showInCarousel: integer('show_in_carousel', { mode: 'boolean' }).notNull().default(true),
+  carouselOrder: integer('carousel_order').notNull().default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-});
+}, (table) => ([
+  index('collections_carousel_idx').on(table.showInCarousel, table.carouselOrder),
+]));
 
 export const productCollections = sqliteTable('product_collections', {
   productId: text('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),

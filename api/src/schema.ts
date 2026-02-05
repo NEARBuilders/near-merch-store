@@ -59,6 +59,14 @@ export const ProductVariantSchema = z.object({
   inventoryQuantity: z.number().optional(),
 });
 
+export const CollectionFeaturedProductSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  slug: z.string(),
+  price: z.number(),
+  thumbnailImage: z.string().optional(),
+});
+
 export const CollectionSchema = z.object({
   slug: z.string(),
   name: z.string(),
@@ -66,6 +74,12 @@ export const CollectionSchema = z.object({
   image: z.string().optional(),
   badge: z.string().optional(),
   features: z.array(z.string()).optional(),
+  featuredProductId: z.string().optional(),
+  featuredProduct: CollectionFeaturedProductSchema.optional(),
+  carouselTitle: z.string().optional(),
+  carouselDescription: z.string().optional(),
+  showInCarousel: z.boolean().default(true),
+  carouselOrder: z.number().default(0),
 });
 
 export const ProductTypeSchema = z.object({
@@ -110,6 +124,7 @@ export type ProductImage = z.infer<typeof ProductImageSchema>;
 export type ProductImageType = z.infer<typeof ProductImageTypeSchema>;
 export type MockupConfig = z.infer<typeof MockupConfigSchema>;
 export type Collection = z.infer<typeof CollectionSchema>;
+export type CollectionFeaturedProduct = z.infer<typeof CollectionFeaturedProductSchema>;
 export type FulfillmentConfig = z.infer<typeof FulfillmentConfigSchema>;
 
 export const ShippingAddressSchema = z.object({

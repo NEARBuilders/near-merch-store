@@ -50,8 +50,13 @@ export {
   useSuspenseCollections,
   useCollection,
   useSuspenseCollection,
+  useCarouselCollections,
+  useSuspenseCarouselCollections,
+  useUpdateCollection,
+  useUpdateCollectionFeaturedProduct,
   collectionLoaders,
   type Collection,
+  type CarouselCollection,
 } from './collections';
 
 export {

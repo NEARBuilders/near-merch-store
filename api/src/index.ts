@@ -211,6 +211,34 @@ export default createPlugin({
         );
       }),
 
+      getCarouselCollections: builder.getCarouselCollections.handler(async () => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.getCarouselCollections();
+          }).pipe(Effect.provide(appLayer))
+        );
+      }),
+
+      updateCollection: builder.updateCollection.handler(async ({ input }) => {
+        const { slug, ...data } = input;
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateCollection(slug, data);
+          }).pipe(Effect.provide(appLayer))
+        );
+      }),
+
+      updateCollectionFeaturedProduct: builder.updateCollectionFeaturedProduct.handler(async ({ input }) => {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateCollectionFeaturedProduct(input.slug, input.productId);
+          }).pipe(Effect.provide(appLayer))
+        );
+      }),
+
       sync: builder.sync.handler(async () => {
         return await Effect.runPromise(
           Effect.gen(function* () {

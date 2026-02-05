@@ -19,6 +19,24 @@ export class ProductService extends Context.Tag('ProductService')<
     readonly getCollection: (
       slug: string
     ) => Effect.Effect<{ collection: Collection; products: Product[] }, Error>;
+    readonly getCarouselCollections: () => Effect.Effect<{ collections: Collection[] }, Error>;
+    readonly updateCollection: (
+      slug: string,
+      data: {
+        name?: string;
+        description?: string;
+        image?: string;
+        badge?: string;
+        carouselTitle?: string;
+        carouselDescription?: string;
+        showInCarousel?: boolean;
+        carouselOrder?: number;
+      }
+    ) => Effect.Effect<{ collection: Collection | null }, Error>;
+    readonly updateCollectionFeaturedProduct: (
+      slug: string,
+      productId: string | null
+    ) => Effect.Effect<{ collection: Collection | null }, Error>;
     readonly sync: () => Effect.Effect<{ status: string; count: number }, Error>;
     readonly getSyncStatus: () => Effect.Effect<
       {
@@ -321,6 +339,24 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
             });
             
             return { collection, products: result.products };
+          }),
+
+        getCarouselCollections: () =>
+          Effect.gen(function* () {
+            const collections = yield* collectionStore.findCarouselCollections();
+            return { collections };
+          }),
+
+        updateCollection: (slug, data) =>
+          Effect.gen(function* () {
+            const collection = yield* collectionStore.update(slug, data);
+            return { collection };
+          }),
+
+        updateCollectionFeaturedProduct: (slug, productId) =>
+          Effect.gen(function* () {
+            const collection = yield* collectionStore.updateFeaturedProduct(slug, productId);
+            return { collection };
           }),
 
         sync: () =>
