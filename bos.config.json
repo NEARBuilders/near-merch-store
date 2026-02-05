@@ -43,18 +43,14 @@
   },
   "gateway": {
     "development": "http://localhost:8787",
-    "production": "https://everything.market",
-    "account": "every.near",
-    "nova": {
-      "account": "every.nova-sdk.near"
-    }
+    "production": "https://nearmerch.com",
   },
   "app": {
     "host": {
       "title": "Near Merch",
       "description": "NEAR-powered merch store for the NEAR ecosystem",
       "development": "http://localhost:3000",
-      "production": "https://elliot-braem-1964-host-every-plugin-near-everythi-4c2bfd7ec-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1975-host-every-plugin-near-everythi-ec4216afb-ze.zephyrcloud.app",
       "secrets": [
         "HOST_DATABASE_URL",
         "HOST_DATABASE_AUTH_TOKEN",
