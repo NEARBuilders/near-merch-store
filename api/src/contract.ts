@@ -1,3 +1,4 @@
+import { NOT_FOUND, FORBIDDEN, UNAUTHORIZED, BAD_REQUEST } from 'every-plugin/errors';
 import { oc, eventIterator } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import {
@@ -69,7 +70,8 @@ export const contract = oc.router({
       tags: ['Products'],
     })
     .input(z.object({ id: z.string() }))
-    .output(z.object({ product: ProductSchema })),
+    .output(z.object({ product: ProductSchema }))
+    .errors({ NOT_FOUND }),
 
   searchProducts: oc
     .route({
@@ -138,7 +140,8 @@ export const contract = oc.router({
         collection: CollectionSchema,
         products: z.array(ProductSchema),
       })
-    ),
+    )
+    .errors({ NOT_FOUND }),
 
   getCarouselCollections: oc
     .route({
@@ -210,7 +213,8 @@ export const contract = oc.router({
       tags: ['Checkout'],
     })
     .input(CreateCheckoutInputSchema)
-    .output(CreateCheckoutOutputSchema),
+    .output(CreateCheckoutOutputSchema)
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
 
   quote: oc
     .route({
@@ -226,7 +230,8 @@ export const contract = oc.router({
         shippingAddress: ShippingAddressSchema,
       })
     )
-    .output(QuoteOutputSchema),
+    .output(QuoteOutputSchema)
+    .errors({ BAD_REQUEST }),
 
   getOrders: oc
     .route({
@@ -247,7 +252,8 @@ export const contract = oc.router({
         orders: z.array(OrderWithItemsSchema),
         total: z.number(),
       })
-    ),
+    )
+    .errors({ UNAUTHORIZED }),
 
   getOrder: oc
     .route({
@@ -258,7 +264,8 @@ export const contract = oc.router({
       tags: ['Orders'],
     })
     .input(z.object({ id: z.string() }))
-    .output(z.object({ order: OrderWithItemsSchema })),
+    .output(z.object({ order: OrderWithItemsSchema }))
+    .errors({ NOT_FOUND, FORBIDDEN, UNAUTHORIZED }),
 
   getOrderByCheckoutSession: oc
     .route({
@@ -303,7 +310,8 @@ export const contract = oc.router({
         orders: z.array(OrderWithItemsSchema),
         total: z.number(),
       })
-    ),
+    )
+    .errors({ UNAUTHORIZED }),
 
   stripeWebhook: oc
     .route({
@@ -468,7 +476,8 @@ export const contract = oc.router({
       tags: ['Admin', 'Providers'],
     })
     .input(z.object({ provider: z.literal('printful') }))
-    .output(z.object({ config: ProviderConfigSchema.nullable() })),
+    .output(z.object({ config: ProviderConfigSchema.nullable() }))
+    .errors({ UNAUTHORIZED }),
 
   configureWebhook: oc
     .route({
@@ -479,7 +488,8 @@ export const contract = oc.router({
       tags: ['Admin', 'Providers'],
     })
     .input(ConfigureWebhookInputSchema)
-    .output(ConfigureWebhookOutputSchema),
+    .output(ConfigureWebhookOutputSchema)
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
 
   disableWebhook: oc
     .route({
@@ -490,7 +500,8 @@ export const contract = oc.router({
       tags: ['Admin', 'Providers'],
     })
     .input(z.object({ provider: z.literal('printful') }))
-    .output(z.object({ success: z.boolean() })),
+    .output(z.object({ success: z.boolean() }))
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
 
   testProvider: oc
     .route({
@@ -505,7 +516,8 @@ export const contract = oc.router({
       success: z.boolean(),
       message: z.string().optional(),
       timestamp: z.string().datetime(),
-    })),
+    }))
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
 
   getCategories: oc
     .route({

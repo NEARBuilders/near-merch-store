@@ -203,7 +203,7 @@ function MarketplaceHome() {
 
   return (
     <PageTransition className="m-0 p-0 relative">
-      <VideoBackground position="absolute" height="calc(100vh - 80px)" />
+      {activeSlide && <VideoBackground position="absolute" height="calc(100vh - 80px)" />}
 
       {activeSlide && (
       <section className="pt-28 md:pt-32 relative z-10 min-h-[calc(100vh-120px)] flex items-center">
@@ -429,9 +429,11 @@ function MarketplaceHome() {
             </div>
       )}
 
-      <div className="relative w-full h-64 md:h-96 bg-gradient-to-b from-transparent via-background/50 to-background pointer-events-none -mt-64 md:-mt-96 z-[5]" />
+      {activeSlide && (
+        <div className="relative w-full h-64 md:h-96 bg-gradient-to-b from-transparent via-background/50 to-background pointer-events-none -mt-64 md:-mt-96 z-[5]" />
+      )}
 
-      <section className="section-padding relative z-10" id="collections">
+      <section className={cn("section-padding relative z-10", !activeSlide && "pt-32 md:pt-40")} id="collections">
         <div className="container-app">
           <CollectionCarousel />
         </div>
@@ -714,10 +716,12 @@ function CollectionCarousel() {
 
   if (carouselItems.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-foreground/90 dark:text-muted-foreground">
-          No collections to display. Create collections and enable them for carousel in the admin dashboard.
-        </p>
+      <div className="text-center py-12 relative z-10">
+        <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 py-8 md:py-10 max-w-2xl mx-auto">
+          <p className="text-foreground/90 dark:text-muted-foreground">
+            No collections to display. Create collections and enable them for carousel in the admin dashboard.
+          </p>
+        </div>
       </div>
     );
   }

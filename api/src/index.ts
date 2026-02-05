@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 import { createPlugin } from 'every-plugin';
-import { Effect, Layer, Schedule } from 'every-plugin/effect';
+import { Effect, Layer, Schedule, Cause, Exit } from 'every-plugin/effect';
 import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import { contract } from './contract';
@@ -166,13 +166,45 @@ export default createPlugin({
         );
       }),
 
-      getProduct: builder.getProduct.handler(async ({ input }) => {
-        return await Effect.runPromise(
+      getProduct: builder.getProduct.handler(async ({ input, errors }) => {
+        console.log('[API DEBUG] getProduct called with input:', input);
+        
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
+            console.log('[API DEBUG] Calling service.getProduct for id:', input.id);
             return yield* service.getProduct(input.id);
           }).pipe(Effect.provide(appLayer))
         );
+
+        console.log('[API DEBUG] Exit result:', Exit.isFailure(exit) ? 'FAILURE' : 'SUCCESS');
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          console.log('[API DEBUG] Error type:', error?.constructor?.name);
+          console.log('[API DEBUG] Error message:', error instanceof Error ? error.message : String(error));
+          console.log('[API DEBUG] Error instanceof ORPCError:', error instanceof ORPCError);
+          console.log('[API DEBUG] Full error:', error);
+          
+          if (error instanceof ORPCError) {
+            console.log('[API DEBUG] Re-throwing ORPCError as-is');
+            throw error;
+          }
+          if (error instanceof Error && error.message.includes('Product not found')) {
+            console.log('[API DEBUG] Creating NOT_FOUND error');
+            const notFoundError = errors.NOT_FOUND({
+              message: error.message,
+              data: { resource: 'product', resourceId: input.id }
+            });
+            console.log('[API DEBUG] NOT_FOUND error created:', notFoundError);
+            throw notFoundError;
+          }
+          console.log('[API DEBUG] Re-throwing error as-is');
+          throw error;
+        }
+
+        console.log('[API DEBUG] Success, returning product');
+        return exit.value;
       }),
 
       searchProducts: builder.searchProducts.handler(async ({ input }) => {
@@ -202,13 +234,29 @@ export default createPlugin({
         );
       }),
 
-      getCollection: builder.getCollection.handler(async ({ input }) => {
-        return await Effect.runPromise(
+      getCollection: builder.getCollection.handler(async ({ input, errors }) => {
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getCollection(input.slug);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          if (error instanceof Error && error.message.includes('Collection not found')) {
+            throw errors.NOT_FOUND({
+              message: error.message,
+              data: { resource: 'collection', resourceId: input.slug }
+            });
+          }
+          throw error;
+        }
+
+        return exit.value;
       }),
 
       getCarouselCollections: builder.getCarouselCollections.handler(async () => {
@@ -367,21 +415,38 @@ export default createPlugin({
 
       getOrder: builder.getOrder
         .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const order = await Effect.runPromise(
+        .handler(async ({ input, context, errors }) => {
+          const exit = await Effect.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.find(input.id);
             }).pipe(Effect.provide(orderLayer))
           );
 
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw errors.NOT_FOUND({
+              message: 'Order not found',
+              data: { resource: 'order', resourceId: input.id }
+            });
+          }
+
+          const order = exit.value;
+          
           if (!order) {
-            throw new Error('Order not found');
+            throw errors.NOT_FOUND({
+              message: 'Order not found',
+              data: { resource: 'order', resourceId: input.id }
+            });
           }
 
           if (order.userId !== context.nearAccountId) {
-            throw new ORPCError('FORBIDDEN', {
-              message: 'You do not have permission to access this order'
+            throw errors.FORBIDDEN({
+              message: 'You do not have permission to access this order',
+              data: { action: 'read' }
             });
           }
 
