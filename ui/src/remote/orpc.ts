@@ -38,8 +38,17 @@ export const queryClient = new QueryClient({
 });
 
 function createApiLink() {
+  let apiUrl = getApiBaseUrl();
+  
+  if (typeof window === 'undefined' && apiUrl.startsWith('/')) {
+    const hostUrl = process.env.HOST_URL;
+    if (hostUrl) {
+      apiUrl = `${hostUrl}${apiUrl}`;
+    }
+  }
+  
   return new RPCLink({
-    url: getApiBaseUrl,
+    url: apiUrl,
     interceptors: [
       onError((error: unknown) => {
         console.error('oRPC API Error:', error);
