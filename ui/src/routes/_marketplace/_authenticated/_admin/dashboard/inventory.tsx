@@ -20,6 +20,9 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  Star,
+  X,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +34,8 @@ import {
   useSyncProducts,
   useUpdateProductCategories,
   useUpdateProductListing,
+  useUpdateProductTags,
+  useUpdateProductFeatured,
   type Product,
 } from "@/integrations/api";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -41,6 +46,112 @@ export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashbo
   component: InventoryManagement,
 });
 
+function TagsEditor({ 
+  tags, 
+  productId, 
+  onUpdate,
+  isPending 
+}: { 
+  tags: string[]; 
+  productId: string; 
+  onUpdate: (tags: string[]) => void;
+  isPending: boolean;
+}) {
+  const [newTag, setNewTag] = useState("");
+
+  const handleAddTag = () => {
+    const trimmed = newTag.trim().toLowerCase();
+    if (trimmed && !tags.includes(trimmed)) {
+      onUpdate([...tags, trimmed]);
+      setNewTag("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    onUpdate(tags.filter((t) => t !== tagToRemove));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8 max-w-48"
+          disabled={isPending}
+          title="Edit tags"
+        >
+          {tags.length === 0 ? (
+            <span className="text-xs text-foreground/60 dark:text-muted-foreground">No tags</span>
+          ) : (
+            tags.slice(0, 2).map((tag) => (
+              <Badge key={tag} variant="outline" className="font-normal text-xs">
+                {tag}
+              </Badge>
+            ))
+          )}
+          {tags.length > 2 && (
+            <Badge variant="outline" className="font-normal text-xs">
+              +{tags.length - 2}
+            </Badge>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start">
+        <div className="text-sm font-medium mb-2">Tags</div>
+        <div className="flex gap-2 mb-3">
+          <Input
+            placeholder="Add tag..."
+            value={newTag}
+            onChange={(e) => setNewTag(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="h-8 text-sm bg-background/60 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]"
+          />
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleAddTag}
+            disabled={!newTag.trim()}
+            className="h-8 px-2 bg-[#00EC97] text-black hover:bg-[#00d97f]"
+          >
+            <Plus className="size-4" />
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-1.5 max-h-40 overflow-auto">
+          {tags.length === 0 ? (
+            <span className="text-xs text-foreground/60 dark:text-muted-foreground">
+              No tags yet. Type above and press Enter to add.
+            </span>
+          ) : (
+            tags.map((tag) => (
+              <Badge
+                key={tag}
+                variant="outline"
+                className="font-normal text-xs pr-1 flex items-center gap-1"
+              >
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTag(tag)}
+                  className="ml-1 hover:text-red-500 transition-colors"
+                >
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function InventoryManagement() {
   const { data: productsData, isLoading, refetch, isRefetching } = useProducts({ limit: 100, includeUnlisted: true });
   const products = productsData?.products || [];
@@ -49,6 +160,8 @@ function InventoryManagement() {
   const syncMutation = useSyncProducts();
   const updateListingMutation = useUpdateProductListing();
   const updateCategoriesMutation = useUpdateProductCategories();
+  const updateTagsMutation = useUpdateProductTags();
+  const updateFeaturedMutation = useUpdateProductFeatured();
   const { data: categoriesData } = useCategories();
   const categories = categoriesData?.categories ?? [];
 
@@ -114,7 +227,7 @@ function InventoryManagement() {
       ),
     },
     {
-      accessorKey: "categories",
+      accessorKey: "collections",
       header: ({ column }) => (
         <Button
           variant="ghost"
@@ -126,8 +239,8 @@ function InventoryManagement() {
         </Button>
       ),
       cell: ({ row }) => {
-        const selected = row.original.categories ?? [];
-        const selectedIds = selected.map((c) => c.id);
+        const selected = row.original.collections ?? [];
+        const selectedSlugs = selected.map((c) => c.slug);
 
         return (
           <Popover>
@@ -136,13 +249,13 @@ function InventoryManagement() {
                 type="button"
                 className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8"
                 disabled={updateCategoriesMutation.isPending}
-                title="Edit categories"
+                title="Edit collections"
               >
                 {selected.length === 0 ? (
                   <span className="text-xs text-foreground/60 dark:text-muted-foreground">No collections</span>
                 ) : (
                   selected.slice(0, 2).map((c) => (
-                    <Badge key={c.id} variant="outline" className="font-normal text-xs">
+                    <Badge key={c.slug} variant="outline" className="font-normal text-xs">
                       {c.name}
                     </Badge>
                   ))
@@ -163,17 +276,17 @@ function InventoryManagement() {
                   </div>
                 ) : (
                   categories.map((cat) => {
-                    const checked = selectedIds.includes(cat.id);
+                    const checked = selectedSlugs.includes(cat.slug);
                     return (
-                      <label key={cat.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <label key={cat.slug} className="flex items-center gap-2 text-sm cursor-pointer">
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(next) => {
                             const nextChecked = Boolean(next);
-                            const nextIds = nextChecked
-                              ? Array.from(new Set([...selectedIds, cat.id]))
-                              : selectedIds.filter((id) => id !== cat.id);
-                            updateCategoriesMutation.mutate({ id: row.original.id, categoryIds: nextIds });
+                            const nextSlugs = nextChecked
+                              ? Array.from(new Set([...selectedSlugs, cat.slug]))
+                              : selectedSlugs.filter((slug) => slug !== cat.slug);
+                            updateCategoriesMutation.mutate({ id: row.original.id, categoryIds: nextSlugs });
                           }}
                         />
                         <span className="truncate">{cat.name}</span>
@@ -184,6 +297,45 @@ function InventoryManagement() {
               </div>
             </PopoverContent>
           </Popover>
+        );
+      },
+    },
+    {
+      accessorKey: "tags",
+      header: "Tags",
+      cell: ({ row }) => (
+        <TagsEditor
+          tags={row.original.tags ?? []}
+          productId={row.original.id}
+          onUpdate={(tags) => updateTagsMutation.mutate({ id: row.original.id, tags })}
+          isPending={updateTagsMutation.isPending}
+        />
+      ),
+    },
+    {
+      accessorKey: "featured",
+      header: "Featured",
+      cell: ({ row }) => {
+        const isFeatured = row.original.featured === true;
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => updateFeaturedMutation.mutate({ 
+              id: row.original.id, 
+              featured: !isFeatured 
+            })}
+            disabled={updateFeaturedMutation.isPending}
+            className={cn(
+              "h-8 px-2",
+              isFeatured
+                ? "text-[#00EC97] hover:text-[#00EC97] hover:bg-[#00EC97]/10"
+                : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40"
+            )}
+            title={isFeatured ? "Featured - Click to unfeature" : "Not featured - Click to feature"}
+          >
+            <Star className={cn("size-4", isFeatured && "fill-[#00EC97]")} />
+          </Button>
         );
       },
     },
@@ -438,9 +590,9 @@ function InventoryManagement() {
                       <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground truncate">{product.title}</p>
                       <p className="text-xs text-foreground/50 dark:text-muted-foreground truncate">{product.id}</p>
                       <div className="flex items-center gap-2 mt-2">
-                        {product.categories && product.categories.length > 0 && (
+                        {product.collections && product.collections.length > 0 && (
                           <Badge variant="outline" className="font-normal text-xs">
-                            {product.categories[0]?.name}
+                            {product.collections[0]?.name}
                           </Badge>
                         )}
                         <Badge

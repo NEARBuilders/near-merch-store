@@ -1,7 +1,7 @@
-import { and, count, eq, like, lt } from 'drizzle-orm';
+import { and, count, eq, inArray, like, lt } from 'drizzle-orm';
 import { Context, Effect, Layer } from 'every-plugin/effect';
 import * as schema from '../db/schema';
-import type { Product, ProductCategory, ProductCriteria, ProductImage, ProductVariant, ProductWithImages } from '../schema';
+import type { Collection, Product, ProductCriteria, ProductImage, ProductType, ProductVariant, ProductWithImages } from '../schema';
 import { Database } from './database';
 
 export class ProductStore extends Context.Tag('ProductStore')<
@@ -10,11 +10,14 @@ export class ProductStore extends Context.Tag('ProductStore')<
     readonly find: (identifier: string) => Effect.Effect<Product | null, Error>;
     readonly findByPublicKey: (publicKey: string) => Effect.Effect<Product | null, Error>;
     readonly findMany: (criteria: ProductCriteria) => Effect.Effect<{ products: Product[]; total: number }, Error>;
-    readonly search: (query: string, category: ProductCategory | undefined, limit: number) => Effect.Effect<Product[], Error>;
+    readonly search: (query: string, limit: number) => Effect.Effect<Product[], Error>;
     readonly upsert: (product: ProductWithImages, syncedAt?: Date) => Effect.Effect<Product, Error>;
     readonly delete: (id: string) => Effect.Effect<void, Error>;
     readonly prune: (source: string, before: Date) => Effect.Effect<number, Error>;
     readonly updateListing: (id: string, listed: boolean) => Effect.Effect<Product | null, Error>;
+    readonly updateTags: (id: string, tags: string[]) => Effect.Effect<Product | null, Error>;
+    readonly updateFeatured: (id: string, featured: boolean) => Effect.Effect<Product | null, Error>;
+    readonly updateProductType: (id: string, productTypeSlug: string | null) => Effect.Effect<Product | null, Error>;
     readonly setSyncStatus: (
       id: string,
       status: 'idle' | 'running' | 'error',
@@ -73,9 +76,54 @@ export const ProductStoreLive = Layer.effect(
       }));
     };
 
+    const getProductCollections = async (productId: string): Promise<Collection[]> => {
+      const results = await db
+        .select({
+          slug: schema.collections.slug,
+          name: schema.collections.name,
+          description: schema.collections.description,
+          image: schema.collections.image,
+        })
+        .from(schema.productCollections)
+        .innerJoin(
+          schema.collections,
+          eq(schema.productCollections.collectionSlug, schema.collections.slug)
+        )
+        .where(eq(schema.productCollections.productId, productId));
+
+      return results.map((row) => ({
+        slug: row.slug,
+        name: row.name,
+        description: row.description || undefined,
+        image: row.image || undefined,
+      }));
+    };
+
+    const getProductType = async (productTypeSlug: string | null): Promise<ProductType | undefined> => {
+      if (!productTypeSlug) return undefined;
+      
+      const results = await db
+        .select()
+        .from(schema.productTypes)
+        .where(eq(schema.productTypes.slug, productTypeSlug))
+        .limit(1);
+      
+      if (results.length === 0) return undefined;
+      
+      const row = results[0]!;
+      return {
+        slug: row.slug,
+        label: row.label,
+        description: row.description || undefined,
+        displayOrder: row.displayOrder,
+      };
+    };
+
     const rowToProduct = async (row: typeof schema.products.$inferSelect): Promise<Product> => {
       const images = await getProductImages(row.id);
       const variants = await getProductVariants(row.id);
+      const collections = await getProductCollections(row.id);
+      const productType = await getProductType(row.productTypeSlug);
 
       return {
         id: row.id,
@@ -84,9 +132,11 @@ export const ProductStoreLive = Layer.effect(
         description: row.description || undefined,
         price: row.price / 100,
         currency: row.currency,
-        category: row.category as ProductCategory,
         brand: row.brand || undefined,
-        productType: row.productType || undefined,
+        productType,
+        tags: row.tags || [],
+        featured: row.featured ?? false,
+        collections,
         options: row.options || [],
         images,
         variants,
@@ -94,7 +144,6 @@ export const ProductStoreLive = Layer.effect(
         fulfillmentProvider: row.fulfillmentProvider,
         externalProductId: row.externalProductId || undefined,
         source: row.source,
-        tags: [],
         thumbnailImage: row.thumbnailImage || undefined,
         listed: row.listed ?? true,
       };
@@ -156,59 +205,85 @@ export const ProductStoreLive = Layer.effect(
       findMany: (criteria) =>
         Effect.tryPromise({
           try: async () => {
-            const { category, limit = 50, offset = 0, includeUnlisted = false } = criteria;
+            const { productTypeSlug, collectionSlugs, tags, featured, limit = 50, offset = 0, includeUnlisted = false } = criteria;
 
-            // Build conditions array
             const conditions = [];
 
-            // Only show listed products unless includeUnlisted is true (for admin)
             if (!includeUnlisted) {
               conditions.push(eq(schema.products.listed, true));
             }
 
-            if (category) {
-              conditions.push(eq(schema.products.category, category));
+            if (productTypeSlug) {
+              conditions.push(eq(schema.products.productTypeSlug, productTypeSlug));
+            }
+
+            if (featured !== undefined) {
+              conditions.push(eq(schema.products.featured, featured));
             }
 
             const whereClause = conditions.length > 0
               ? and(...conditions)
               : undefined;
 
+            let productIds: string[] | undefined;
+
+            if (collectionSlugs && collectionSlugs.length > 0) {
+              const collectionProducts = await db
+                .select({ productId: schema.productCollections.productId })
+                .from(schema.productCollections)
+                .where(inArray(schema.productCollections.collectionSlug, collectionSlugs));
+              
+              productIds = [...new Set(collectionProducts.map((p) => p.productId))];
+              
+              if (productIds.length === 0) {
+                return { products: [], total: 0 };
+              }
+            }
+
+            const finalConditions = whereClause
+              ? productIds
+                ? and(whereClause, inArray(schema.products.id, productIds))
+                : whereClause
+              : productIds
+                ? inArray(schema.products.id, productIds)
+                : undefined;
+
             const [countResult] = await db
               .select({ count: count() })
               .from(schema.products)
-              .where(whereClause);
+              .where(finalConditions);
 
             const total = Number(countResult?.count ?? 0);
 
             const results = await db
               .select()
               .from(schema.products)
-              .where(whereClause)
+              .where(finalConditions)
               .limit(limit)
               .offset(offset);
 
-            const products = await Promise.all(results.map(rowToProduct));
+            let products = await Promise.all(results.map(rowToProduct));
+
+            if (tags && tags.length > 0) {
+              products = products.filter((product) =>
+                tags.some((tag) => product.tags.includes(tag))
+              );
+            }
 
             return { products, total };
           },
           catch: (error) => new Error(`Failed to find products: ${error}`),
         }),
 
-      search: (query, category, limit) =>
+      search: (query, limit) =>
         Effect.tryPromise({
           try: async () => {
             const searchTerm = `%${query}%`;
 
-            // Build conditions - always filter by listed=true and search term
             const conditions = [
               eq(schema.products.listed, true),
               like(schema.products.name, searchTerm),
             ];
-
-            if (category) {
-              conditions.push(eq(schema.products.category, category));
-            }
 
             const results = await db
               .select()
@@ -226,7 +301,6 @@ export const ProductStoreLive = Layer.effect(
           try: async () => {
             const now = new Date();
 
-            // Check if product already exists by externalProductId + fulfillmentProvider (for sync matching)
             let existingProduct: typeof schema.products.$inferSelect | null = null;
             if (product.externalProductId) {
               const existing = await db
@@ -245,12 +319,9 @@ export const ProductStoreLive = Layer.effect(
               }
             }
 
-            // Use existing ID if product exists, otherwise use new one
             const finalId = existingProduct?.id ?? product.id;
 
-            // Update or insert product
             if (existingProduct) {
-              // Update existing product
               await db
                 .update(schema.products)
                 .set({
@@ -258,9 +329,9 @@ export const ProductStoreLive = Layer.effect(
                   description: product.description || null,
                   price: Math.round(product.price * 100),
                   currency: product.currency,
-                  category: product.category,
                   brand: product.brand || null,
-                  productType: product.productType || null,
+                  productTypeSlug: product.productTypeSlug || null,
+                  tags: product.tags || existingProduct.tags || [],
                   options: product.options,
                   thumbnailImage: product.thumbnailImage || null,
                   fulfillmentProvider: product.fulfillmentProvider,
@@ -273,7 +344,6 @@ export const ProductStoreLive = Layer.effect(
                 })
                 .where(eq(schema.products.id, finalId));
             } else {
-              // Insert new product
               await db
                 .insert(schema.products)
                 .values({
@@ -284,11 +354,12 @@ export const ProductStoreLive = Layer.effect(
                   description: product.description || null,
                   price: Math.round(product.price * 100),
                   currency: product.currency,
-                  category: product.category,
                   brand: product.brand || null,
-                  productType: product.productType || null,
+                  productTypeSlug: product.productTypeSlug || null,
+                  tags: product.tags || [],
                   options: product.options,
                   thumbnailImage: product.thumbnailImage || null,
+                  featured: false,
                   fulfillmentProvider: product.fulfillmentProvider,
                   externalProductId: product.externalProductId || null,
                   source: product.source,
@@ -297,7 +368,6 @@ export const ProductStoreLive = Layer.effect(
                 });
             }
 
-            // Delete and recreate images
             await db
               .delete(schema.productImages)
               .where(eq(schema.productImages.productId, finalId));
@@ -318,7 +388,6 @@ export const ProductStoreLive = Layer.effect(
               );
             }
 
-            // Delete and recreate variants
             await db
               .delete(schema.productVariants)
               .where(eq(schema.productVariants.productId, finalId));
@@ -386,6 +455,78 @@ export const ProductStoreLive = Layer.effect(
             return await rowToProduct(results[0]!);
           },
           catch: (error) => new Error(`Failed to update product listing: ${error}`),
+        }),
+
+      updateTags: (id, tags) =>
+        Effect.tryPromise({
+          try: async () => {
+            const now = new Date();
+            await db
+              .update(schema.products)
+              .set({ tags, updatedAt: now })
+              .where(eq(schema.products.id, id));
+
+            const results = await db
+              .select()
+              .from(schema.products)
+              .where(eq(schema.products.id, id))
+              .limit(1);
+
+            if (results.length === 0) {
+              return null;
+            }
+
+            return await rowToProduct(results[0]!);
+          },
+          catch: (error) => new Error(`Failed to update product tags: ${error}`),
+        }),
+
+      updateFeatured: (id, featured) =>
+        Effect.tryPromise({
+          try: async () => {
+            const now = new Date();
+            await db
+              .update(schema.products)
+              .set({ featured, updatedAt: now })
+              .where(eq(schema.products.id, id));
+
+            const results = await db
+              .select()
+              .from(schema.products)
+              .where(eq(schema.products.id, id))
+              .limit(1);
+
+            if (results.length === 0) {
+              return null;
+            }
+
+            return await rowToProduct(results[0]!);
+          },
+          catch: (error) => new Error(`Failed to update product featured status: ${error}`),
+        }),
+
+      updateProductType: (id, productTypeSlug) =>
+        Effect.tryPromise({
+          try: async () => {
+            const now = new Date();
+            await db
+              .update(schema.products)
+              .set({ productTypeSlug, updatedAt: now })
+              .where(eq(schema.products.id, id));
+
+            const results = await db
+              .select()
+              .from(schema.products)
+              .where(eq(schema.products.id, id))
+              .limit(1);
+
+            if (results.length === 0) {
+              return null;
+            }
+
+            return await rowToProduct(results[0]!);
+          },
+          catch: (error) => new Error(`Failed to update product type: ${error}`),
         }),
 
       prune: (source: string, before: Date) =>

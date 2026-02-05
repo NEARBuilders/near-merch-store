@@ -9,8 +9,8 @@ import {
   OrderStatusEventSchema,
   OrderStatusSchema,
   OrderWithItemsSchema,
-  ProductCategorySchema,
   ProductSchema,
+  ProductTypeSchema,
   ProviderConfigSchema,
   QuoteItemInputSchema,
   QuoteOutputSchema,
@@ -44,7 +44,10 @@ export const contract = oc.router({
     })
     .input(
       z.object({
-        category: ProductCategorySchema.optional(),
+        productTypeSlug: z.string().optional(),
+        collectionSlugs: z.array(z.string()).optional(),
+        tags: z.array(z.string()).optional(),
+        featured: z.boolean().optional(),
         limit: z.number().int().positive().max(100).default(50),
         offset: z.number().int().min(0).default(0),
         includeUnlisted: z.boolean().optional(),
@@ -79,7 +82,6 @@ export const contract = oc.router({
     .input(
       z.object({
         query: z.string(),
-        category: ProductCategorySchema.optional(),
         limit: z.number().int().positive().max(100).default(20),
       })
     )
@@ -135,6 +137,67 @@ export const contract = oc.router({
       z.object({
         collection: CollectionSchema,
         products: z.array(ProductSchema),
+      })
+    ),
+
+  getCarouselCollections: oc
+    .route({
+      method: 'GET',
+      path: '/collections/carousel',
+      summary: 'Get carousel collections',
+      description: 'Returns collections configured to show in the carousel, with featured products.',
+      tags: ['Collections'],
+    })
+    .output(
+      z.object({
+        collections: z.array(CollectionSchema),
+      })
+    ),
+
+  updateCollection: oc
+    .route({
+      method: 'PUT',
+      path: '/collections/{slug}',
+      summary: 'Update collection settings',
+      description: 'Updates collection details and carousel settings.',
+      tags: ['Collections'],
+    })
+    .input(
+      z.object({
+        slug: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        image: z.string().optional(),
+        badge: z.string().optional(),
+        carouselTitle: z.string().optional(),
+        carouselDescription: z.string().optional(),
+        showInCarousel: z.boolean().optional(),
+        carouselOrder: z.number().optional(),
+      })
+    )
+    .output(
+      z.object({
+        collection: CollectionSchema.nullable(),
+      })
+    ),
+
+  updateCollectionFeaturedProduct: oc
+    .route({
+      method: 'POST',
+      path: '/collections/{slug}/featured-product',
+      summary: 'Update collection featured product',
+      description: 'Sets the featured product for a collection carousel slide.',
+      tags: ['Collections'],
+    })
+    .input(
+      z.object({
+        slug: z.string(),
+        productId: z.string().nullable(),
+      })
+    )
+    .output(
+      z.object({
+        collection: CollectionSchema.nullable(),
       })
     ),
 
@@ -443,4 +506,204 @@ export const contract = oc.router({
       message: z.string().optional(),
       timestamp: z.string().datetime(),
     })),
+
+  getCategories: oc
+    .route({
+      method: 'GET',
+      path: '/categories',
+      summary: 'List all categories (collections)',
+      description: 'Returns a list of all product collections for categorization.',
+      tags: ['Collections'],
+    })
+    .output(
+      z.object({
+        categories: z.array(CollectionSchema),
+      })
+    ),
+
+  createCategory: oc
+    .route({
+      method: 'POST',
+      path: '/categories',
+      summary: 'Create a category (collection)',
+      description: 'Creates a new collection for categorizing products.',
+      tags: ['Collections'],
+    })
+    .input(
+      z.object({
+        name: z.string(),
+        slug: z.string(),
+        description: z.string().optional(),
+        image: z.string().optional(),
+      })
+    )
+    .output(
+      z.object({
+        category: CollectionSchema,
+      })
+    ),
+
+  deleteCategory: oc
+    .route({
+      method: 'DELETE',
+      path: '/categories/{id}',
+      summary: 'Delete a category (collection)',
+      description: 'Deletes a collection.',
+      tags: ['Collections'],
+    })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ success: z.boolean() })),
+
+  updateProductCategories: oc
+    .route({
+      method: 'POST',
+      path: '/products/{id}/categories',
+      summary: 'Update product categories',
+      description: 'Updates the collections a product belongs to.',
+      tags: ['Products'],
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        categoryIds: z.array(z.string()),
+      })
+    )
+    .output(
+      z.object({
+        success: z.boolean(),
+        product: ProductSchema.optional(),
+      })
+    ),
+
+  updateProductTags: oc
+    .route({
+      method: 'POST',
+      path: '/products/{id}/tags',
+      summary: 'Update product tags',
+      description: 'Updates the tags on a product.',
+      tags: ['Products'],
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        tags: z.array(z.string()),
+      })
+    )
+    .output(
+      z.object({
+        success: z.boolean(),
+        product: ProductSchema.optional(),
+      })
+    ),
+
+  updateProductFeatured: oc
+    .route({
+      method: 'POST',
+      path: '/products/{id}/featured',
+      summary: 'Update product featured status',
+      description: 'Updates whether a product is featured.',
+      tags: ['Products'],
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        featured: z.boolean(),
+      })
+    )
+    .output(
+      z.object({
+        success: z.boolean(),
+        product: ProductSchema.optional(),
+      })
+    ),
+
+  updateProductType: oc
+    .route({
+      method: 'POST',
+      path: '/products/{id}/product-type',
+      summary: 'Update product type',
+      description: 'Updates the product type of a product.',
+      tags: ['Products'],
+    })
+    .input(
+      z.object({
+        id: z.string(),
+        productTypeSlug: z.string().nullable(),
+      })
+    )
+    .output(
+      z.object({
+        success: z.boolean(),
+        product: ProductSchema.optional(),
+      })
+    ),
+
+  getProductTypes: oc
+    .route({
+      method: 'GET',
+      path: '/product-types',
+      summary: 'List all product types',
+      description: 'Returns a list of all product types for categorization.',
+      tags: ['Product Types'],
+    })
+    .output(
+      z.object({
+        productTypes: z.array(ProductTypeSchema),
+      })
+    ),
+
+  createProductType: oc
+    .route({
+      method: 'POST',
+      path: '/product-types',
+      summary: 'Create a product type',
+      description: 'Creates a new product type for categorizing products.',
+      tags: ['Product Types'],
+    })
+    .input(
+      z.object({
+        slug: z.string(),
+        label: z.string(),
+        description: z.string().optional(),
+        displayOrder: z.number().optional(),
+      })
+    )
+    .output(
+      z.object({
+        productType: ProductTypeSchema,
+      })
+    ),
+
+  updateProductTypeItem: oc
+    .route({
+      method: 'PUT',
+      path: '/product-types/{slug}',
+      summary: 'Update a product type',
+      description: 'Updates an existing product type.',
+      tags: ['Product Types'],
+    })
+    .input(
+      z.object({
+        slug: z.string(),
+        label: z.string().optional(),
+        description: z.string().optional(),
+        displayOrder: z.number().optional(),
+      })
+    )
+    .output(
+      z.object({
+        productType: ProductTypeSchema.nullable(),
+      })
+    ),
+
+  deleteProductType: oc
+    .route({
+      method: 'DELETE',
+      path: '/product-types/{slug}',
+      summary: 'Delete a product type',
+      description: 'Deletes a product type.',
+      tags: ['Product Types'],
+    })
+    .input(z.object({ slug: z.string() }))
+    .output(z.object({ success: z.boolean() })),
 });
