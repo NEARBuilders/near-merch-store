@@ -124,6 +124,7 @@ export function MarketplaceHeader() {
 
   const matchRoute = useMatchRoute();
   const location = useLocation();
+  const navigate = useNavigate();
   const searchParams = location.search as { category?: string; categoryId?: string };
   const currentCategory = searchParams?.category || null;
   const currentCategoryId = searchParams?.categoryId || null;
@@ -265,7 +266,7 @@ export function MarketplaceHeader() {
           <nav className="hidden lg:flex items-center gap-2">
             <Link
               to="/products"
-              search={{ category: "all", categoryId: undefined }}
+              search={{ category: "all", categoryId: undefined, collection: undefined }}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
                 isProductsActive && !currentCategoryId ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
               }`}
@@ -277,7 +278,7 @@ export function MarketplaceHeader() {
             
             <Link
             to="/products"
-            search={{ category: 'Exclusives', categoryId: undefined }}
+            search={{ category: 'Exclusives', categoryId: undefined, collection: undefined }}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
                 isExclusivesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
               }`}
@@ -674,7 +675,7 @@ export function MarketplaceHeader() {
             <div className="rounded-2xl bg-background/80 backdrop-blur-sm border border-border/60 px-6 py-4 space-y-2">
               <Link
                 to="/products"
-                search={{ category: "all", categoryId: undefined }}
+                search={{ category: "all", categoryId: undefined, collection: undefined }}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
                   isProductsActive && !currentCategoryId ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
@@ -711,7 +712,7 @@ export function MarketplaceHeader() {
               
               <Link
                 to="/products"
-                search={{ category: 'Exclusives', categoryId: undefined }}
+                search={{ category: 'Exclusives', categoryId: undefined, collection: undefined }}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
                   isExclusivesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
