@@ -36,12 +36,14 @@ import { Card } from "@/components/ui/card";
 import {
   useProducts,
   useCategories,
+  useProductTypes,
   useSyncStatus,
   useSyncProducts,
   useUpdateProductCategories,
   useUpdateProductListing,
   useUpdateProductTags,
   useUpdateProductFeatured,
+  useUpdateProductType,
   type Product,
 } from "@/integrations/api";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -217,8 +219,11 @@ function InventoryManagement() {
   const updateCategoriesMutation = useUpdateProductCategories();
   const updateTagsMutation = useUpdateProductTags();
   const updateFeaturedMutation = useUpdateProductFeatured();
+  const updateProductTypeMutation = useUpdateProductType();
   const { data: categoriesData } = useCategories();
   const categories = categoriesData?.categories ?? [];
+  const { data: productTypesData } = useProductTypes();
+  const productTypes = productTypesData?.productTypes ?? [];
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -375,6 +380,66 @@ function InventoryManagement() {
         );
       },
       size: 180,
+    },
+    {
+      accessorKey: "productType",
+      header: "Type",
+      cell: ({ row }) => {
+        const selected = row.original.productType?.slug;
+        return (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8"
+                disabled={updateProductTypeMutation.isPending}
+                title="Edit product type"
+              >
+                {!selected ? (
+                  <span className="text-xs text-foreground/60 dark:text-muted-foreground">No type</span>
+                ) : (
+                  <Badge variant="outline" className="font-normal text-xs">
+                    {productTypes.find(pt => pt.slug === selected)?.label || selected}
+                  </Badge>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="start">
+              <div className="text-sm font-medium mb-2">Product Type</div>
+              <div className="space-y-2 max-h-64 overflow-auto pr-1">
+                <label key="none" className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={!selected}
+                    onCheckedChange={(next) => {
+                      if (next) {
+                        updateProductTypeMutation.mutate({ id: row.original.id, productTypeSlug: null });
+                      }
+                    }}
+                  />
+                  <span className="text-foreground/60 dark:text-muted-foreground">None</span>
+                </label>
+                {productTypes.map((pt) => {
+                  const checked = selected === pt.slug;
+                  return (
+                    <label key={pt.slug} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(next) => {
+                          if (next) {
+                            updateProductTypeMutation.mutate({ id: row.original.id, productTypeSlug: pt.slug });
+                          }
+                        }}
+                      />
+                      <span className="truncate">{pt.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+        );
+      },
+      size: 120,
     },
     {
       accessorKey: "tags",

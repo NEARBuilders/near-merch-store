@@ -265,6 +265,10 @@ function VerticalProductLayout({
             <img
               src={displayImage}
               alt={product.title}
+              loading="lazy"
+              decoding="async"
+              width={400}
+              height={400}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10"
             />
           ) : (
@@ -489,6 +493,10 @@ function HorizontalProductLayout({
             <img
               src={displayImage}
               alt={product.title}
+              loading="lazy"
+              decoding="async"
+              width={80}
+              height={80}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10"
             />
           ) : (

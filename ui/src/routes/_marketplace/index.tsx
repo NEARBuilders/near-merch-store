@@ -778,13 +778,15 @@ function CollectionCarousel() {
                   className="block group"
                 >
                   <div className="relative w-[calc(100vw-3rem)] max-w-[340px] h-[400px] rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 overflow-hidden transition-all duration-500 hover:border-[#00EC97] hover:shadow-xl">
-                    {item.image ? (
-                      <div className="absolute inset-0">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
+{item.image ? (
+                       <div className="absolute inset-0">
+                         <img
+                           src={item.image}
+                           alt={item.name}
+                           loading={isCurrent ? "eager" : "lazy"}
+                           decoding="async"
+                           className="w-full h-full object-cover"
+                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent" />
                       </div>
                     ) : (
@@ -855,13 +857,15 @@ function CollectionCarousel() {
                 className="block group"
               >
                 <div className="relative w-[580px] lg:w-[680px] h-[650px] lg:h-[720px] rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 overflow-hidden transition-all duration-500 hover:border-[#00EC97] hover:shadow-xl">
-                  {item.image ? (
-                    <div className="absolute inset-0">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
+{item.image ? (
+                       <div className="absolute inset-0">
+                         <img
+                           src={item.image}
+                           alt={item.name}
+                           loading={isCenter ? "eager" : "lazy"}
+                           decoding="async"
+                           className="w-full h-full object-cover"
+                         />
                       <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent" />
                     </div>
                   ) : (

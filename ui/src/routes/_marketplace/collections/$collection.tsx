@@ -110,6 +110,8 @@ function CollectionDetailPage() {
             <img
               src={collection.image}
               alt={collection.name}
+              loading="eager"
+              decoding="async"
               className="w-full h-full object-cover"
             />
             </div>

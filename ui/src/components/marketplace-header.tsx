@@ -1,4 +1,4 @@
-import { Link, useMatchRoute, useLocation } from "@tanstack/react-router";
+import { Link, useMatchRoute, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Search, Heart, ShoppingCart, User, Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,8 +29,6 @@ import { useCategories } from "@/integrations/api";
 function CollectionsDropdown() {
   const matchRoute = useMatchRoute();
   const location = useLocation();
-  const searchParams = location.search as { categoryId?: string };
-  const currentCategoryId = searchParams?.categoryId || null;
 
   const { data, isLoading } = useCategories();
   const categories = data?.categories ?? [];
@@ -46,19 +44,20 @@ function CollectionsDropdown() {
       <DropdownMenuContent align="start" sideOffset={20} className="w-56 bg-background/60 backdrop-blur-sm border border-border/60 rounded-2xl p-2 shadow-lg">
         <DropdownMenuItem asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97]">
           <Link
-            to="/products"
-            search={{ category: "all", categoryId: currentCategoryId ?? undefined }}
+            to="/collections"
+            preload="intent"
+            preloadDelay={0}
             className={`cursor-pointer rounded-lg px-3 py-2 hover:text-[#00EC97] focus:text-[#00EC97] transition-colors ${
-              matchRoute({ to: "/products" }) && !currentCategoryId ? "text-[#00EC97]" : ""
+              matchRoute({ to: "/collections" }) ? "text-[#00EC97]" : ""
             }`}
           >
-            All products
+            All Collections
           </Link>
         </DropdownMenuItem>
 
         {isLoading && (
           <div className="px-3 py-2 text-xs text-foreground/60 dark:text-muted-foreground">
-            Loading categories…
+            Loading collections…
           </div>
         )}
 
@@ -69,16 +68,18 @@ function CollectionsDropdown() {
         )}
 
         {categories.map((cat) => {
-          const isActive = matchRoute({ to: "/products" }) && currentCategoryId === cat.id;
+          const isActive = matchRoute({ to: "/collections/$collection" }) && location.pathname === `/collections/${cat.slug}`;
           return (
             <DropdownMenuItem
-              key={cat.id}
+              key={cat.slug}
               asChild
               className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97]"
             >
               <Link
-                to="/products"
-                search={{ category: "all", categoryId: cat.id }}
+                to="/collections/$collection"
+                params={{ collection: cat.slug }}
+                preload="intent"
+                preloadDelay={0}
                 className={`cursor-pointer rounded-lg px-3 py-2 hover:text-[#00EC97] focus:text-[#00EC97] transition-colors ${
                   isActive ? "text-[#00EC97]" : ""
                 }`}
@@ -436,6 +437,8 @@ export function MarketplaceHeader() {
                             <img
                               src={nearLogo}
                               alt="NEAR"
+                              loading="eager"
+                              decoding="async"
                               className="w-full h-full object-contain invert dark:invert-0"
                             />
                           </div>
@@ -450,17 +453,19 @@ export function MarketplaceHeader() {
                             <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
                           </div>
                           
-                          <button
-                            onClick={handleSignIn}
-                            disabled={isSigningIn}
-                            className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                          >
-                            <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                              <img
-                                src={nearLogo}
-                                alt="NEAR"
-                                className="w-full h-full object-contain invert dark:invert-0"
-                              />
+<button
+                          onClick={handleSignIn}
+                          disabled={isSigningIn}
+                          className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                        >
+                          <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                            <img
+                              src={nearLogo}
+                              alt="NEAR"
+                              loading="eager"
+                              decoding="async"
+                              className="w-full h-full object-contain invert dark:invert-0"
+                            />
                             </div>
                             <span>
                               {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
@@ -560,6 +565,8 @@ export function MarketplaceHeader() {
                               <img
                                 src={nearLogo}
                                 alt="NEAR"
+                                loading="eager"
+                                decoding="async"
                                 className="w-full h-full object-contain invert dark:invert-0"
                               />
                             </div>
@@ -579,12 +586,14 @@ export function MarketplaceHeader() {
                               disabled={isSigningIn}
                               className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
                             >
-                              <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                                <img
-                                  src={nearLogo}
-                                  alt="NEAR"
-                                  className="w-full h-full object-contain invert dark:invert-0"
-                                />
+<div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                              <img
+                                src={nearLogo}
+                                alt="NEAR"
+                                loading="eager"
+                                decoding="async"
+                                className="w-full h-full object-contain invert dark:invert-0"
+                              />
                               </div>
                               <span>
                                 {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
@@ -681,13 +690,13 @@ export function MarketplaceHeader() {
                     No collections yet.
                   </div>
                 ) : (
-                  categories.map((cat: { id: string; name: string }) => {
-                    const isActive = isProductsActive && currentCategoryId === cat.id;
+                  categories.map((cat) => {
+                    const isActive = matchRoute({ to: "/collections/$collection" }) && location.pathname === `/collections/${cat.slug}`;
                     return (
                       <Link
-                        key={cat.id}
-                        to="/products"
-                        search={{ category: "all", categoryId: cat.id }}
+                        key={cat.slug}
+                        to="/collections/$collection"
+                        params={{ collection: cat.slug }}
                         onClick={() => setMobileMenuOpen(false)}
                         className={`block pl-6 pr-3 py-2 text-sm transition-colors rounded-lg ${
                           isActive ? 'text-[#00EC97]' : 'text-foreground/90 hover:text-[#00EC97]'

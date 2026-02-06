@@ -172,3 +172,10 @@ CREATE INDEX "products_type_slug_idx" ON "products" USING btree ("product_type_s
 CREATE INDEX "featured_idx" ON "products" USING btree ("featured");--> statement-breakpoint
 CREATE INDEX "sync_started_idx" ON "sync_state" USING btree ("sync_started_at");--> statement-breakpoint
 CREATE INDEX "sync_updated_idx" ON "sync_state" USING btree ("updated_at");
+-- Seed product types
+INSERT INTO product_types (slug, label, description, display_order) VALUES
+('tshirt', 'T-Shirts', 'Classic t-shirts for everyday wear', 1),
+('hats', 'Hats', 'Various hat styles including caps and beanies', 2),
+('hoodies', 'Hoodies', 'Comfortable hooded sweatshirts', 3),
+('long-sleeved-shirts', 'Long Sleeved Shirts', 'Shirts with long sleeves', 4)
+ON CONFLICT (slug) DO NOTHING;

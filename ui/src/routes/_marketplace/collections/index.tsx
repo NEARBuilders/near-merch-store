@@ -100,6 +100,8 @@ function CollectionsPage() {
                   <img
                     src={imageSrc}
                     alt={collection.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 </div>

@@ -352,6 +352,8 @@ function ProductDetailPage() {
                   <img
                     src={img}
                     alt={`${product.title} - Image ${index + 1}`}
+                    loading={index === currentImageIndex ? "eager" : "lazy"}
+                    decoding="async"
                     className="w-full h-full object-cover relative z-10"
                   />
                 </div>
@@ -442,6 +444,8 @@ function ProductDetailPage() {
                       <img
                         src={img}
                         alt={`${product.title} - Thumbnail ${index + 1}`}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                     </button>

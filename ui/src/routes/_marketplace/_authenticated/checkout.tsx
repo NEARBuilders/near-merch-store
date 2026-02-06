@@ -739,6 +739,10 @@ function CheckoutPage() {
                           <img
                             src={displayImage}
                             alt={item.product.title}
+                            loading="lazy"
+                            decoding="async"
+                            width={80}
+                            height={80}
                             className="size-full object-cover relative z-10"
                           />
                         ) : (
@@ -876,11 +880,15 @@ function CheckoutPage() {
                             <img
                               src={pingpayLogoLight}
                               alt="Pingpay"
+                              loading="eager"
+                              decoding="async"
                               className="h-5 w-auto object-contain dark:hidden"
                             />
                             <img
                               src={pingpayLogoDark}
                               alt="Pingpay"
+                              loading="eager"
+                              decoding="async"
                               className="h-5 w-auto object-contain hidden dark:block"
                             />
                           </>

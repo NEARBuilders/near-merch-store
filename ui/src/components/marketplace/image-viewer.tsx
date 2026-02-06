@@ -56,6 +56,8 @@ export function ImageViewer({
             <img
               src={images[currentIndex]}
               alt={`${productName} - Image ${currentIndex + 1}`}
+              loading="eager"
+              decoding="async"
               className="w-full h-full object-contain md:object-cover"
             />
 

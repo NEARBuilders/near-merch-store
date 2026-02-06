@@ -35,7 +35,7 @@
   },
   "scripts": {
     "init": "bun run db:migrate",
-    "bos": "everything-dev",
+    "bos": "bunx everything-dev",
     "dev": "bos dev",
     "dev:ui": "bos dev --api=remote",
     "dev:api": "bos dev --ui=remote",

@@ -73,7 +73,7 @@ export function createRouter(opts: CreateRouterOptions = {}) {
     defaultPreloadStaleTime: 0,
     defaultErrorComponent: ErrorComponent,
     defaultPendingComponent: PendingComponent,
-    defaultPendingMinMs: 0, // Show loading immediately
+    defaultPendingMinMs: 150,
   });
 
   return { router, queryClient };

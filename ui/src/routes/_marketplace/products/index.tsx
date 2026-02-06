@@ -19,6 +19,7 @@ import {
   useSearchProducts,
   getPrimaryCategoryName,
   useCategories,
+  useProductTypes,
   type Product,
 } from "@/integrations/api";
 import { queryClient } from "@/utils/orpc";
@@ -39,8 +40,8 @@ export const Route = createFileRoute("/_marketplace/products/")({
     try {
       await queryClient.ensureQueryData(productLoaders.list({ limit: 100 }));
     } catch (error) {
-      const errorCode = error?.response?.data?.code || error?.code;
-      const isExpected = errorCode === 'NOT_FOUND' || errorCode === 404;
+      const errorCode = (error as any)?.response?.data?.code || (error as any)?.code;
+      const isExpected = errorCode === 'NOT_FOUND' || errorCode === 404 || errorCode?.toString() === '404';
       if (!isExpected) {
         console.warn('Failed to prefetch products:', error);
       }
@@ -54,71 +55,16 @@ type DiscountFilter = 'all' | 'on-sale' | 'no-discount';
 type SortOption = 'relevance' | 'price-low-high' | 'price-high-low';
 type SizeFilter = 'all' | string;
 type ColorFilter = 'all' | string;
-type CategoryFilter = 'all' | 'tshirt' | 'hats' | 'hoodies' | 'long sleeved shirts' | 'Exclusives';
+type CategoryFilter = 'all' | string;
 type BrandFilter = 'all' | string;
 
-// Define product type categories
-const PRODUCT_TYPE_CATEGORIES = [
-  { key: 'tshirt', label: 'T-Shirts' },
-  { key: 'hats', label: 'Hats' },
-  { key: 'hoodies', label: 'Hoodies' },
-  { key: 'long sleeved shirts', label: 'Long Sleeved Shirts' },
-] as const;
-
-// Normalize product type for matching - checks both productType and product title
-// Returns a category key or null if no match found
-const normalizeProductType = (product: Product): string | null => {
-  // Check productType first
-  if (product.productType) {
-    const normalized = product.productType?.toLowerCase().trim();
-    
-    // Map variations to standard categories
-    if (normalized.includes('t-shirt') || normalized.includes('tshirt') || normalized.includes('tee') || normalized.includes('t shirt')) {
-      return 'tshirt';
-    }
-    if (normalized.includes('hat') || normalized.includes('cap') || normalized.includes('beanie') || normalized.includes('cepure')) {
-      return 'hats';
-    }
-    if (normalized.includes('hoodie') || normalized.includes('hoody') || normalized.includes('hood')) {
-      return 'hoodies';
-    }
-    if (normalized.includes('long sleeve') || normalized.includes('long-sleeve') || normalized.includes('longsleeve') || normalized.includes('long sleeve')) {
-      return 'long sleeved shirts';
-    }
-  }
-  
-  // If productType doesn't match, check product title
-  if (product.title) {
-    const normalizedTitle = product.title.toLowerCase().trim();
-    
-    // Check for hat variations in title (check first to avoid false matches with "that", "what", etc.)
-    // Use word boundaries or specific patterns
-    if (normalizedTitle.includes(' hat ') || normalizedTitle.endsWith(' hat') || normalizedTitle.startsWith('hat ') || 
-        normalizedTitle.includes(' hat,') || normalizedTitle.includes(' hat.') ||
-        normalizedTitle.includes('cap ') || normalizedTitle.includes(' beanie') || normalizedTitle.includes('cap,') || normalizedTitle.includes('cap.') ||
-        normalizedTitle.includes('cap') || normalizedTitle.includes('beanie')) {
-      return 'hats';
-    }
-    // Check for t-shirt variations in title
-    if (normalizedTitle.includes('t-shirt') || normalizedTitle.includes('tshirt') || normalizedTitle.includes(' tee ') || normalizedTitle.includes('t shirt')) {
-      return 'tshirt';
-    }
-    // Check for hoodie variations in title
-    if (normalizedTitle.includes('hoodie') || normalizedTitle.includes('hoody') || normalizedTitle.includes(' hood ')) {
-      return 'hoodies';
-    }
-    // Check for long sleeve variations in title
-    if (normalizedTitle.includes('long sleeve') || normalizedTitle.includes('long-sleeve') || normalizedTitle.includes('longsleeve')) {
-      return 'long sleeved shirts';
-    }
-  }
-  
-  return null;
-};
 
 function ProductsIndexPage() {
   const { addToCart } = useCart();
-  const { category: urlCategory, categoryId, collection: urlCollection } = Route.useSearch();
+  const { category: urlCategory } = Route.useSearch();
+  
+  const { data: productTypesData } = useProductTypes();
+  const productTypes = productTypesData?.productTypes ?? [];
   
   const [searchQuery, setSearchQuery] = useState('');
   const [priceRange, setPriceRange] = useState<PriceRange>('all');
@@ -129,6 +75,11 @@ function ProductsIndexPage() {
   const [brandFilter, setBrandFilter] = useState<BrandFilter>('all');
   const [collectionFilter, setCollectionFilter] = useState<'all' | string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
+  
+  const productTypeCategoriesForFilter = useMemo(() => [
+    { key: 'all', label: 'All' },
+    ...productTypes.map(pt => ({ key: pt.slug, label: pt.label }))
+  ], [productTypes]);
   
   // Update category filter when URL changes
   useEffect(() => {
@@ -154,8 +105,6 @@ function ProductsIndexPage() {
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
-
-  const categoryIdsForFilter = categoryId ? [categoryId] : undefined;
 
   const { data: searchData, isFetching: isSearching } = useSearchProducts(searchQuery, {
     limit: 100,
@@ -247,24 +196,17 @@ function ProductsIndexPage() {
       filteredProducts = allProductsData?.products ?? [];
     }
 
-    // Filter by product type category or Exclusives
+    // Filter by product type
     if (categoryFilter !== 'all') {
-      if (categoryFilter === 'Exclusives') {
-        filteredProducts = filteredProducts.filter((product) => {
-          return (product.collections ?? []).some((c) => c.name === 'Exclusives');
-        });
-      } else {
-        filteredProducts = filteredProducts.filter((product) => {
-          const normalizedType = normalizeProductType(product);
-          return normalizedType === categoryFilter;
-        });
-      }
+      filteredProducts = filteredProducts.filter((product) => {
+        return product.productType?.slug === categoryFilter;
+      });
     }
 
     // Filter by collection (dynamic categories)
     if (collectionFilter !== 'all') {
       filteredProducts = filteredProducts.filter((product) =>
-        (product.collections ?? []).some((c) => c.id === collectionFilter)
+        (product.collections ?? []).some((c) => c.slug === collectionFilter)
       );
     }
 
@@ -368,13 +310,11 @@ function ProductsIndexPage() {
           <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-                {categoryFilter === 'all' 
-                  ? 'All Products' 
-                  : categoryFilter === 'Exclusives'
-                  ? 'Exclusives'
-                  : PRODUCT_TYPE_CATEGORIES.find(cat => cat.key === categoryFilter)?.label || 'Products'}
-              </h1>
+<h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                {categoryFilter === 'all'
+                  ? 'All Products'
+                  : productTypeCategoriesForFilter.find(cat => cat.key === categoryFilter)?.label || 'Products'}
+                </h1>
               </div>
             </div>
           </div>
@@ -383,10 +323,7 @@ function ProductsIndexPage() {
         <div className="mb-8">
           {/* Mobile: Grid layout - 3 buttons first row, 2 buttons second row, full width */}
           <div className="md:hidden grid grid-cols-3 gap-2 mb-8">
-            {[
-              { key: 'all' as const, label: 'All' },
-              ...PRODUCT_TYPE_CATEGORIES
-            ].map((category, index) => {
+            {productTypeCategoriesForFilter.map((category, index) => {
               const isSecondRow = index >= 3;
               return (
                 <button
@@ -409,10 +346,7 @@ function ProductsIndexPage() {
 
           {/* Desktop: Flex layout with Filter button on the right */}
           <div className="hidden md:flex flex-wrap items-center gap-2">
-            {[
-              { key: 'all' as const, label: 'All' },
-              ...PRODUCT_TYPE_CATEGORIES
-            ].map((category) => (
+            {productTypeCategoriesForFilter.map((category) => (
               <button
                 key={category.key}
                 onClick={() => setCategoryFilter(category.key)}
@@ -634,7 +568,7 @@ function ProductsIndexPage() {
                           )} />
                           <span className="text-sm">All Categories</span>
                         </label>
-              {PRODUCT_TYPE_CATEGORIES.map((category) => (
+              {productTypeCategoriesForFilter.filter(ct => ct.key !== 'all').map((category) => (
                           <label key={category.key} className="flex items-center gap-3 cursor-pointer">
                             <input
                               type="checkbox"
