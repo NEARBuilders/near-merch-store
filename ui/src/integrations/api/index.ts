@@ -1,5 +1,7 @@
 export * from './keys';
 import type { Category } from './keys';
+export * from './collections';
+import type { Collection } from './collections';
 
 export interface CartItem {
   productId: string;
@@ -13,8 +15,8 @@ export interface CartItem {
 export const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
 export type Size = (typeof SIZES)[number];
 
-export const requiresSize = (categories: Category[] | undefined): boolean => {
-  const names = (categories ?? []).map((c) => c.name.toLowerCase());
+export const requiresSize = (items: Category[] | Collection[] | undefined): boolean => {
+  const names = (items ?? []).map((c) => c.name.toLowerCase());
   return names.some((n) => ['men', 'women', 'exclusives'].includes(n));
 };
 

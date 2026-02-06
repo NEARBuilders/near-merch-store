@@ -36,7 +36,7 @@ function CollectionsDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="text-sm font-semibold text-foreground hover:text-[#00EC97] transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg focus:outline-none focus:ring-0 border-0">
+        <button type="button" className="cursor-pointer text-sm font-semibold text-foreground hover:text-[#00EC97] transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg focus:outline-none focus:ring-0 border-0">
           Collections
           <ChevronDown className="h-4 w-4" />
         </button>
@@ -324,7 +324,7 @@ export function MarketplaceHeader() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                className="cursor-pointer relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
                 onClick={() => setIsSearchOpen((prev) => !prev)}
               >
                 <Search className="h-5 w-5" />
@@ -335,7 +335,7 @@ export function MarketplaceHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                className="cursor-pointer relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
               >
                 <Heart className="h-5 w-5" />
                 {favoritesCount > 0 && (
@@ -350,7 +350,7 @@ export function MarketplaceHeader() {
               variant="ghost"
               size="icon"
               onClick={openCartSidebar}
-              className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+              className="cursor-pointer relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
             >
                 <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && (
@@ -364,7 +364,7 @@ export function MarketplaceHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                className="cursor-pointer relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
               >
                 <Heart className="h-5 w-5" />
                 {favoritesCount > 0 && (
@@ -381,19 +381,19 @@ export function MarketplaceHeader() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                    className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
                   >
                 <User className="h-5 w-5" />
               </Button>
             </Link>
               ) : (
-                <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                    >
+<Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                      >
                       <User className="h-5 w-5" />
                     </Button>
                   </DialogTrigger>
@@ -509,7 +509,7 @@ export function MarketplaceHeader() {
                   <Button
                     variant="ghost"
                     size="icon"
-                      className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                      className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
                     >
                       <User className="h-5 w-5" />
                     </Button>
@@ -520,7 +520,7 @@ export function MarketplaceHeader() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                        className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
                       >
                         <User className="h-5 w-5" />
                       </Button>

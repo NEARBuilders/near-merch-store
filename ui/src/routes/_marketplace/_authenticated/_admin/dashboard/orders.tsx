@@ -4,7 +4,6 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink, RefreshCw, Search, ShoppingBag, ChevronDown, ChevronUp, CreditCard } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/utils/orpc";
 import { getStatusLabel, getStatusColor } from "@/lib/order-status";
@@ -28,10 +27,19 @@ type Order = Awaited<ReturnType<typeof apiClient.getAllOrders>>["orders"][0];
 function OrdersError({ error }: { error: Error }) {
   const router = useRouter();
 
+  const isDatabaseError = error.message?.includes('relation') || 
+                         error.message?.includes('table') ||
+                         error.message?.includes('column');
+
   return (
     <div className="text-center py-12">
       <p className="text-destructive mb-2 font-semibold">Failed to load orders</p>
       <p className="text-sm text-foreground/90 dark:text-muted-foreground mb-4">{error.message}</p>
+      {isDatabaseError && (
+        <p className="text-xs text-foreground/60 dark:text-muted-foreground mb-4">
+          Database may not be initialized. Run <code className="bg-background px-1.5 py-0.5 rounded text-[#00EC97]">bun db:migrate</code> in your terminal.
+        </p>
+      )}
       <button
         type="button"
         onClick={() => router.invalidate()}

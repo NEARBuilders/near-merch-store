@@ -11,7 +11,7 @@ export async function hydrate() {
 
   const { hydrateRoot } = await import("react-dom/client");
   const { RouterClient } = await import("@tanstack/react-router/ssr/client");
-  const { QueryClientProvider } = await import("@tanstack/react-query");
+  const { QueryClientProvider, hydrate } = await import("@tanstack/react-query");
   const { createRouter } = await import("./router");
 
   const { router, queryClient } = createRouter({
@@ -20,6 +20,11 @@ export async function hydrate() {
       runtimeConfig,
     },
   });
+
+  // if (typeof window !== "undefined" && (window as any).__DEHYDRATED_STATE__) {
+  //   hydrate(queryClient, (window as any).__DEHYDRATED_STATE__);
+  //   delete (window as any).__DEHYDRATED_STATE__;
+  // }
 
   console.log("[Hydrate] Calling hydrateRoot...");
   hydrateRoot(

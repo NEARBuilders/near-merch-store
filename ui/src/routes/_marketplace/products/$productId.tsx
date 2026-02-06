@@ -178,7 +178,7 @@ function ProductDetailPage() {
   const isInitialMountRef = useRef(true);
 
   const { data: relatedData } = useProducts({
-    categoryIds: product.categories?.map((c) => c.id) ?? [],
+    collectionSlugs: product.collections?.map((c) => c.slug) ?? [],
     limit: 4,
   });
   const relatedProducts = (relatedData?.products ?? [])
@@ -265,7 +265,7 @@ function ProductDetailPage() {
   const isFavorite = favoriteIds.includes(product.id);
 
   const needsSize =
-    requiresSize(product.categories) && hasVariants && orderedSizes.length > 0;
+    requiresSize(product.collections) && hasVariants && orderedSizes.length > 0;
 
   const handleAddToCart = () => {
     if (!selectedVariant) return;
@@ -312,7 +312,7 @@ function ProductDetailPage() {
           {/* Title Block */}
           <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
             <div className="flex items-center justify-end gap-3">
-              {(product.categories ?? []).some((c) => c.name === "Exclusives") && (
+              {(product.collections ?? []).some((c) => c.name === "Exclusives") && (
                 <div className="h-[40px] flex items-center justify-center bg-muted/30 px-3 py-2 text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60 rounded-lg">
                   EXCLUSIVE
                 </div>
@@ -632,7 +632,7 @@ function ProductDetailPage() {
                 You Might Also Like
               </h2>
                 </div>
-                <Link to="/products" className="shrink-0">
+                <Link to="/products" search={() => ({ category: "", categoryId: undefined, collection: undefined })} className="shrink-0">
                   <Button className="bg-[#00EC97] text-black hover:bg-[#00d97f] rounded-lg h-14 text-base font-bold whitespace-nowrap">
                     All Products
                   </Button>

@@ -11,10 +11,10 @@ export const Route = createFileRoute("/_marketplace")({
 
 function MarketplaceLayout() {
   return (
-    <div className="min-h-screen w-full relative bg-background">
+    <div className="min-h-screen w-full relative bg-background flex flex-col">
       <MarketplaceHeader />
 
-      <main className="border-0 relative bg-background">
+      <main className="border-0 relative bg-background flex-1">
         <Outlet />
       </main>
 

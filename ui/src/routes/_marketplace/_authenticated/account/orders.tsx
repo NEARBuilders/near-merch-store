@@ -5,7 +5,6 @@ import { ExternalLink, Package } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { apiClient } from '@/utils/orpc';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { getStatusLabel, getStatusColor } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
 

@@ -149,7 +149,7 @@ function CollectionsPage() {
               Browse our entire collection and find the perfect piece for you.
             </p>
           </div>
-            <Link to="/products">
+            <Link to="/products" search={() => ({ category: "", categoryId: undefined, collection: undefined })}>
               <button
                 type="button"
                 className="px-8 py-3 rounded-lg bg-[#00EC97] text-black flex items-center justify-center font-semibold text-base hover:bg-[#00d97f] transition-colors mx-auto"

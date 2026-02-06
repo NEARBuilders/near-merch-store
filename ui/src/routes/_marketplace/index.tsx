@@ -25,7 +25,6 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
-  ShoppingCart,
 } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 
@@ -68,6 +67,9 @@ function MarketplaceHome() {
   const { data: productTypesData } = useProductTypes();
   const productTypes = productTypesData?.productTypes ?? [];
   
+  const { data: carouselData } = useCarouselCollections();
+  const collections = carouselData?.collections ?? [];
+  
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>('all');
   const [currentProductIndex, setCurrentProductIndex] = useState(0);
   
@@ -77,23 +79,11 @@ function MarketplaceHome() {
   
   const productTypeCategoriesForFilter = useMemo(() => [
     { key: 'all', label: 'All' },
-    ...productTypes.map(pt => ({ key: pt.slug, label: pt.label }))
+    ...productTypes.map((pt) => ({ key: pt.slug, label: pt.label }))
   ], [productTypes]);
 
-const { data: allProductsData } = useProducts({ limit: 100 });
+ const { data: allProductsData } = useProducts({ limit: 100 });
   const allProducts = allProductsData?.products || [];
-    
-  const getProductImage = (product: Product | undefined) => {
-    if (!product) return null;
-    const variantImages = product.images?.filter(
-      (img) => img.type !== "mockup" && img.type !== "detail" && img.variantIds && img.variantIds.length > 0
-    ) || [];
-    return variantImages[0]?.url ||
-           product.variants?.[0]?.fulfillmentConfig?.designFiles?.[0]?.url ||
-           product.images?.find((img) => img.type !== "mockup" && img.type !== "detail")?.url ||
-           product.thumbnailImage ||
-           null;
-  };
 
   const handleQuickAdd = (product: Product) => {
     setSizeModalProduct(product);
@@ -105,16 +95,11 @@ const { data: allProductsData } = useProducts({ limit: 100 });
     openCartSidebar();
   };
 
-  const getProductPrice = (product: Product | undefined) => {
-    if (!product) return null;
-    return product.price ? `$${product.price.toFixed(2)}` : null;
-  };
-
   const filteredProducts = useMemo(() => {
     if (selectedProductCategory === 'all') {
       return featuredProducts;
     }
-    return featuredProducts.filter((product) => {
+    return featuredProducts.filter((product: Product) => {
       return product.productType?.slug === selectedProductCategory;
     });
   }, [featuredProducts, selectedProductCategory]);
@@ -124,9 +109,9 @@ const { data: allProductsData } = useProducts({ limit: 100 });
       return filteredProducts.slice(0, 3);
     }
     
-    const additionalProducts = allProducts.filter((product) => {
+    const additionalProducts = allProducts.filter((product: Product) => {
       return product.productType?.slug === selectedProductCategory && 
-             !filteredProducts.some(p => p.id === product.id);
+             !filteredProducts.some((p: Product) => p.id === product.id);
     }).slice(0, 3 - filteredProducts.length);
     
     return [...filteredProducts, ...additionalProducts].slice(0, 3);
@@ -135,20 +120,19 @@ const { data: allProductsData } = useProducts({ limit: 100 });
   const slides = useMemo(() => {
     const glowColors = ["#00ec97", "#0066ff", "#ff6b6b", "#ffd93d", "#6c5ce7", "#00b894"];
     
-    return featuredProducts.slice(0, 4).map((product, index) => ({
-      badge: "FEATURED",
-      title: product.title.split(' ').slice(0, 3).join(' ').toUpperCase(),
-      subtitle: product.title.split(' ').slice(3).join(' ').toUpperCase() || "MERCH",
-      description: product.description || `Discover ${product.title} - exclusive NEAR merch`,
-      buttonText: "Shop Now",
-      image: getProductImage(product),
+    return collections.slice(0, 4).map((collection: any, index: number) => ({
+      badge: "COLLECTION",
+      title: (collection.carouselTitle || collection.name).split(' ').slice(0, 3).join(' ').toUpperCase(),
+      subtitle: (collection.carouselTitle || collection.name).split(' ').slice(3).join(' ').toUpperCase() || "COLLECTION",
+      description: collection.carouselDescription || collection.description || `Discover ${collection.name} - exclusive NEAR merch collection`,
+      buttonText: "View Collection",
+      image: collection.featuredProduct?.thumbnailImage || null,
       gradientFrom: "#012216",
       gradientTo: glowColors[index % glowColors.length],
       glowColor: glowColors[index % glowColors.length],
-      price: getProductPrice(product) || "$24",
-      product: product,
+      collection: collection,
     }));
-  }, [featuredProducts]);
+  }, [collections]);
 
   const nextSlide = () => {
     if (!isAnimating && slides.length > 0) {
@@ -301,63 +285,39 @@ const { data: allProductsData } = useProducts({ limit: 100 });
                 </div>
               </div>
 
-              {activeSlide.product && (
+              {activeSlide.collection && (
                 <>
                   <div className="hidden lg:block absolute top-4 right-4 z-30">
-                    <div className="rounded-lg bg-background/40 backdrop-blur-sm border border-border/40 px-3 py-1.5 flex items-center gap-0 group transition-all duration-200 hover:bg-[#00EC97] hover:border-[#00EC97] hover:px-4 hover:gap-2 overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (activeSlide.product) {
-                            handleQuickAdd(activeSlide.product);
-                          }
-                        }}
-                        className="text-lg font-semibold text-foreground group-hover:text-black whitespace-nowrap transition-colors bg-transparent border-0 p-0 cursor-pointer"
-                      >
-                        {activeSlide.price}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (activeSlide.product) {
-                            handleQuickAdd(activeSlide.product);
-                          }
-                        }}
-                        className="flex items-center w-0 opacity-0 group-hover:w-auto group-hover:opacity-100 transition-all duration-200 p-1.5 rounded-md bg-transparent hover:bg-transparent"
-                      >
-                        <ShoppingCart className="h-4 w-4 text-black" />
-                      </button>
-                    </div>
+                    <Link
+                      to="/products"
+                      search={{ category: 'all', categoryId: undefined, collection: activeSlide.collection?.slug }}
+                      className="rounded-lg bg-background/40 backdrop-blur-sm border border-border/40 px-4 py-1.5 flex items-center gap-2 transition-all duration-200 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black group"
+                    >
+                      <span className="text-base font-semibold whitespace-nowrap">
+                        View Collection
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
                   </div>
 
                   <div className="lg:hidden absolute top-4 right-4 z-30">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (activeSlide.product) {
-                          handleQuickAdd(activeSlide.product);
-                        }
-                      }}
+                    <Link
+                      to="/products"
+                      search={{ category: 'all', categoryId: undefined, collection: activeSlide.collection?.slug }}
                       className="rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 px-3 py-1.5 flex items-center gap-2 active:bg-[#00EC97] active:border-[#00EC97] transition-all duration-200 shadow-lg group"
                     >
-                      <span className="text-base font-semibold text-foreground group-active:text-black whitespace-nowrap">
-                        {activeSlide.price}
+                      <span className="text-sm font-semibold">
+                        View Collection
                       </span>
-                      <ShoppingCart className="h-4 w-4 text-foreground group-active:text-black" />
-                    </button>
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
                   </div>
                 </>
               )}
 
               <div className="absolute inset-x-0 bottom-4 flex items-center justify-between px-4 z-30">
                 <div className="flex items-center gap-2">
-                  <Link to="/products" search={{ category: 'all', categoryId: undefined, collection: undefined }} className="lg:hidden">
+                  <Link to="/products" search={{ category: 'all', categoryId: undefined, collection: activeSlide.collection?.slug }} className="lg:hidden">
                     <button
                       type="button"
                       className="inline-flex items-center justify-center px-4 py-2.5 h-[40px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs hover:bg-[#00d97f] transition-colors whitespace-nowrap"
@@ -366,7 +326,7 @@ const { data: allProductsData } = useProducts({ limit: 100 });
                     </button>
                   </Link>
                   <div className="hidden lg:flex items-center gap-2">
-                    {slides.map((_, index) => (
+                    {slides.map((_: any, index: number) => (
                       <button
                         key={index}
                         type="button"
@@ -427,9 +387,9 @@ const { data: allProductsData } = useProducts({ limit: 100 });
         <div className="relative w-full h-64 md:h-96 bg-gradient-to-b from-transparent via-background/50 to-background pointer-events-none -mt-64 md:-mt-96 z-[5]" />
       )}
 
-      <section className={cn("section-padding relative z-10", !activeSlide && "pt-32 md:pt-40")} id="collections">
+      <section className={cn("section-padding relative z-10", !activeSlide && "pt-32 md:pt-40")} id="featured-products">
         <div className="container-app">
-          <CollectionCarousel />
+          <ProductCarousel />
         </div>
       </section>
 
@@ -517,7 +477,7 @@ const { data: allProductsData } = useProducts({ limit: 100 });
               </div>
               
               <div className="hidden md:grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {displayProducts?.map((product) => (
+                {displayProducts?.map((product: Product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
@@ -651,9 +611,9 @@ const { data: allProductsData } = useProducts({ limit: 100 });
   );
 }
 
-function CollectionCarousel() {
-  const { data: carouselData } = useCarouselCollections();
-  const collections = carouselData?.collections ?? [];
+function ProductCarousel() {
+  const { data: featuredData } = useFeaturedProducts(6);
+  const products = featuredData?.products ?? [];
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -661,13 +621,16 @@ function CollectionCarousel() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const carouselItems = useMemo(() => {
-    return collections.map((collection) => ({
-      name: collection.carouselTitle || collection.name,
-      slug: collection.slug,
-      description: collection.carouselDescription || collection.description,
-      image: collection.featuredProduct?.thumbnailImage || null,
+    return products.slice(0, 6).map((product: Product) => ({
+      id: product.id,
+      name: product.title,
+      slug: product.slug,
+      description: product.description || product.title,
+      image: product.thumbnailImage || product.images?.[0]?.url || null,
+      price: product.price ? `$${product.price.toFixed(2)}` : null,
+      product: product,
     }));
-  }, [collections]);
+  }, [products]);
 
   const nextItem = () => {
     setUserInteracted(true);
@@ -733,7 +696,7 @@ function CollectionCarousel() {
     >
       <div className="md:hidden relative w-full overflow-hidden">
         <div className="relative h-[450px] flex items-center justify-start w-full px-4">
-          {carouselItems.map((item, index) => {
+          {carouselItems.map((item: any, index: number) => {
             const isCurrent = index === currentIndex;
             const isNext = index === (currentIndex + 1) % carouselItems.length;
             const isVisible = isCurrent || isNext;
@@ -755,8 +718,8 @@ function CollectionCarousel() {
                 }}
               >
                 <Link
-                  to="/products"
-                  search={{ category: 'all', categoryId: undefined, collection: item.slug }}
+                  to="/products/$productId"
+                  params={{ productId: item.id }}
                   className="block group"
                 >
                   <div className="relative w-[calc(100vw-3rem)] max-w-[340px] h-[400px] rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 overflow-hidden transition-all duration-500 hover:border-[#00EC97] hover:shadow-xl">
@@ -775,16 +738,21 @@ function CollectionCarousel() {
                       <div className="absolute inset-0 bg-muted" />
                     )}
                     
-                    <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
-                      <h4 className="text-2xl font-bold text-foreground mb-2 drop-shadow-lg">
-                        {item.name}
-                      </h4>
-                      {item.description && (
-                        <p className="text-foreground/90 dark:text-muted-foreground text-sm line-clamp-2">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
+<div className="absolute bottom-0 left-0 right-0 p-6 z-10">
+                       <h4 className="text-2xl font-bold text-foreground mb-2 drop-shadow-lg">
+                         {item.name}
+                       </h4>
+                       {item.price && (
+                         <p className="text-[#00EC97] font-bold text-lg mb-2 drop-shadow-lg">
+                           {item.price}
+                         </p>
+                       )}
+                       {item.description && (
+                         <p className="text-foreground/90 dark:text-muted-foreground text-sm line-clamp-2">
+                           {item.description}
+                         </p>
+                       )}
+                     </div>
 
                     {isCurrent && (
                       <div className="absolute bottom-4 right-4 z-20">
@@ -813,7 +781,7 @@ function CollectionCarousel() {
         className="hidden md:block relative h-[700px] lg:h-[800px] flex items-center justify-center w-full"
         style={{ perspective: '1000px' }}
       >
-        {visibleItems.map((item, index) => {
+        {visibleItems.map((item: any, index: number) => {
           const isCenter = item.position === 'center';
           const isLeft = item.position === 'left';
           
@@ -834,8 +802,8 @@ function CollectionCarousel() {
               }}
             >
               <Link
-                to="/products"
-                search={{ category: 'all', categoryId: undefined, collection: item.slug }}
+                to="/products/$productId"
+                params={{ productId: item.id }}
                 className="block group"
               >
                 <div className="relative w-[580px] lg:w-[680px] h-[650px] lg:h-[720px] rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 overflow-hidden transition-all duration-500 hover:border-[#00EC97] hover:shadow-xl">
@@ -858,6 +826,11 @@ function CollectionCarousel() {
                     <h4 className="text-3xl md:text-4xl font-bold text-foreground mb-2 drop-shadow-lg">
                       {item.name}
                     </h4>
+                    {item.price && (
+                      <p className="text-[#00EC97] font-bold text-xl mb-2 drop-shadow-lg">
+                        {item.price}
+                      </p>
+                    )}
                     {item.description && (
                       <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base line-clamp-2">
                         {item.description}

@@ -67,7 +67,7 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-2028-ui-near-merch-store-nearbuilder-eb953ac3b-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-2031-ui-near-merch-store-nearbuilder-f7adc1edb-ze.zephyrcloud.app",
       "exposes": {
         "./Router": "./src/router.tsx",
         "./Hydrate": "./src/hydrate.tsx",
@@ -77,7 +77,7 @@
         "./hooks": "./src/hooks/index.ts",
         "./types": "./src/types/index.ts"
       },
-      "ssr": "https://elliot-braem-2029-ui-near-merch-store-nearbuilder-e397406da-ze.zephyrcloud.app"
+      "ssr": "https://elliot-braem-2032-ui-near-merch-store-nearbuilder-31fb90b63-ze.zephyrcloud.app"
     },
     "api": {
       "name": "api",

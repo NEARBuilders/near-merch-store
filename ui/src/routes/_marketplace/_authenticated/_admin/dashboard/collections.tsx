@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useCollections, useCreateCollection, useDeleteCollection, useUpdateCollection, useSuspenseCollection, useUpdateCollectionFeaturedProduct, type Collection } from "@/integrations/api";
 import { Label } from "@/components/ui/label";
-import { ChevronDown, ChevronRight, X, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, X, Search, Package } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -49,7 +49,7 @@ function AdminCollections() {
 
   const { data: expandedCollectionData } = useSuspenseCollection(expandedRow ?? '');
   const productsInCollection = useMemo(() => {
-    if (!expandedRow || !expandedCollectionData?.products) return [];
+    if (!expandedRow || !expandedCollectionData?.products || expandedRow === '') return [];
 
     return [...expandedCollectionData.products].sort((a, b) => {
       const aFeatured = a.featured === true ? 0 : 1;
@@ -125,8 +125,12 @@ function AdminCollections() {
           </div>
         </div>
       ) : collections.length === 0 ? (
-        <div className="text-sm text-foreground/70 dark:text-muted-foreground p-4">
-          No collections yet.
+        <div className="rounded-2xl bg-background border border-border/60 p-12 text-center">
+          <Package className="mx-auto h-12 w-12 text-foreground/50 dark:text-muted-foreground mb-4" />
+          <p className="text-foreground/90 dark:text-muted-foreground font-medium">No collections yet</p>
+          <p className="text-sm text-foreground/70 dark:text-muted-foreground mt-1">
+            Create your first collection using the form above
+          </p>
         </div>
       ) : (
         <div className="rounded-2xl bg-background border border-border/60 overflow-hidden">

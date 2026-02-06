@@ -5,7 +5,6 @@ import type { ContractRouterClient } from '@orpc/contract';
 import { QueryCache, QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { contract } from '../../../api/src/contract';
-import { getApiBaseUrl } from './runtime';
 
 export type ApiContract = typeof contract;
 export type ApiClient = ContractRouterClient<ApiContract>;
@@ -39,7 +38,7 @@ export const queryClient = new QueryClient({
 
 function createApiLink() {
   return new RPCLink({
-    url: getApiBaseUrl,
+    url: `${typeof window !== 'undefined' ? API_URL : '/api/rpc'}`,
     interceptors: [
       onError((error: unknown) => {
         console.error('oRPC API Error:', error);

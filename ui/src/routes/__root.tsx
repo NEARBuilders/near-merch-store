@@ -124,7 +124,7 @@ function RootComponent() {
           <Toaster position="bottom-right" richColors closeButton />
         </ThemeProvider>
         <Scripts />
-        {process.env.NODE_ENV === "development" && (
+        {true && (
           <ClientOnly>
             <TanStackDevtools
               config={{ position: "bottom-right" }}

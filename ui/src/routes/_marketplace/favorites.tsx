@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeft, Heart } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useCart } from '@/hooks/use-cart';
 import { ProductCard } from '@/components/marketplace/product-card';
