@@ -39,6 +39,7 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "^1.157.15",
     "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.18",
     "better-auth": "catalog:",
     "better-near-auth": "catalog:",
     "class-variance-authority": "^0.7.1",

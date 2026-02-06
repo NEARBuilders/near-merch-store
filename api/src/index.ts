@@ -871,7 +871,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         }
 
         try {
-          const payload = JSON.parse(input.body);
+const payload = JSON.parse(input.body);
           const eventType = payload.type;
           const data = payload.data;
 
@@ -879,6 +879,8 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
           if (!externalId) {
             return { received: true };
           }
+
+          console.log(`[Printful Webhook] Processing event: ${eventType}, order: ${externalId}`);
 
           const order = await Effect.runPromise(
             Effect.gen(function* () {
@@ -902,7 +904,6 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
               break;
 
             case 'shipment_sent':
-            case 'package_shipped':
               newStatus = 'shipped';
               if (data.shipment) {
                 newTracking = [{
@@ -919,6 +920,26 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
 
             case 'shipment_returned':
               newStatus = 'returned';
+              break;
+
+            case 'shipment_canceled':
+              newStatus = 'partially_cancelled';
+              break;
+
+            case 'shipment_out_of_stock':
+              newStatus = 'on_hold';
+              console.warn(`[Printful Webhook] Out of stock for order ${externalId}`);
+              break;
+
+            case 'shipment_put_hold':
+            case 'shipment_put_hold_approval':
+              newStatus = 'on_hold';
+              break;
+
+            case 'shipment_remove_hold':
+              if (order.status === 'on_hold') {
+                newStatus = 'processing';
+              }
               break;
 
             case 'order_put_hold':
@@ -940,7 +961,12 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
               newStatus = 'failed';
               break;
 
+            case 'order_refunded':
+              newStatus = 'refunded';
+              break;
+
             default:
+              console.warn(`[Printful Webhook] Unhandled event type: ${eventType}`);
               break;
           }
 
@@ -964,7 +990,13 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             );
           }
         } catch (error) {
-          if (error instanceof ORPCError) throw error;
+          if (error instanceof ORPCError) {
+            console.error(`[Printful Webhook] ORPC error:`, error);
+            throw error;
+          }
+
+          // Log other errors but don't throw - return 200 to avoid webhook retries
+          console.error(`[Printful Webhook] Processing error:`, error);
         }
 
         return { received: true };
@@ -1065,24 +1097,29 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         const timestamp = context.reqHeaders?.get('x-ping-timestamp') || '';
         const body = JSON.stringify(input);
 
-        const webhookResult = await Effect.runPromise(
-          Effect.tryPromise({
-            try: async () => {
-              const result = await pingProvider.client.verifyWebhook({
-                body,
-                signature,
-                timestamp,
-              });
-              return result;
-            },
-            catch: (error) =>
-              new Error(`Webhook verification failed: ${error instanceof Error ? error.message : String(error)}`),
-          })
+const webhookResult = await Effect.runPromise(
+            Effect.tryPromise({
+              try: async () => {
+                const result = await pingProvider.client.verifyWebhook({
+                  body,
+                  signature,
+                  timestamp,
+                });
+                return result;
+              },
+              catch: (error) => {
+                console.error(`[PingPay Webhook] Verification failed:`, error);
+                const verificationError = new Error(`Webhook verification failed: ${error instanceof Error ? error.message : String(error)}`);
+                throw verificationError;
+              }
+            })
         );
 
         const eventType = webhookResult.eventType;
 
         const { orderId, sessionId } = webhookResult;
+
+        console.log(`[PingPay Webhook] Processing event: ${eventType}, order: ${orderId}, session: ${sessionId}`);
 
         let order = orderId
           ? await Effect.runPromise(
@@ -1185,6 +1222,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             break;
 
           default:
+            console.warn(`[PingPay Webhook] Unhandled event type: ${eventType}`);
             break;
         }
 

@@ -1,7 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useEffect } from "react";
-import { toast } from "sonner";
 import {
   useReactTable,
   getCoreRowModel,
@@ -33,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
 import {
   useProducts,
   useCategories,
@@ -54,34 +54,7 @@ export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashbo
   component: InventoryManagement,
 });
 
-function CopyIdButton({ id }: { id: string }) {
-  const [copied, setCopied] = useState(false);
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(id);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="p-1 rounded hover:bg-background/60 transition-colors"
-      title={copied ? 'Copied!' : 'Copy ID'}
-    >
-      {copied ? (
-        <div className="text-[#00EC97]">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-      ) : (
-        <Copy className="size-4 text-foreground/50 dark:text-muted-foreground" />
-      )}
-    </button>
-  );
-}
 
 function TagsEditor({
   tags,
@@ -236,7 +209,11 @@ function InventoryManagement() {
   const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const handleSync = () => {
-    syncMutation.mutate();
+    syncMutation.mutate(undefined, {
+      onSuccess: () => {
+        refetch();
+      },
+    });
   };
 
   const handleToggleListing = (productId: string, currentlyListed: boolean) => {
@@ -270,19 +247,25 @@ function InventoryManagement() {
       accessorKey: "thumbnailImage",
       header: "",
       cell: ({ row }) => (
-        <div className="size-12 bg-muted border border-border/60 overflow-hidden rounded-lg">
-          {row.original.thumbnailImage ? (
-            <img
-              src={row.original.thumbnailImage}
-              alt={row.original.title}
-              className="size-full object-cover"
-            />
-          ) : (
-            <div className="size-full flex items-center justify-center">
-              <Package className="size-4 text-foreground/50 dark:text-muted-foreground" />
-            </div>
-          )}
-        </div>
+        <Link
+          to="/products/$productId"
+          params={{ productId: row.original.id }}
+          className="block"
+        >
+          <div className="size-12 bg-muted border border-border/60 overflow-hidden rounded-lg group-hover:border-[#00EC97] group-hover:opacity-80 transition-all cursor-pointer">
+            {row.original.thumbnailImage ? (
+              <img
+                src={row.original.thumbnailImage}
+                alt={row.original.title}
+                className="size-full object-cover"
+              />
+            ) : (
+              <div className="size-full flex items-center justify-center">
+                <Package className="size-4 text-foreground/50 dark:text-muted-foreground" />
+              </div>
+            )}
+          </div>
+        </Link>
       ),
       enableSorting: false,
       size: 48,
@@ -299,12 +282,116 @@ function InventoryManagement() {
           <ArrowUpDown className="ml-2 size-4" />
         </Button>
       ),
-      cell: ({ row }) => (
-        <div>
-          <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground">{row.original.title}</p>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const [copied, setCopied] = useState(false);
+        const productUrl = `${window.location.origin}/products/${row.original.id}`;
+
+        const handleCopy = async (e: React.MouseEvent) => {
+          e.preventDefault();
+          await navigator.clipboard.writeText(productUrl);
+          setCopied(true);
+          toast.success('Product link copied');
+          setTimeout(() => setCopied(false), 2000);
+        };
+
+        return (
+          <Link
+            to="/products/$productId"
+            params={{ productId: row.original.id }}
+            className="flex items-center gap-2 w-full"
+          >
+            <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors flex-1">{row.original.title}</p>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className={cn(
+                "text-foreground/50 dark:text-muted-foreground hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors",
+                copied && "text-[#00EC97]"
+              )}
+              title={copied ? "Copied!" : "Copy product link"}
+            >
+              <Copy className="size-3.5" />
+            </button>
+          </Link>
+        );
+      },
       size: 200,
+    },
+    {
+      id: "listed",
+      accessorKey: "listed",
+      header: "Status",
+      cell: ({ row }) => {
+        const isListed = row.original.listed !== false;
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleToggleListing(row.original.id, isListed)}
+              disabled={updateListingMutation.isPending}
+              className={cn(
+                "h-8 px-2",
+                isListed
+                  ? "text-[#00EC97] hover:text-[#00EC97] hover:bg-[#00EC97]/10"
+                  : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40"
+              )}
+              title={isListed ? "Listed - Click to delist" : "Delisted - Click to list"}
+            >
+              {isListed ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+            </Button>
+            <span className="text-xs text-foreground/70 dark:text-muted-foreground">{isListed ? "Listed" : "Delisted"}</span>
+          </div>
+        );
+      },
+      size: 100,
+    },
+    {
+      accessorKey: "featured",
+      header: "Featured",
+      cell: ({ row }) => {
+        const isFeatured = row.original.featured === true;
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => updateFeaturedMutation.mutate({
+              id: row.original.id,
+              featured: !isFeatured
+            })}
+            disabled={updateFeaturedMutation.isPending}
+            className={cn(
+              "h-8 px-2",
+              isFeatured
+                ? "text-[#00EC97] hover:text-[#00EC97] hover:bg-[#00EC97]/10"
+                : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40"
+            )}
+            title={isFeatured ? "Featured - Click to unfeature" : "Not featured - Click to feature"}
+          >
+            <Star className={cn("size-4", isFeatured && "fill-[#00EC97]")} />
+          </Button>
+        );
+      },
+      size: 80,
+    },
+    {
+      accessorKey: "price",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-auto p-0 font-medium hover:bg-transparent"
+        >
+          Price
+          <ArrowUpDown className="ml-2 size-4" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm text-foreground/90 dark:text-muted-foreground">
+          ${row.original.price.toFixed(2)} {row.original.currency}
+        </span>
+      ),
+      size: 100,
     },
     {
       accessorKey: "collections",
@@ -379,7 +466,7 @@ function InventoryManagement() {
           </Popover>
         );
       },
-      size: 180,
+      size: 220,
     },
     {
       accessorKey: "productType",
@@ -439,7 +526,7 @@ function InventoryManagement() {
           </Popover>
         );
       },
-      size: 120,
+      size: 140,
     },
     {
       accessorKey: "tags",
@@ -452,63 +539,18 @@ function InventoryManagement() {
           isPending={updateTagsMutation.isPending}
         />
       ),
-      size: 150,
+      size: 180,
     },
     {
-      accessorKey: "featured",
-      header: "Featured",
-      cell: ({ row }) => {
-        const isFeatured = row.original.featured === true;
-        return (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => updateFeaturedMutation.mutate({ 
-              id: row.original.id, 
-              featured: !isFeatured 
-            })}
-            disabled={updateFeaturedMutation.isPending}
-            className={cn(
-              "h-8 px-2",
-              isFeatured
-                ? "text-[#00EC97] hover:text-[#00EC97] hover:bg-[#00EC97]/10"
-                : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40"
-            )}
-            title={isFeatured ? "Featured - Click to unfeature" : "Not featured - Click to feature"}
-          >
-            <Star className={cn("size-4", isFeatured && "fill-[#00EC97]")} />
-          </Button>
-        );
-      },
+      accessorKey: "variants",
+      header: "Variants",
+      cell: ({ row }) => (
+        <span className="text-sm text-foreground/70 dark:text-muted-foreground">{row.original.variants?.length || 0}</span>
+      ),
       size: 80,
-    },
-    {
-      id: "copyId",
-      header: "",
-      cell: ({ row }) => (
-        <CopyIdButton id={row.original.id} />
-      ),
-      enableSorting: false,
-      size: 40,
-    },
-    {
-      accessorKey: "price",
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="h-auto p-0 font-medium hover:bg-transparent"
-        >
-          Price
-          <ArrowUpDown className="ml-2 size-4" />
-        </Button>
-      ),
-      cell: ({ row }) => (
-        <span className="text-sm text-foreground/90 dark:text-muted-foreground">
-          ${row.original.price.toFixed(2)} {row.original.currency}
-        </span>
-      ),
-      size: 100,
+      meta: {
+        hideOnMobile: true,
+      },
     },
     {
       accessorKey: "fulfillmentProvider",
@@ -526,43 +568,9 @@ function InventoryManagement() {
         </Badge>
       ),
       size: 100,
-    },
-    {
-      accessorKey: "variants",
-      header: "Variants",
-      cell: ({ row }) => (
-        <span className="text-sm text-foreground/70 dark:text-muted-foreground">{row.original.variants?.length || 0}</span>
-      ),
-      size: 80,
-    },
-    {
-      id: "listed",
-      accessorKey: "listed",
-      header: "Status",
-      cell: ({ row }) => {
-        const isListed = row.original.listed !== false;
-        return (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleToggleListing(row.original.id, isListed)}
-              disabled={updateListingMutation.isPending}
-              className={cn(
-                "h-8 px-2",
-                isListed
-                  ? "text-[#00EC97] hover:text-[#00EC97] hover:bg-[#00EC97]/10"
-                  : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40"
-              )}
-              title={isListed ? "Listed - Click to delist" : "Delisted - Click to list"}
-            >
-              {isListed ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
-            </Button>
-            <span className="text-xs text-foreground/70 dark:text-muted-foreground">{isListed ? "Listed" : "Delisted"}</span>
-          </div>
-        );
+      meta: {
+        hideOnMobile: true,
       },
-      size: 100,
     },
   ];
 
@@ -772,37 +780,39 @@ function InventoryManagement() {
               return (
                 <div key={row.id} className="p-4 space-y-3 hover:bg-background/40 transition-colors max-w-full overflow-x-hidden">
                   <div className="flex items-start gap-3">
-                    <div className="size-16 bg-muted border border-border/60 overflow-hidden rounded-lg shrink-0">
-                      {product.thumbnailImage ? (
-                        <img
-                          src={product.thumbnailImage}
-                          alt={product.title}
-                          className="size-full object-cover"
-                        />
-                      ) : (
-                        <div className="size-full flex items-center justify-center">
-                          <Package className="size-5 text-foreground/50 dark:text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
+                    <Link
+                      to="/products/$productId"
+                      params={{ productId: product.id }}
+                      className="shrink-0"
+                    >
+                      <div className="size-16 bg-muted border border-border/60 overflow-hidden rounded-lg group-hover:border-[#00EC97] transition-colors">
+                        {product.thumbnailImage ? (
+                          <img
+                            src={product.thumbnailImage}
+                            alt={product.title}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <div className="size-full flex items-center justify-center">
+                            <Package className="size-5 text-foreground/50 dark:text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    </Link>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground truncate">{product.title}</p>
+                      <Link
+                        to="/products/$productId"
+                        params={{ productId: product.id }}
+                        className="block w-full"
+                      >
+                        <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground truncate hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors">{product.title}</p>
+                      </Link>
                       <div className="flex items-center gap-2 mt-2">
                         {product.collections && product.collections.length > 0 && (
                           <Badge variant="outline" className="font-normal text-xs">
                             {product.collections[0]?.name}
                           </Badge>
                         )}
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "font-normal text-xs capitalize",
-                            product.fulfillmentProvider === "printful" && "bg-[#3d7fff]/10 text-[#3d7fff] border-[#3d7fff]",
-                            product.fulfillmentProvider === "gelato" && "bg-[#635bff]/10 text-[#635bff] border-[#635bff]"
-                          )}
-                        >
-                          {product.fulfillmentProvider}
-                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -810,9 +820,6 @@ function InventoryManagement() {
                     <div className="space-y-1">
                       <p className="text-xs text-foreground/70 dark:text-muted-foreground">
                         ${product.price.toFixed(2)} {product.currency}
-                      </p>
-                      <p className="text-xs text-foreground/50 dark:text-muted-foreground">
-                        {product.variants?.length || 0} variants
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

@@ -5,9 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useCollections, useCreateCollection, useDeleteCollection, useUpdateCollection, type Collection } from "@/integrations/api";
+import { useCollections, useCreateCollection, useDeleteCollection, useUpdateCollection, useSuspenseCollection, useUpdateCollectionFeaturedProduct, type Collection } from "@/integrations/api";
 import { Label } from "@/components/ui/label";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, X, Search } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/collections")({
   component: AdminCollections,
@@ -28,10 +41,27 @@ function AdminCollections() {
   const createMutation = useCreateCollection();
   const deleteMutation = useDeleteCollection();
   const updateMutation = useUpdateCollection();
+  const updateFeaturedMutation = useUpdateCollectionFeaturedProduct();
 
   const [name, setName] = useState("");
   const [editCollection, setEditCollection] = useState<Collection | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  const { data: expandedCollectionData } = useSuspenseCollection(expandedRow ?? '');
+  const productsInCollection = useMemo(() => {
+    if (!expandedRow || !expandedCollectionData?.products) return [];
+
+    return [...expandedCollectionData.products].sort((a, b) => {
+      const aFeatured = a.featured === true ? 0 : 1;
+      const bFeatured = b.featured === true ? 0 : 1;
+
+      if (aFeatured !== bFeatured) {
+        return aFeatured - bFeatured;
+      }
+
+      return a.title.localeCompare(b.title);
+    });
+  }, [expandedRow, expandedCollectionData?.products]);
 
   const handleExpandRow = (slug: string, collection: Collection) => {
     setExpandedRow(expandedRow === slug ? null : slug);
@@ -160,10 +190,6 @@ function AdminCollections() {
                       <td colSpan={5} className="p-4 bg-background/30">
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="space-y-2">
-                            <Label>Slug</Label>
-                            <div className="text-sm text-foreground/90 dark:text-muted-foreground">{collection.slug}</div>
-                          </div>
-                          <div className="space-y-2">
                             <Label>Description</Label>
                             <Input
                               value={editCollection?.description ?? ""}
@@ -209,13 +235,85 @@ function AdminCollections() {
                               <span className="text-sm font-medium">Show in carousel</span>
                             </label>
                           </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>Featured Product</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-3 px-3 py-2 border border-border/60 rounded-lg hover:border-[#00EC97] bg-background/60 text-left text-sm"
+                                >
+                                  {editCollection?.featuredProduct ? (
+                                    <>
+                                      <img
+                                        src={editCollection.featuredProduct.thumbnailImage || ''}
+                                        alt=""
+                                        className="size-8 rounded object-cover"
+                                      />
+                                      <span className="truncate flex-1">{editCollection.featuredProduct.title}</span>
+                                      <span className="text-xs text-foreground/50">
+                                        ${editCollection.featuredProduct.price.toFixed(2)}
+                                      </span>
+                                      <X
+                                        className="size-4 text-foreground/50 hover:text-red-500"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateFeaturedMutation.mutate({ slug: editCollection.slug, productId: '' });
+                                        }}
+                                      />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Search className="size-4 text-foreground/50" />
+                                      <span className="text-foreground/50">Select featured product...</span>
+                                    </>
+                                  )}
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent align="start" className="w-80 p-0" side="bottom">
+                                <Command className="rounded-lg border-0 shadow-md">
+                                  <CommandInput placeholder="Search products..." />
+                                  <CommandList>
+                                    <CommandEmpty>No products found</CommandEmpty>
+                                    <CommandGroup>
+                                      {productsInCollection.map((product) => (
+                                        <CommandItem
+                                          key={product.id}
+                                          value={`${product.title} ${product.id}`}
+                                          onSelect={() => {
+                                            updateFeaturedMutation.mutate({ slug: editCollection!.slug, productId: product.id });
+                                          }}
+                                          className="flex items-center gap-2"
+                                        >
+                                          {product.featured && (
+                                            <div className="text-[#00EC97] text-xs font-semibold">★</div>
+                                          )}
+                                          <img
+                                            src={product.thumbnailImage || ''}
+                                            alt=""
+                                            className="size-6 rounded object-cover"
+                                          />
+                                          <span className="truncate flex-1">{product.title}</span>
+                                          <span className="text-xs text-foreground/70">${product.price.toFixed(2)}</span>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            <p className="text-xs text-foreground/60">
+                              Featured products shown first. Featured collection product appears in carousel.
+                            </p>
+                          </div>
                           <div className="flex justify-end gap-2">
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => {
                                 setExpandedRow(null);
                                 setEditCollection(null);
                               }}
+                              className="text-foreground/50 dark:text-muted-foreground"
                             >
                               Cancel
                             </Button>

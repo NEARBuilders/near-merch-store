@@ -52,7 +52,16 @@ export const Route = createFileRoute('/_marketplace/collections/')({
 
 function CollectionsPage() {
   const { data: collectionsData } = useSuspenseCollections();
-  const collections = collectionsData.collections;
+  const collections = [...(collectionsData?.collections ?? [])].sort((a, b) => {
+    const aOrder = a.carouselOrder ?? 0;
+    const bOrder = b.carouselOrder ?? 0;
+    
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+    
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <div className="bg-background min-h-screen pt-32">

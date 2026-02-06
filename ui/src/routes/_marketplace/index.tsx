@@ -1,5 +1,3 @@
-import { LoadingSpinner } from "@/components/loading";
-import { PageLoader } from "@/components/page-loader";
 import { PageTransition } from "@/components/page-transition";
 import { VideoBackground } from "@/components/video-background";
 import { CartSidebar } from "@/components/marketplace/cart-sidebar";
@@ -17,8 +15,7 @@ import {
   useProductTypes,
   useCarouselCollections,
   collectionLoaders,
-  type Product,
-  type CarouselCollection
+  type Product
 } from "@/integrations/api";
 import { queryClient } from "@/utils/orpc";
 import {
@@ -33,7 +30,6 @@ import {
 import { useEffect, useRef, useState, useMemo } from "react";
 
 export const Route = createFileRoute("/_marketplace/")({
-  pendingComponent: LoadingSpinner,
   loader: async () => {
     await Promise.all([
       queryClient.ensureQueryData(productLoaders.featured(6)),
@@ -66,10 +62,10 @@ function MarketplaceHome() {
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: featuredData, isLoading: isLoadingFeatured } = useFeaturedProducts(6);
+  const { data: featuredData } = useFeaturedProducts(6);
   const featuredProducts = featuredData?.products ?? [];
   
-  const { data: productTypesData, isLoading: isLoadingProductTypes } = useProductTypes();
+  const { data: productTypesData } = useProductTypes();
   const productTypes = productTypesData?.productTypes ?? [];
   
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>('all');
@@ -84,11 +80,9 @@ function MarketplaceHome() {
     ...productTypes.map(pt => ({ key: pt.slug, label: pt.label }))
   ], [productTypes]);
 
-  const { data: allProductsData, isLoading: isLoadingAll } = useProducts({ limit: 100 });
+const { data: allProductsData } = useProducts({ limit: 100 });
   const allProducts = allProductsData?.products || [];
-  
-  const isLoading = isLoadingFeatured || isLoadingAll;
-
+    
   const getProductImage = (product: Product | undefined) => {
     if (!product) return null;
     const variantImages = product.images?.filter(
@@ -200,10 +194,6 @@ function MarketplaceHome() {
 
   const safeCurrentSlide = slides.length > 0 ? Math.min(currentSlide, slides.length - 1) : 0;
   const activeSlide = slides.length > 0 ? slides[safeCurrentSlide] : null;
-
-  if (isLoading) {
-    return <PageLoader />;
-  }
 
   return (
     <PageTransition className="m-0 p-0 relative">
@@ -662,7 +652,7 @@ function MarketplaceHome() {
 }
 
 function CollectionCarousel() {
-  const { data: carouselData, isLoading } = useCarouselCollections();
+  const { data: carouselData } = useCarouselCollections();
   const collections = carouselData?.collections ?? [];
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -709,14 +699,6 @@ function CollectionCarousel() {
       }
     };
   }, [carouselItems.length, isPaused, userInteracted]);
-
-  if (isLoading) {
-    return (
-      <div className="text-center py-12">
-        <LoadingSpinner />
-      </div>
-    );
-  }
 
   if (carouselItems.length === 0) {
     return (

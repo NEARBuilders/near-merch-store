@@ -75,12 +75,21 @@ export function useUpdateCollection() {
 export function useUpdateCollectionFeaturedProduct() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { slug: string; productId: string }) => 
-      apiClient.updateCollectionFeaturedProduct(data),
+    mutationFn: (data: { slug: string; productId: string | '' }) =>
+      apiClient.updateCollectionFeaturedProduct({
+        slug: data.slug,
+        productId: data.productId || null
+      }),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: collectionKeys.list() });
       qc.invalidateQueries({ queryKey: collectionKeys.carousel() });
       qc.invalidateQueries({ queryKey: collectionKeys.detail(variables.slug) });
+      toast.success('Featured product updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to update featured product', {
+        description: error?.message || 'An unknown error occurred'
+      });
     },
   });
 }

@@ -313,10 +313,10 @@ export function useUpdateProductListing() {
     onMutate: async ({ id, listed }) => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
 
-      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
 
       queryClient.setQueriesData(
-        { queryKey: productKeys.lists() },
+        { queryKey: productKeys.all },
         (old: { products: Product[]; total: number } | undefined) => {
           if (!old) return old;
           return {
@@ -349,7 +349,7 @@ export function useUpdateProductCategories() {
       apiClient.updateProductCategories({ id, categoryIds }),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
-      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
       return { previousProducts };
     },
     onError: (_err, _variables, context) => {
@@ -377,10 +377,10 @@ export function useUpdateProductTags() {
       apiClient.updateProductTags({ id, tags }),
     onMutate: async ({ id, tags }) => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
-      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
 
       queryClient.setQueriesData(
-        { queryKey: productKeys.lists() },
+        { queryKey: productKeys.all },
         (old: { products: Product[]; total: number } | undefined) => {
           if (!old) return old;
           return {
@@ -419,10 +419,10 @@ export function useUpdateProductFeatured() {
       apiClient.updateProductFeatured({ id, featured }),
     onMutate: async ({ id, featured }) => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
-      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
 
       queryClient.setQueriesData(
-        { queryKey: productKeys.lists() },
+        { queryKey: productKeys.all },
         (old: { products: Product[]; total: number } | undefined) => {
           if (!old) return old;
           return {
@@ -462,7 +462,7 @@ export function useUpdateProductType() {
       apiClient.updateProductType({ id, productTypeSlug }),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
-      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.lists() });
+      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
       return { previousProducts };
     },
     onError: (_err, _variables, context) => {

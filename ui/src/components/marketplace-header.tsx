@@ -234,7 +234,7 @@ export function MarketplaceHeader() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = `/search?q=${encodeURIComponent(searchQuery)}`;
+      navigate({ to: '/search', search: { q: searchQuery } });
     }
   };
 
@@ -267,6 +267,8 @@ export function MarketplaceHeader() {
             <Link
               to="/products"
               search={{ category: "all", categoryId: undefined, collection: undefined }}
+              preload="intent"
+              preloadDelay={0}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
                 isProductsActive && !currentCategoryId ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
               }`}
@@ -279,6 +281,8 @@ export function MarketplaceHeader() {
             <Link
             to="/products"
             search={{ category: 'Exclusives', categoryId: undefined, collection: undefined }}
+            preload="intent"
+            preloadDelay={0}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
                 isExclusivesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
               }`}
@@ -288,6 +292,8 @@ export function MarketplaceHeader() {
             
             <Link
               to="/account/orders"
+              preload="intent"
+              preloadDelay={0}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
                 isTrackOrderActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
               }`}
@@ -676,6 +682,8 @@ export function MarketplaceHeader() {
               <Link
                 to="/products"
                 search={{ category: "all", categoryId: undefined, collection: undefined }}
+                preload="intent"
+                preloadDelay={0}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
                   isProductsActive && !currentCategoryId ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
@@ -698,6 +706,8 @@ export function MarketplaceHeader() {
                         key={cat.slug}
                         to="/collections/$collection"
                         params={{ collection: cat.slug }}
+                        preload="intent"
+                        preloadDelay={0}
                         onClick={() => setMobileMenuOpen(false)}
                         className={`block pl-6 pr-3 py-2 text-sm transition-colors rounded-lg ${
                           isActive ? 'text-[#00EC97]' : 'text-foreground/90 hover:text-[#00EC97]'
@@ -712,6 +722,9 @@ export function MarketplaceHeader() {
               
               <Link
                 to="/products"
+
+              preload="intent"
+              preloadDelay={0}
                 search={{ category: 'Exclusives', categoryId: undefined, collection: undefined }}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
@@ -721,15 +734,17 @@ export function MarketplaceHeader() {
                 Exclusives
               </Link>
               
-              <Link
-                to="/account/orders"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
-                  isTrackOrderActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
-                }`}
-              >
-                Track Order
-              </Link>
+<Link
+                    to="/account/orders"
+                    preload="intent"
+                    preloadDelay={0}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                      isTrackOrderActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                    }`}
+                  >
+                    Track Order
+                  </Link>
             </div>
           </div>
         )}

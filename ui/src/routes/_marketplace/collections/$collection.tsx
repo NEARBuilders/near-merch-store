@@ -58,8 +58,6 @@ function CollectionDetailPage() {
 
   const { data } = useSuspenseCollection(collectionSlug);
   const { collection, products } = data;
-  // Render collection features from API (no hardcoded UI metadata).
-  const features = collection?.features ?? [];
 
   const handleAddToCart = (product: Product) => {
     setSizeModalProduct(product);
@@ -119,31 +117,9 @@ function CollectionDetailPage() {
 
           <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-8 md:py-10 flex flex-col justify-center">
             <div className="space-y-6">
-              <p className="text-foreground/90 dark:text-muted-foreground text-base md:text-lg leading-7">
+<p className="text-foreground/90 dark:text-muted-foreground text-base md:text-lg leading-7">
                 {collection.description || ''}
               </p>
-
-              {features.length > 0 && (
-                <div className="space-y-3">
-                  {features.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-3">
-                      <div className="w-2 h-2 bg-[#00EC97] rounded-full" />
-                      <p className="text-foreground/90 dark:text-muted-foreground">{feature}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex gap-6 pt-4 border-t border-border/60">
-                <div>
-                  <p className="text-foreground/70 dark:text-muted-foreground text-sm mb-1">Products</p>
-                  <p className="text-lg font-semibold">{products.length}</p>
-                </div>
-                <div>
-                  <p className="text-foreground/70 dark:text-muted-foreground text-sm mb-1">Category</p>
-                  <p className="text-lg font-semibold">{collection.name}</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>

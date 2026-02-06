@@ -258,6 +258,8 @@ function VerticalProductLayout({
         <Link
           to="/products/$productId"
           params={{ productId: product.slug }}
+          preload="intent"
+          preloadDelay={0}
           className="block w-full h-full relative z-10"
           resetScroll={true}
         >
@@ -486,6 +488,8 @@ function HorizontalProductLayout({
         <Link
           to="/products/$productId"
           params={{ productId: product.slug }}
+          preload="intent"
+          preloadDelay={0}
           className="block w-full h-full relative z-10"
           resetScroll={true}
         >

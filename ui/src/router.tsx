@@ -8,7 +8,10 @@ import "./styles.css";
 import type { CreateRouterOptions } from "./types";
 
 export type {
-  ClientRuntimeConfig, CreateRouterOptions, RouterContext, RouterModule
+  ClientRuntimeConfig,
+  CreateRouterOptions,
+  RouterContext,
+  RouterModule,
 } from "./types";
 
 function ErrorComponent({ error }: { error: Error }) {
@@ -36,11 +39,7 @@ function ErrorComponent({ error }: { error: Error }) {
 }
 
 function PendingComponent() {
-  return (
-    <div className="fixed inset-0 z-[9999] bg-background flex items-center justify-center">
-      <div className="animate-spin rounded-full h-16 w-16 border-4 border-border/60 border-t-[#00EC97]"></div>
-    </div>
-  );
+  return null;
 }
 
 export function createRouter(opts: CreateRouterOptions = {}) {
@@ -73,7 +72,7 @@ export function createRouter(opts: CreateRouterOptions = {}) {
     defaultPreloadStaleTime: 0,
     defaultErrorComponent: ErrorComponent,
     defaultPendingComponent: PendingComponent,
-    defaultPendingMinMs: 150,
+    defaultPendingMinMs: 0,
   });
 
   return { router, queryClient };

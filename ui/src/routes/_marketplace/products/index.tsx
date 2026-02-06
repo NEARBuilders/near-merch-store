@@ -271,14 +271,22 @@ function ProductsIndexPage() {
       });
     }
 
-    // Sort
+    // Sort - featured products first, then by selected sort option
     const sortedProducts = [...filteredProducts].sort((a, b) => {
+      // Prioritize featured products first
+      const aFeatured = a.featured === true ? 0 : 1;
+      const bFeatured = b.featured === true ? 0 : 1;
+      
+      if (aFeatured !== bFeatured) {
+        return aFeatured - bFeatured;
+      }
+      
+      // Then apply other sorting
       if (sortBy === 'price-low-high') {
         return a.price - b.price;
       } else if (sortBy === 'price-high-low') {
         return b.price - a.price;
       } else {
-        // Relevance - keep original order
         return 0;
       }
     });
