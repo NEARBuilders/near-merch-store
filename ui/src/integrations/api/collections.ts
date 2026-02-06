@@ -1,6 +1,7 @@
 import { useQuery, useSuspenseQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, queryClient } from '@/utils/orpc';
 import { collectionKeys } from './keys';
+import { toast } from 'sonner';
 
 export type Collection = Awaited<ReturnType<typeof apiClient.getCollections>>['collections'][number];
 export type CarouselCollection = Awaited<ReturnType<typeof apiClient.getCarouselCollections>>['collections'][number];
@@ -57,9 +58,16 @@ export function useUpdateCollection() {
     mutationFn: (data: { slug: string; name?: string; description?: string; carouselTitle?: string; carouselDescription?: string; showInCarousel?: boolean; carouselOrder?: number }) => 
       apiClient.updateCollection(data),
     onSuccess: (_, variables) => {
-      qc.invalidateQueries({ queryKey: collectionKeys.list() });
+      qc.invalidateQueries({ queryKey: collectionKeys.all });
+      qc.invalidateQueries({ queryKey: ['categories'] });
       qc.invalidateQueries({ queryKey: collectionKeys.carousel() });
       qc.invalidateQueries({ queryKey: collectionKeys.detail(variables.slug) });
+      toast.success('Collection updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to update collection', {
+        description: error?.message || 'An unknown error occurred'
+      });
     },
   });
 }
@@ -73,6 +81,41 @@ export function useUpdateCollectionFeaturedProduct() {
       qc.invalidateQueries({ queryKey: collectionKeys.list() });
       qc.invalidateQueries({ queryKey: collectionKeys.carousel() });
       qc.invalidateQueries({ queryKey: collectionKeys.detail(variables.slug) });
+    },
+  });
+}
+
+export function useCreateCollection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; slug: string; description?: string }) =>
+      apiClient.createCategory(input),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: collectionKeys.all });
+      qc.invalidateQueries({ queryKey: ['categories'] });
+      toast.success(`Collection "${variables.name}" created successfully`);
+    },
+    onError: (error: any) => {
+      toast.error('Failed to create collection', {
+        description: error?.message || 'An unknown error occurred'
+      });
+    },
+  });
+}
+
+export function useDeleteCollection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string }) => apiClient.deleteCategory({ id }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: collectionKeys.all });
+      qc.invalidateQueries({ queryKey: ['categories'] });
+      toast.success('Collection deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to delete collection', {
+        description: error?.message || 'An unknown error occurred'
+      });
     },
   });
 }

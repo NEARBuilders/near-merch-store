@@ -39,7 +39,11 @@ export const Route = createFileRoute("/_marketplace/products/")({
     try {
       await queryClient.ensureQueryData(productLoaders.list({ limit: 100 }));
     } catch (error) {
-      console.warn('Failed to prefetch products:', error);
+      const errorCode = error?.response?.data?.code || error?.code;
+      const isExpected = errorCode === 'NOT_FOUND' || errorCode === 404;
+      if (!isExpected) {
+        console.warn('Failed to prefetch products:', error);
+      }
     }
   },
   component: ProductsIndexPage,

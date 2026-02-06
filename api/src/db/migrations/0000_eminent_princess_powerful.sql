@@ -133,7 +133,10 @@ CREATE TABLE "sync_state" (
 	"status" text NOT NULL,
 	"last_success_at" timestamp with time zone,
 	"last_error_at" timestamp with time zone,
-	"error_message" text
+	"error_message" text,
+	"sync_started_at" timestamp with time zone,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"error_data" jsonb
 );
 --> statement-breakpoint
 ALTER TABLE "collections" ADD CONSTRAINT "collections_featured_product_id_products_id_fk" FOREIGN KEY ("featured_product_id") REFERENCES "public"."products"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -166,4 +169,6 @@ CREATE INDEX "public_key_idx" ON "products" USING btree ("public_key");--> state
 CREATE INDEX "slug_idx" ON "products" USING btree ("slug");--> statement-breakpoint
 CREATE INDEX "external_provider_idx" ON "products" USING btree ("external_product_id","fulfillment_provider");--> statement-breakpoint
 CREATE INDEX "products_type_slug_idx" ON "products" USING btree ("product_type_slug");--> statement-breakpoint
-CREATE INDEX "featured_idx" ON "products" USING btree ("featured");
+CREATE INDEX "featured_idx" ON "products" USING btree ("featured");--> statement-breakpoint
+CREATE INDEX "sync_started_idx" ON "sync_state" USING btree ("sync_started_at");--> statement-breakpoint
+CREATE INDEX "sync_updated_idx" ON "sync_state" USING btree ("updated_at");

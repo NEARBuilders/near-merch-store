@@ -158,12 +158,24 @@ export default createPlugin({
       }),
 
       getProducts: builder.getProducts.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getProducts(input);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getProduct: builder.getProduct.handler(async ({ input, errors }) => {
@@ -192,30 +204,66 @@ export default createPlugin({
       }),
 
       searchProducts: builder.searchProducts.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.searchProducts(input);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getFeaturedProducts: builder.getFeaturedProducts.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getFeaturedProducts(input.limit);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getCollections: builder.getCollections.handler(async () => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getCollections();
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getCollection: builder.getCollection.handler(async ({ input, errors }) => {
@@ -244,49 +292,152 @@ export default createPlugin({
       }),
 
       getCarouselCollections: builder.getCarouselCollections.handler(async () => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getCarouselCollections();
           }).pipe(Effect.provide(appLayer))
         );
-      }),
 
-      updateCollection: builder.updateCollection.handler(async ({ input }) => {
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+updateCollection: builder.updateCollection.handler(async ({ input }) => {
         const { slug, ...data } = input;
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateCollection(slug, data);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       updateCollectionFeaturedProduct: builder.updateCollectionFeaturedProduct.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateCollectionFeaturedProduct(input.slug, input.productId);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       sync: builder.sync.handler(async () => {
-        return await Effect.runPromise(
-          Effect.gen(function* () {
-            const service = yield* ProductService;
-            return yield* service.sync();
-          }).pipe(Effect.provide(appLayer))
-        );
+        try {
+          return await Effect.runPromise(
+            Effect.gen(function* () {
+              const service = yield* ProductService;
+              return yield* service.sync();
+            }).pipe(Effect.provide(appLayer))
+          );
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          const getSyncStatusWithLayer = async () => {
+            return await Effect.runPromise(
+              Effect.gen(function* () {
+                const service = yield* ProductService;
+                return yield* service.getSyncStatus();
+              }).pipe(Effect.provide(appLayer))
+            );
+          };
+          
+          const status = await getSyncStatusWithLayer();
+          const now = Date.now();
+          const syncStartedAt = status.syncStartedAt;
+          const duration = syncStartedAt ? Math.floor((now - syncStartedAt) / 1000) : 0;
+          
+          if (errorMessage.includes('SYNC_IN_PROGRESS')) {
+            throw new ORPCError('SYNC_IN_PROGRESS', {
+              message: 'Sync is already in progress',
+              data: {
+                syncStartedAt: syncStartedAt ? new Date(syncStartedAt).toISOString() : new Date().toISOString(),
+                duration,
+              },
+            });
+          }
+          
+          if (errorMessage.includes('SYNC_PROVIDER_ERROR')) {
+            const errorData = status.errorData || {};
+            throw new ORPCError('SYNC_PROVIDER_ERROR', {
+              message: 'Fulfillment provider temporarily unavailable',
+              data: {
+                provider: errorData.provider || 'unknown',
+                errorType: errorData.errorType || 'API_ERROR',
+                retryAfter: errorData.retryAfter,
+                originalMessage: errorData.originalMessage || errorMessage,
+              },
+            });
+          }
+          
+          if (errorMessage.includes('SYNC_FAILED')) {
+            const errorData = status.errorData || {};
+            throw new ORPCError('SYNC_FAILED', {
+              message: 'Sync operation failed',
+              data: {
+                stage: errorData.stage || 'UNKNOWN',
+                errorMessage: errorMessage,
+                provider: errorData.provider,
+                syncDuration: errorData.syncDuration || duration,
+              },
+            });
+          }
+          
+          throw error;
+        }
       }),
 
       getSyncStatus: builder.getSyncStatus.handler(async () => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getSyncStatus();
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getNearPrice: builder.getNearPrice.handler(async () => {
@@ -333,17 +484,29 @@ export default createPlugin({
       }),
 
       updateProductListing: builder.updateProductListing.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateProductListing(input.id, input.listed);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
       createCheckout: builder.createCheckout
         .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const result = await Effect.runPromise(
+        .handler(async ({ input, context, errors }) => {
+          const exit = await Effect.runPromiseExit(
             Effect.gen(function* () {
               const service = yield* CheckoutService;
               return yield* service.createCheckout({
@@ -359,6 +522,17 @@ export default createPlugin({
             }).pipe(Effect.provide(checkoutLayer))
           );
 
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          const result = exit.value;
           return {
             checkoutSessionId: result.checkoutSessionId,
             checkoutUrl: result.checkoutUrl,
@@ -367,30 +541,47 @@ export default createPlugin({
         }),
 
       quote: builder.quote.handler(async ({ input }) => {
-        try {
-          return await Effect.runPromise(
-            Effect.gen(function* () {
-              const service = yield* CheckoutService;
-              return yield* service.getQuote(input.items, input.shippingAddress);
-            }).pipe(Effect.provide(checkoutLayer))
-          );
-        } catch (error) {
+        const exit = await Effect.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* CheckoutService;
+            return yield* service.getQuote(input.items, input.shippingAddress);
+          }).pipe(Effect.provide(checkoutLayer))
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
           throw new ORPCError('BAD_REQUEST', {
             message: error instanceof Error ? error.message : 'Failed to calculate shipping',
           });
         }
+
+        return exit.value;
       }),
 
       getOrders: builder.getOrders
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          const result = await Effect.runPromise(
+          const exit = await Effect.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.findByUser(context.nearAccountId!, input);
             }).pipe(Effect.provide(orderLayer))
           );
 
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          const result = exit.value;
           return {
             orders: result.orders,
             total: result.total,
@@ -438,14 +629,24 @@ export default createPlugin({
         }),
 
       getOrderByCheckoutSession: builder.getOrderByCheckoutSession.handler(async ({ input }) => {
-        const order = await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* OrderStore;
             return yield* store.findByCheckoutSession(input.sessionId);
           }).pipe(Effect.provide(orderLayer))
         );
 
-        return { order };
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return { order: exit.value };
       }),
 
       subscribeOrderStatus: builder.subscribeOrderStatus.handler(async function* ({ input, signal }) {
@@ -494,7 +695,7 @@ export default createPlugin({
       getAllOrders: builder.getAllOrders
         .use(requireAuth)
         .handler(async ({ input }) => {
-          const result = await Effect.runPromise(
+          const exit = await Effect.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.findAll({
@@ -506,6 +707,17 @@ export default createPlugin({
             }).pipe(Effect.provide(orderLayer))
           );
 
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          const result = exit.value;
           return {
             orders: result.orders,
             total: result.total,
@@ -981,23 +1193,44 @@ export default createPlugin({
 
       cleanupAbandonedDrafts: builder.cleanupAbandonedDrafts.handler(async ({ input }) => {
         const maxAgeHours = input?.maxAgeHours || 24;
-
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           cleanupAbandonedDrafts(runtime, maxAgeHours).pipe(Effect.provide(orderLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getProviderConfig: builder.getProviderConfig
         .use(requireAuth)
         .handler(async ({ input }) => {
-          const config = await Effect.runPromise(
+          const exit = await Effect.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* ProviderConfigStore;
               return yield* store.getConfig(input.provider);
             }).pipe(Effect.provide(providerLayer))
           );
 
-          return { config };
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          return { config: exit.value };
         }),
 
       configureWebhook: builder.configureWebhook
@@ -1135,61 +1368,133 @@ export default createPlugin({
         }),
 
       getCategories: builder.getCategories.handler(async () => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getCategories();
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       createCategory: builder.createCategory.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.createCategory(input);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       deleteCategory: builder.deleteCategory.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.deleteCategory(input.id);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       updateProductCategories: builder.updateProductCategories.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateProductCollections(input.id, input.categoryIds);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       updateProductTags: builder.updateProductTags.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateProductTags(input.id, input.tags);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       updateProductFeatured: builder.updateProductFeatured.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateProductFeatured(input.id, input.featured);
           }).pipe(Effect.provide(appLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       updateProductType: builder.updateProductType.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const productStore = yield* ProductStore;
             const product = yield* productStore.updateProductType(input.id, input.productTypeSlug);
@@ -1199,30 +1504,66 @@ export default createPlugin({
             return { success: true, product };
           }).pipe(Effect.provide(productStoreLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getProductTypes: builder.getProductTypes.handler(async () => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* ProductTypeStore;
             const productTypes = yield* store.findAll();
             return { productTypes };
           }).pipe(Effect.provide(productTypeLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       createProductType: builder.createProductType.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* ProductTypeStore;
             const productType = yield* store.create(input);
             return { productType };
           }).pipe(Effect.provide(productTypeLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       updateProductTypeItem: builder.updateProductTypeItem.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* ProductTypeStore;
             const productType = yield* store.update(input.slug, {
@@ -1233,16 +1574,40 @@ export default createPlugin({
             return { productType };
           }).pipe(Effect.provide(productTypeLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       deleteProductType: builder.deleteProductType.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await Effect.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* ProductTypeStore;
             const success = yield* store.delete(input.slug);
             return { success };
           }).pipe(Effect.provide(productTypeLayer))
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
     };
   },

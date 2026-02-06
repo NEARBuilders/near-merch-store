@@ -1,6 +1,7 @@
 import { apiClient, queryClient } from '@/utils/orpc';
 import { useMutation, useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { productKeys, productTypeKeys } from './keys';
+import { productKeys, productTypeKeys, collectionKeys } from './keys';
+import { toast } from 'sonner';
 
 export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'];
 export type ProductImage = Product['images'][number];
@@ -225,9 +226,82 @@ export function useSyncStatus() {
 export function useSyncProducts() {
   return useMutation({
     mutationFn: () => apiClient.sync(),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ 
+        queryKey: productKeys.all,
+        refetchType: 'all'
+      });
+      queryClient.invalidateQueries({ queryKey: collectionKeys.all });
+      queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
+      
+      if (data.status === 'completed' && data.syncDuration) {
+        const minutes = Math.floor(data.syncDuration / 60);
+        const seconds = data.syncDuration % 60;
+        toast.success(`Sync completed in ${minutes}m ${seconds}s`);
+      } else if (data.status === 'completed') {
+        toast.success('Sync completed');
+      }
+    },
+    onError: (error) => {
+      const errorCode = (error as any)?.response?.data?.code;
+      const errorMessage = (error as any)?.message || 'Sync failed';
+      
+      switch (errorCode) {
+        case 'SYNC_IN_PROGRESS': {
+          const retryAfter = ((error as any)?.response?.data?.retryAfter ?? (error as any)?.response?.data?.duration) || 0;
+          const timeLabel = retryAfter > 60
+            ? `${Math.ceil(retryAfter / 60)}m ${retryAfter % 60}s`
+            : `${retryAfter}s`;
+          toast.error(`Sync is already in progress${retryAfter ? `, will retry in ${timeLabel}` : ''}`);
+          break;
+        }
+
+        case 'SYNC_TIMEOUT': {
+          toast.error('Sync timed out, please try again');
+          break;
+        }
+
+        case 'SYNC_PROVIDER_ERROR': {
+          const provider = (error as any)?.response?.data?.provider || 'Fulfillment provider';
+          const retryAfter = (error as any)?.response?.data?.retryAfter;
+          toast.error(`${provider}暂时不可用${retryAfter ? `, retry in ${retryAfter}s` : ''}`, {
+            id: 'sync-provider-error',
+            action: retryAfter ? {
+              label: 'Retry',
+              onClick: () => {
+                if (retryAfter > 0 && retryAfter < 60) {
+                  toast.promise(apiClient.sync(), {
+                    loading: 'Retrying sync...',
+                    success: 'Sync complete',
+                    error: 'Sync failed',
+                  });
+                }
+              },
+            } : undefined,
+          });
+          break;
+        }
+
+        case 'SYNC_FAILED': {
+          toast.error(errorMessage || 'Sync operation failed', {
+            id: 'sync-failed',
+            action: {
+              label: 'Retry',
+              onClick: () => toast.promise(apiClient.sync(), {
+                loading: 'Retrying sync...',
+                success: 'Sync complete',
+                error: 'Sync failed',
+              }),
+            },
+          });
+          break;
+        }
+
+        default: {
+          toast.error(errorMessage || 'An error occurred while syncing');
+        }
+      }
     },
   });
 }
@@ -284,9 +358,15 @@ export function useUpdateProductCategories() {
           queryClient.setQueryData(queryKey, data);
         });
       }
+      toast.error('Failed to update collections', {
+        description: 'An unknown error occurred'
+      });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+    onSuccess: () => {
+      toast.success('Collections updated successfully');
     },
   });
 }
@@ -320,9 +400,15 @@ export function useUpdateProductTags() {
           queryClient.setQueryData(queryKey, data);
         });
       }
+      toast.error('Failed to update tags', {
+        description: 'An unknown error occurred'
+      });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+    onSuccess: () => {
+      toast.success('Tags updated successfully');
     },
   });
 }
@@ -356,9 +442,16 @@ export function useUpdateProductFeatured() {
           queryClient.setQueryData(queryKey, data);
         });
       }
+      toast.error('Failed to update featured status', {
+        description: 'An unknown error occurred'
+      });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+    onSuccess: (_, { featured }) => {
+      const status = featured ? 'featured' : 'unfeatured';
+      toast.success(`Product ${status} successfully`);
     },
   });
 }

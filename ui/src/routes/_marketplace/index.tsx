@@ -40,7 +40,11 @@ export const Route = createFileRoute("/_marketplace/")({
       queryClient.ensureQueryData(productLoaders.list({ limit: 100 })),
       queryClient.ensureQueryData(collectionLoaders.carousel()),
     ]).catch((error) => {
-      console.warn('Failed to prefetch:', error);
+      const errorCode = error?.response?.data?.code || error?.code;
+      const isExpected = errorCode === 'NOT_FOUND' || errorCode === 404;
+      if (!isExpected) {
+        console.warn('Failed to prefetch:', error);
+      }
     });
   },
   component: MarketplaceHome,

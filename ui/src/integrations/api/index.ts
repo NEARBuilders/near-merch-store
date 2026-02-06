@@ -54,6 +54,8 @@ export {
   useSuspenseCarouselCollections,
   useUpdateCollection,
   useUpdateCollectionFeaturedProduct,
+  useCreateCollection,
+  useDeleteCollection,
   collectionLoaders,
   type Collection,
   type CarouselCollection,

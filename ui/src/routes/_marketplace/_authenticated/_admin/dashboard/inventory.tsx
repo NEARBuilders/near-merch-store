@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useEffect } from "react";
+import { toast } from "sonner";
 import {
   useReactTable,
   getCoreRowModel,
@@ -23,10 +25,14 @@ import {
   Star,
   X,
   Plus,
+  XCircle,
+  ChevronDown,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   useProducts,
   useCategories,
@@ -46,14 +52,43 @@ export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashbo
   component: InventoryManagement,
 });
 
-function TagsEditor({ 
-  tags, 
-  productId, 
+function CopyIdButton({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="p-1 rounded hover:bg-background/60 transition-colors"
+      title={copied ? 'Copied!' : 'Copy ID'}
+    >
+      {copied ? (
+        <div className="text-[#00EC97]">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      ) : (
+        <Copy className="size-4 text-foreground/50 dark:text-muted-foreground" />
+      )}
+    </button>
+  );
+}
+
+function TagsEditor({
+  tags,
+  productId: _productId,
   onUpdate,
-  isPending 
-}: { 
-  tags: string[]; 
-  productId: string; 
+  isPending
+}: {
+  tags: string[];
+  productId: string;
   onUpdate: (tags: string[]) => void;
   isPending: boolean;
 }) {
@@ -149,7 +184,27 @@ function TagsEditor({
         </div>
       </PopoverContent>
     </Popover>
-  );
+);
+}
+
+// Helper functions for time and date formatting
+function formatDate(timestamp: number | null): string {
+  if (!timestamp) return 'N/A';
+  return new Intl.DateTimeFormat(
+    'en-US',
+    { 
+      dateStyle: 'medium', 
+      timeStyle: 'short',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    }
+  ).format(new Date(timestamp));
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 function InventoryManagement() {
@@ -168,6 +223,12 @@ function InventoryManagement() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  
+  // Live sync duration counter
+  const [syncDuration, setSyncDuration] = useState(0);
+  
+  // Error details expansion state
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const handleSync = () => {
     syncMutation.mutate();
@@ -183,6 +244,19 @@ function InventoryManagement() {
       }
     );
   };
+
+  // Update sync duration when running
+  useEffect(() => {
+    if (syncStatusData?.status === 'running' && syncStatusData.syncStartedAt) {
+      const interval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - (syncStatusData.syncStartedAt ?? 0)) / 1000);
+        setSyncDuration(elapsed);
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setSyncDuration(0);
+    }
+  }, [syncStatusData?.status, syncStatusData?.syncStartedAt]);
 
   const isSyncing = syncStatusData?.status === "running" || syncMutation.isPending;
 
@@ -206,6 +280,7 @@ function InventoryManagement() {
         </div>
       ),
       enableSorting: false,
+      size: 48,
     },
     {
       accessorKey: "title",
@@ -222,9 +297,9 @@ function InventoryManagement() {
       cell: ({ row }) => (
         <div>
           <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground">{row.original.title}</p>
-          <p className="text-xs text-foreground/50 dark:text-muted-foreground">{row.original.id}</p>
         </div>
       ),
+      size: 200,
     },
     {
       accessorKey: "collections",
@@ -299,6 +374,7 @@ function InventoryManagement() {
           </Popover>
         );
       },
+      size: 180,
     },
     {
       accessorKey: "tags",
@@ -311,6 +387,7 @@ function InventoryManagement() {
           isPending={updateTagsMutation.isPending}
         />
       ),
+      size: 150,
     },
     {
       accessorKey: "featured",
@@ -338,6 +415,16 @@ function InventoryManagement() {
           </Button>
         );
       },
+      size: 80,
+    },
+    {
+      id: "copyId",
+      header: "",
+      cell: ({ row }) => (
+        <CopyIdButton id={row.original.id} />
+      ),
+      enableSorting: false,
+      size: 40,
     },
     {
       accessorKey: "price",
@@ -356,6 +443,7 @@ function InventoryManagement() {
           ${row.original.price.toFixed(2)} {row.original.currency}
         </span>
       ),
+      size: 100,
     },
     {
       accessorKey: "fulfillmentProvider",
@@ -372,6 +460,7 @@ function InventoryManagement() {
           {row.original.fulfillmentProvider}
         </Badge>
       ),
+      size: 100,
     },
     {
       accessorKey: "variants",
@@ -379,6 +468,7 @@ function InventoryManagement() {
       cell: ({ row }) => (
         <span className="text-sm text-foreground/70 dark:text-muted-foreground">{row.original.variants?.length || 0}</span>
       ),
+      size: 80,
     },
     {
       id: "listed",
@@ -407,6 +497,7 @@ function InventoryManagement() {
           </div>
         );
       },
+      size: 100,
     },
   ];
 
@@ -474,7 +565,12 @@ function InventoryManagement() {
             className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors disabled:opacity-50"
           >
             <RefreshCw className={cn("size-4 mr-2", isSyncing && "animate-spin")} />
-            {isSyncing ? "Syncing..." : "Sync Products"}
+            {isSyncing ? (
+              <>
+                Syncing...
+                {syncDuration > 0 && ` (${formatDuration(syncDuration)})`}
+              </>
+            ) : "Sync Products"}
           </button>
           <button
             type="button"
@@ -490,18 +586,56 @@ function InventoryManagement() {
 
       {/* Sync Status Block */}
       {syncStatusData && (
-        <div className={cn(
-          "rounded-2xl p-4 text-sm border",
-          syncStatusData.status === "running" && "bg-background border-[#3d7fff]/60 text-[#3d7fff]",
-          syncStatusData.status === "error" && "bg-background border-red-500/60 text-red-500",
-          syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && "bg-background border-[#00EC97]/60 text-[#00EC97]"
+        <Card className={cn(
+          "rounded-2xl border p-4",
+          syncStatusData.status === "running" && "border-[#3d7fff]/60 bg-background/60",
+          syncStatusData.status === "error" && "border-red-500/60 bg-background/60",
+          syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && "border-[#00EC97]/60 bg-background/60"
         )}>
-          {syncStatusData.status === "running" && "Syncing products from fulfillment providers..."}
-          {syncStatusData.status === "error" && `Sync error: ${syncStatusData.errorMessage || "Unknown error"}`}
-          {syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && (
-            `Last synced: ${new Date(syncStatusData.lastSuccessAt).toLocaleString()}`
+          {syncStatusData.status === "running" && (
+            <div className="flex items-center gap-2 text-sm">
+              <RefreshCw className="size-4 animate-spin text-[#3d7fff]" />
+              <span className="text-[#3d7fff] font-medium">Syncing products from fulfillment providers...</span>
+              {syncDuration > 0 && <span className="text-[#3d7fff]/70">({formatDuration(syncDuration)})</span>}
+            </div>
           )}
-        </div>
+          {syncStatusData.status === "error" && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2">
+                <XCircle className="size-5 text-red-500 mt-0.5" />
+                <div className="flex-1 space-y-1">
+                  <p className="text-sm font-medium text-red-500">Sync failed</p>
+                  <p className="text-sm text-red-500/80">{syncStatusData.errorMessage || "Unknown error"}</p>
+                </div>
+              </div>
+              {syncStatusData.errorData && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowErrorDetails(!showErrorDetails)}
+                    className="flex items-center gap-1.5 text-xs text-red-500/70 hover:text-red-500 transition-colors"
+                  >
+                    <span>{showErrorDetails ? "Hide" : "Show"} details</span>
+                    <ChevronDown className={cn("size-3.5 transition-transform", showErrorDetails && "rotate-180")} />
+                  </button>
+                  {showErrorDetails && (
+                    <div className="bg-background/50 rounded-lg p-3 border border-red-500/20">
+                      <pre className="text-xs text-red-500/70 whitespace-pre-wrap font-mono">
+                        {JSON.stringify(syncStatusData.errorData, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+          {syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-[#00EC97] font-medium">Last synced:</span>
+              <span className="text-[#00EC97]/70">{formatDate(syncStatusData.lastSuccessAt)}</span>
+            </div>
+          )}
+        </Card>
       )}
 
       {/* Search Block */}
@@ -588,7 +722,6 @@ function InventoryManagement() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground truncate">{product.title}</p>
-                      <p className="text-xs text-foreground/50 dark:text-muted-foreground truncate">{product.id}</p>
                       <div className="flex items-center gap-2 mt-2">
                         {product.collections && product.collections.length > 0 && (
                           <Badge variant="outline" className="font-normal text-xs">

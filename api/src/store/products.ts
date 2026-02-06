@@ -23,14 +23,20 @@ export class ProductStore extends Context.Tag('ProductStore')<
       status: 'idle' | 'running' | 'error',
       lastSuccessAt: Date | null,
       lastErrorAt: Date | null,
-      errorMessage: string | null
+      errorMessage: string | null,
+      errorData: Record<string, any> | null,
+      syncStartedAt: Date | null
     ) => Effect.Effect<void, Error>;
     readonly getSyncStatus: (id: string) => Effect.Effect<{
       status: 'idle' | 'running' | 'error';
       lastSuccessAt: number | null;
       lastErrorAt: number | null;
       errorMessage: string | null;
+      syncStartedAt: number | null;
+      updatedAt: number;
+      errorData: Record<string, any> | null;
     }, Error>;
+    readonly isSyncInProgress: (id: string) => Effect.Effect<boolean, Error>;
   }
 >() { }
 
@@ -580,7 +586,7 @@ export const ProductStoreLive = Layer.effect(
           catch: (error) => new Error(`Failed to prune stale products: ${error}`),
         }),
 
-      setSyncStatus: (id, status, lastSuccessAt, lastErrorAt, errorMessage) =>
+      setSyncStatus: (id, status, lastSuccessAt, lastErrorAt, errorMessage, errorData, syncStartedAt) =>
         Effect.tryPromise({
           try: async () => {
             await db
@@ -591,6 +597,9 @@ export const ProductStoreLive = Layer.effect(
                 lastSuccessAt,
                 lastErrorAt,
                 errorMessage,
+                syncStartedAt,
+                errorData,
+                updatedAt: new Date(),
               })
               .onConflictDoUpdate({
                 target: schema.syncState.id,
@@ -599,20 +608,57 @@ export const ProductStoreLive = Layer.effect(
                   lastSuccessAt,
                   lastErrorAt,
                   errorMessage,
+                  syncStartedAt,
+                  errorData,
+                  updatedAt: new Date(),
                 },
               });
           },
           catch: (error) => new Error(`Failed to set sync status: ${error}`),
         }),
 
-      getSyncStatus: (id) =>
-        Effect.tryPromise({
-          try: async () => {
-            const results = await db
-              .select()
-              .from(schema.syncState)
-              .where(eq(schema.syncState.id, id))
-              .limit(1);
+      isSyncInProgress: (id) =>
+        Effect.gen(function* () {
+          try {
+            const results = yield* Effect.tryPromise({
+              try: async () => {
+                return await db
+                  .select()
+                  .from(schema.syncState)
+                  .where(
+                    and(
+                      eq(schema.syncState.id, id),
+                      eq(schema.syncState.status, 'running')
+                    )
+                  )
+                  .limit(1);
+              },
+              catch: (error) => {
+                throw error;
+              },
+            });
+            return results.length > 0;
+          } catch (error) {
+            console.error('[Store] Failed to check sync status:', error);
+            return false;
+          }
+        }),
+
+getSyncStatus: (id) =>
+        Effect.gen(function* () {
+          try {
+            const results = yield* Effect.tryPromise({
+              try: async () => {
+                return await db
+                  .select()
+                  .from(schema.syncState)
+                  .where(eq(schema.syncState.id, id))
+                  .limit(1);
+              },
+              catch: (error) => {
+                throw error;
+              },
+            });
 
             if (results.length === 0) {
               return {
@@ -620,18 +666,50 @@ export const ProductStoreLive = Layer.effect(
                 lastSuccessAt: null,
                 lastErrorAt: null,
                 errorMessage: null,
+                syncStartedAt: null,
+                updatedAt: Date.now(),
+                errorData: null,
               };
             }
 
             const row = results[0]!;
+            
+            // Auto-detect stale sync (>5 min running without update)
+            const isStale =
+              row.status === 'running' &&
+              row.syncStartedAt &&
+              Date.now() - new Date(row.syncStartedAt).getTime() > 5 * 60 * 1000;
+
+            if (isStale) {
+              console.warn('[Store] Detected stale sync, marking as error');
+              return {
+                status: 'error' as const,
+                lastSuccessAt: row.lastSuccessAt?.getTime() ?? null,
+                lastErrorAt: Date.now(),
+                errorMessage: 'Sync timed out - duration exceeded 5 minutes',
+                syncStartedAt: row.syncStartedAt?.getTime() ?? null,
+                updatedAt: Date.now(),
+                errorData: {
+                  errorType: 'SYNC_TIMEOUT',
+                  syncStartedAt: row.syncStartedAt,
+                  duration: 5 * 60,
+                },
+              };
+            }
+
             return {
               status: row.status as 'idle' | 'running' | 'error',
               lastSuccessAt: row.lastSuccessAt?.getTime() ?? null,
               lastErrorAt: row.lastErrorAt?.getTime() ?? null,
-              errorMessage: row.errorMessage,
+              errorMessage: row.errorMessage || null,
+              syncStartedAt: row.syncStartedAt?.getTime() ?? null,
+              updatedAt: row.updatedAt?.getTime() ?? Date.now(),
+              errorData: row.errorData,
             };
-          },
-          catch: (error) => new Error(`Failed to get sync status: ${error}`),
+          } catch (error) {
+            console.error('[Store] Failed to get sync status:', error);
+            throw new Error(`Failed to get sync status: ${error}`);
+          }
         }),
     };
   })

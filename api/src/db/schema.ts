@@ -112,7 +112,13 @@ export const syncState = pgTable('sync_state', {
   lastSuccessAt: timestamp('last_success_at', { withTimezone: true, mode: 'date' }),
   lastErrorAt: timestamp('last_error_at', { withTimezone: true, mode: 'date' }),
   errorMessage: text('error_message'),
-});
+  syncStartedAt: timestamp('sync_started_at', { withTimezone: true, mode: 'date' }),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  errorData: jsonb('error_data').$type<Record<string, any>>(),
+}, (table) => ([
+  index('sync_started_idx').on(table.syncStartedAt),
+  index('sync_updated_idx').on(table.updatedAt),
+]));
 
 export const orders = pgTable('orders', {
   id: text('id').primaryKey(),

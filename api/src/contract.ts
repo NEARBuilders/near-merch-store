@@ -377,30 +377,78 @@ export const contract = oc.router({
       method: 'POST',
       path: '/sync',
       summary: 'Sync products from fulfillment providers',
-      description: 'Triggers a sync of products from configured fulfillment providers (Printful). Runs in the background.',
+      description: 
+        'Triggers sync from configured providers. Returns sync status including duration. ' +
+        'Enforces single sync at a time (mutual exclusion). Auto-detects and cleans up stale syncs >5min.',
       tags: ['Sync'],
     })
     .output(
       z.object({
-        status: z.string(),
-        count: z.number().optional(),
+        status: z.enum(['idle', 'running', 'error', 'completed']),
+        count: z.number().optional().describe('Products synced'),
+        removed: z.number().optional().describe('Products removed'),
+        syncStartedAt: z.string().datetime().optional().describe('ISO 8601 timestamp'),
+        syncDuration: z.number().optional().describe('Duration in seconds'),
       })
-    ),
+    )
+    .errors({
+      SYNC_IN_PROGRESS: {
+        status: 409,
+        message: 'Sync is already in progress. Only one sync can run at a time',
+        data: z.object({
+          syncStartedAt: z.string().datetime().describe('When previous sync started'),
+          duration: z.number().describe('How long it has been running (seconds)'),
+        }),
+      },
+      SYNC_TIMEOUT: {
+        status: 408,
+        message: 'Sync operation timed out',
+        data: z.object({
+          syncStartedAt: z.string().datetime().describe('When synced started'),
+          duration: z.number().describe('How long before timeout'),
+        }),
+      },
+      SYNC_PROVIDER_ERROR: {
+        status: 503,
+        message: 'Fulfillment provider temporarily unavailable',
+        data: z.object({
+          provider: z.string().describe('Provider name: printful, gelato, etc.'),
+          errorType: z.enum(['RATE_LIMIT', 'TIMEOUT', 'API_ERROR', 'AUTH', 'SERVICE_UNAVAILABLE']).describe('Error classification'),
+          retryAfter: z.number().optional().describe('Suggested retry time (seconds)'),
+          originalMessage: z.string().describe('Debug message'),
+        }),
+      },
+      SYNC_FAILED: {
+        status: 500,
+        message: 'Sync operation failed',
+        data: z.object({
+          stage: z.enum(['SET_STATUS', 'FETCH_PRODUCTS', 'UPSERT', 'FINALIZE', 'UNKNOWN']).describe('Where failure occurred'),
+          errorMessage: z.string().describe('Detailed error message'),
+          provider: z.string().optional().describe('Provider if applicable'),
+          syncDuration: z.number().optional().describe('Duration at failure'),
+        }),
+      },
+    }),
 
   getSyncStatus: oc
     .route({
       method: 'GET',
       path: '/sync-status',
       summary: 'Get sync status',
-      description: 'Returns the current status of product sync operations.',
+      description:
+        'Returns current sync status. Auto-detects stale syncs (>5min) and returns error state. ' +
+        'Includes error context and timestamps.',
       tags: ['Sync'],
     })
     .output(
       z.object({
         status: z.enum(['idle', 'running', 'error']),
-        lastSuccessAt: z.number().nullable(),
-        lastErrorAt: z.number().nullable(),
-        errorMessage: z.string().nullable(),
+        lastSuccessAt: z.number().nullable().describe('Last successful sync (epoch ms)'),
+        lastErrorAt: z.number().nullable().describe('Last error timestamp'),
+        errorMessage: z.string().nullable().describe('Latest error message'),
+        syncStartedAt: z.number().nullable().describe('Current sync start (epoch ms)'),
+        updatedAt: z.number().describe('Last status update time'),
+        errorData: z.record(z.string(), z.any()).nullable().describe('Full error context'),
       })
     ),
   updateProductListing: oc

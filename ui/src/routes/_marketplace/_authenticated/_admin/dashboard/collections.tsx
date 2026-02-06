@@ -1,10 +1,13 @@
+import React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useCategories, useCreateCategory, useDeleteCategory } from "@/integrations/api";
+import { useCollections, useCreateCollection, useDeleteCollection, useUpdateCollection, type Collection } from "@/integrations/api";
+import { Label } from "@/components/ui/label";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/collections")({
   component: AdminCollections,
@@ -19,13 +22,33 @@ function slugify(value: string): string {
 }
 
 function AdminCollections() {
-  const { data, isLoading } = useCategories();
-  const collections = data?.categories ?? [];
+  const { data: collectionsData, isLoading } = useCollections();
+  const collections = collectionsData?.collections ?? [];
 
-  const createMutation = useCreateCategory();
-  const deleteMutation = useDeleteCategory();
+  const createMutation = useCreateCollection();
+  const deleteMutation = useDeleteCollection();
+  const updateMutation = useUpdateCollection();
 
   const [name, setName] = useState("");
+  const [editCollection, setEditCollection] = useState<Collection | null>(null);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  const handleExpandRow = (slug: string, collection: Collection) => {
+    setExpandedRow(expandedRow === slug ? null : slug);
+    setEditCollection(collection);
+  };
+
+  const handleCreate = () => {
+    if (name.trim()) {
+      const autoSlug = slugify(name);
+      createMutation.mutate({ name: name.trim(), slug: autoSlug }, {
+        onSuccess: () => {
+          setName("");
+        }
+      });
+    }
+  };
+
   const autoSlug = useMemo(() => slugify(name), [name]);
 
   const canCreate = name.trim().length > 0 && autoSlug.length > 0 && !createMutation.isPending;
@@ -56,60 +79,184 @@ function AdminCollections() {
           </div>
           <Button
             disabled={!canCreate}
-            onClick={() => createMutation.mutate({ name: name.trim(), slug: autoSlug })}
+            onClick={handleCreate}
+            className="bg-[#00EC97] text-black hover:bg-[#00d97f]"
           >
             Create
           </Button>
         </div>
-
-        {createMutation.isError && (
-          <div className="text-sm text-red-500">
-            Failed to create collection.
-          </div>
-        )}
       </div>
 
-      <div className="rounded-2xl bg-background border border-border/60 p-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00EC97] mx-auto mb-2"></div>
-              <p className="text-sm text-foreground/90 dark:text-muted-foreground">Loading collections...</p>
-            </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00EC97] mx-auto mb-2"></div>
+            <p className="text-sm text-foreground/90 dark:text-muted-foreground">Loading collections...</p>
           </div>
-        ) : collections.length === 0 ? (
-          <div className="text-sm text-foreground/70 dark:text-muted-foreground">
-            No collections yet.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {collections.map((c) => (
-              <div
-                key={c.slug}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="font-medium truncate">{c.name}</div>
-                    <Badge variant="outline" className="font-normal">
-                      {c.slug}
-                    </Badge>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  className={cn("shrink-0", "hover:border-red-500/60 hover:text-red-500")}
-                  disabled={deleteMutation.isPending}
-                  onClick={() => deleteMutation.mutate({ id: c.slug })}
-                >
-                  Delete
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : collections.length === 0 ? (
+        <div className="text-sm text-foreground/70 dark:text-muted-foreground p-4">
+          No collections yet.
+        </div>
+      ) : (
+        <div className="rounded-2xl bg-background border border-border/60 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-background/40">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-foreground/70 uppercase tracking-wider">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-foreground/70 uppercase tracking-wider">Description</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-foreground/70 uppercase tracking-wider">Carousel Visible</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-foreground/70 uppercase tracking-wider">Order</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-foreground/70 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {collections.map((collection) => (
+                <React.Fragment key={collection.slug}>
+                  <tr className="group hover:bg-background/40 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleExpandRow(collection.slug, collection)}
+                        >
+                          {expandedRow === collection.slug ? (
+                            <ChevronDown className="size-4" />
+                          ) : (
+                            <ChevronRight className="size-4" />
+                          )}
+                        </Button>
+                        <span className="font-medium">{collection.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-foreground/70 dark:text-muted-foreground truncate max-w-[200px] block">
+                        {collection.description || 'No description'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={collection.showInCarousel ? "default" : "outline"} className="font-normal text-xs">
+                        {collection.showInCarousel ? 'Visible' : 'Hidden'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-foreground/70 dark:text-muted-foreground">{collection.carouselOrder ?? 0}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Button
+                        variant="outline"
+                        className={cn("bg-destructive text-destructive-foreground hover:bg-destructive/90")}
+                        disabled={deleteMutation.isPending}
+                        onClick={() => deleteMutation.mutate({ id: collection.slug })}
+                      >
+                        Delete
+                      </Button>
+                    </td>
+                  </tr>
+                  {expandedRow === collection.slug && (
+                    <tr>
+                      <td colSpan={5} className="p-4 bg-background/30">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>Slug</Label>
+                            <div className="text-sm text-foreground/90 dark:text-muted-foreground">{collection.slug}</div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Description</Label>
+                            <Input
+                              value={editCollection?.description ?? ""}
+                              onChange={(e) => setEditCollection(prev => prev ? { ...prev, description: e.target.value } : null)}
+                              placeholder="Collection description"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Carousel Title</Label>
+                            <Input
+                              value={editCollection?.carouselTitle ?? ""}
+                              onChange={(e) => setEditCollection(prev => prev ? { ...prev, carouselTitle: e.target.value } : null)}
+                              placeholder="Title shown in carousel"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Carousel Description</Label>
+                            <Input
+                              value={editCollection?.carouselDescription ?? ""}
+                              onChange={(e) => setEditCollection(prev => prev ? { ...prev, carouselDescription: e.target.value } : null)}
+                              placeholder="Description shown in carousel"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Carousel Order</Label>
+                            <Input
+                              type="number"
+                              value={editCollection?.carouselOrder ?? 0}
+                              onChange={(e) => setEditCollection(prev => prev ? { ...prev, carouselOrder: Number(e.target.value) } : null)}
+                            />
+                            <p className="text-xs text-foreground/60 dark:text-muted-foreground">
+                              Lower numbers appear first in the carousel
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editCollection?.showInCarousel ?? true}
+                                onChange={(e) => setEditCollection(prev => prev ? { ...prev, showInCarousel: e.target.checked } : null)}
+                                className="rounded"
+                              />
+                              <span className="text-sm font-medium">Show in carousel</span>
+                            </label>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setExpandedRow(null);
+                                setEditCollection(null);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                if (editCollection) {
+                                  updateMutation.mutate(
+                                    { 
+                                      slug: editCollection.slug, 
+                                      name: editCollection.name, 
+                                      description: editCollection.description, 
+                                      carouselTitle: editCollection.carouselTitle, 
+                                      carouselDescription: editCollection.carouselDescription, 
+                                      showInCarousel: editCollection.showInCarousel, 
+                                      carouselOrder: editCollection.carouselOrder 
+                                    },
+                                    {
+                                      onSuccess: () => {
+                                        setEditCollection(null);
+                                        setExpandedRow(null);
+                                      }
+                                    }
+                                  );
+                                }
+                              }}
+                              disabled={updateMutation.isPending}
+                              className="bg-[#00EC97] text-black hover:bg-[#00d97f]"
+                            >
+                              Save Changes
+                            </Button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
-

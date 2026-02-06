@@ -37,13 +37,22 @@ export class ProductService extends Context.Tag('ProductService')<
       slug: string,
       productId: string | null
     ) => Effect.Effect<{ collection: Collection | null }, Error>;
-    readonly sync: () => Effect.Effect<{ status: string; count: number }, Error>;
+    readonly sync: () => Effect.Effect<{
+      status: 'idle' | 'running' | 'error' | 'completed';
+      count?: number;
+      removed?: number;
+      syncStartedAt?: string;
+      syncDuration?: number;
+    }, Error>;
     readonly getSyncStatus: () => Effect.Effect<
       {
         status: 'idle' | 'running' | 'error';
         lastSuccessAt: number | null;
         lastErrorAt: number | null;
         errorMessage: string | null;
+        syncStartedAt: number | null;
+        updatedAt: number;
+        errorData: Record<string, any> | null;
       },
       Error
     >;
@@ -361,13 +370,63 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
         sync: () =>
           Effect.gen(function* () {
+            const SYNC_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+            
+            const syncStartedAt = new Date();
+            
+            // CHECK 1: Is sync already in progress?
+            const isInProgress = yield* store.isSyncInProgress('products');
+            if (isInProgress) {
+              const existingStatus = yield* store.getSyncStatus('products');
+              const duration = existingStatus.syncStartedAt
+                ? Math.floor((Date.now() - existingStatus.syncStartedAt) / 1000)
+                : 0;
+              
+              console.error('[ProductSync] Sync attempt rejected - already in progress:', {
+                syncStartedAt: existingStatus.syncStartedAt
+                  ? new Date(existingStatus.syncStartedAt).toISOString()
+                  : null,
+                currentAttemptAt: syncStartedAt.toISOString(),
+                duration,
+                providersCount: providers.length,
+              });
+              
+              throw new Error('SYNC_IN_PROGRESS');
+            }
+            
             if (providers.length === 0) {
               console.log('[ProductSync] No providers configured, skipping sync');
-              return { status: 'completed', count: 0, removed: 0 };
+              return {
+                status: 'completed',
+                count: 0,
+                removed: 0,
+                syncStartedAt: undefined,
+                syncDuration: 0,
+              };
             }
+            
+            // CHECK 2: Stale sync detection (clean up if needed)
+            const existingStatus = yield* store.getSyncStatus('products');
+            if (existingStatus.status === 'error' && 
+                existingStatus.errorMessage?.includes('timed out')) {
+              yield* store.setSyncStatus('products', 'idle', null, null, null, null, new Date());
+            }
+            
+            // Set running status (transactional)
+            yield* store.setSyncStatus(
+              'products',
+              'running',
+              null,
+              null,
+              null,
+              null, // errorData
+              syncStartedAt
+            );
 
-            const syncStartedAt = new Date();
-            yield* store.setSyncStatus('products', 'running', null, null, null);
+            console.log('[ProductSync] Starting sync:', {
+              syncStartedAt: syncStartedAt.toISOString(),
+              providersCount: providers.length,
+            });
 
             try {
               const results = yield* Effect.all(
@@ -377,13 +436,89 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
               const totalSynced = results.reduce((sum, r) => sum + r.synced, 0);
               const totalRemoved = results.reduce((sum, r) => sum + r.removed, 0);
-              yield* store.setSyncStatus('products', 'idle', new Date(), null, null);
-              console.log(`[ProductSync] Completed: ${totalSynced} synced, ${totalRemoved} removed`);
-              return { status: 'completed', count: totalSynced, removed: totalRemoved };
+              const syncDuration = Math.floor((Date.now() - syncStartedAt.getTime()) / 1000);
+              
+              yield* store.setSyncStatus('products', 'idle', new Date(), null, null, null, new Date());
+              console.log(`[ProductSync] Completed: ${totalSynced} synced, ${totalRemoved} removed (${syncDuration}s)`);
+              
+              return { 
+                status: 'completed', 
+                count: totalSynced, 
+                removed: totalRemoved,
+                syncStartedAt: syncStartedAt.toISOString(),
+                syncDuration,
+              };
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : String(error);
-              yield* store.setSyncStatus('products', 'error', null, new Date(), errorMessage);
-              return yield* Effect.fail(new Error(`Sync failed: ${errorMessage}`));
+              const errorObj = error as Error;
+              
+              // Log full error context BEFORE throwing
+              console.error('[ProductSync] Sync failed:', {
+                errorType: error instanceof Error ? errorObj.constructor?.name : typeof error,
+                message: errorMessage,
+                stack: error instanceof Error ? errorObj.stack : undefined,
+                timestamp: new Date().toISOString(),
+                syncStartedAt: syncStartedAt.toISOString(),
+                syncDuration: Math.floor((Date.now() - syncStartedAt.getTime()) / 1000),
+                providersCount: providers.length,
+                errorDetails: error instanceof Error ? {
+                  statusCode: (error as any).statusCode,
+                  providerError: (error as any).code,
+                  response: (error as any).response,
+                } : {},
+              });
+              
+              // Determine error type
+              if (errorMessage.includes('SYNC_IN_PROGRESS')) {
+                throw new Error('SYNC_IN_PROGRESS');
+              }
+              
+              // Provider service unavailable errors
+              if (errorMessage.includes('503') || errorMessage.includes('Service Unavailable') || 
+                  errorMessage.includes('unavailable')) {
+                const retryAfter = errorMessage.includes('429') ? 60 : null;
+                
+                const errorData = {
+                  provider: 'printful',
+                  errorType: 'SERVICE_UNAVAILABLE',
+                  retryAfter,
+                  originalMessage: errorMessage,
+                  syncDuration: Math.floor((Date.now() - syncStartedAt.getTime()) / 1000),
+                };
+                
+                yield* store.setSyncStatus(
+                  'products',
+                  'error',
+                  null,
+                  new Date(),
+                  'Sync failed: Service unavailable',
+                  errorData,
+                  null
+                );
+                
+                throw new Error('SYNC_PROVIDER_ERROR');
+              }
+              
+              // Generic sync failure with context
+              const errorData = {
+                stage: 'SYNC_COMPLETED',
+                errorMessage,
+                timestamp: new Date().toISOString(),
+                syncDuration: Math.floor((Date.now() - syncStartedAt.getTime()) / 1000),
+                providersCount: providers.length,
+              };
+              
+              yield* store.setSyncStatus(
+                'products',
+                'error',
+                null,
+                new Date(),
+                errorMessage,
+                errorData,
+                null
+              );
+              
+              throw new Error('SYNC_FAILED');
             }
           }),
 

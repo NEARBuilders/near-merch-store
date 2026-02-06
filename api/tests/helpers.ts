@@ -202,3 +202,27 @@ export async function clearOrdersItems() {
 export function generateFulfillmentReferenceId(userId: string): string {
   return `order_${Date.now()}_${userId}`;
 }
+
+export async function createSyncState(id: string = 'products', overrides: Partial<typeof schema.syncState.$inferInsert> = {}) {
+  const db = getTestDb();
+  
+  const syncStateData: typeof schema.syncState.$inferInsert = {
+    id,
+    status: 'idle',
+    lastSuccessAt: null,
+    lastErrorAt: null,
+    errorMessage: null,
+    syncStartedAt: null,
+    updatedAt: new Date(),
+    errorData: null,
+    ...overrides,
+  };
+  
+  await db.insert(schema.syncState).values(syncStateData);
+  return syncStateData;
+}
+
+export async function clearSyncState() {
+  const db = getTestDb();
+  await db.delete(schema.syncState);
+}
