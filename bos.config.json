@@ -49,7 +49,7 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-2011-ui-near-merch-store-nearbuilder-cf55aea3d-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-1761-ui-near-merch-store-nearbuilder-2db6b1d3a-ze.zephyrcloud.app",
       "exposes": {
         "./Router": "./src/router.tsx",
         "./Hydrate": "./src/hydrate.tsx",
@@ -59,26 +59,7 @@
         "./hooks": "./src/hooks/index.ts",
         "./types": "./src/types/index.ts"
       },
-      "ssr": "https://elliot-braem-2012-ui-near-merch-store-nearbuilder-035141521-ze.zephyrcloud.app",
-      "template": "near-everything/every-plugin/demo/ui",
-      "files": [
-        "rsbuild.config.ts",
-        "tsconfig.json",
-        "postcss.config.mjs",
-        "components.json",
-        "src/router.tsx",
-        "src/router.server.tsx",
-        "src/hydrate.tsx",
-        "src/env.d.ts",
-        "src/remote",
-        "src/utils/orpc.ts",
-        "src/types/index.ts",
-        "src/routes/__root.tsx",
-        "src/lib/auth-client.ts",
-        "src/lib/auth-utils.ts"
-      ],
-      "secrets": [],
-      "variables": {}
+      "ssr": "https://elliot-braem-1762-ui-near-merch-store-nearbuilder-de581791f-ze.zephyrcloud.app"
     },
     "api": {
       "name": "api",
