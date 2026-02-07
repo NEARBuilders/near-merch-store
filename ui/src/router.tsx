@@ -1,17 +1,25 @@
-import { QueryClient } from "@tanstack/react-query";
+// ============================================================================
+// Module Federation Client Router Bridge
+// ============================================================================
+// This file exports the client-side router for Module Federation remotes.
+//
+// DO NOT MODIFY unless you understand Module Federation client routing.
+// ============================================================================
+
+import { dehydrate, hydrate, QueryClient } from "@tanstack/react-query";
 import {
-  createBrowserHistory,
-  createRouter as createTanStackRouter,
+	createBrowserHistory,
+	createRouter as createTanStackRouter,
 } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import "./styles.css";
 import type { CreateRouterOptions } from "./types";
 
 export type {
-  ClientRuntimeConfig,
-  CreateRouterOptions,
-  RouterContext,
-  RouterModule,
+	ClientRuntimeConfig,
+	CreateRouterOptions,
+	RouterContext,
+	RouterModule
 } from "./types";
 
 function ErrorComponent({ error }: { error: Error }) {
@@ -39,7 +47,7 @@ function ErrorComponent({ error }: { error: Error }) {
 }
 
 function PendingComponent() {
-  return null;
+  return <div className="min-h-screen w-full bg-background" />;
 }
 
 export function createRouter(opts: CreateRouterOptions = {}) {
@@ -73,6 +81,20 @@ export function createRouter(opts: CreateRouterOptions = {}) {
     defaultErrorComponent: ErrorComponent,
     defaultPendingComponent: PendingComponent,
     defaultPendingMinMs: 0,
+    dehydrate: () => {
+      if (typeof window === "undefined") {
+        console.log("[Router] Dehydrating query client state...");
+        const state = dehydrate(queryClient);
+        return { queryClientState: state };
+      }
+      return { queryClientState: {} };
+    },
+    hydrate: (dehydrated: { queryClientState?: unknown }) => {
+      if (typeof window !== "undefined" && dehydrated?.queryClientState) {
+        console.log("[Router] Hydrating query client state...");
+        hydrate(queryClient, dehydrated.queryClientState);
+      }
+    },
   });
 
   return { router, queryClient };

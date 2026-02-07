@@ -314,9 +314,14 @@ export function useUpdateProductListing() {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
 
       const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
-
+      
       queryClient.setQueriesData(
-        { queryKey: productKeys.all },
+        { 
+          predicate: (query) => 
+            query.queryKey[0] === 'products' && 
+            query.queryKey[1] === 'list' &&
+            query.state.status === 'success'
+        },
         (old: { products: Product[]; total: number } | undefined) => {
           if (!old) return old;
           return {
@@ -336,9 +341,13 @@ export function useUpdateProductListing() {
           queryClient.setQueryData(queryKey, data);
         });
       }
+      toast.error('Failed to update listing status');
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ 
+        queryKey: productKeys.lists(),
+        refetchType: 'active'
+      });
     },
   });
 }
@@ -363,7 +372,10 @@ export function useUpdateProductCategories() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ 
+        queryKey: productKeys.lists(),
+        refetchType: 'active'
+      });
     },
     onSuccess: () => {
       toast.success('Collections updated successfully');
@@ -380,7 +392,12 @@ export function useUpdateProductTags() {
       const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
 
       queryClient.setQueriesData(
-        { queryKey: productKeys.all },
+        { 
+          predicate: (query) => 
+            query.queryKey[0] === 'products' && 
+            query.queryKey[1] === 'list' &&
+            query.state.status === 'success'
+        },
         (old: { products: Product[]; total: number } | undefined) => {
           if (!old) return old;
           return {
@@ -405,7 +422,10 @@ export function useUpdateProductTags() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ 
+        queryKey: productKeys.lists(),
+        refetchType: 'active'
+      });
     },
     onSuccess: () => {
       toast.success('Tags updated successfully');
@@ -422,7 +442,12 @@ export function useUpdateProductFeatured() {
       const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
 
       queryClient.setQueriesData(
-        { queryKey: productKeys.all },
+        { 
+          predicate: (query) => 
+            query.queryKey[0] === 'products' && 
+            query.queryKey[1] === 'list' &&
+            query.state.status === 'success'
+        },
         (old: { products: Product[]; total: number } | undefined) => {
           if (!old) return old;
           return {
@@ -447,7 +472,10 @@ export function useUpdateProductFeatured() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ 
+        queryKey: productKeys.lists(),
+        refetchType: 'active'
+      });
     },
     onSuccess: (_, { featured }) => {
       const status = featured ? 'featured' : 'unfeatured';
@@ -473,7 +501,10 @@ export function useUpdateProductType() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ 
+        queryKey: productKeys.lists(),
+        refetchType: 'active'
+      });
     },
   });
 }
