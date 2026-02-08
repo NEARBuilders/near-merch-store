@@ -7,7 +7,15 @@ import type { contract } from "../../../api/src/contract";
 
 export type ApiContract = typeof contract;
 export type ApiClient = ContractRouterClient<ApiContract>;
-export const API_URL = typeof window !== 'undefined' ? `${window.location.origin}/api/rpc` : '/api/rpc';
+
+/**
+ * IMPORTANT:
+ * - In the browser, calls go over HTTP via RPCLink.
+ * - During SSR, the host injects a server-side client on `globalThis.$apiClient`.
+ *   We must never instantiate/use RPCLink on the server, and we must not
+ *   capture `$apiClient` at module-eval time because the SSR remote is loaded
+ *   once at host startup.
+ */
 
 declare global {
   var $apiClient: ApiClient | undefined;
@@ -38,7 +46,12 @@ export const queryClient = new QueryClient({
 
 function createApiLink() {
   return new RPCLink({
-    url: API_URL,
+    url: () => {
+      if (typeof window === "undefined") {
+        throw new Error("RPCLink is not allowed on the server side.");
+      }
+      return `${window.location.origin}/api/rpc`;
+    },
     interceptors: [
       onError((error: unknown) => {
         console.error("oRPC API Error:", error);
@@ -68,10 +81,29 @@ function createApiLink() {
   });
 }
 
-function createClientSideApiClient(): ApiClient {
-  return createORPCClient(createApiLink());
+let clientSideApiClient: ApiClient | null = null;
+
+function getClientSideApiClient(): ApiClient {
+  if (clientSideApiClient) return clientSideApiClient;
+  clientSideApiClient = createORPCClient(createApiLink()) as unknown as ApiClient;
+  return clientSideApiClient;
 }
 
-export const apiClient: ApiClient =
-  globalThis.$apiClient ?? createClientSideApiClient();
+function getActiveApiClient(): ApiClient {
+  return globalThis.$apiClient ?? getClientSideApiClient();
+}
 
+export const apiClient: ApiClient = new Proxy({} as ApiClient, {
+  get(_target, prop, _receiver) {
+    // Prevent await/apiClient from treating this as a thenable
+    if (prop === "then") return undefined;
+    const client = getActiveApiClient() as unknown as Record<string, unknown>;
+    const value = client[prop as unknown as string];
+    if (typeof value === "function") {
+      // NOTE: Do NOT call .bind() here.
+      // oRPC's client is a Proxy; accessing `.bind` can be interpreted as an RPC path segment.
+      return (...args: unknown[]) => (value as (...a: unknown[]) => unknown)(...args);
+    }
+    return value;
+  },
+});
