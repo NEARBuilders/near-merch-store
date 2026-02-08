@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import { createPlugin } from 'every-plugin';
 import { Effect, Layer, Schedule, Cause, Exit } from 'every-plugin/effect';
+import { ManagedRuntime } from 'every-plugin/effect';
 import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import { contract } from './contract';
@@ -86,22 +87,17 @@ export default createPlugin({
 
       const dbLayer = DatabaseLive(config.secrets.API_DATABASE_URL);
 
-      const appLayer = ProductServiceLive(runtime).pipe(
-        Layer.provide(ProductStoreLive),
-        Layer.provide(CollectionStoreLive),
-        Layer.provide(dbLayer)
+      const combinedLayer = Layer.mergeAll(
+        dbLayer,
+        ProductServiceLive(runtime).pipe(Layer.provide(ProductStoreLive), Layer.provide(CollectionStoreLive)),
+        CheckoutServiceLive(runtime).pipe(Layer.provide(OrderStoreLive), Layer.provide(ProductStoreLive)),
+        OrderStoreLive,
+        ProviderConfigStoreLive,
+        ProductTypeStoreLive,
+        ProductStoreLive
       );
 
-      const checkoutLayer = CheckoutServiceLive(runtime).pipe(
-        Layer.provide(OrderStoreLive),
-        Layer.provide(ProductStoreLive),
-        Layer.provide(dbLayer)
-      );
-
-      const orderLayer = OrderStoreLive.pipe(Layer.provide(dbLayer));
-      const providerLayer = ProviderConfigStoreLive.pipe(Layer.provide(dbLayer));
-      const productTypeLayer = ProductTypeStoreLive.pipe(Layer.provide(dbLayer));
-      const productStoreLayer = ProductStoreLive.pipe(Layer.provide(dbLayer));
+      const managedRuntime = ManagedRuntime.make(combinedLayer);
 
       // Cache for NEAR price
       const nearPriceCache: { price: number | null; cachedAt: number } = {
@@ -116,12 +112,7 @@ export default createPlugin({
       return {
         stripeService,
         runtime,
-        appLayer,
-        checkoutLayer,
-        orderLayer,
-        providerLayer,
-        productTypeLayer,
-        productStoreLayer,
+        managedRuntime,
         secrets: config.secrets,
         nearPriceCache,
       };
@@ -130,10 +121,11 @@ export default createPlugin({
   shutdown: (context) =>
     Effect.gen(function* () {
       yield* Effect.promise(() => context.runtime.shutdown());
+      yield* context.managedRuntime.dispose();
     }),
 
   createRouter: (context, builder) => {
-    const { stripeService, runtime, appLayer, checkoutLayer, orderLayer, providerLayer, productTypeLayer, productStoreLayer, secrets, nearPriceCache } = context;
+    const { stripeService, runtime, managedRuntime, secrets, nearPriceCache } = context;
 
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.nearAccountId) {
@@ -158,11 +150,11 @@ export default createPlugin({
       }),
 
       getProducts: builder.getProducts.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getProducts(input);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -179,11 +171,11 @@ export default createPlugin({
       }),
 
       getProduct: builder.getProduct.handler(async ({ input, errors }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getProduct(input.id);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -204,11 +196,11 @@ export default createPlugin({
       }),
 
       searchProducts: builder.searchProducts.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.searchProducts(input);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -225,11 +217,11 @@ export default createPlugin({
       }),
 
       getFeaturedProducts: builder.getFeaturedProducts.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getFeaturedProducts(input.limit);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -246,11 +238,11 @@ export default createPlugin({
       }),
 
       getCollections: builder.getCollections.handler(async () => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getCollections();
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -267,11 +259,11 @@ export default createPlugin({
       }),
 
       getCollection: builder.getCollection.handler(async ({ input, errors }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getCollection(input.slug);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -292,11 +284,11 @@ export default createPlugin({
       }),
 
       getCarouselCollections: builder.getCarouselCollections.handler(async () => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getCarouselCollections();
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -313,11 +305,11 @@ export default createPlugin({
       }),
 updateCollection: builder.updateCollection.handler(async ({ input }) => {
         const { slug, ...data } = input;
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateCollection(slug, data);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -334,11 +326,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       }),
 
       updateCollectionFeaturedProduct: builder.updateCollectionFeaturedProduct.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateCollectionFeaturedProduct(input.slug, input.productId);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -356,21 +348,21 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
 
       sync: builder.sync.handler(async () => {
         try {
-          return await Effect.runPromise(
+          return await managedRuntime.runPromise(
             Effect.gen(function* () {
               const service = yield* ProductService;
               return yield* service.sync();
-            }).pipe(Effect.provide(appLayer))
+            })
           );
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           
           const getSyncStatusWithLayer = async () => {
-            return await Effect.runPromise(
+            return await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const service = yield* ProductService;
                 return yield* service.getSyncStatus();
-              }).pipe(Effect.provide(appLayer))
+              })
             );
           };
           
@@ -420,11 +412,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       }),
 
       getSyncStatus: builder.getSyncStatus.handler(async () => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getSyncStatus();
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -484,11 +476,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       }),
 
       updateProductListing: builder.updateProductListing.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateProductListing(input.id, input.listed);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -506,7 +498,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       createCheckout: builder.createCheckout
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const exit = await Effect.runPromiseExit(
+          const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const service = yield* CheckoutService;
               return yield* service.createCheckout({
@@ -519,7 +511,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
                 cancelUrl: input.cancelUrl,
                 paymentProvider: input.paymentProvider,
               });
-            }).pipe(Effect.provide(checkoutLayer))
+            })
           );
 
           if (Exit.isFailure(exit)) {
@@ -541,11 +533,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         }),
 
       quote: builder.quote.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* CheckoutService;
             return yield* service.getQuote(input.items, input.shippingAddress);
-          }).pipe(Effect.provide(checkoutLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -564,11 +556,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       getOrders: builder.getOrders
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          const exit = await Effect.runPromiseExit(
+          const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.findByUser(context.nearAccountId!, input);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (Exit.isFailure(exit)) {
@@ -591,11 +583,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       getOrder: builder.getOrder
         .use(requireAuth)
         .handler(async ({ input, context, errors }) => {
-          const exit = await Effect.runPromiseExit(
+          const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.find(input.id);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (Exit.isFailure(exit)) {
@@ -629,11 +621,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         }),
 
       getOrderByCheckoutSession: builder.getOrderByCheckoutSession.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* OrderStore;
             return yield* store.findByCheckoutSession(input.sessionId);
-          }).pipe(Effect.provide(orderLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -657,11 +649,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         let lastTrackingJson: string | undefined;
 
         while (!signal?.aborted) {
-          const order = await Effect.runPromise(
+          const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.findByCheckoutSession(input.sessionId);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (!order) {
@@ -695,7 +687,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       getAllOrders: builder.getAllOrders
         .use(requireAuth)
         .handler(async ({ input }) => {
-          const exit = await Effect.runPromiseExit(
+          const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.findAll({
@@ -704,7 +696,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
                 status: input.status,
                 search: input.search,
               });
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (Exit.isFailure(exit)) {
@@ -729,7 +721,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
           throw new Error('Stripe is not configured');
         }
 
-        const event = await Effect.runPromise(
+        const event = await managedRuntime.runPromise(
           stripeService.verifyWebhookSignature(input.body, input.signature)
         );
 
@@ -742,11 +734,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             return { received: true };
           }
 
-          const order = await Effect.runPromise(
+          const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.find(orderId);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (!order) {
@@ -757,11 +749,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             return { received: true };
           }
 
-          await Effect.runPromise(
+          await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               yield* store.updateStatus(orderId, 'paid');
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (!draftOrderIdsJson) {
@@ -799,7 +791,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
               );
 
               try {
-                const result = await Effect.runPromise(confirmEffect);
+                const result = await managedRuntime.runPromise(confirmEffect);
                 confirmationResults[providerName] = { success: true };
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
@@ -810,18 +802,18 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             const allSuccess = Object.values(confirmationResults).every(r => r.success);
             const finalStatus = allSuccess ? 'processing' : 'paid_pending_fulfillment';
 
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateStatus(orderId, finalStatus);
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
           } catch (error) {
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateStatus(orderId, 'paid_pending_fulfillment');
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
           }
         }
@@ -834,11 +826,11 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
 
         let webhookSecret = secrets.PRINTFUL_WEBHOOK_SECRET;
         if (!webhookSecret) {
-          const dbSecret = await Effect.runPromise(
+          const dbSecret = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* ProviderConfigStore;
               return yield* store.getSecretKey('printful');
-            }).pipe(Effect.provide(providerLayer))
+            })
           );
           webhookSecret = dbSecret || undefined;
         }
@@ -882,11 +874,11 @@ const payload = JSON.parse(input.body);
 
           console.log(`[Printful Webhook] Processing event: ${eventType}, order: ${externalId}`);
 
-          const order = await Effect.runPromise(
+          const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.find(externalId);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (!order) {
@@ -972,21 +964,21 @@ const payload = JSON.parse(input.body);
 
           if (newStatus) {
             const statusToUpdate = newStatus;
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateStatus(externalId, statusToUpdate);
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
           }
 
           if (newTracking) {
             const trackingToUpdate = newTracking;
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateTracking(externalId, trackingToUpdate);
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
           }
         } catch (error) {
@@ -1013,11 +1005,11 @@ const payload = JSON.parse(input.body);
             return { received: true };
           }
 
-          const order = await Effect.runPromise(
+          const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.find(externalId);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (!order) {
@@ -1064,21 +1056,21 @@ const payload = JSON.parse(input.body);
 
           if (newStatus) {
             const statusToUpdate = newStatus;
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateStatus(externalId, statusToUpdate);
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
           }
 
           if (newTracking) {
             const trackingToUpdate = newTracking;
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateTracking(externalId, trackingToUpdate);
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
           }
         } catch (error) {
@@ -1097,7 +1089,7 @@ const payload = JSON.parse(input.body);
         const timestamp = context.reqHeaders?.get('x-ping-timestamp') || '';
         const body = JSON.stringify(input);
 
-const webhookResult = await Effect.runPromise(
+const webhookResult = await managedRuntime.runPromise(
             Effect.tryPromise({
               try: async () => {
                 const result = await pingProvider.client.verifyWebhook({
@@ -1122,20 +1114,20 @@ const webhookResult = await Effect.runPromise(
         console.log(`[PingPay Webhook] Processing event: ${eventType}, order: ${orderId}, session: ${sessionId}`);
 
         let order = orderId
-          ? await Effect.runPromise(
+          ? await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 return yield* store.find(orderId);
-              }).pipe(Effect.provide(orderLayer))
+              })
             )
           : null;
 
         if (!order && sessionId) {
-          order = await Effect.runPromise(
+          order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.findByCheckoutSession(sessionId);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
         }
 
@@ -1153,11 +1145,11 @@ const webhookResult = await Effect.runPromise(
               return { received: true };
             }
 
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateStatus(resolvedOrderId, 'paid');
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
 
             if (Object.keys(draftOrderIds).length === 0) {
@@ -1192,7 +1184,7 @@ const webhookResult = await Effect.runPromise(
               }).pipe(Effect.retry({ times: 3, schedule: Schedule.exponential('100 millis') }));
 
               try {
-                const result = await Effect.runPromise(confirmEffect);
+                const result = await managedRuntime.runPromise(confirmEffect);
                 confirmationResults[providerName] = { success: true };
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1203,21 +1195,21 @@ const webhookResult = await Effect.runPromise(
             const allSuccess = Object.values(confirmationResults).every((r) => r.success);
             const finalStatus: OrderStatus = allSuccess ? 'processing' : 'paid_pending_fulfillment';
 
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateStatus(resolvedOrderId, finalStatus);
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
             break;
           }
 
           case 'payment.failed':
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateStatus(resolvedOrderId, 'payment_failed');
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
             break;
 
@@ -1231,8 +1223,8 @@ const webhookResult = await Effect.runPromise(
 
       cleanupAbandonedDrafts: builder.cleanupAbandonedDrafts.handler(async ({ input }) => {
         const maxAgeHours = input?.maxAgeHours || 24;
-        const exit = await Effect.runPromiseExit(
-          cleanupAbandonedDrafts(runtime, maxAgeHours).pipe(Effect.provide(orderLayer))
+        const exit = await managedRuntime.runPromiseExit(
+          cleanupAbandonedDrafts(runtime, maxAgeHours)
         );
 
         if (Exit.isFailure(exit)) {
@@ -1251,11 +1243,11 @@ const webhookResult = await Effect.runPromise(
       getProviderConfig: builder.getProviderConfig
         .use(requireAuth)
         .handler(async ({ input }) => {
-          const exit = await Effect.runPromiseExit(
+          const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* ProviderConfigStore;
               return yield* store.getConfig(input.provider);
-            }).pipe(Effect.provide(providerLayer))
+            })
           );
 
           if (Exit.isFailure(exit)) {
@@ -1289,7 +1281,7 @@ const webhookResult = await Effect.runPromise(
           
           let result;
           try {
-            result = await Effect.runPromise(
+            result = await managedRuntime.runPromise(
               printfulService.configureWebhooks({
                 defaultUrl: webhookUrl,
                 events: input.events,
@@ -1304,7 +1296,7 @@ const webhookResult = await Effect.runPromise(
           }
 
           try {
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* ProviderConfigStore;
                 yield* store.upsertConfig({
@@ -1318,7 +1310,7 @@ const webhookResult = await Effect.runPromise(
                   lastConfiguredAt: Date.now(),
                   expiresAt: result.expiresAt,
                 });
-              }).pipe(Effect.provide(providerLayer))
+              })
             );
           } catch (error) {
             console.error('[configureWebhook] Failed to save webhook config:', error);
@@ -1351,7 +1343,7 @@ const webhookResult = await Effect.runPromise(
           );
 
           try {
-            await Effect.runPromise(printfulService.disableWebhooks());
+            await managedRuntime.runPromise(printfulService.disableWebhooks());
           } catch (error) {
             console.error('[disableWebhook] Failed to disable Printful webhooks:', error);
             throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -1360,11 +1352,11 @@ const webhookResult = await Effect.runPromise(
           }
 
           try {
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* ProviderConfigStore;
                 yield* store.clearWebhookConfig(input.provider);
-              }).pipe(Effect.provide(providerLayer))
+              })
             );
           } catch (error) {
             console.error('[disableWebhook] Failed to clear webhook config:', error);
@@ -1391,7 +1383,7 @@ const webhookResult = await Effect.runPromise(
           );
 
           try {
-            const result = await Effect.runPromise(printfulService.ping());
+            const result = await managedRuntime.runPromise(printfulService.ping());
             return {
               success: result.success,
               timestamp: result.timestamp,
@@ -1406,11 +1398,11 @@ const webhookResult = await Effect.runPromise(
         }),
 
       getCategories: builder.getCategories.handler(async () => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getCategories();
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -1427,11 +1419,11 @@ const webhookResult = await Effect.runPromise(
       }),
 
       createCategory: builder.createCategory.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.createCategory(input);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -1448,11 +1440,11 @@ const webhookResult = await Effect.runPromise(
       }),
 
       deleteCategory: builder.deleteCategory.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.deleteCategory(input.id);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -1469,11 +1461,11 @@ const webhookResult = await Effect.runPromise(
       }),
 
       updateProductCategories: builder.updateProductCategories.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateProductCollections(input.id, input.categoryIds);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -1490,11 +1482,11 @@ const webhookResult = await Effect.runPromise(
       }),
 
       updateProductTags: builder.updateProductTags.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateProductTags(input.id, input.tags);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -1511,11 +1503,11 @@ const webhookResult = await Effect.runPromise(
       }),
 
       updateProductFeatured: builder.updateProductFeatured.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateProductFeatured(input.id, input.featured);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -1532,7 +1524,7 @@ const webhookResult = await Effect.runPromise(
       }),
 
       updateProductType: builder.updateProductType.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const productStore = yield* ProductStore;
             const product = yield* productStore.updateProductType(input.id, input.productTypeSlug);
@@ -1540,7 +1532,7 @@ const webhookResult = await Effect.runPromise(
               return { success: false };
             }
             return { success: true, product };
-          }).pipe(Effect.provide(productStoreLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -1557,12 +1549,12 @@ const webhookResult = await Effect.runPromise(
       }),
 
       getProductTypes: builder.getProductTypes.handler(async () => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* ProductTypeStore;
             const productTypes = yield* store.findAll();
             return { productTypes };
-          }).pipe(Effect.provide(productTypeLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -1579,12 +1571,12 @@ const webhookResult = await Effect.runPromise(
       }),
 
       createProductType: builder.createProductType.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* ProductTypeStore;
             const productType = yield* store.create(input);
             return { productType };
-          }).pipe(Effect.provide(productTypeLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -1601,7 +1593,7 @@ const webhookResult = await Effect.runPromise(
       }),
 
       updateProductTypeItem: builder.updateProductTypeItem.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* ProductTypeStore;
             const productType = yield* store.update(input.slug, {
@@ -1610,7 +1602,7 @@ const webhookResult = await Effect.runPromise(
               displayOrder: input.displayOrder,
             });
             return { productType };
-          }).pipe(Effect.provide(productTypeLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
@@ -1627,12 +1619,12 @@ const webhookResult = await Effect.runPromise(
       }),
 
       deleteProductType: builder.deleteProductType.handler(async ({ input }) => {
-        const exit = await Effect.runPromiseExit(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* ProductTypeStore;
             const success = yield* store.delete(input.slug);
             return { success };
-          }).pipe(Effect.provide(productTypeLayer))
+          })
         );
 
         if (Exit.isFailure(exit)) {
