@@ -337,12 +337,7 @@ export const contract = oc.router({
       description: 'Handles Printful webhook events for order status updates.',
       tags: ['Webhooks'],
     })
-    .input(
-      z.object({
-        body: z.string(),
-        signature: z.string().optional(),
-      })
-    )
+    .input(z.unknown())
     .output(WebhookResponseSchema),
 
   gelatoWebhook: oc
@@ -353,12 +348,7 @@ export const contract = oc.router({
       description: 'Handles Gelato webhook events for order status updates.',
       tags: ['Webhooks'],
     })
-    .input(
-      z.object({
-        body: z.string(),
-        signature: z.string().optional(),
-      })
-    )
+    .input(z.unknown())
     .output(WebhookResponseSchema),
 
   pingWebhook: oc

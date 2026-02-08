@@ -63,33 +63,6 @@ export default createPlugin({
         return await Effect.runPromise(service.getOrder(input.id));
       }),
 
-      webhook: builder.webhook.handler(async ({ input }) => {
-        const signature = input.signature || '';
-
-        if (webhookSecret && signature) {
-          const isValid = Effect.runSync(
-            service.verifyWebhookSignature(input.body, signature, webhookSecret)
-          );
-          if (!isValid) {
-            console.warn('[Printful Webhook] Invalid signature');
-          }
-        }
-
-        let event;
-        try {
-          event = JSON.parse(input.body);
-        } catch {
-          return { received: false, eventType: undefined };
-        }
-
-        console.log(`[Printful Webhook] Received event: ${event.type}`);
-
-        return {
-          received: true,
-          eventType: event.type,
-        };
-      }),
-
       quoteOrder: builder.quoteOrder.handler(async ({ input }) => {
         const mapFulfillmentErrorToORPC = (error: Error) => {
           if (error instanceof FulfillmentError) {

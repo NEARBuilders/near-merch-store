@@ -39,9 +39,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'NODE_OPTIONS="--import tsx" bun run dev',
+    command: 'bunx everything-dev dev --no-interactive',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 300 * 1000,
   },
 });

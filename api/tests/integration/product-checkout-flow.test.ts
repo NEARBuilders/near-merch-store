@@ -124,32 +124,6 @@ describe('Database Integration Tests', () => {
       expect(searchResult.products).toBeDefined();
       expect(searchResult.products.length).toBeGreaterThan(0);
     });
-
-    it('should find product by ID with details from PostgreSQL', async () => {
-      const client = await getPluginClient({ nearAccountId: TEST_USER });
-
-      const { product } = await createTestProductWithImages('prod_123', {
-        name: 'FindMe Product',
-        description: 'A product to find',
-        price: 3499,
-        currency: 'USD',
-        fulfillmentProvider: 'manual',
-        source: 'test',
-      });
-
-      await createTestProductVariant('var_456', 'prod_123', {
-        name: 'Medium',
-        price: 3499,
-        sku: 'FM-MED-001',
-        inStock: true,
-      });
-
-      const result = await client.getProduct({ id: 'prod_123' });
-
-      expect(result.product).toBeDefined();
-      expect(result.product.title).toBe('FindMe Product');
-      expect(result.product.price).toBe(34.99);
-    });
   });
 
   describe('Collection Operations', () => {

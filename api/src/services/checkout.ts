@@ -368,7 +368,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               const draftOrder = yield* Effect.tryPromise({
                 try: () =>
                   provider.client.createOrder({
-                    externalId: order.id,
+                    externalId: order.fulfillmentReferenceId || order.id,
                     recipient: buildRecipient(address),
                     items: fulfillmentItems,
                     retailCosts: {

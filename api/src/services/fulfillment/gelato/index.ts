@@ -62,33 +62,6 @@ export default createPlugin({
         return await Effect.runPromise(service.getOrder(input.id));
       }),
 
-      webhook: builder.webhook.handler(async ({ input }) => {
-        const signature = input.signature || '';
-
-        if (webhookSecret && signature) {
-          const isValid = Effect.runSync(
-            service.verifyWebhookSignature(input.body, signature)
-          );
-          if (!isValid) {
-            console.warn('[Gelato Webhook] Invalid signature');
-          }
-        }
-
-        let event;
-        try {
-          event = JSON.parse(input.body);
-        } catch {
-          return { received: false, eventType: undefined };
-        }
-
-        console.log(`[Gelato Webhook] Received event: ${event.event}`);
-
-        return {
-          received: true,
-          eventType: event.event,
-        };
-      }),
-
       quoteOrder: builder.quoteOrder.handler(async ({ input }) => {
         return await Effect.runPromise(service.quoteOrder(input));
       }),

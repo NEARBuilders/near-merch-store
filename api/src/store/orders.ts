@@ -98,7 +98,8 @@ export const OrderStoreLive = Layer.effect(
           try: async () => {
             const now = new Date();
             const orderId = crypto.randomUUID();
-            const fulfillmentReferenceId = `order_${Date.now()}_${input.userId}`;
+            const orderIdNoDashes = orderId.replace(/-/g, '');
+            const fulfillmentReferenceId = `ord${orderIdNoDashes}`;
 
             await db.insert(schema.orders).values({
               id: orderId,

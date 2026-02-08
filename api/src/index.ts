@@ -13,6 +13,8 @@ import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStore, ProductStoreLive, ProductTypeStore, ProductTypeStoreLive, CollectionStoreLive } from './store';
 import { ProviderConfigStore, ProviderConfigStoreLive } from './store/providers';
+import { computePrintfulUpdate, parsePrintfulWebhook, verifyPrintfulWebhookSignature } from './services/fulfillment/printful/webhook';
+import { handlePingPayWebhookEffect } from './services/payment/pingpay/webhook';
 export * from './schema';
 
 export default createPlugin({
@@ -40,6 +42,7 @@ export default createPlugin({
   context: z.object({
     nearAccountId: z.string().optional(),
     reqHeaders: z.custom<Headers>().optional(),
+    getRawBody: z.custom<() => Promise<string>>().optional(),
   }),
 
   contract,
@@ -87,15 +90,26 @@ export default createPlugin({
 
       const dbLayer = DatabaseLive(config.secrets.API_DATABASE_URL);
 
-      const combinedLayer = Layer.mergeAll(
-        dbLayer,
-        ProductServiceLive(runtime).pipe(Layer.provide(ProductStoreLive), Layer.provide(CollectionStoreLive)),
-        CheckoutServiceLive(runtime).pipe(Layer.provide(OrderStoreLive), Layer.provide(ProductStoreLive)),
-        OrderStoreLive,
-        ProviderConfigStoreLive,
-        ProductTypeStoreLive,
-        ProductStoreLive
+      const storesLayer = Layer.provideMerge(
+        Layer.mergeAll(
+          ProductStoreLive,
+          CollectionStoreLive,
+          OrderStoreLive,
+          ProviderConfigStoreLive,
+          ProductTypeStoreLive
+        ),
+        dbLayer
       );
+
+      const servicesLayer = Layer.provideMerge(
+        Layer.mergeAll(
+          ProductServiceLive(runtime),
+          CheckoutServiceLive(runtime)
+        ),
+        storesLayer
+      );
+
+      const combinedLayer = Layer.mergeAll(storesLayer, servicesLayer);
 
       const managedRuntime = ManagedRuntime.make(combinedLayer);
 
@@ -119,9 +133,12 @@ export default createPlugin({
     }),
 
   shutdown: (context) =>
-    Effect.gen(function* () {
-      yield* Effect.promise(() => context.runtime.shutdown());
-      yield* context.managedRuntime.dispose();
+    Effect.tryPromise({
+      try: async () => {
+        await context.runtime.shutdown();
+        await context.managedRuntime.dispose();
+      },
+      catch: (e) => new Error(`Shutdown failed: ${e instanceof Error ? e.message : String(e)}`),
     }),
 
   createRouter: (context, builder) => {
@@ -822,62 +839,37 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       }),
 
       printfulWebhook: builder.printfulWebhook.handler(async ({ input, context }) => {
-        const signature = context.reqHeaders?.get('x-pf-webhook-signature') || input.signature || '';
-
-        let webhookSecret = secrets.PRINTFUL_WEBHOOK_SECRET;
-        if (!webhookSecret) {
-          const dbSecret = await managedRuntime.runPromise(
-            Effect.gen(function* () {
-              const store = yield* ProviderConfigStore;
-              return yield* store.getSecretKey('printful');
-            })
-          );
-          webhookSecret = dbSecret || undefined;
-        }
-
-        if (webhookSecret && signature) {
-          try {
-            const secretBuffer = Buffer.from(webhookSecret, 'hex');
-            const expected = crypto
-              .createHmac('sha256', secretBuffer)
-              .update(input.body)
-              .digest('hex');
-
-            if (signature.length !== expected.length) {
-              console.error('[Printful Webhook] Signature length mismatch');
-              throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
-            }
-
-            const isValid = crypto.timingSafeEqual(
-              Buffer.from(signature, 'hex'),
-              Buffer.from(expected, 'hex')
-            );
-
-            if (!isValid) {
-              throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
-            }
-          } catch (error) {
-            if (error instanceof ORPCError) throw error;
-            throw new ORPCError('UNAUTHORIZED', { message: 'Webhook signature verification failed' });
-          }
-        }
+        const signature = context.reqHeaders?.get('x-pf-webhook-signature') || '';
+        const rawBody = (await context.getRawBody?.()) ?? JSON.stringify(input as unknown);
 
         try {
-const payload = JSON.parse(input.body);
-          const eventType = payload.type;
-          const data = payload.data;
+          // Secret source of truth: DB (configured via admin UI). Env is a fallback.
+          const webhookSecret = await managedRuntime.runPromise(
+            Effect.gen(function* () {
+              const store = yield* ProviderConfigStore;
+              return (yield* store.getSecretKey('printful')) || secrets.PRINTFUL_WEBHOOK_SECRET;
+            })
+          );
 
-          const externalId = data?.order?.external_id;
+          if (webhookSecret) {
+            verifyPrintfulWebhookSignature({ rawBody, signature, webhookSecretHex: webhookSecret });
+          }
+
+          const { eventType, externalId, data } = parsePrintfulWebhook(rawBody);
           if (!externalId) {
             return { received: true };
           }
 
-          console.log(`[Printful Webhook] Processing event: ${eventType}, order: ${externalId}`);
+          console.log(`[Printful Webhook] Processing event: ${eventType}, external_id: ${externalId}`);
 
           const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
-              return yield* store.find(externalId);
+              let order = yield* store.findByFulfillmentRef(externalId);
+              if (!order) {
+                order = yield* store.find(externalId);
+              }
+              return order;
             })
           );
 
@@ -885,99 +877,28 @@ const payload = JSON.parse(input.body);
             return { received: true };
           }
 
-          let newStatus: OrderStatus | undefined = undefined;
-          let newTracking: TrackingInfo[] | undefined = undefined;
+          const { newStatus, newTracking } = computePrintfulUpdate({
+            eventType,
+            data,
+            currentStatus: order.status,
+          });
 
-          switch (eventType) {
-            case 'order_created':
-              if (order.status === 'paid' || order.status === 'paid_pending_fulfillment') {
-                newStatus = 'processing';
-              }
-              break;
-
-            case 'shipment_sent':
-              newStatus = 'shipped';
-              if (data.shipment) {
-                newTracking = [{
-                  trackingCode: data.shipment.tracking_number || '',
-                  trackingUrl: data.shipment.tracking_url || '',
-                  shipmentMethodName: data.shipment.service || 'Standard',
-                }];
-              }
-              break;
-
-            case 'shipment_delivered':
-              newStatus = 'delivered';
-              break;
-
-            case 'shipment_returned':
-              newStatus = 'returned';
-              break;
-
-            case 'shipment_canceled':
-              newStatus = 'partially_cancelled';
-              break;
-
-            case 'shipment_out_of_stock':
-              newStatus = 'on_hold';
-              console.warn(`[Printful Webhook] Out of stock for order ${externalId}`);
-              break;
-
-            case 'shipment_put_hold':
-            case 'shipment_put_hold_approval':
-              newStatus = 'on_hold';
-              break;
-
-            case 'shipment_remove_hold':
-              if (order.status === 'on_hold') {
-                newStatus = 'processing';
-              }
-              break;
-
-            case 'order_put_hold':
-            case 'order_put_hold_approval':
-              newStatus = 'on_hold';
-              break;
-
-            case 'order_remove_hold':
-              if (order.status === 'on_hold') {
-                newStatus = 'processing';
-              }
-              break;
-
-            case 'order_canceled':
-              newStatus = 'cancelled';
-              break;
-
-            case 'order_failed':
-              newStatus = 'failed';
-              break;
-
-            case 'order_refunded':
-              newStatus = 'refunded';
-              break;
-
-            default:
-              console.warn(`[Printful Webhook] Unhandled event type: ${eventType}`);
-              break;
-          }
-
-          if (newStatus) {
+          if (newStatus && order) {
             const statusToUpdate = newStatus;
             await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateStatus(externalId, statusToUpdate);
+                yield* store.updateStatus(order.id, statusToUpdate);
               })
             );
           }
 
-          if (newTracking) {
+          if (newTracking && order) {
             const trackingToUpdate = newTracking;
             await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateTracking(externalId, trackingToUpdate);
+                yield* store.updateTracking(order.id, trackingToUpdate);
               })
             );
           }
@@ -994,9 +915,10 @@ const payload = JSON.parse(input.body);
         return { received: true };
       }),
 
-      gelatoWebhook: builder.gelatoWebhook.handler(async ({ input }) => {
+      gelatoWebhook: builder.gelatoWebhook.handler(async ({ input, context }) => {
         try {
-          const payload = JSON.parse(input.body);
+          const rawBody = (await context.getRawBody?.()) ?? JSON.stringify(input as unknown);
+          const payload = JSON.parse(rawBody);
           const eventType = payload.event;
           const orderData = payload.order || payload;
 
@@ -1008,7 +930,11 @@ const payload = JSON.parse(input.body);
           const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
-              return yield* store.find(externalId);
+              let order = yield* store.findByFulfillmentRef(externalId);
+              if (!order) {
+                order = yield* store.find(externalId);
+              }
+              return order;
             })
           );
 
@@ -1054,22 +980,22 @@ const payload = JSON.parse(input.body);
               break;
           }
 
-          if (newStatus) {
+          if (newStatus && order) {
             const statusToUpdate = newStatus;
             await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateStatus(externalId, statusToUpdate);
+                yield* store.updateStatus(order.id, statusToUpdate);
               })
             );
           }
 
-          if (newTracking) {
+          if (newTracking && order) {
             const trackingToUpdate = newTracking;
             await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateTracking(externalId, trackingToUpdate);
+                yield* store.updateTracking(order.id, trackingToUpdate);
               })
             );
           }
@@ -1087,141 +1013,29 @@ const payload = JSON.parse(input.body);
 
         const signature = context.reqHeaders?.get('x-ping-signature') || '';
         const timestamp = context.reqHeaders?.get('x-ping-timestamp') || '';
-        const body = JSON.stringify(input);
+        const body = (await context.getRawBody?.()) ?? JSON.stringify(input as unknown);
 
-const webhookResult = await managedRuntime.runPromise(
-            Effect.tryPromise({
-              try: async () => {
-                const result = await pingProvider.client.verifyWebhook({
-                  body,
-                  signature,
-                  timestamp,
-                });
-                return result;
-              },
-              catch: (error) => {
-                console.error(`[PingPay Webhook] Verification failed:`, error);
-                const verificationError = new Error(`Webhook verification failed: ${error instanceof Error ? error.message : String(error)}`);
-                throw verificationError;
-              }
-            })
+        await managedRuntime.runPromise(
+          handlePingPayWebhookEffect({
+            runtime,
+            pingProvider,
+            signature,
+            timestamp,
+            body,
+          })
         );
-
-        const eventType = webhookResult.eventType;
-
-        const { orderId, sessionId } = webhookResult;
-
-        console.log(`[PingPay Webhook] Processing event: ${eventType}, order: ${orderId}, session: ${sessionId}`);
-
-        let order = orderId
-          ? await managedRuntime.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                return yield* store.find(orderId);
-              })
-            )
-          : null;
-
-        if (!order && sessionId) {
-          order = await managedRuntime.runPromise(
-            Effect.gen(function* () {
-              const store = yield* OrderStore;
-              return yield* store.findByCheckoutSession(sessionId);
-            })
-          );
-        }
-
-        if (!order) {
-          return { received: true };
-        }
-
-        const resolvedOrderId = order.id;
-        const draftOrderIds = order.draftOrderIds || {};
-
-        switch (eventType) {
-          case 'payment.success':
-          case 'checkout.session.completed': {
-            if (order.status !== 'draft_created' && order.status !== 'pending' && order.status !== 'payment_pending') {
-              return { received: true };
-            }
-
-            await managedRuntime.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                yield* store.updateStatus(resolvedOrderId, 'paid');
-              })
-            );
-
-            if (Object.keys(draftOrderIds).length === 0) {
-              return { received: true };
-            }
-
-            const confirmationResults: Record<string, { success: boolean; error?: string }> = {};
-
-            for (const [providerName, draftId] of Object.entries(draftOrderIds)) {
-              if (providerName === 'manual') {
-                confirmationResults[providerName] = { success: true };
-                continue;
-              }
-
-              const provider = runtime.getProvider(providerName);
-              if (!provider) {
-                confirmationResults[providerName] = {
-                  success: false,
-                  error: 'Provider not configured',
-                };
-                continue;
-              }
-
-              const confirmEffect = Effect.tryPromise({
-                try: () => provider.client.confirmOrder({ id: draftId as string }),
-                catch: (error) =>
-                  new Error(
-                    `Failed to confirm order at ${providerName}: ${
-                      error instanceof Error ? error.message : String(error)
-                    }`
-                  ),
-              }).pipe(Effect.retry({ times: 3, schedule: Schedule.exponential('100 millis') }));
-
-              try {
-                const result = await managedRuntime.runPromise(confirmEffect);
-                confirmationResults[providerName] = { success: true };
-              } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                confirmationResults[providerName] = { success: false, error: errorMessage };
-              }
-            }
-
-            const allSuccess = Object.values(confirmationResults).every((r) => r.success);
-            const finalStatus: OrderStatus = allSuccess ? 'processing' : 'paid_pending_fulfillment';
-
-            await managedRuntime.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                yield* store.updateStatus(resolvedOrderId, finalStatus);
-              })
-            );
-            break;
-          }
-
-          case 'payment.failed':
-            await managedRuntime.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                yield* store.updateStatus(resolvedOrderId, 'payment_failed');
-              })
-            );
-            break;
-
-          default:
-            console.warn(`[PingPay Webhook] Unhandled event type: ${eventType}`);
-            break;
-        }
 
         return { received: true };
       }),
 
-      cleanupAbandonedDrafts: builder.cleanupAbandonedDrafts.handler(async ({ input }) => {
+      cleanupAbandonedDrafts: builder.cleanupAbandonedDrafts.handler(async ({ input, context }) => {
+        const cronSecret = context.reqHeaders?.get('x-cron-secret');
+        const expectedSecret = process.env.CRON_SECRET;
+
+        if (!expectedSecret || cronSecret !== expectedSecret) {
+          throw new ORPCError('UNAUTHORIZED', { message: 'Invalid or missing cron secret' });
+        }
+
         const maxAgeHours = input?.maxAgeHours || 24;
         const exit = await managedRuntime.runPromiseExit(
           cleanupAbandonedDrafts(runtime, maxAgeHours)

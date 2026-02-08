@@ -335,7 +335,7 @@ export class PrintfulService {
         });
 
         const result = await this.client.createOrderV1({
-          external_id: input.externalId.replace(/-/g, ''),
+          external_id: input.externalId,
           recipient,
           items,
         });

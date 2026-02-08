@@ -165,7 +165,7 @@ function MarketplaceHome() {
     if (!isPaused) {
       intervalRef.current = setInterval(() => {
         nextSlide();
-      }, 8000);
+      }, 3000);
     } else if (intervalRef.current) {
         clearInterval(intervalRef.current);
     }

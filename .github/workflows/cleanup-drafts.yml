@@ -1,0 +1,18 @@
+name: Cleanup Abandoned Drafts
+
+on:
+  schedule:
+    # Run daily at 10:00 UTC
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run cleanup
+        run: |
+          curl --fail-with-body -X POST "${{ vars.BASE_URL }}/api/cron/cleanup-drafts" \
+            -H "content-type: application/json" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d '{"maxAgeHours":24}'

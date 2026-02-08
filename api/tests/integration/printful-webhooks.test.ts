@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { getPluginClient, runMigrations, teardown, getTestDb } from '../setup';
 import { createTestOrder, clearOrders } from '../helpers';
 import * as schema from '@/db/schema';
+import { createHmac } from 'crypto';
 
 describe('Printful Webhook Integration', () => {
   beforeAll(async () => {
@@ -17,6 +18,20 @@ describe('Printful Webhook Integration', () => {
   });
 
   const TEST_USER = 'test-user.near';
+
+  const getPrintfulWebhookSecretHex = () => 'a'.repeat(64);
+  const signPrintfulWebhook = (body: string) => {
+    const secret = Buffer.from(getPrintfulWebhookSecretHex(), 'hex');
+    return createHmac('sha256', secret).update(body).digest('hex');
+  };
+
+  const createSignedPrintfulWebhookClient = async (payload: unknown, rawBody?: string) => {
+    const body = rawBody ?? JSON.stringify(payload);
+    const signature = signPrintfulWebhook(body);
+    const headers = new Headers();
+    headers.set('x-pf-webhook-signature', signature);
+    return getPluginClient({ reqHeaders: headers, getRawBody: async () => body });
+  };
 
   describe('Order Status Updates', () => {
     it('should update order to shipped when shipment_sent webhook received', async () => {
@@ -74,9 +89,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -132,9 +146,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -181,9 +194,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -230,9 +242,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
     });
@@ -265,9 +276,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
     });
@@ -307,9 +317,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -363,9 +372,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -429,9 +437,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -482,9 +489,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -533,9 +539,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -584,9 +589,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -635,9 +639,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -683,9 +686,8 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
@@ -734,14 +736,122 @@ describe('Printful Webhook Integration', () => {
 
       const webhookBody = JSON.stringify(printfulWebhookPayload);
 
-      const result = await client.printfulWebhook({
-        body: webhookBody,
-      });
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
 
       expect(result.received).toBe(true);
 
       const order = await client.getOrder({ id: orderId });
       expect(order.order.status).toBe('refunded');
+    });
+
+    it('should resolve order by fulfillmentReferenceId (findByFulfillmentRef)', async () => {
+      const client = await getPluginClient({ nearAccountId: TEST_USER });
+
+      const db = getTestDb();
+      const orderId = 'test-order-by-fulfillment-ref-123';
+      const fulfillmentReferenceId = 'ord0123456789abcdef0123456789abcdef';
+      const now = new Date();
+
+      await db.insert(schema.orders).values({
+        id: orderId,
+        userId: TEST_USER,
+        status: 'processing',
+        totalAmount: 5000,
+        currency: 'USD',
+        fulfillmentReferenceId,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const payload = {
+        type: 'shipment_sent',
+        created: Math.floor(Date.now() / 1000),
+        retries: 0,
+        store: 11229252,
+        data: {
+          shipment: {
+            id: 'test-shipment-fulfillment-ref',
+            carrier: 'USPS',
+            service: 'First-Class Mail',
+            tracking_number: '9400111899562537866450',
+            tracking_url: 'https://tools.usps.com/go/TrackConfirmAction?tLabels=9400111899562537866450',
+          },
+          order: {
+            id: 123,
+            external_id: fulfillmentReferenceId,
+            store: 11229252,
+            status: 'fulfilled',
+          },
+        },
+      };
+
+      const webhookClient = await createSignedPrintfulWebhookClient(payload);
+      const result = await webhookClient.printfulWebhook(payload);
+      expect(result.received).toBe(true);
+
+      const updated = await client.getOrder({ id: orderId });
+      expect(updated.order.status).toBe('shipped');
+      expect(updated.order.trackingInfo?.[0]?.trackingUrl).toContain('usps.com');
+    });
+  });
+
+  describe('Signature Verification', () => {
+    it('should accept webhooks with valid x-pf-webhook-signature', async () => {
+      const payload = {
+        type: 'shipment_sent',
+        created: Math.floor(Date.now() / 1000),
+        retries: 0,
+        store: 11229252,
+        data: {
+          shipment: {
+            id: 'test-shipment-sig',
+            carrier: 'USPS',
+            service: 'First-Class Mail',
+            tracking_number: '9400',
+            tracking_url: 'https://example.com/track',
+          },
+          order: {
+            id: 1,
+            external_id: 'does-not-exist',
+            store: 11229252,
+            status: 'fulfilled',
+          },
+        },
+      };
+
+      const rawBody = JSON.stringify(payload);
+      const signature = signPrintfulWebhook(rawBody);
+      const headers = new Headers();
+      headers.set('x-pf-webhook-signature', signature);
+
+      const client = await getPluginClient({ reqHeaders: headers, getRawBody: async () => rawBody });
+      const result = await client.printfulWebhook(payload);
+      expect(result.received).toBe(true);
+    });
+
+    it('should reject webhooks with invalid x-pf-webhook-signature', async () => {
+      const payload = {
+        type: 'shipment_sent',
+        created: Math.floor(Date.now() / 1000),
+        retries: 0,
+        store: 11229252,
+        data: {
+          order: {
+            id: 1,
+            external_id: 'does-not-exist',
+            store: 11229252,
+            status: 'fulfilled',
+          },
+        },
+      };
+
+      const rawBody = JSON.stringify(payload);
+      const headers = new Headers();
+      headers.set('x-pf-webhook-signature', '0'.repeat(64));
+
+      const client = await getPluginClient({ reqHeaders: headers, getRawBody: async () => rawBody });
+      await expect(client.printfulWebhook(payload)).rejects.toThrow();
     });
   });
 });

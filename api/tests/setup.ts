@@ -18,6 +18,8 @@ const TEST_CONFIG = {
     API_DATABASE_URL: TEST_DB_URL,
     PING_API_KEY: 'test_api_key',
     PING_WEBHOOK_SECRET: 'whsec_test_secret_key',
+    // Printful v2 webhook secret is hex; tests compute HMAC over raw body.
+    PRINTFUL_WEBHOOK_SECRET: 'a'.repeat(64),
   },
 };
 
@@ -83,7 +85,7 @@ export async function runMigrations() {
   }
 }
 
-export async function getPluginClient(context?: { nearAccountId?: string; reqHeaders?: Headers }) {
+export async function getPluginClient(context?: { nearAccountId?: string; reqHeaders?: Headers; getRawBody?: () => Promise<string> }) {
   await runMigrations();
 
   const runtime = getRuntime();
@@ -95,10 +97,11 @@ export async function getPluginClient(context?: { nearAccountId?: string; reqHea
 }
 
 export async function teardown() {
-  if (_testDb) {
-    const dbWithClient = _testDb as DatabaseType & { client: { end: () => Promise<void> } };
-    await dbWithClient.client.end();
-    _testDb = null;
+  _testDb = null;
+
+  if (_postgresClient) {
+    await _postgresClient.end();
+    _postgresClient = null;
   }
 
   if (_runtime) {
