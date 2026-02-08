@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, like, lt } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, like, lt } from 'drizzle-orm';
 import { Context, Effect, Layer } from 'every-plugin/effect';
 import * as schema from '../db/schema';
 import type { Collection, Product, ProductCriteria, ProductImage, ProductType, ProductVariant, ProductWithImages } from '../schema';
@@ -289,6 +289,7 @@ export const ProductStoreLive = Layer.effect(
               .select()
               .from(schema.products)
               .where(finalConditions)
+              .orderBy(asc(schema.products.name), asc(schema.products.id))
               .limit(limit)
               .offset(offset);
 

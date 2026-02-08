@@ -1,6 +1,13 @@
-import { apiClient, queryClient } from '@/utils/orpc';
-import { useMutation, useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { productKeys, productTypeKeys, collectionKeys } from './keys';
+import { apiClient } from '@/utils/orpc';
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+  type QueryClient,
+} from '@tanstack/react-query';
+import { productKeys, productTypeKeys, collectionKeys, categoryKeys, type Category } from './keys';
 import { toast } from 'sonner';
 
 export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'];
@@ -186,27 +193,30 @@ export const productLoaders = {
       }),
   }),
 
-  prefetchFeatured: async (limit = 8) => {
-    await queryClient.prefetchQuery(productLoaders.featured(limit));
+  prefetchFeatured: async (qc: QueryClient, limit = 8) => {
+    await qc.prefetchQuery(productLoaders.featured(limit));
   },
 
-  prefetchProduct: async (id: string) => {
-    await queryClient.prefetchQuery(productLoaders.detail(id));
+  prefetchProduct: async (qc: QueryClient, id: string) => {
+    await qc.prefetchQuery(productLoaders.detail(id));
   },
 
-  prefetchList: async (options?: { 
-    productTypeSlug?: string;
-    collectionSlugs?: string[];
-    tags?: string[];
-    featured?: boolean;
-    limit?: number; 
-    offset?: number;
-  }) => {
-    await queryClient.prefetchQuery(productLoaders.list(options));
+  prefetchList: async (
+    qc: QueryClient,
+    options?: {
+      productTypeSlug?: string;
+      collectionSlugs?: string[];
+      tags?: string[];
+      featured?: boolean;
+      limit?: number;
+      offset?: number;
+    },
+  ) => {
+    await qc.prefetchQuery(productLoaders.list(options));
   },
 
-  prefetchSearch: async (query: string, options?: { limit?: number }) => {
-    await queryClient.prefetchQuery(productLoaders.search(query, options));
+  prefetchSearch: async (qc: QueryClient, query: string, options?: { limit?: number }) => {
+    await qc.prefetchQuery(productLoaders.search(query, options));
   },
 };
 
@@ -224,6 +234,7 @@ export function useSyncStatus() {
 }
 
 export function useSyncProducts() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => apiClient.sync(),
     onSuccess: (data) => {
@@ -307,6 +318,7 @@ export function useSyncProducts() {
 }
 
 export function useUpdateProductListing() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, listed }: { id: string; listed: boolean }) =>
       apiClient.updateProductListing({ id, listed }),
@@ -318,18 +330,29 @@ export function useUpdateProductListing() {
       queryClient.setQueriesData(
         { 
           predicate: (query) => 
-            query.queryKey[0] === 'products' && 
-            query.queryKey[1] === 'list' &&
+            query.queryKey[0] === 'products' &&
             query.state.status === 'success'
         },
-        (old: { products: Product[]; total: number } | undefined) => {
+        (old: any) => {
           if (!old) return old;
-          return {
-            ...old,
-            products: old.products.map((p) =>
-              p.id === id ? { ...p, listed } : p
-            ),
-          };
+          if (old.products) {
+            return {
+              ...old,
+              products: old.products.map((p: Product) =>
+                p.id === id ? { ...p, listed } : p
+              ),
+            };
+          }
+          if (old.product && old.product.id === id) {
+            return {
+              ...old,
+              product: {
+                ...old.product,
+                listed,
+              },
+            };
+          }
+          return old;
         }
       );
 
@@ -344,21 +367,77 @@ export function useUpdateProductListing() {
       toast.error('Failed to update listing status');
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: productKeys.lists(),
-        refetchType: 'active'
-      });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
     },
   });
 }
 
 export function useUpdateProductCategories() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, categoryIds }: { id: string; categoryIds: string[] }) =>
       apiClient.updateProductCategories({ id, categoryIds }),
-    onMutate: async () => {
+    onMutate: async ({ id, categoryIds }) => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
       const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
+
+      const categoriesData = queryClient.getQueryData(categoryKeys.list()) as
+        | { categories: Category[] }
+        | undefined;
+
+      queryClient.setQueriesData(
+        { 
+          predicate: (query) => 
+            query.queryKey[0] === 'products' && 
+            query.state.status === 'success'
+        },
+        (old: any) => {
+          if (!old) return old;
+
+          const toCollection = (slug: string, existing?: any) => {
+            if (existing) return existing;
+            const cat = categoriesData?.categories?.find((c) => c.slug === slug);
+            return {
+              slug,
+              name: cat?.name ?? slug,
+              showInCarousel: true,
+              carouselOrder: 0,
+            };
+          };
+
+          if (old.products) {
+            return {
+              ...old,
+              products: old.products.map((p: Product) =>
+                p.id === id 
+                  ? { 
+                      ...p, 
+                      collections: (categoryIds as string[]).map((slug) =>
+                        toCollection(slug, p.collections?.find((c: any) => c.slug === slug))
+                      )
+                    } 
+                  : p
+              ),
+            };
+          }
+
+          if (old.product && old.product.id === id) {
+            const p = old.product as Product;
+            return {
+              ...old,
+              product: {
+                ...p,
+                collections: (categoryIds as string[]).map((slug) =>
+                  toCollection(slug, p.collections?.find((c: any) => c.slug === slug))
+                ),
+              },
+            };
+          }
+
+          return old;
+        }
+      );
+
       return { previousProducts };
     },
     onError: (_err, _variables, context) => {
@@ -372,10 +451,9 @@ export function useUpdateProductCategories() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: productKeys.lists(),
-        refetchType: 'active'
-      });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ queryKey: collectionKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
     onSuccess: () => {
       toast.success('Collections updated successfully');
@@ -384,6 +462,7 @@ export function useUpdateProductCategories() {
 }
 
 export function useUpdateProductTags() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, tags }: { id: string; tags: string[] }) =>
       apiClient.updateProductTags({ id, tags }),
@@ -394,18 +473,29 @@ export function useUpdateProductTags() {
       queryClient.setQueriesData(
         { 
           predicate: (query) => 
-            query.queryKey[0] === 'products' && 
-            query.queryKey[1] === 'list' &&
+            query.queryKey[0] === 'products' &&
             query.state.status === 'success'
         },
-        (old: { products: Product[]; total: number } | undefined) => {
+        (old: any) => {
           if (!old) return old;
-          return {
-            ...old,
-            products: old.products.map((p) =>
-              p.id === id ? { ...p, tags } : p
-            ),
-          };
+          if (old.products) {
+            return {
+              ...old,
+              products: old.products.map((p: Product) =>
+                p.id === id ? { ...p, tags } : p
+              ),
+            };
+          }
+          if (old.product && old.product.id === id) {
+            return {
+              ...old,
+              product: {
+                ...old.product,
+                tags,
+              },
+            };
+          }
+          return old;
         }
       );
 
@@ -422,10 +512,7 @@ export function useUpdateProductTags() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: productKeys.lists(),
-        refetchType: 'active'
-      });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
     },
     onSuccess: () => {
       toast.success('Tags updated successfully');
@@ -434,6 +521,7 @@ export function useUpdateProductTags() {
 }
 
 export function useUpdateProductFeatured() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, featured }: { id: string; featured: boolean }) =>
       apiClient.updateProductFeatured({ id, featured }),
@@ -444,18 +532,29 @@ export function useUpdateProductFeatured() {
       queryClient.setQueriesData(
         { 
           predicate: (query) => 
-            query.queryKey[0] === 'products' && 
-            query.queryKey[1] === 'list' &&
+            query.queryKey[0] === 'products' &&
             query.state.status === 'success'
         },
-        (old: { products: Product[]; total: number } | undefined) => {
+        (old: any) => {
           if (!old) return old;
-          return {
-            ...old,
-            products: old.products.map((p) =>
-              p.id === id ? { ...p, featured } : p
-            ),
-          };
+          if (old.products) {
+            return {
+              ...old,
+              products: old.products.map((p: Product) =>
+                p.id === id ? { ...p, featured } : p
+              ),
+            };
+          }
+          if (old.product && old.product.id === id) {
+            return {
+              ...old,
+              product: {
+                ...old.product,
+                featured,
+              },
+            };
+          }
+          return old;
         }
       );
 
@@ -472,10 +571,7 @@ export function useUpdateProductFeatured() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: productKeys.lists(),
-        refetchType: 'active'
-      });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
     },
     onSuccess: (_, { featured }) => {
       const status = featured ? 'featured' : 'unfeatured';
@@ -485,12 +581,59 @@ export function useUpdateProductFeatured() {
 }
 
 export function useUpdateProductType() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, productTypeSlug }: { id: string; productTypeSlug: string | null }) =>
       apiClient.updateProductType({ id, productTypeSlug }),
-    onMutate: async () => {
+    onMutate: async ({ id, productTypeSlug }) => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
       const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
+
+      queryClient.setQueriesData(
+        { 
+          predicate: (query) => 
+            query.queryKey[0] === 'products' && 
+            query.state.status === 'success'
+        },
+        (old: any) => {
+          if (!old) return old;
+          if (old.products) {
+            return {
+              ...old,
+              products: old.products.map((p: Product) =>
+                p.id === id 
+                  ? { 
+                      ...p, 
+                      productType: productTypeSlug ? { 
+                        slug: productTypeSlug,
+                        label: productTypeSlug,
+                        displayOrder: 0,
+                      } : null
+                    } 
+                  : p
+              ),
+            };
+          }
+          if (old.product && old.product.id === id) {
+            const p = old.product as Product;
+            return {
+              ...old,
+              product: {
+                ...p,
+                productType: productTypeSlug
+                  ? {
+                      slug: productTypeSlug,
+                      label: productTypeSlug,
+                      displayOrder: 0,
+                    }
+                  : null,
+              },
+            };
+          }
+          return old;
+        }
+      );
+
       return { previousProducts };
     },
     onError: (_err, _variables, context) => {
@@ -501,10 +644,7 @@ export function useUpdateProductType() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: productKeys.lists(),
-        refetchType: 'active'
-      });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
     },
   });
 }
@@ -522,6 +662,7 @@ export function useProductTypes() {
 }
 
 export function useCreateProductType() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: { slug: string; label: string; description?: string; displayOrder?: number }) =>
       apiClient.createProductType(data),
@@ -532,6 +673,7 @@ export function useCreateProductType() {
 }
 
 export function useUpdateProductTypeItem() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ slug, ...data }: { slug: string; label?: string; description?: string; displayOrder?: number }) =>
       apiClient.updateProductTypeItem({ slug, ...data }),
@@ -542,6 +684,7 @@ export function useUpdateProductTypeItem() {
 }
 
 export function useDeleteProductType() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ slug }: { slug: string }) =>
       apiClient.deleteProductType({ slug }),

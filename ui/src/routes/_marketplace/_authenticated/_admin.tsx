@@ -19,8 +19,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { collectionLoaders } from "@/integrations/api";
 
 export const Route = createFileRoute("/_marketplace/_authenticated/_admin")({
+  loader: async ({ context }) => {
+    const queryClient = context.queryClient;
+    await Promise.all([
+      queryClient.prefetchQuery(collectionLoaders.list()),
+      queryClient.prefetchQuery(collectionLoaders.carousel()),
+    ]).catch(() => {});
+  },
   beforeLoad: async () => {
     const { data: session } = await authClient.getSession();
 

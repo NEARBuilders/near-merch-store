@@ -6,11 +6,12 @@ import {
   useSuspenseCollections,
   collectionLoaders,
 } from '@/integrations/api';
-import { queryClient } from '@/utils/orpc';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const Route = createFileRoute('/_marketplace/collections/')({
   pendingComponent: LoadingSpinner,
-  loader: async () => {
+  loader: async ({ context }) => {
+    const queryClient = context.queryClient;
     // Prefetch collection list + details so UI can show accurate counts without hardcoding.
     const listData = await queryClient.ensureQueryData(collectionLoaders.list());
     await Promise.all(
@@ -51,6 +52,7 @@ export const Route = createFileRoute('/_marketplace/collections/')({
 });
 
 function CollectionsPage() {
+  const queryClient = useQueryClient();
   const { data: collectionsData } = useSuspenseCollections();
   const collections = [...(collectionsData?.collections ?? [])].sort((a, b) => {
     const aOrder = a.carouselOrder ?? 0;

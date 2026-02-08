@@ -1,4 +1,5 @@
 import { PageTransition } from "@/components/page-transition";
+import { MarketplaceSkeletonLoader } from "@/components/marketplace-skeleton-loader";
 import { VideoBackground } from "@/components/video-background";
 import { CartSidebar } from "@/components/marketplace/cart-sidebar";
 import { useCartSidebarStore } from "@/stores/cart-sidebar-store";
@@ -17,7 +18,6 @@ import {
   collectionLoaders,
   type Product
 } from "@/integrations/api";
-import { queryClient } from "@/utils/orpc";
 import {
   createFileRoute,
   Link,
@@ -29,7 +29,8 @@ import {
 import { useEffect, useRef, useState, useMemo } from "react";
 
 export const Route = createFileRoute("/_marketplace/")({
-  loader: async () => {
+  loader: async ({ context }) => {
+    const queryClient = context.queryClient;
     await Promise.all([
       queryClient.ensureQueryData(productLoaders.featured(6)),
       queryClient.ensureQueryData(productLoaders.list({ limit: 100 })),
@@ -63,16 +64,16 @@ function MarketplaceHome() {
 
   const { data: featuredData } = useFeaturedProducts(6);
   const featuredProducts = featuredData?.products ?? [];
-  
+
   const { data: productTypesData } = useProductTypes();
   const productTypes = productTypesData?.productTypes ?? [];
-  
-  const { data: carouselData } = useCarouselCollections();
+
+  const { data: carouselData, isLoading: isCollectionsLoading } = useCarouselCollections();
   const collections = carouselData?.collections ?? [];
-  
+
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>('all');
   const [currentProductIndex, setCurrentProductIndex] = useState(0);
-  
+
   useEffect(() => {
     setCurrentProductIndex(0);
   }, [selectedProductCategory]);
@@ -182,7 +183,7 @@ function MarketplaceHome() {
   return (
     <PageTransition className="m-0 p-0 relative">
       {activeSlide && <VideoBackground position="absolute" height="calc(100vh - 80px)" />}
-
+      {!activeSlide && (isCollectionsLoading || collections.length === 0) && <VideoBackground position="absolute" height="calc(100vh - 80px)" />}
       {activeSlide && (
       <section className="pt-28 md:pt-32 relative z-10 min-h-[calc(100vh-120px)] flex items-center">
         <div className="w-full max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
@@ -367,6 +368,8 @@ function MarketplaceHome() {
         </div>
       </section>
       )}
+
+      {!activeSlide && (isCollectionsLoading || collections.length === 0) && <MarketplaceSkeletonLoader />}
 
       {activeSlide && (
             <div className="lg:hidden rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 py-4 md:py-6 relative z-10 mx-4 md:mx-8 mb-8">

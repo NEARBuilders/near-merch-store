@@ -26,13 +26,12 @@ import {
   Plus,
   XCircle,
   ChevronDown,
-  Copy,
 } from "lucide-react";
+import { ProductTitleCell } from "@/components/admin/product-title-cell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { toast } from "sonner";
 import {
   useProducts,
   useCategories,
@@ -209,22 +208,11 @@ function InventoryManagement() {
   const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const handleSync = () => {
-    syncMutation.mutate(undefined, {
-      onSuccess: () => {
-        refetch();
-      },
-    });
+    syncMutation.mutate(undefined);
   };
 
   const handleToggleListing = (productId: string, currentlyListed: boolean) => {
-    updateListingMutation.mutate(
-      { id: productId, listed: !currentlyListed },
-      {
-        onSuccess: () => {
-          refetch();
-        },
-      }
-    );
+    updateListingMutation.mutate({ id: productId, listed: !currentlyListed });
   };
 
   // Update sync duration when running
@@ -283,36 +271,8 @@ function InventoryManagement() {
         </Button>
       ),
       cell: ({ row }) => {
-        const [copied, setCopied] = useState(false);
-        const productUrl = `${window.location.origin}/products/${row.original.id}`;
-
-        const handleCopy = async (e: React.MouseEvent) => {
-          e.preventDefault();
-          await navigator.clipboard.writeText(productUrl);
-          setCopied(true);
-          toast.success('Product link copied');
-          setTimeout(() => setCopied(false), 2000);
-        };
-
         return (
-          <Link
-            to="/products/$productId"
-            params={{ productId: row.original.id }}
-            className="flex items-center gap-2 w-full"
-          >
-            <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors flex-1">{row.original.title}</p>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className={cn(
-                "text-foreground/50 dark:text-muted-foreground hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors",
-                copied && "text-[#00EC97]"
-              )}
-              title={copied ? "Copied!" : "Copy product link"}
-            >
-              <Copy className="size-3.5" />
-            </button>
-          </Link>
+          <ProductTitleCell product={row.original} />
         );
       },
       size: 200,

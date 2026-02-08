@@ -12,12 +12,11 @@ import {
   collectionLoaders,
   type Product,
 } from '@/integrations/api';
-import { queryClient } from '@/utils/orpc';
 
 export const Route = createFileRoute('/_marketplace/collections/$collection')({
   pendingComponent: LoadingSpinner,
-  loader: async ({ params }) => {
-    await queryClient.ensureQueryData(collectionLoaders.detail(params.collection));
+  loader: async ({ params, context }) => {
+    await context.queryClient.ensureQueryData(collectionLoaders.detail(params.collection));
   },
   errorComponent: ({ error }) => {
     const router = useRouter();

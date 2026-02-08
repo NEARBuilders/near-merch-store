@@ -22,7 +22,6 @@ import {
   useProductTypes,
   type Product,
 } from "@/integrations/api";
-import { queryClient } from "@/utils/orpc";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Search, Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
@@ -36,7 +35,8 @@ export const Route = createFileRoute("/_marketplace/products/")({
       collection: (search.collection as string | undefined) || undefined,
     };
   },
-  loader: async () => {
+  loader: async ({ context }) => {
+    const queryClient = context.queryClient;
     try {
       await queryClient.ensureQueryData(productLoaders.list({ limit: 100 }));
     } catch (error) {

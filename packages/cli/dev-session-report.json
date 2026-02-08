@@ -1,0 +1,208 @@
+{
+  "sessionId": "sess_1770424698059_af83ow",
+  "config": {
+    "ports": [
+      3000
+    ],
+    "snapshotIntervalMs": 2000,
+    "headless": true,
+    "baseUrl": "http://localhost:3000",
+    "timeout": 120000,
+    "devMode": "remote"
+  },
+  "startTime": 1770424698060,
+  "endTime": 1770424702587,
+  "events": [
+    {
+      "id": "evt_1770424698238_1",
+      "timestamp": 1770424698238,
+      "type": "baseline",
+      "label": "session_start",
+      "snapshot": {
+        "timestamp": 1770424698237,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": null,
+            "command": null,
+            "state": "FREE"
+          }
+        },
+        "processes": [],
+        "memory": {
+          "total": 17179869184,
+          "used": 13211262976,
+          "free": 2391760896,
+          "processRss": 0
+        },
+        "platform": "darwin"
+      }
+    },
+    {
+      "id": "evt_1770424700419_2",
+      "timestamp": 1770424700419,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770424700419,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": null,
+            "command": null,
+            "state": "FREE"
+          }
+        },
+        "processes": [],
+        "memory": {
+          "total": 17179869184,
+          "used": 13571092480,
+          "free": 2078355456,
+          "processRss": 0
+        },
+        "platform": "darwin"
+      }
+    },
+    {
+      "id": "evt_1770424701645_3",
+      "timestamp": 1770424701645,
+      "type": "custom",
+      "label": "dev_server_ready",
+      "snapshot": {
+        "timestamp": 1770424701645,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 83746,
+            "command": "bun",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 83746,
+            "ppid": 83693,
+            "command": "bun",
+            "args": [
+              "bun",
+              "run",
+              "src/cli.ts",
+              "dev",
+              "--no-interactive"
+            ],
+            "rss": 321466368,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 13602570240,
+          "free": 2046869504,
+          "processRss": 321466368
+        },
+        "platform": "darwin"
+      },
+      "metadata": {
+        "portBindTimeMs": 3168
+      }
+    },
+    {
+      "id": "evt_1770424702069_4",
+      "timestamp": 1770424702069,
+      "type": "custom",
+      "label": "shutdown_initiated",
+      "snapshot": {
+        "timestamp": 1770424702068,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": null,
+            "command": null,
+            "state": "FREE"
+          }
+        },
+        "processes": [],
+        "memory": {
+          "total": 17179869184,
+          "used": 13312471040,
+          "free": 2337447936,
+          "processRss": 0
+        },
+        "platform": "darwin"
+      }
+    },
+    {
+      "id": "evt_1770424702422_5",
+      "timestamp": 1770424702422,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770424702421,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": null,
+            "command": null,
+            "state": "FREE"
+          }
+        },
+        "processes": [],
+        "memory": {
+          "total": 17179869184,
+          "used": 13312819200,
+          "free": 2336911360,
+          "processRss": 0
+        },
+        "platform": "darwin"
+      }
+    },
+    {
+      "id": "evt_1770424702587_6",
+      "timestamp": 1770424702587,
+      "type": "custom",
+      "label": "session_end",
+      "snapshot": {
+        "timestamp": 1770424702587,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": null,
+            "command": null,
+            "state": "FREE"
+          }
+        },
+        "processes": [],
+        "memory": {
+          "total": 17179869184,
+          "used": 13312999424,
+          "free": 2336956416,
+          "processRss": 0
+        },
+        "platform": "darwin"
+      }
+    }
+  ],
+  "summary": {
+    "totalMemoryDeltaMb": 0,
+    "peakMemoryMb": 306.57421875,
+    "averageMemoryMb": 306.57421875,
+    "processesSpawned": 1,
+    "processesKilled": 1,
+    "orphanedProcesses": 0,
+    "portsUsed": [
+      3000
+    ],
+    "portsLeaked": 0,
+    "hasLeaks": false,
+    "eventCount": 6,
+    "duration": 4349
+  },
+  "platform": "darwin",
+  "nodeVersion": "v22.18.0"
+}

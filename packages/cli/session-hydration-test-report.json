@@ -1,0 +1,1059 @@
+{
+  "sessionId": "sess_1770425119253_p3deq2",
+  "config": {
+    "ports": [
+      3000
+    ],
+    "snapshotIntervalMs": 2000,
+    "headless": true,
+    "baseUrl": "http://localhost:3000",
+    "timeout": 120000,
+    "devMode": "remote"
+  },
+  "startTime": 1770425119253,
+  "endTime": 1770425153580,
+  "events": [
+    {
+      "id": "evt_1770425119742_1",
+      "timestamp": 1770425119742,
+      "type": "baseline",
+      "label": "session_start",
+      "snapshot": {
+        "timestamp": 1770425119742,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 59330560,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8663040,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14592847872,
+          "free": 250363904,
+          "processRss": 67993600
+        },
+        "platform": "darwin"
+      }
+    },
+    {
+      "id": "evt_1770425122099_2",
+      "timestamp": 1770425122099,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425122097,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 59346944,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8663040,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14857404416,
+          "free": 26202112,
+          "processRss": 68009984
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425124067_3",
+      "timestamp": 1770425124067,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425124066,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60219392,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8667136,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14585167872,
+          "free": 297275392,
+          "processRss": 68886528
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425126069_4",
+      "timestamp": 1770425126069,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425126069,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60227584,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8679424,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14567231488,
+          "free": 315838464,
+          "processRss": 68907008
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425128062_5",
+      "timestamp": 1770425128062,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425128061,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60407808,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8687616,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14858665984,
+          "free": 120479744,
+          "processRss": 69095424
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425130080_6",
+      "timestamp": 1770425130080,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425130079,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60452864,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14862229504,
+          "free": 102715392,
+          "processRss": 69177344
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425132068_7",
+      "timestamp": 1770425132068,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425132067,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60461056,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14867886080,
+          "free": 96227328,
+          "processRss": 69185536
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425134070_8",
+      "timestamp": 1770425134070,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425134070,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60469248,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14867808256,
+          "free": 93999104,
+          "processRss": 69193728
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425136072_9",
+      "timestamp": 1770425136072,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425136072,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60477440,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14880456704,
+          "free": 81367040,
+          "processRss": 69201920
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425138093_10",
+      "timestamp": 1770425138093,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425138092,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60485632,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14956896256,
+          "free": 24305664,
+          "processRss": 69210112
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425140089_11",
+      "timestamp": 1770425140089,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425140089,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60526592,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14960480256,
+          "free": 21454848,
+          "processRss": 69251072
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425142088_12",
+      "timestamp": 1770425142088,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425142088,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60534784,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14960279552,
+          "free": 20807680,
+          "processRss": 69259264
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425144089_13",
+      "timestamp": 1770425144089,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425144088,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60542976,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14960787456,
+          "free": 21336064,
+          "processRss": 69267456
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425146077_14",
+      "timestamp": 1770425146077,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425146077,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60542976,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14956187648,
+          "free": 25198592,
+          "processRss": 69267456
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425148077_15",
+      "timestamp": 1770425148077,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425148077,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60547072,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14866518016,
+          "free": 114761728,
+          "processRss": 69271552
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425150076_16",
+      "timestamp": 1770425150076,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425150075,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60551168,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14868566016,
+          "free": 112656384,
+          "processRss": 69275648
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425152074_17",
+      "timestamp": 1770425152074,
+      "type": "interval",
+      "label": "auto_snapshot",
+      "snapshot": {
+        "timestamp": 1770425152074,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60551168,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14873346048,
+          "free": 108007424,
+          "processRss": 69275648
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    },
+    {
+      "id": "evt_1770425153580_18",
+      "timestamp": 1770425153580,
+      "type": "custom",
+      "label": "session_end",
+      "snapshot": {
+        "timestamp": 1770425153580,
+        "configPath": "/Users/ebraem/workspace/everything/every-plugin/packages/cli/bos.config.json",
+        "ports": {
+          "3000": {
+            "port": 3000,
+            "pid": 84591,
+            "command": "node",
+            "state": "LISTEN"
+          }
+        },
+        "processes": [
+          {
+            "pid": 84591,
+            "ppid": 84580,
+            "command": "/Users/ebraem/.n",
+            "args": [
+              "/Users/ebraem/.nvm/versions/node/v22.18.0/bin/node",
+              "--require",
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/preflight.cjs",
+              "--import",
+              "file:///Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/tsx@4.21.0/node_modules/tsx/dist/loader.mjs",
+              "server.ts"
+            ],
+            "rss": 60551168,
+            "children": [
+              84601
+            ]
+          },
+          {
+            "pid": 84601,
+            "ppid": 84591,
+            "command": "/Users/ebraem/wo",
+            "args": [
+              "/Users/ebraem/workspace/everything/every-plugin/demo/node_modules/.bun/@esbuild+darwin-x64@0.27.0/node_modules/@esbuild/darwin-x64/bin/esbuild",
+              "--service=0.27.0",
+              "--ping"
+            ],
+            "rss": 8724480,
+            "children": []
+          }
+        ],
+        "memory": {
+          "total": 17179869184,
+          "used": 14805446656,
+          "free": 176152576,
+          "processRss": 69275648
+        },
+        "platform": "darwin"
+      },
+      "url": "about:blank"
+    }
+  ],
+  "summary": {
+    "totalMemoryDeltaMb": 1.22265625,
+    "peakMemoryMb": 66.06640625,
+    "averageMemoryMb": 65.85677083333333,
+    "processesSpawned": 2,
+    "processesKilled": 0,
+    "orphanedProcesses": 0,
+    "portsUsed": [
+      3000
+    ],
+    "portsLeaked": 1,
+    "hasLeaks": true,
+    "eventCount": 18,
+    "duration": 33838
+  },
+  "platform": "darwin",
+  "nodeVersion": "v22.18.0"
+}

@@ -22,7 +22,7 @@ import { NearMark } from "@/components/near-mark";
 import { NearWordmark } from "@/components/near-wordmark";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
-import { queryClient } from "@/utils/orpc";
+import { useQueryClient } from "@tanstack/react-query";
 import nearLogo from "@/assets/images/pngs/logo_sq.png";
 import { useCategories } from "@/integrations/api";
 
@@ -95,6 +95,7 @@ function CollectionsDropdown() {
 }
 
 export function MarketplaceHeader() {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

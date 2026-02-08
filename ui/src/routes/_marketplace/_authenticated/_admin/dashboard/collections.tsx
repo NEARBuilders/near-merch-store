@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useCollections, useCreateCollection, useDeleteCollection, useUpdateCollection, useSuspenseCollection, useUpdateCollectionFeaturedProduct, type Collection } from "@/integrations/api";
+import { useCollection, useCollections, useCreateCollection, useDeleteCollection, useUpdateCollection, useUpdateCollectionFeaturedProduct, type Collection } from "@/integrations/api";
 import { Label } from "@/components/ui/label";
 import { ChevronDown, ChevronRight, X, Search, Package } from "lucide-react";
 import {
@@ -46,8 +46,10 @@ function AdminCollections() {
   const [name, setName] = useState("");
   const [editCollection, setEditCollection] = useState<Collection | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [pendingFeaturedId, setPendingFeaturedId] = useState<string | null>(null);
+  const [pendingSlug, setPendingSlug] = useState<string | null>(null);
 
-  const { data: expandedCollectionData } = useSuspenseCollection(expandedRow ?? '');
+  const { data: expandedCollectionData } = useCollection(expandedRow ?? '');
   const productsInCollection = useMemo(() => {
     if (!expandedRow || !expandedCollectionData?.products || expandedRow === '') return [];
 
@@ -247,7 +249,9 @@ function AdminCollections() {
                                   type="button"
                                   className="w-full flex items-center gap-3 px-3 py-2 border border-border/60 rounded-lg hover:border-[#00EC97] bg-background/60 text-left text-sm"
                                 >
-                                  {editCollection?.featuredProduct ? (
+                                  {pendingSlug === editCollection?.slug && pendingFeaturedId !== null ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#00EC97] border-t-transparent" />
+                                  ) : editCollection?.featuredProduct ? (
                                     <>
                                       <img
                                         src={editCollection.featuredProduct.thumbnailImage || ''}
@@ -262,7 +266,14 @@ function AdminCollections() {
                                         className="size-4 text-foreground/50 hover:text-red-500"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          updateFeaturedMutation.mutate({ slug: editCollection.slug, productId: '' });
+                                          setPendingFeaturedId('');
+                                          setPendingSlug(editCollection.slug);
+                                          updateFeaturedMutation.mutate({ slug: editCollection.slug, productId: '' }, {
+                                            onSettled: () => {
+                                              setPendingFeaturedId(null);
+                                              setPendingSlug(null);
+                                            }
+                                          });
                                         }}
                                       />
                                     </>
@@ -285,7 +296,14 @@ function AdminCollections() {
                                           key={product.id}
                                           value={`${product.title} ${product.id}`}
                                           onSelect={() => {
-                                            updateFeaturedMutation.mutate({ slug: editCollection!.slug, productId: product.id });
+                                            setPendingFeaturedId(product.id);
+                                            setPendingSlug(editCollection!.slug);
+                                            updateFeaturedMutation.mutate({ slug: editCollection!.slug, productId: product.id }, {
+                                              onSettled: () => {
+                                                setPendingFeaturedId(null);
+                                                setPendingSlug(null);
+                                              }
+                                            });
                                           }}
                                           className="flex items-center gap-2"
                                         >

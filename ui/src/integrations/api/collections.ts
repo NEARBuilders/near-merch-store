@@ -1,5 +1,11 @@
-import { useQuery, useSuspenseQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient, queryClient } from '@/utils/orpc';
+import {
+  useQuery,
+  useSuspenseQuery,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
+import { apiClient } from '@/utils/orpc';
 import { collectionKeys } from './keys';
 import { toast } from 'sonner';
 
@@ -55,8 +61,67 @@ export function useSuspenseCarouselCollections() {
 export function useUpdateCollection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { slug: string; name?: string; description?: string; carouselTitle?: string; carouselDescription?: string; showInCarousel?: boolean; carouselOrder?: number }) => 
+    mutationFn: (data: { slug: string; name?: string; description?: string; carouselTitle?: string; carouselDescription?: string; showInCarousel?: boolean; carouselOrder?: number }) =>
       apiClient.updateCollection(data),
+    onMutate: async (variables) => {
+      await qc.cancelQueries({ queryKey: collectionKeys.list() });
+      await qc.cancelQueries({ queryKey: collectionKeys.carousel() });
+      await qc.cancelQueries({ queryKey: collectionKeys.detail(variables.slug) });
+
+      const previousList = qc.getQueryData(collectionKeys.list());
+      const previousCarousel = qc.getQueryData(collectionKeys.carousel());
+      const previousDetail = qc.getQueryData(collectionKeys.detail(variables.slug));
+
+      qc.setQueryData(collectionKeys.list(), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          collections: old.collections.map((c: Collection) =>
+            c.slug === variables.slug
+              ? { ...c, name: variables.name ?? c.name, description: variables.description ?? c.description, carouselTitle: variables.carouselTitle ?? c.carouselTitle, carouselDescription: variables.carouselDescription ?? c.carouselDescription, showInCarousel: variables.showInCarousel ?? c.showInCarousel, carouselOrder: variables.carouselOrder ?? c.carouselOrder }
+              : c
+          )
+        };
+      });
+
+      qc.setQueryData(collectionKeys.detail(variables.slug), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          name: variables.name ?? old.name,
+          description: variables.description ?? old.description,
+          carouselTitle: variables.carouselTitle ?? old.carouselTitle,
+          carouselDescription: variables.carouselDescription ?? old.carouselDescription,
+          showInCarousel: variables.showInCarousel ?? old.showInCarousel,
+          carouselOrder: variables.carouselOrder ?? old.carouselOrder
+        };
+      });
+
+      qc.setQueryData(collectionKeys.carousel(), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          collections: old.collections.map((c: any) =>
+            c.slug === variables.slug
+              ? { ...c, name: variables.name ?? c.name, carouselTitle: variables.carouselTitle ?? c.carouselTitle, carouselDescription: variables.carouselDescription ?? c.carouselDescription, showInCarousel: variables.showInCarousel ?? c.showInCarousel, carouselOrder: variables.carouselOrder ?? c.carouselOrder }
+              : c
+          )
+        };
+      });
+
+      return { previousList, previousCarousel, previousDetail, slug: variables.slug };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousList) {
+        qc.setQueryData(collectionKeys.list(), context.previousList);
+      }
+      if (context?.previousCarousel) {
+        qc.setQueryData(collectionKeys.carousel(), context.previousCarousel);
+      }
+      if (context?.previousDetail) {
+        qc.setQueryData(collectionKeys.detail(context.slug), context.previousDetail);
+      }
+    },
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: collectionKeys.all });
       qc.invalidateQueries({ queryKey: ['categories'] });
@@ -64,10 +129,10 @@ export function useUpdateCollection() {
       qc.invalidateQueries({ queryKey: collectionKeys.detail(variables.slug) });
       toast.success('Collection updated successfully');
     },
-    onError: (error: any) => {
-      toast.error('Failed to update collection', {
-        description: error?.message || 'An unknown error occurred'
-      });
+    onSettled: (_, _variables, context) => {
+      qc.invalidateQueries({ queryKey: collectionKeys.all });
+      qc.invalidateQueries({ queryKey: collectionKeys.carousel() });
+      qc.invalidateQueries({ queryKey: collectionKeys.detail(context?.slug || '') });
     },
   });
 }
@@ -80,16 +145,62 @@ export function useUpdateCollectionFeaturedProduct() {
         slug: data.slug,
         productId: data.productId || null
       }),
+    onMutate: async (variables) => {
+      await qc.cancelQueries({ queryKey: collectionKeys.list() });
+      await qc.cancelQueries({ queryKey: collectionKeys.carousel() });
+      await qc.cancelQueries({ queryKey: collectionKeys.detail(variables.slug) });
+
+      const previousList = qc.getQueryData(collectionKeys.list());
+      const previousCarousel = qc.getQueryData(collectionKeys.carousel());
+      const previousDetail = qc.getQueryData(collectionKeys.detail(variables.slug));
+
+      qc.setQueryData(collectionKeys.list(), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          collections: old.collections.map((c: Collection) =>
+            c.slug === variables.slug
+              ? { ...c, featuredProduct: variables.productId ? { id: variables.productId, title: 'Updating...', thumbnailImage: '', price: 0 } : null }
+              : c
+          )
+        };
+      });
+
+      qc.setQueryData(collectionKeys.detail(variables.slug), (old: any) => {
+        if (!old) return old;
+        const targetProduct = variables.productId ? old.products?.find((p: any) => p.id === variables.productId) : null;
+        return {
+          ...old,
+          products: old.products?.map((p: any) =>
+            p.id === variables.productId ? { ...p, featured: !!variables.productId } : { ...p, featured: false }
+          ),
+          featuredProduct: targetProduct || null
+        };
+      });
+
+      return { previousList, previousCarousel, previousDetail, slug: variables.slug };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousList) {
+        qc.setQueryData(collectionKeys.list(), context.previousList);
+      }
+      if (context?.previousCarousel) {
+        qc.setQueryData(collectionKeys.carousel(), context.previousCarousel);
+      }
+      if (context?.previousDetail) {
+        qc.setQueryData(collectionKeys.detail(context.slug), context.previousDetail);
+      }
+    },
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: collectionKeys.list() });
       qc.invalidateQueries({ queryKey: collectionKeys.carousel() });
       qc.invalidateQueries({ queryKey: collectionKeys.detail(variables.slug) });
       toast.success('Featured product updated successfully');
     },
-    onError: (error: any) => {
-      toast.error('Failed to update featured product', {
-        description: error?.message || 'An unknown error occurred'
-      });
+    onSettled: (_, _variables, context) => {
+      qc.invalidateQueries({ queryKey: collectionKeys.list() });
+      qc.invalidateQueries({ queryKey: collectionKeys.carousel() });
+      qc.invalidateQueries({ queryKey: collectionKeys.detail(context?.slug || '') });
     },
   });
 }
@@ -99,15 +210,33 @@ export function useCreateCollection() {
   return useMutation({
     mutationFn: (input: { name: string; slug: string; description?: string }) =>
       apiClient.createCategory(input),
+    onMutate: async (variables) => {
+      await qc.cancelQueries({ queryKey: collectionKeys.list() });
+
+      const previousList = qc.getQueryData(collectionKeys.list());
+
+      qc.setQueryData(collectionKeys.list(), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          collections: [...old.collections, { slug: variables.slug, name: variables.name, description: variables.description, showInCarousel: false, carouselOrder: 0, carouselTitle: variables.name, carouselDescription: '', featuredProduct: undefined, image: undefined, badge: undefined, features: undefined } as unknown as Collection]
+        };
+      });
+
+      return { previousList };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousList) {
+        qc.setQueryData(collectionKeys.list(), context.previousList);
+      }
+    },
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: collectionKeys.all });
       qc.invalidateQueries({ queryKey: ['categories'] });
       toast.success(`Collection "${variables.name}" created successfully`);
     },
-    onError: (error: any) => {
-      toast.error('Failed to create collection', {
-        description: error?.message || 'An unknown error occurred'
-      });
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: collectionKeys.all });
     },
   });
 }
@@ -145,15 +274,15 @@ export const collectionLoaders = {
     queryFn: () => apiClient.getCollection({ slug }),
   }),
 
-  prefetchCollections: async () => {
-    await queryClient.prefetchQuery(collectionLoaders.list());
+  prefetchCollections: async (qc: QueryClient) => {
+    await qc.prefetchQuery(collectionLoaders.list());
   },
 
-  prefetchCarouselCollections: async () => {
-    await queryClient.prefetchQuery(collectionLoaders.carousel());
+  prefetchCarouselCollections: async (qc: QueryClient) => {
+    await qc.prefetchQuery(collectionLoaders.carousel());
   },
 
-  prefetchCollection: async (slug: string) => {
-    await queryClient.prefetchQuery(collectionLoaders.detail(slug));
+  prefetchCollection: async (qc: QueryClient, slug: string) => {
+    await qc.prefetchQuery(collectionLoaders.detail(slug));
   },
 };
