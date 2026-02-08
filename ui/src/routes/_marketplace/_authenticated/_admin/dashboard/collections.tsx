@@ -1,6 +1,6 @@
 import React from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -50,12 +50,21 @@ function AdminCollections() {
   const [pendingSlug, setPendingSlug] = useState<string | null>(null);
 
   const { data: expandedCollectionData } = useCollection(expandedRow ?? '');
+  
+  const featuredId = expandedCollectionData?.collection?.featuredProduct?.id ?? editCollection?.featuredProduct?.id ?? null;
+
+  useEffect(() => {
+    if (expandedCollectionData?.collection && expandedRow) {
+      setEditCollection(expandedCollectionData.collection);
+    }
+  }, [expandedCollectionData, expandedRow]);
+
   const productsInCollection = useMemo(() => {
     if (!expandedRow || !expandedCollectionData?.products || expandedRow === '') return [];
 
     return [...expandedCollectionData.products].sort((a, b) => {
-      const aFeatured = a.featured === true ? 0 : 1;
-      const bFeatured = b.featured === true ? 0 : 1;
+      const aFeatured = a.id === featuredId ? 0 : 1;
+      const bFeatured = b.id === featuredId ? 0 : 1;
 
       if (aFeatured !== bFeatured) {
         return aFeatured - bFeatured;
@@ -63,7 +72,7 @@ function AdminCollections() {
 
       return a.title.localeCompare(b.title);
     });
-  }, [expandedRow, expandedCollectionData?.products]);
+  }, [expandedRow, expandedCollectionData?.products, featuredId]);
 
   const handleExpandRow = (slug: string, collection: Collection) => {
     setExpandedRow(expandedRow === slug ? null : slug);
@@ -268,6 +277,7 @@ function AdminCollections() {
                                           e.stopPropagation();
                                           setPendingFeaturedId('');
                                           setPendingSlug(editCollection.slug);
+                                          setEditCollection(prev => prev ? { ...prev, featuredProduct: undefined } : prev);
                                           updateFeaturedMutation.mutate({ slug: editCollection.slug, productId: '' }, {
                                             onSettled: () => {
                                               setPendingFeaturedId(null);
@@ -298,6 +308,14 @@ function AdminCollections() {
                                           onSelect={() => {
                                             setPendingFeaturedId(product.id);
                                             setPendingSlug(editCollection!.slug);
+                                            const featuredProductInfo = {
+                                              id: product.id,
+                                              title: product.title || '',
+                                              slug: product.slug || '',
+                                              price: product.price || 0,
+                                              thumbnailImage: product.thumbnailImage || undefined,
+                                            };
+                                            setEditCollection(prev => prev ? { ...prev, featuredProduct: featuredProductInfo } : null);
                                             updateFeaturedMutation.mutate({ slug: editCollection!.slug, productId: product.id }, {
                                               onSettled: () => {
                                                 setPendingFeaturedId(null);
@@ -307,7 +325,7 @@ function AdminCollections() {
                                           }}
                                           className="flex items-center gap-2"
                                         >
-                                          {product.featured && (
+                                          {product.id === featuredId && (
                                             <div className="text-[#00EC97] text-xs font-semibold">★</div>
                                           )}
                                           <img

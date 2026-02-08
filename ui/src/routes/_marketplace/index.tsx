@@ -98,12 +98,12 @@ function MarketplaceHome() {
 
   const filteredProducts = useMemo(() => {
     if (selectedProductCategory === 'all') {
-      return featuredProducts;
+      return allProducts;
     }
-    return featuredProducts.filter((product: Product) => {
+    return allProducts.filter((product: Product) => {
       return product.productType?.slug === selectedProductCategory;
     });
-  }, [featuredProducts, selectedProductCategory]);
+  }, [allProducts, selectedProductCategory]);
   
   const displayProducts = useMemo(() => {
     if (filteredProducts.length >= 3 || selectedProductCategory === 'all') {
