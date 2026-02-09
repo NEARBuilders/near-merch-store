@@ -1051,8 +1051,10 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       }),
 
       pingWebhook: builder.pingWebhook.handler(async ({ input, context }) => {
+        console.log('[PingPay Webhook] Starting to process webhook');
         const pingProvider = runtime.getPaymentProvider('pingpay');
         if (!pingProvider) {
+          console.error('[PingPay Webhook] PingPay provider not configured');
           throw new Error('PingPay provider not configured');
         }
 
@@ -1060,17 +1062,28 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         const timestamp = context.reqHeaders?.get('x-ping-timestamp') || '';
         const body = (await context.getRawBody?.()) ?? JSON.stringify(input as unknown);
 
-        await managedRuntime.runPromise(
-          handlePingPayWebhookEffect({
-            runtime,
-            pingProvider,
-            signature,
-            timestamp,
-            body,
-          })
-        );
+        try {
+          await managedRuntime.runPromise(
+            handlePingPayWebhookEffect({
+              runtime,
+              pingProvider,
+              signature,
+              timestamp,
+              body,
+            })
+          );
 
-        return { received: true };
+          console.log('[PingPay Webhook] Webhook processed successfully');
+          return { received: true };
+        } catch (error) {
+          console.error('[PingPay Webhook] Processing error:', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            signature: signature.substring(0, 20) + '...',
+            timestamp,
+          });
+          throw error;
+        }
       }),
 
       cleanupAbandonedDrafts: builder.cleanupAbandonedDrafts.handler(async ({ input, context }) => {
