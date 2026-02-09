@@ -299,8 +299,8 @@ function MarketplaceHome() {
                 <>
                   <div className="hidden lg:block absolute top-4 right-4 z-30">
                     <Link
-                      to="/products"
-                      search={{ category: 'all', categoryId: undefined, collection: activeSlide.collection?.slug }}
+                      to="/collections/$collection"
+                      params={{ collection: activeSlide.collection.slug }}
                       className="rounded-lg bg-background/40 backdrop-blur-sm border border-border/40 px-4 py-1.5 flex items-center gap-2 transition-all duration-200 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black group"
                     >
                       <span className="text-base font-semibold whitespace-nowrap">
@@ -312,8 +312,8 @@ function MarketplaceHome() {
 
                   <div className="lg:hidden absolute top-4 right-4 z-30">
                     <Link
-                      to="/products"
-                      search={{ category: 'all', categoryId: undefined, collection: activeSlide.collection?.slug }}
+                      to="/collections/$collection"
+                      params={{ collection: activeSlide.collection.slug }}
                       className="rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 px-3 py-1.5 flex items-center gap-2 active:bg-[#00EC97] active:border-[#00EC97] transition-all duration-200 shadow-lg group"
                     >
                       <span className="text-sm font-semibold">
@@ -325,16 +325,16 @@ function MarketplaceHome() {
                 </>
               )}
 
-              <div className="absolute inset-x-0 bottom-4 flex items-center justify-between px-4 z-30">
+<div className="absolute inset-x-0 bottom-4 flex items-center justify-between px-4 z-30">
                 <div className="flex items-center gap-2">
-                  <Link to="/products" search={{ category: 'all', categoryId: undefined, collection: activeSlide.collection?.slug }} className="lg:hidden">
+                  <Link to="/collections/$collection" params={{ collection: activeSlide.collection?.slug }} className="lg:hidden">
                     <button
                       type="button"
                       className="inline-flex items-center justify-center px-4 py-2.5 h-[40px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs hover:bg-[#00d97f] transition-colors whitespace-nowrap"
                     >
                       {activeSlide.buttonText}
                     </button>
-                  </Link>
+                    </Link>
                   <div className="hidden lg:flex items-center gap-2">
                     {slides.map((_: any, index: number) => (
                       <button
