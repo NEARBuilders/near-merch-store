@@ -83,7 +83,7 @@ function CollectionsPage() {
             <div className="text-center space-y-4">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Our Collections</h1>
               <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base max-w-[723px] mx-auto">
-              Discover premium NEAR Protocol merchandise across four curated collections. Each piece is designed with quality and sustainability in mind.
+              Discover premium NEAR Protocol merchandise across curated collections. Each piece is designed with quality and sustainability in mind.
             </p>
           </div>
         </div>
@@ -92,7 +92,7 @@ function CollectionsPage() {
         {/* Collections Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
           {collections.map((collection) => {
-            const imageSrc = collection.image || '/ui/src/assets/images/pngs/man_on_near.png';
+            
 
             // Product count comes from the prefetched detail query.
             const detailData = queryClient.getQueryData(
@@ -107,14 +107,23 @@ function CollectionsPage() {
                 params={{ collection: collection.slug }}
                 className="rounded-2xl bg-background border border-border/60 overflow-hidden cursor-pointer hover:border-[#00EC97] hover:shadow-xl transition-all group"
               >
-                <div className="bg-[#ececf0] h-[400px] md:h-[517.5px] overflow-hidden">
-                  <img
-                    src={imageSrc}
-                    alt={collection.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover"
-                  />
+                <div className="relative h-[400px] md:h-[517.5px] overflow-hidden bg-black/40">
+                  {collection.featuredProduct?.thumbnailImage ? (
+                    <>
+                      <div className="absolute inset-0">
+                        <img
+                          src={collection.featuredProduct.thumbnailImage}
+                          alt={collection.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="absolute inset-0 bg-muted" />
+                  )}
                 </div>
                 <div className="p-6 space-y-3">
                   <div className="flex items-center gap-2">

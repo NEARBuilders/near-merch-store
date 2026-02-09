@@ -100,44 +100,17 @@ function CollectionDetailPage() {
         </div>
       </div>
 
-        {/* Collection Hero Section */}
-        <div className="grid md:grid-cols-2 gap-6 mb-12">
-          <div className="rounded-2xl bg-background border border-border/60 overflow-hidden">
-            <div className="bg-[#ececf0] h-[400px] md:h-[529px] overflow-hidden">
-            {collection.featuredProduct?.thumbnailImage ? (
-              <img
-                src={collection.featuredProduct.thumbnailImage}
-                alt={collection.featuredProduct.title || collection.name}
-                loading="eager"
-                decoding="async"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-foreground/60 bg-muted">
-                <span className="text-lg">No Featured Product Image</span>
-              </div>
-            )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-8 md:py-10 flex flex-col justify-center">
-            <div className="space-y-6">
-<p className="text-foreground/90 dark:text-muted-foreground text-base md:text-lg leading-7">
-                {collection.description || ''}
-              </p>
-          </div>
-        </div>
-      </div>
-
         {/* Products Section */}
         <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-8 md:py-10 mb-12">
           <div className="mb-8">
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
-              All {collection.name}
+              {collection.name}
             </h2>
-            <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base">
-              Browse our complete {collection.name.toLowerCase()} collection
-            </p>
+            {collection.description && (
+              <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base">
+                {collection.description}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
