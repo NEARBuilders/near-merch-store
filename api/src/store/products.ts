@@ -366,8 +366,8 @@ export const ProductStoreLive = Layer.effect(
                   price: Math.round(product.price * 100),
                   currency: product.currency,
                   brand: product.brand || null,
-                  productTypeSlug: product.productTypeSlug || null,
-                  tags: product.tags || existingProduct.tags || [],
+                  productTypeSlug: existingProduct.productTypeSlug || null,
+                  tags: existingProduct.tags || [],
                   options: product.options,
                   thumbnailImage: product.thumbnailImage || null,
                   fulfillmentProvider: product.fulfillmentProvider,
@@ -377,6 +377,8 @@ export const ProductStoreLive = Layer.effect(
                   slug: existingProduct.slug || product.slug,
                   lastSyncedAt: now,
                   updatedAt: now,
+                  featured: existingProduct.featured ?? undefined,
+                  listed: existingProduct.listed ?? undefined,
                 })
                 .where(eq(schema.products.id, finalId));
             } else {
@@ -391,8 +393,8 @@ export const ProductStoreLive = Layer.effect(
                   price: Math.round(product.price * 100),
                   currency: product.currency,
                   brand: product.brand || null,
-                  productTypeSlug: product.productTypeSlug || null,
-                  tags: product.tags || [],
+                  productTypeSlug: null,
+                  tags: [],
                   options: product.options,
                   thumbnailImage: product.thumbnailImage || null,
                   featured: false,
@@ -401,6 +403,7 @@ export const ProductStoreLive = Layer.effect(
                   source: product.source,
                   createdAt: now,
                   updatedAt: now,
+                  listed: true,
                 });
             }
 
