@@ -406,7 +406,7 @@ function MarketplaceHome() {
                   <Link
                     to="/products"
                     search={{ category: "all", categoryId: undefined, collection: activeSlide.collection?.slug }}
-                    className="inline-flex items-center justify-center w-full px-4 py-3 h-[40px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-sm hover:bg-[#00d97f] transition-colors whitespace-nowrap"
+                    className="inline-flex items-center justify-center px-4 md:px-8 py-2 md:py-3 h-[40px] md:h-[48px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-base hover:bg-[#00d97f] transition-colors whitespace-nowrap"
                   >
                     Shop Items
                   </Link>
