@@ -1,8 +1,14 @@
 import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "every-plugin/effect";
+import { customAlphabet } from "nanoid";
 import * as schema from "../db/schema";
 import type { CreateOrderInput, DeliveryEstimate, OrderItem, OrderStatus, OrderWithItems, ShippingAddress, TrackingInfo } from "../schema";
 import { Database } from "./database";
+
+const makeFulfillmentReferenceId = customAlphabet(
+  "0123456789abcdefghijklmnopqrstuvwxyz",
+  15
+);
 
 export class OrderStore extends Context.Tag("OrderStore")<
   OrderStore,
@@ -98,8 +104,9 @@ export const OrderStoreLive = Layer.effect(
           try: async () => {
             const now = new Date();
             const orderId = crypto.randomUUID();
-            const orderIdNoDashes = orderId.replace(/-/g, '');
-            const fulfillmentReferenceId = `ord${orderIdNoDashes}`;
+            // Keep this short for fulfillment providers (e.g. Printful external_id).
+            // 16 chars total: `o` + 15 base36 chars.
+            const fulfillmentReferenceId = `o${makeFulfillmentReferenceId()}`;
 
             await db.insert(schema.orders).values({
               id: orderId,

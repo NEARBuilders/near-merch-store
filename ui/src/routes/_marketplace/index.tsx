@@ -15,6 +15,7 @@ import {
   useProducts,
   useProductTypes,
   useCarouselCollections,
+  useSubscribeNewsletter,
   collectionLoaders,
   type Product
 } from "@/integrations/api";
@@ -25,6 +26,7 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 
@@ -60,7 +62,14 @@ function MarketplaceHome() {
   const closeCartSidebar = useCartSidebarStore((state) => state.close);
   const openCartSidebar = useCartSidebarStore((state) => state.open);
   const [newsletterEmail, setNewsletterEmail] = useState("");
+  const subscribeNewsletter = useSubscribeNewsletter();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const normalizedNewsletterEmail = newsletterEmail.trim();
+  const isNewsletterEmailValid = useMemo(() => {
+    if (!normalizedNewsletterEmail) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedNewsletterEmail);
+  }, [normalizedNewsletterEmail]);
 
   const { data: featuredData } = useFeaturedProducts(6);
   const featuredProducts = featuredData?.products ?? [];
@@ -544,14 +553,38 @@ function MarketplaceHome() {
                   </p>
                 </div>
                 <form
+                  noValidate
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (newsletterEmail.trim()) {
-                      toast.success("Thank you for subscribing!");
-                      setNewsletterEmail("");
-                    } else {
+                    if (subscribeNewsletter.isPending) return;
+
+                    const email = normalizedNewsletterEmail.toLowerCase();
+                    if (!isNewsletterEmailValid) {
                       toast.error("Please enter a valid email address");
+                      return;
                     }
+
+                    subscribeNewsletter.mutate(
+                      { email },
+                      {
+                        onSuccess: (data) => {
+                          if (data.status === 'already_subscribed') {
+                            toast.success("You're already subscribed.");
+                          } else {
+                            toast.success("Thank you for subscribing!");
+                          }
+                          setNewsletterEmail("");
+                        },
+                        onError: (error: any) => {
+                          const errorCode = error?.response?.data?.code || error?.code;
+                          if (errorCode === 'BAD_REQUEST') {
+                            toast.error('Please enter a valid email address');
+                            return;
+                          }
+                          toast.error('Unable to subscribe right now. Please try again.');
+                        },
+                      }
+                    );
                   }}
                   className="flex flex-row items-stretch gap-2 md:gap-3"
                 >
@@ -560,13 +593,25 @@ function MarketplaceHome() {
                     placeholder="Enter your email"
                     value={newsletterEmail}
                     onChange={(e) => setNewsletterEmail(e.target.value)}
-                    className="flex-1 h-[40px] md:h-[48px] text-sm md:text-base bg-background/60 border-border/60 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-b-2 focus-visible:border-[#00EC97] hover:border-border/60"
+                    autoComplete="email"
+                    inputMode="email"
+                    disabled={subscribeNewsletter.isPending}
+                    aria-invalid={newsletterEmail.length > 0 && !isNewsletterEmailValid}
+                    className="flex-1 h-[40px] md:h-[48px] text-sm md:text-base bg-background/60 border-border/60 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-b-2 focus-visible:border-[#00EC97] hover:border-border/60 disabled:opacity-70"
                   />
                   <button
                     type="submit"
-                    className="px-4 md:px-8 py-2 md:py-3 h-[40px] md:h-[48px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-base hover:bg-[#00d97f] transition-colors whitespace-nowrap"
+                    disabled={subscribeNewsletter.isPending || !normalizedNewsletterEmail || !isNewsletterEmailValid}
+                    className="px-4 md:px-8 py-2 md:py-3 h-[40px] md:h-[48px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-base hover:bg-[#00d97f] transition-colors whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Subscribe
+                    {subscribeNewsletter.isPending ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Subscribing...
+                      </span>
+                    ) : (
+                      'Subscribe'
+                    )}
                   </button>
                 </form>
               </div>

@@ -215,3 +215,13 @@ export const providerConfigs = pgTable('provider_configs', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 });
+
+export const newsletterSubscriptions = pgTable('newsletter_subscriptions', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (table) => ([
+  index('newsletter_email_idx').on(table.email),
+  index('newsletter_active_idx').on(table.active),
+]));

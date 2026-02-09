@@ -750,7 +750,7 @@ describe('Printful Webhook Integration', () => {
 
       const db = getTestDb();
       const orderId = 'test-order-by-fulfillment-ref-123';
-      const fulfillmentReferenceId = 'ord0123456789abcdef0123456789abcdef';
+      const fulfillmentReferenceId = 'o0123456789abcde';
       const now = new Date();
 
       await db.insert(schema.orders).values({

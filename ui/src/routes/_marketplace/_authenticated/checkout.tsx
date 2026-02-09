@@ -3,8 +3,7 @@ import { useNearPrice } from '@/hooks/use-near-price';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
 import pingpayLogoDark from '@/assets/pingpay/pingpay-logo-dark.png';
-import pingpayLogoLight from '@/assets/pingpay/pingpay-logo-light.png';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/utils/orpc';
 import { toast } from 'sonner';
@@ -155,10 +154,8 @@ function CheckoutPage() {
         toast.error('Failed to create checkout session');
       }
     },
-    onError: (error: Error) => {
-      toast.error('Checkout failed', {
-        description: error.message || 'Please try again later',
-      });
+    onError: () => {
+      toast.error('Order Failed, please contact support (merch@near.foundation)');
     },
   });
 
@@ -868,42 +865,48 @@ function CheckoutPage() {
                     <button
                       onClick={handlePayWithPing}
                       disabled={!shippingQuote || checkoutMutation.isPending}
-                      className="block w-full rounded-lg border border-border/60 p-6 hover:border-[#00EC97] transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed bg-background/60 backdrop-blur-sm"
+                      type="button"
+                      style={
+                        {
+                          // Keep these as CSS vars so it's easy to retheme.
+                          '--ping-bg': '#F9F7FF',
+                          '--ping-text': '#3D315E',
+                          '--ping-border': '#AF9EF9',
+                          '--ping-border-hover': '#AF9EF9',
+                          '--ping-ring': 'rgba(175, 158, 249, 0.35)',
+                        } as CSSProperties
+                      }
+                      className={cn(
+                        'group flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 px-6 text-sm font-semibold transition-colors',
+                        'bg-[color:var(--ping-bg)] border-[color:var(--ping-border)] text-[color:var(--ping-text)]',
+                        'hover:border-[color:var(--ping-border-hover)]',
+                        'shadow-sm hover:shadow',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ping-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
+                      )}
                       data-testid="pay-with-card-button"
+                      aria-label={checkoutMutation.isPending ? 'Redirecting to PingPay' : 'Pay with PingPay'}
                     >
-                    <div className="flex items-start gap-3">
-                      <div className="h-10 w-auto px-3 bg-[#1E1E1E] dark:bg-[#FBFAFF] flex items-center justify-center shrink-0 rounded-sm">
-                        {checkoutMutation.isPending ? (
-                          <div className="animate-spin size-5 border-2 border-white/30 border-t-white dark:border-[#3D315E]/30 dark:border-t-[#3D315E] rounded-full" />
-                        ) : (
-                          <>
-                            <img
-                              src={pingpayLogoLight}
-                              alt="Pingpay"
-                              loading="eager"
-                              decoding="async"
-                              className="h-5 w-auto object-contain dark:hidden"
-                            />
+                      {checkoutMutation.isPending ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <span className="animate-spin size-4 rounded-full border-2 border-[color:var(--ping-border)] border-t-[color:var(--ping-text)]" />
+                          Redirecting...
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center gap-2">
+                          <span>Pay with</span>
+                          <span className="inline-flex items-center">
                             <img
                               src={pingpayLogoDark}
-                              alt="Pingpay"
+                              alt="PingPay"
                               loading="eager"
                               decoding="async"
-                              className="h-5 w-auto object-contain hidden dark:block"
+                              className="h-5 w-auto object-contain"
                             />
-                          </>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium mb-1">
-                          {checkoutMutation.isPending ? 'Redirecting...' : 'Pingpay'}
-                        </p>
-                        <p className="text-sm text-foreground/70 dark:text-muted-foreground">
-                          Pay with USDC on NEAR
-                        </p>
-                      </div>
-                    </div>
-                  </button>
+                          </span>
+                        </span>
+                      )}
+                    </button>
                 </div>
                 </div>
               </>

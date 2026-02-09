@@ -43,6 +43,7 @@ import {
   useUpdateProductTags,
   useUpdateProductFeatured,
   useUpdateProductType,
+  useCreateProductType,
   type Product,
 } from "@/integrations/api";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -159,6 +160,129 @@ function TagsEditor({
       </PopoverContent>
     </Popover>
 );
+}
+
+function ProductTypeEditor({
+  currentType,
+  availableTypes,
+  onUpdate,
+  isPending
+}: {
+  currentType: string | null;
+  availableTypes: Array<{ slug: string; label: string }>;
+  onUpdate: (slug: string | null) => void;
+  isPending: boolean;
+}) {
+  const [newTypeLabel, setNewTypeLabel] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+
+  const createMutation = useCreateProductType();
+
+  const generateSlug = (label: string): string => {
+    return label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  };
+
+  const handleCreateType = () => {
+    const trimmed = newTypeLabel.trim();
+    if (!trimmed) return;
+
+    const slug = generateSlug(trimmed);
+    setIsCreating(true);
+
+    createMutation.mutate(
+      { slug, label: trimmed },
+      {
+        onSuccess: () => {
+          onUpdate(slug);
+          setNewTypeLabel("");
+          setIsCreating(false);
+        },
+        onError: () => {
+          setIsCreating(false);
+        }
+      }
+    );
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleCreateType();
+    }
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8 max-w-48"
+          disabled={isPending}
+          title="Edit product type"
+        >
+          {!currentType ? (
+            <span className="text-xs text-foreground/60 dark:text-muted-foreground">No type</span>
+          ) : (
+            <Badge variant="outline" className="font-normal text-xs">
+              {availableTypes.find(pt => pt.slug === currentType)?.label || currentType}
+            </Badge>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="start">
+        <div className="text-sm font-medium mb-2">Product Type</div>
+        <div className="space-y-2 max-h-48 overflow-auto pr-1 mb-3">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <Checkbox
+              checked={!currentType}
+              onCheckedChange={(next) => {
+                if (next) onUpdate(null);
+              }}
+            />
+            <span className="text-foreground/60 dark:text-muted-foreground">None</span>
+          </label>
+          {availableTypes.map((pt) => {
+            const checked = currentType === pt.slug;
+            return (
+              <label key={pt.slug} className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={checked}
+                  onCheckedChange={(next) => {
+                    if (next) onUpdate(pt.slug);
+                  }}
+                />
+                <span className="truncate">{pt.label}</span>
+              </label>
+            );
+          })}
+        </div>
+        <div className="pt-2 border-t border-border/60">
+          <div className="flex gap-2">
+            <Input
+              placeholder="New type..."
+              value={newTypeLabel}
+              onChange={(e) => setNewTypeLabel(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="h-8 text-sm bg-background/60 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]"
+              disabled={isCreating || createMutation.isPending}
+            />
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleCreateType}
+              disabled={!newTypeLabel.trim() || isCreating || createMutation.isPending}
+              className="h-8 px-2 bg-[#00EC97] text-black hover:bg-[#00d97f]"
+            >
+              <Plus className="size-4" />
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 // Helper functions for time and date formatting
@@ -431,61 +555,14 @@ function InventoryManagement() {
     {
       accessorKey: "productType",
       header: "Type",
-      cell: ({ row }) => {
-        const selected = row.original.productType?.slug;
-        return (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8"
-                disabled={updateProductTypeMutation.isPending}
-                title="Edit product type"
-              >
-                {!selected ? (
-                  <span className="text-xs text-foreground/60 dark:text-muted-foreground">No type</span>
-                ) : (
-                  <Badge variant="outline" className="font-normal text-xs">
-                    {productTypes.find(pt => pt.slug === selected)?.label || selected}
-                  </Badge>
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-3" align="start">
-              <div className="text-sm font-medium mb-2">Product Type</div>
-              <div className="space-y-2 max-h-64 overflow-auto pr-1">
-                <label key="none" className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox
-                    checked={!selected}
-                    onCheckedChange={(next) => {
-                      if (next) {
-                        updateProductTypeMutation.mutate({ id: row.original.id, productTypeSlug: null });
-                      }
-                    }}
-                  />
-                  <span className="text-foreground/60 dark:text-muted-foreground">None</span>
-                </label>
-                {productTypes.map((pt) => {
-                  const checked = selected === pt.slug;
-                  return (
-                    <label key={pt.slug} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(next) => {
-                          if (next) {
-                            updateProductTypeMutation.mutate({ id: row.original.id, productTypeSlug: pt.slug });
-                          }
-                        }}
-                      />
-                      <span className="truncate">{pt.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </PopoverContent>
-          </Popover>
-        );
-      },
+      cell: ({ row }) => (
+        <ProductTypeEditor
+          currentType={row.original.productType?.slug ?? null}
+          availableTypes={productTypes}
+          onUpdate={(slug) => updateProductTypeMutation.mutate({ id: row.original.id, productTypeSlug: slug })}
+          isPending={updateProductTypeMutation.isPending}
+        />
+      ),
       size: 140,
     },
     {

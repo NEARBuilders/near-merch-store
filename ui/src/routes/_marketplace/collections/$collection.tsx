@@ -104,13 +104,19 @@ function CollectionDetailPage() {
         <div className="grid md:grid-cols-2 gap-6 mb-12">
           <div className="rounded-2xl bg-background border border-border/60 overflow-hidden">
             <div className="bg-[#ececf0] h-[400px] md:h-[529px] overflow-hidden">
-            <img
-              src={collection.image}
-              alt={collection.name}
-              loading="eager"
-              decoding="async"
-              className="w-full h-full object-cover"
-            />
+            {collection.featuredProduct?.thumbnailImage ? (
+              <img
+                src={collection.featuredProduct.thumbnailImage}
+                alt={collection.featuredProduct.title || collection.name}
+                loading="eager"
+                decoding="async"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-foreground/60 bg-muted">
+                <span className="text-lg">No Featured Product Image</span>
+              </div>
+            )}
             </div>
           </div>
 

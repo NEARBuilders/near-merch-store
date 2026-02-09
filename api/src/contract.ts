@@ -7,6 +7,8 @@ import {
   ConfigureWebhookOutputSchema,
   CreateCheckoutInputSchema,
   CreateCheckoutOutputSchema,
+  SubscribeNewsletterInputSchema,
+  SubscribeNewsletterOutputSchema,
   OrderStatusEventSchema,
   OrderStatusSchema,
   OrderWithItemsSchema,
@@ -34,6 +36,18 @@ export const contract = oc.router({
         timestamp: z.string().datetime(),
       })
     ),
+
+  subscribeNewsletter: oc
+    .route({
+      method: 'POST',
+      path: '/newsletter/subscribe',
+      summary: 'Subscribe to newsletter',
+      description: 'Stores a newsletter subscription email. Idempotent for duplicates.',
+      tags: ['Newsletter'],
+    })
+    .input(SubscribeNewsletterInputSchema)
+    .output(SubscribeNewsletterOutputSchema)
+    .errors({ BAD_REQUEST }),
 
   getProducts: oc
     .route({

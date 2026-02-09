@@ -20,6 +20,12 @@ export {
   CollectionStoreLive,
 } from "./collections";
 
+export {
+  NewsletterStore,
+  NewsletterStoreLive,
+  type NewsletterSubscribeStatus,
+} from "./newsletter";
+
 export type {
   ProductCriteria,
   ProductWithImages,

@@ -247,6 +247,21 @@ export const WebhookResponseSchema = z.object({
 
 export type WebhookResponse = z.infer<typeof WebhookResponseSchema>;
 
+export const SubscribeNewsletterInputSchema = z.object({
+  email: z.string().trim().email().max(320),
+});
+
+export const NewsletterSubscribeStatusSchema = z.enum(['subscribed', 'already_subscribed']);
+
+export const SubscribeNewsletterOutputSchema = z.object({
+  success: z.boolean(),
+  status: NewsletterSubscribeStatusSchema,
+});
+
+export type SubscribeNewsletterInput = z.infer<typeof SubscribeNewsletterInputSchema>;
+export type NewsletterSubscribeStatus = z.infer<typeof NewsletterSubscribeStatusSchema>;
+export type SubscribeNewsletterOutput = z.infer<typeof SubscribeNewsletterOutputSchema>;
+
 export const ReturnAddressSchema = ShippingAddressSchema;
 
 export type ReturnAddress = z.infer<typeof ReturnAddressSchema>;

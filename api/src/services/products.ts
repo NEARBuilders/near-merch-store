@@ -163,7 +163,7 @@ function transformProviderProduct(
     const variantId = String(variant.id);
 
     const fulfillmentConfig: FulfillmentConfig = {
-      externalVariantId: variantId,
+      externalVariantId: providerName === 'printful' ? String(variant.catalogVariantId) : variantId,
       externalProductId: String(product.sourceId),
       designFiles: variant.designFiles,
       providerData: providerName === 'printful'

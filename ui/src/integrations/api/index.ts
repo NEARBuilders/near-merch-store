@@ -96,3 +96,8 @@ export {
   type ProviderConfig,
   type PrintfulWebhookEventType,
 } from './providers';
+
+export {
+  useSubscribeNewsletter,
+  type SubscribeNewsletterOutput,
+} from './newsletter';

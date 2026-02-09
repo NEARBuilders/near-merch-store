@@ -9,9 +9,12 @@ import { cleanupAbandonedDrafts } from './jobs/cleanup-drafts';
 import { createMarketplaceRuntime } from './runtime';
 import { ReturnAddressSchema, type OrderStatus, type TrackingInfo } from './schema';
 import { CheckoutService, CheckoutServiceLive } from './services/checkout';
+import { CheckoutError } from './services/checkout/errors';
 import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
+import { NewsletterService, NewsletterServiceLive } from './services/newsletter';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStore, ProductStoreLive, ProductTypeStore, ProductTypeStoreLive, CollectionStoreLive } from './store';
+import { NewsletterStoreLive } from './store/newsletter';
 import { ProviderConfigStore, ProviderConfigStoreLive } from './store/providers';
 import { computePrintfulUpdate, parsePrintfulWebhook, verifyPrintfulWebhookSignature } from './services/fulfillment/printful/webhook';
 import { handlePingPayWebhookEffect } from './services/payment/pingpay/webhook';
@@ -96,7 +99,8 @@ export default createPlugin({
           CollectionStoreLive,
           OrderStoreLive,
           ProviderConfigStoreLive,
-          ProductTypeStoreLive
+          ProductTypeStoreLive,
+          NewsletterStoreLive
         ),
         dbLayer
       );
@@ -104,7 +108,8 @@ export default createPlugin({
       const servicesLayer = Layer.provideMerge(
         Layer.mergeAll(
           ProductServiceLive(runtime),
-          CheckoutServiceLive(runtime)
+          CheckoutServiceLive(runtime),
+          NewsletterServiceLive
         ),
         storesLayer
       );
@@ -163,6 +168,35 @@ export default createPlugin({
         return {
           status: 'ok' as const,
           timestamp: new Date().toISOString(),
+        };
+      }),
+
+      subscribeNewsletter: builder.subscribeNewsletter.handler(async ({ input }) => {
+        const email = input.email.trim().toLowerCase();
+        if (!email) {
+          throw new ORPCError('BAD_REQUEST', { message: 'Please enter a valid email address' });
+        }
+
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* NewsletterService;
+            return yield* service.subscribe(email);
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return {
+          success: true,
+          status: exit.value.status,
         };
       }),
 
@@ -536,6 +570,17 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             if (error instanceof ORPCError) {
               throw error;
             }
+
+            // Don't leak provider/internal details to the UI.
+            if (error instanceof CheckoutError) {
+              console.error('[createCheckout] Checkout failed:', error.message);
+              if (error.cause) console.error('[createCheckout] Cause:', error.cause);
+
+              throw new ORPCError('INTERNAL_SERVER_ERROR', {
+                message: 'Order Failed, please contact support (merch@near.foundation)',
+              });
+            }
+
             throw new ORPCError('INTERNAL_SERVER_ERROR', {
               message: error instanceof Error ? error.message : String(error),
             });
