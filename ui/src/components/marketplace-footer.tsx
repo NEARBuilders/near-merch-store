@@ -31,6 +31,14 @@ export function MarketplaceFooter() {
                 Near Merch on X
               </a>
               <a
+                href="https://t.me/nearmerch"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block link-muted text-sm hover:text-[#00EC97] transition-colors"
+              >
+                Telegram
+              </a>
+              <a
                 href="https://github.com/nearbuilders/near-merch-store"
                 target="_blank"
                 rel="noopener noreferrer"
