@@ -23,7 +23,7 @@ import {
   type Product,
 } from "@/integrations/api";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Search, Filter, X, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Search, Filter, X, ChevronDown, ChevronUp, Square, Grid3x3 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
 export const Route = createFileRoute("/_marketplace/products/")({
@@ -75,6 +75,7 @@ function ProductsIndexPage() {
   const [brandFilter, setBrandFilter] = useState<BrandFilter>('all');
   const [collectionFilter, setCollectionFilter] = useState<'all' | string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
+  const [viewMode, setViewMode] = useState<'single' | 'grid'>('single');
   
   const productTypeCategoriesForFilter = useMemo(() => [
     { key: 'all', label: 'All' },
@@ -319,27 +320,47 @@ function ProductsIndexPage() {
         </div>
 
         <div className="mb-8">
-          {/* Mobile: Grid layout - 3 buttons first row, 2 buttons second row, full width */}
-          <div className="md:hidden grid grid-cols-3 gap-2 mb-8">
-            {productTypeCategoriesForFilter.map((category, index) => {
-              const isSecondRow = index >= 3;
-              return (
-                <button
-                  key={category.key}
-                  onClick={() => setCategoryFilter(category.key)}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-sm whitespace-nowrap",
-                    categoryFilter === category.key
-                      ? "bg-[#00EC97] border-[#00EC97] text-black"
-                      : "",
-                    isSecondRow && index === 3 && "col-start-1 col-span-1", // Hoodies starts at column 1, spans 1 column
-                    isSecondRow && index === 4 && "col-start-2 col-span-2" // Long Sleeved Shirts starts at column 2, spans 2 columns
-                  )}
-                >
-                  {category.label}
-                </button>
-              );
-            })}
+          {/* Mobile: Category buttons with view toggle */}
+          <div className="md:hidden flex items-center justify-between gap-2">
+            {/* Mobile: Grid layout - 3 buttons first row, 2 buttons second row, full width */}
+            <div className="grid grid-cols-3 gap-2">
+              {productTypeCategoriesForFilter.map((category, index) => {
+                const isSecondRow = index >= 3;
+                return (
+                  <button
+                    key={category.key}
+                    onClick={() => setCategoryFilter(category.key)}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-sm whitespace-nowrap",
+                      categoryFilter === category.key
+                        ? "bg-[#00EC97] border-[#00EC97] text-black"
+                        : "",
+                      isSecondRow && index === 3 && "col-start-1 col-span-1",
+                      isSecondRow && index === 4 && "col-start-2 col-span-2"
+                    )}
+                  >
+                    {category.label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Icon toggle: only show on mobile */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setViewMode('single')}
+                className={cn("p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors", viewMode === 'single' ? "bg-[#00EC97] border-[#00EC97] text-black" : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black")}
+                aria-label="Single view"
+              >
+                <Square className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setViewMode('grid')}
+                className={cn("p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors", viewMode === 'grid' ? "bg-[#00EC97] border-[#00EC97] text-black" : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black")}
+                aria-label="Grid view"
+              >
+                <Grid3x3 className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Desktop: Flex layout with Filter button on the right */}
@@ -920,7 +941,31 @@ function ProductsIndexPage() {
               )}
             </div>
           ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <>
+              {/* Mobile view */}
+              <div className="md:hidden grid grid-cols-2 gap-6">
+                {viewMode === 'single' ? (
+                  products.length > 0 ? (
+                    <ProductCard
+                      key={products[0].id}
+                      product={products[0]}
+                      variant="sm"
+                      onQuickAdd={handleQuickAdd}
+                    />
+                  ) : null
+                ) : (
+                  products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      variant="sm"
+                      onQuickAdd={handleQuickAdd}
+                    />
+                  ))
+                )}
+              </div>
+              {/* Desktop view */}
+              <div className="hidden md:grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {products.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -930,6 +975,7 @@ function ProductsIndexPage() {
                   />
                 ))}
               </div>
+            </>
           )}
         </div>
 

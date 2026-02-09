@@ -67,7 +67,7 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-2206-ui-near-merch-store-nearbuilder-2820454fc-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-2209-ui-near-merch-store-nearbuilder-c1d5eccb5-ze.zephyrcloud.app",
       "exposes": {
         "./Router": "./src/router.tsx",
         "./Hydrate": "./src/hydrate.tsx",
@@ -77,12 +77,12 @@
         "./hooks": "./src/hooks/index.ts",
         "./types": "./src/types/index.ts"
       },
-      "ssr": "https://elliot-braem-2207-ui-near-merch-store-nearbuilder-68a3fbc53-ze.zephyrcloud.app"
+      "ssr": "https://elliot-braem-2210-ui-near-merch-store-nearbuilder-aef9f4c6b-ze.zephyrcloud.app"
     },
     "api": {
       "name": "api",
       "development": "http://localhost:3014",
-      "production": "https://elliot-braem-2208-api-near-merch-store-nearbuilde-c8f437e74-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-2211-api-near-merch-store-nearbuilde-c63a7a45a-ze.zephyrcloud.app",
       "proxy": "https://nearmerch.com",
       "variables": {
         "network": "mainnet",

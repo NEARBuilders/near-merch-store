@@ -27,6 +27,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Square,
+  Grid3x3,
 } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 
@@ -82,10 +84,7 @@ function MarketplaceHome() {
 
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>('all');
   const [currentProductIndex, setCurrentProductIndex] = useState(0);
-
-  useEffect(() => {
-    setCurrentProductIndex(0);
-  }, [selectedProductCategory]);
+  const [viewMode, setViewMode] = useState<'single' | 'grid'>('single');
   
   const productTypeCategoriesForFilter = useMemo(() => [
     { key: 'all', label: 'All' },
@@ -457,29 +456,58 @@ function MarketplaceHome() {
             </div>
           ) : (
             <>
-              <div className="md:hidden grid grid-cols-3 gap-2 mb-8">
-                {productTypeCategoriesForFilter.map((category, index) => {
-                  const isSecondRow = index >= 3;
-                  
-                  return (
-                    <button
-                      key={category.key}
-                      onClick={() => setSelectedProductCategory(category.key)}
-                      className={cn(
-                        "inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-sm whitespace-nowrap",
-                        selectedProductCategory === category.key
-                          ? "bg-[#00EC97] border-[#00EC97] text-black"
-                          : "",
-                        isSecondRow && index === 3 && "col-start-1 col-span-1",
-                        isSecondRow && index === 4 && "col-start-2 col-span-2"
-                      )}
-                    >
-                      {category.label}
-                    </button>
-                  );
-                })}
+              <div className="flex items-center justify-between gap-2 mb-8">
+                <div className="md:hidden grid grid-cols-3 gap-2">
+                  {productTypeCategoriesForFilter.map((category, index) => {
+                    const isSecondRow = index >= 3;
+                    
+                    return (
+                      <button
+                        key={category.key}
+                        onClick={() => setSelectedProductCategory(category.key)}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-sm whitespace-nowrap",
+                          selectedProductCategory === category.key
+                            ? "bg-[#00EC97] border-[#00EC97] text-black"
+                            : "",
+                          isSecondRow && index === 3 && "col-start-1 col-span-1",
+                          isSecondRow && index === 4 && "col-start-2 col-span-2"
+                        )}
+                      >
+                        {category.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setViewMode('single')}
+                    className={cn(
+                      "p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors",
+                      viewMode === 'single'
+                        ? "bg-[#00EC97] border-[#00EC97] text-black"
+                        : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
+                    )}
+                    aria-label="Single view"
+                  >
+                    <Square className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={cn(
+                      "p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors",
+                      viewMode === 'grid'
+                        ? "bg-[#00EC97] border-[#00EC97] text-black"
+                        : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
+                    )}
+                    aria-label="Grid view"
+                  >
+                    <Grid3x3 className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
-              
+
               <div className="hidden md:flex flex-wrap items-center justify-center gap-2 mb-8">
                 {productTypeCategoriesForFilter.map((category) => (
                   <button
@@ -496,15 +524,30 @@ function MarketplaceHome() {
                   </button>
                 ))}
               </div>
-              
+
               <div className="md:hidden mb-8">
-                {displayProducts.length > 0 && (
-                  <ProductCard
-                    key={displayProducts[currentProductIndex].id}
-                    product={displayProducts[currentProductIndex]}
-                    variant="sm"
-                    onQuickAdd={handleQuickAdd}
-                  />
+                {viewMode === 'single' ? (
+                  <div>
+                    {displayProducts.length > 0 && (
+                      <ProductCard
+                        key={displayProducts[currentProductIndex].id}
+                        product={displayProducts[currentProductIndex]}
+                        variant="sm"
+                        onQuickAdd={handleQuickAdd}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    {displayProducts?.map((product: Product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        variant="sm"
+                        onQuickAdd={handleQuickAdd}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
               
