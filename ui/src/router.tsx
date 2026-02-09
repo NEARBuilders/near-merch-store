@@ -73,6 +73,7 @@ export function createRouter(opts: CreateRouterOptions = {}) {
       queryClient,
       assetsUrl: opts.context?.assetsUrl ?? "",
       runtimeConfig: opts.context?.runtimeConfig,
+      session: opts.context?.session,
     },
     defaultPreload: "intent",
     scrollRestoration: true,

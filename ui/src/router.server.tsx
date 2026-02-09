@@ -158,6 +158,7 @@ export async function renderToStream(
         context: {
           assetsUrl: options.assetsUrl,
           runtimeConfig: options.runtimeConfig,
+          session: options.session,
         },
       });
       queryClientRef = queryClient;

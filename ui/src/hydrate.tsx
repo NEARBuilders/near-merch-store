@@ -13,11 +13,21 @@ export async function hydrate() {
   const { RouterClient } = await import("@tanstack/react-router/ssr/client");
   const { QueryClientProvider } = await import("@tanstack/react-query");
   const { createRouter } = await import("./router");
+  const { authClient } = await import("./lib/auth-client");
+
+  let session: unknown = null;
+  try {
+    const res = await authClient.getSession();
+    session = res.data ?? null;
+  } catch {
+    session = null;
+  }
 
   const { router, queryClient } = createRouter({
     context: {
       assetsUrl: getAssetsUrl(runtimeConfig),
       runtimeConfig,
+      session,
     },
   });
 

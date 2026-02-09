@@ -29,15 +29,34 @@ export const Route = createFileRoute("/_marketplace/_authenticated/_admin")({
       queryClient.prefetchQuery(collectionLoaders.carousel()),
     ]).catch(() => {});
   },
-  beforeLoad: async () => {
-    const { data: session } = await authClient.getSession();
+  beforeLoad: async ({ context, location }) => {
+    let session = context.session as any
 
-    const user = session?.user;
-    if (user?.role !== "admin") {
-      toast.error("Must be role admin to visit this page", { id: "admin-role-required" });
+    // SSR: rely on the host-provided request session via router context.
+    // Client: fall back to fetching if context.session is missing.
+    if (!session?.user && typeof window !== "undefined") {
+      const res = await authClient.getSession();
+      session = res.data ?? null;
+    }
+
+    const user = session?.user as { role?: string | null } | null | undefined;
+
+    if (!user) {
       throw redirect({
-        to: "/",
+        to: "/login",
+        search: {
+          redirect: location.pathname,
+        },
       });
+    }
+
+    if (user.role !== "admin") {
+      if (typeof window !== "undefined") {
+        toast.error("Must be role admin to visit this page", {
+          id: "admin-role-required",
+        });
+      }
+      throw redirect({ to: "/" });
     }
 
     return { session };
