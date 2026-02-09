@@ -14,6 +14,7 @@ import { Route as MarketplaceIndexRouteImport } from './routes/_marketplace/inde
 import { Route as MarketplaceSearchRouteImport } from './routes/_marketplace/search'
 import { Route as MarketplaceLoginRouteImport } from './routes/_marketplace/login'
 import { Route as MarketplaceFavoritesRouteImport } from './routes/_marketplace/favorites'
+import { Route as MarketplaceExclusivesRouteImport } from './routes/_marketplace/exclusives'
 import { Route as MarketplaceCartRouteImport } from './routes/_marketplace/cart'
 import { Route as MarketplacePageRouteImport } from './routes/_marketplace/_page'
 import { Route as MarketplaceAuthenticatedRouteImport } from './routes/_marketplace/_authenticated'
@@ -62,6 +63,11 @@ const MarketplaceLoginRoute = MarketplaceLoginRouteImport.update({
 const MarketplaceFavoritesRoute = MarketplaceFavoritesRouteImport.update({
   id: '/favorites',
   path: '/favorites',
+  getParentRoute: () => MarketplaceRoute,
+} as any)
+const MarketplaceExclusivesRoute = MarketplaceExclusivesRouteImport.update({
+  id: '/exclusives',
+  path: '/exclusives',
   getParentRoute: () => MarketplaceRoute,
 } as any)
 const MarketplaceCartRoute = MarketplaceCartRouteImport.update({
@@ -212,6 +218,7 @@ const MarketplaceAuthenticatedAdminDashboardCollectionsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof MarketplaceIndexRoute
   '/cart': typeof MarketplaceCartRoute
+  '/exclusives': typeof MarketplaceExclusivesRoute
   '/favorites': typeof MarketplaceFavoritesRoute
   '/login': typeof MarketplaceLoginRoute
   '/search': typeof MarketplaceSearchRoute
@@ -240,6 +247,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof MarketplaceIndexRoute
   '/cart': typeof MarketplaceCartRoute
+  '/exclusives': typeof MarketplaceExclusivesRoute
   '/favorites': typeof MarketplaceFavoritesRoute
   '/login': typeof MarketplaceLoginRoute
   '/search': typeof MarketplaceSearchRoute
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/_marketplace/_authenticated': typeof MarketplaceAuthenticatedRouteWithChildren
   '/_marketplace/_page': typeof MarketplacePageRouteWithChildren
   '/_marketplace/cart': typeof MarketplaceCartRoute
+  '/_marketplace/exclusives': typeof MarketplaceExclusivesRoute
   '/_marketplace/favorites': typeof MarketplaceFavoritesRoute
   '/_marketplace/login': typeof MarketplaceLoginRoute
   '/_marketplace/search': typeof MarketplaceSearchRoute
@@ -302,6 +311,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/cart'
+    | '/exclusives'
     | '/favorites'
     | '/login'
     | '/search'
@@ -330,6 +340,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/cart'
+    | '/exclusives'
     | '/favorites'
     | '/login'
     | '/search'
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/_marketplace/_authenticated'
     | '/_marketplace/_page'
     | '/_marketplace/cart'
+    | '/_marketplace/exclusives'
     | '/_marketplace/favorites'
     | '/_marketplace/login'
     | '/_marketplace/search'
@@ -426,6 +438,13 @@ declare module '@tanstack/react-router' {
       path: '/favorites'
       fullPath: '/favorites'
       preLoaderRoute: typeof MarketplaceFavoritesRouteImport
+      parentRoute: typeof MarketplaceRoute
+    }
+    '/_marketplace/exclusives': {
+      id: '/_marketplace/exclusives'
+      path: '/exclusives'
+      fullPath: '/exclusives'
+      preLoaderRoute: typeof MarketplaceExclusivesRouteImport
       parentRoute: typeof MarketplaceRoute
     }
     '/_marketplace/cart': {
@@ -705,6 +724,7 @@ interface MarketplaceRouteChildren {
   MarketplaceAuthenticatedRoute: typeof MarketplaceAuthenticatedRouteWithChildren
   MarketplacePageRoute: typeof MarketplacePageRouteWithChildren
   MarketplaceCartRoute: typeof MarketplaceCartRoute
+  MarketplaceExclusivesRoute: typeof MarketplaceExclusivesRoute
   MarketplaceFavoritesRoute: typeof MarketplaceFavoritesRoute
   MarketplaceLoginRoute: typeof MarketplaceLoginRoute
   MarketplaceSearchRoute: typeof MarketplaceSearchRoute
@@ -719,6 +739,7 @@ const MarketplaceRouteChildren: MarketplaceRouteChildren = {
   MarketplaceAuthenticatedRoute: MarketplaceAuthenticatedRouteWithChildren,
   MarketplacePageRoute: MarketplacePageRouteWithChildren,
   MarketplaceCartRoute: MarketplaceCartRoute,
+  MarketplaceExclusivesRoute: MarketplaceExclusivesRoute,
   MarketplaceFavoritesRoute: MarketplaceFavoritesRoute,
   MarketplaceLoginRoute: MarketplaceLoginRoute,
   MarketplaceSearchRoute: MarketplaceSearchRoute,

@@ -383,13 +383,33 @@ function MarketplaceHome() {
       {activeSlide && (
             <div className="lg:hidden rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 py-4 md:py-6 relative z-10 mx-4 md:mx-8 mb-8">
               <div className="flex flex-col gap-3 md:gap-4">
+                <div className="inline-block rounded-md bg-muted/30 px-2.5 py-0.5 text-[10px] md:text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60">
+                  {activeSlide.badge}
+                </div>
+
                 <div>
-                  <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground mb-1.5 md:mb-2">
-                    Represent the NEAR protocol IRL
+                  <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-1.5 md:mb-2">
+                    {activeSlide.title}
                   </h3>
+                  <h4 className="text-lg md:text-xl font-semibold tracking-tight text-foreground/95">
+                    {activeSlide.subtitle}
+                  </h4>
+                </div>
+
+                <div>
                   <p className="text-xs md:text-sm text-foreground/90 dark:text-muted-foreground">
-                    Discover curated drops and official merch to show your support for NEAR in the real world.
+                    {activeSlide.description}
                   </p>
+                </div>
+
+                <div>
+                  <Link
+                    to="/products"
+                    search={{ category: "all", categoryId: undefined, collection: activeSlide.collection?.slug }}
+                    className="inline-flex items-center justify-center w-full px-4 py-3 h-[40px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-sm hover:bg-[#00d97f] transition-colors whitespace-nowrap"
+                  >
+                    Shop Items
+                  </Link>
                 </div>
               </div>
             </div>

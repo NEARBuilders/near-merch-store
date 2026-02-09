@@ -126,15 +126,13 @@ export function MarketplaceHeader() {
   const matchRoute = useMatchRoute();
   const location = useLocation();
   const navigate = useNavigate();
-  const searchParams = location.search as { category?: string; categoryId?: string };
-  const currentCategory = searchParams?.category || null;
-  const currentCategoryId = searchParams?.categoryId || null;
+  const currentCategoryId = (location.search as { categoryId?: string })?.categoryId || null;
 
   const { data: categoriesData } = useCategories();
   const categories = categoriesData?.categories ?? [];
 
   const isProductsActive = !!matchRoute({ to: '/products' });
-  const isExclusivesActive = isProductsActive && currentCategory === 'Exclusives';
+  const isExclusivesActive = !!matchRoute({ to: '/exclusives' });
   const isTrackOrderActive = !!matchRoute({ to: '/account/orders' });
 
   const handleConnectWallet = async () => {
@@ -280,8 +278,7 @@ export function MarketplaceHeader() {
             <CollectionsDropdown />
             
             <Link
-            to="/products"
-            search={{ category: 'Exclusives', categoryId: undefined, collection: undefined }}
+            to="/exclusives"
             preload="intent"
             preloadDelay={0}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
@@ -722,11 +719,10 @@ export function MarketplaceHeader() {
               </div>
               
               <Link
-                to="/products"
+                to="/exclusives"
 
-              preload="intent"
-              preloadDelay={0}
-                search={{ category: 'Exclusives', categoryId: undefined, collection: undefined }}
+                preload="intent"
+                preloadDelay={0}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
                   isExclusivesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
