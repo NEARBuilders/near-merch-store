@@ -370,11 +370,11 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
         sync: () =>
           Effect.gen(function* () {
-            const SYNC_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+            const SYNC_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
             
             const syncStartedAt = new Date();
             
-            // CHECK 1: Is sync already in progress?
+            // CHECK 1: Is sync already in progress (and not stale)?
             const isInProgress = yield* store.isSyncInProgress('products');
             if (isInProgress) {
               const existingStatus = yield* store.getSyncStatus('products');
@@ -382,16 +382,38 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
                 ? Math.floor((Date.now() - existingStatus.syncStartedAt) / 1000)
                 : 0;
               
-              console.error('[ProductSync] Sync attempt rejected - already in progress:', {
-                syncStartedAt: existingStatus.syncStartedAt
-                  ? new Date(existingStatus.syncStartedAt).toISOString()
-                  : null,
-                currentAttemptAt: syncStartedAt.toISOString(),
-                duration,
-                providersCount: providers.length,
-              });
+              // If sync has been running longer than timeout, it's stale - allow retry
+              const isStale = existingStatus.syncStartedAt && 
+                (Date.now() - new Date(existingStatus.syncStartedAt).getTime()) > SYNC_TIMEOUT_MS;
               
-              throw new Error('SYNC_IN_PROGRESS');
+              if (isStale) {
+                console.warn('[ProductSync] Detected stale sync, cleaning up and retrying:', {
+                  syncStartedAt: existingStatus.syncStartedAt
+                    ? new Date(existingStatus.syncStartedAt).toISOString()
+                    : null,
+                  duration,
+                });
+                yield* store.setSyncStatus(
+                  'products',
+                  'idle',
+                  null,
+                  new Date(),
+                  'Sync timed out',
+                  { errorType: 'SYNC_TIMEOUT', duration },
+                  null
+                );
+              } else {
+                console.error('[ProductSync] Sync attempt rejected - already in progress:', {
+                  syncStartedAt: existingStatus.syncStartedAt
+                    ? new Date(existingStatus.syncStartedAt).toISOString()
+                    : null,
+                  currentAttemptAt: syncStartedAt.toISOString(),
+                  duration,
+                  providersCount: providers.length,
+                });
+                
+                throw new Error('SYNC_IN_PROGRESS');
+              }
             }
             
             if (providers.length === 0) {
