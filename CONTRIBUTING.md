@@ -48,14 +48,39 @@ Secrets go in `.env` (see [.env.example](./.env.example) for required variables)
 2. **Clone** your fork locally
 3. **Create** a feature branch: `git checkout -b feature/amazing-feature`
 4. **Make** your changes
-5. **Test** thoroughly: `bun test` and `bun typecheck`
-6. **Commit** using [Semantic Commits](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716)
-7. **Push** to your fork: `git push origin feature/amazing-feature`
-8. **Open** a Pull Request to the main repository
+5. **Add a changeset** (if release-impacting): `bun run changeset`
+6. **Test** thoroughly: `bun test` and `bun typecheck`
+7. **Commit** using [Semantic Commits](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716)
+8. **Push** to your fork: `git push origin feature/amazing-feature`
+9. **Open** a Pull Request to the main repository
+
+## Versioning & Releases (Changesets)
+
+We use Changesets to automate semantic version bumps and changelogs for our workspace packages. If your PR changes released behavior, include a changeset file in `.changeset/`.
+
+See: [`.changeset/README.md`](./.changeset/README.md)
+
+### How to add a changeset
+
+1. Make your code changes on a feature branch
+2. Run: `bun run changeset`
+3. Select the package(s) impacted (`api`, `ui`)
+4. Pick the semver bump:
+   - `patch` = backwards-compatible bugfix/small improvement
+   - `minor` = backwards-compatible feature
+   - `major` = breaking change
+5. Write a short, user-facing summary when prompted
+6. Commit the generated `.changeset/*.md` file along with your code changes
+
+### What happens after merge
+
+When changesets land on `main`, the release workflow uses them to open an automated “version packages” PR (version bumps + `CHANGELOG.md` updates). Merging that PR drives the release automation.
+
+This process includes running `bun run deploy`, which triggers a **Zephyr** build. Zephyr updates `bos.config.json` with the new production URLs. This configuration file is used by `bun run start` to serve the application.
 
 ### Code Style
 
-- Follow existing TypeScript patterns and conventions
+- Follow existing TypeScript patterns and conventions, including kebab-case for most file names
 - Ensure type safety (no `any` types unless absolutely necessary)
 - Write descriptive commit messages
 - Add tests for new features

@@ -1,4 +1,3 @@
-
 <!-- markdownlint-disable MD014 -->
 <!-- markdownlint-disable MD033 -->
 <!-- markdownlint-disable MD041 -->
@@ -17,6 +16,10 @@
     <a href="https://t.me/nearmerch" target="_blank"><strong>💬 Telegram</strong></a>
   </p>
 
+  <a href="https://near.org">
+    <img src="https://img.shields.io/badge/Built_on-NEAR-000000?style=for-the-badge&logo=near&logoColor=white" alt="Built on NEAR" />
+  </a>
+
 </div>
 
 ## Quick Start
@@ -31,7 +34,6 @@ Visit <http://localhost:3000> to see the application.
 
 ## Documentation
 
-- **[LLM.txt](./LLM.txt)** - Technical guide for LLMs and developers (architecture, patterns, examples)
 - **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contribution guidelines and development workflow
 - **[API README](./api/README.md)** - API plugin documentation
 - **[UI README](./ui/README.md)** - Frontend documentation
@@ -65,8 +67,6 @@ Visit <http://localhost:3000> to see the application.
 - ✅ **Independent Deployment** - UI, API, and Host deploy separately
 - ✅ **Type Safety** - End-to-end with oRPC contracts
 - ✅ **CDN-Ready** - Module Federation with automatic CDN deployment
-
-See [LLM.txt](./LLM.txt) for complete architecture details.
 
 ## Tech Stack
 
@@ -110,47 +110,6 @@ All runtime configuration lives in `bos.config.json`:
   }
 }
 ```
-
-**Benefits:**
-
-- Switch environments via `NODE_ENV` (no rebuild)
-- Update CDN URLs without code changes
-- Template injection for secrets
-
-## Available Scripts
-
-```bash
-# Development
-bun dev              # All services (API: 3014, UI: 3002)
-bun dev:api          # API plugin only
-bun dev:ui           # UI remote only
-
-# Production
-bun build            # Build all packages
-bun build:api        # Build API plugin → uploads to CDN
-bun build:ui         # Build UI remote → uploads to CDN
-
-# Database
-bun db:migrate       # Run migrations
-bun db:push          # Push schema changes
-bun db:studio        # Open Drizzle Studio
-bun db:sync          # Sync products from live API to local database
-
-# Testing
-bun test             # Run all tests
-bun typecheck        # Type checking
-```
-
-## Development Workflow
-
-1. **Make changes** to any workspace (ui/, api/)
-2. **Hot reload** works automatically during development
-3. **Build & deploy** independently:
-    - `bun build:ui` → uploads to CDN → updates `bos.config.json`
-    - `bun build:api` → uploads to CDN → updates `bos.config.json`
-    - Gateway automatically loads new versions!
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed development workflow.
 
 ## Related Projects
 
