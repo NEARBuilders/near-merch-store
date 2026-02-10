@@ -10,7 +10,7 @@ import pg from 'postgres';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export const TEST_DB_URL = 'postgres://postgres:postgres@localhost:5433/api';
+export const TEST_DB_URL = process.env.API_DATABASE_URL || 'postgres://postgres:postgres@localhost:5433/api';
 
 const TEST_CONFIG = {
   variables: pluginDevConfig.config.variables,

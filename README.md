@@ -1,8 +1,23 @@
-# NEAR Protocol Official Merch Store
 
-A production-ready e-commerce marketplace powered by NEAR Protocol, demonstrating print-on-demand fulfillment with Module Federation architecture.
+<!-- markdownlint-disable MD014 -->
+<!-- markdownlint-disable MD033 -->
+<!-- markdownlint-disable MD041 -->
+<!-- markdownlint-disable MD029 -->
 
-Built with React, Hono.js, oRPC, Better-Auth, and Module Federation.
+<div align="center">
+
+<img src="./ui/public/metadata.png" alt="nearmerch.com" width="100%" />
+<h1 style="font-size: 2.5rem; font-weight: bold;">NEAR Protocol Merch Store</h1>
+  <p>
+    <strong>A production-ready e-commerce marketplace powered by NEAR Protocol, demonstrating print-on-demand fulfillment with Module Federation architecture.</strong>
+  </p>
+
+  <p>
+    <a href="https://x.com/nearmerch" target="_blank"><strong>🐦 Twitter</strong></a> •
+    <a href="https://t.me/nearmerch" target="_blank"><strong>💬 Telegram</strong></a>
+  </p>
+
+</div>
 
 ## Quick Start
 
@@ -12,7 +27,7 @@ bun db:migrate    # Run database migrations
 bun dev           # Start all services (API, UI, Host)
 ```
 
-Visit http://localhost:3000 to see the application.
+Visit <http://localhost:3000> to see the application.
 
 ## Documentation
 
@@ -45,6 +60,7 @@ Visit http://localhost:3000 to see the application.
 ```
 
 **Key Features:**
+
 - ✅ **Runtime Configuration** - All URLs loaded from `bos.config.json` (no rebuild needed!)
 - ✅ **Independent Deployment** - UI, API, and Host deploy separately
 - ✅ **Type Safety** - End-to-end with oRPC contracts
@@ -55,16 +71,19 @@ See [LLM.txt](./LLM.txt) for complete architecture details.
 ## Tech Stack
 
 **Frontend:**
+
 - React 19 + TanStack Router (file-based) + TanStack Query
 - Tailwind CSS v4 + shadcn/ui components
 - Module Federation for microfrontend architecture
 
 **Backend:**
+
 - Hono.js server + oRPC (type-safe RPC + OpenAPI)
 - every-plugin architecture for modular APIs
 - Effect-TS for service composition
 
 **Database & Auth:**
+
 - PostgreSQL + Drizzle ORM
 - Better-Auth with NEAR Protocol support
 
@@ -93,6 +112,7 @@ All runtime configuration lives in `bos.config.json`:
 ```
 
 **Benefits:**
+
 - Switch environments via `NODE_ENV` (no rebuild)
 - Update CDN URLs without code changes
 - Template injection for secrets

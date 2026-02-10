@@ -77,17 +77,6 @@ jobs:
         run: bun install
         working-directory: ./api
 
-      - name: Wait for PostgreSQL to be ready
-        run: |
-          for i in {1..30}; do
-            if docker exec postgres pg_isready -U postgres; then
-              echo "PostgreSQL is ready"
-              break
-            fi
-            echo "Waiting for PostgreSQL... ($i/30)"
-            sleep 2
-          done
-
       - name: Run database migrations
         run: bun run db:migrate
         working-directory: ./api
