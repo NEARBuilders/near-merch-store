@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import { createPlugin } from 'every-plugin';
-import { Effect, Layer, Schedule } from 'every-plugin/effect';
+import { Effect, Layer, Schedule, Cause, Exit } from 'every-plugin/effect';
+import { ManagedRuntime } from 'every-plugin/effect';
 import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import { contract } from './contract';
@@ -8,10 +9,15 @@ import { cleanupAbandonedDrafts } from './jobs/cleanup-drafts';
 import { createMarketplaceRuntime } from './runtime';
 import { ReturnAddressSchema, type OrderStatus, type TrackingInfo } from './schema';
 import { CheckoutService, CheckoutServiceLive } from './services/checkout';
+import { CheckoutError } from './services/checkout/errors';
 import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
-import { DatabaseLive, OrderStore, OrderStoreLive, ProductStoreLive } from './store';
+import { NewsletterService, NewsletterServiceLive } from './services/newsletter';
+import { DatabaseLive, OrderStore, OrderStoreLive, ProductStore, ProductStoreLive, ProductTypeStore, ProductTypeStoreLive, CollectionStoreLive } from './store';
+import { NewsletterStoreLive } from './store/newsletter';
 import { ProviderConfigStore, ProviderConfigStoreLive } from './store/providers';
+import { computePrintfulUpdate, parsePrintfulWebhook, verifyPrintfulWebhookSignature } from './services/fulfillment/printful/webhook';
+import { handlePingPayWebhookEffect } from './services/payment/pingpay/webhook';
 export * from './schema';
 
 export default createPlugin({
@@ -39,6 +45,7 @@ export default createPlugin({
   context: z.object({
     nearAccountId: z.string().optional(),
     reqHeaders: z.custom<Headers>().optional(),
+    getRawBody: z.custom<() => Promise<string>>().optional(),
   }),
 
   contract,
@@ -84,21 +91,32 @@ export default createPlugin({
         )
       );
 
-      const dbLayer = DatabaseLive(config.secrets.API_DATABASE_URL, config.secrets.API_DATABASE_AUTH_TOKEN);
+      const dbLayer = DatabaseLive(config.secrets.API_DATABASE_URL);
 
-      const appLayer = ProductServiceLive(runtime).pipe(
-        Layer.provide(ProductStoreLive),
-        Layer.provide(dbLayer)
+      const storesLayer = Layer.provideMerge(
+        Layer.mergeAll(
+          ProductStoreLive,
+          CollectionStoreLive,
+          OrderStoreLive,
+          ProviderConfigStoreLive,
+          ProductTypeStoreLive,
+          NewsletterStoreLive
+        ),
+        dbLayer
       );
 
-      const checkoutLayer = CheckoutServiceLive(runtime).pipe(
-        Layer.provide(OrderStoreLive),
-        Layer.provide(ProductStoreLive),
-        Layer.provide(dbLayer)
+      const servicesLayer = Layer.provideMerge(
+        Layer.mergeAll(
+          ProductServiceLive(runtime),
+          CheckoutServiceLive(runtime),
+          NewsletterServiceLive
+        ),
+        storesLayer
       );
 
-      const orderLayer = OrderStoreLive.pipe(Layer.provide(dbLayer));
-      const providerLayer = ProviderConfigStoreLive.pipe(Layer.provide(dbLayer));
+      const combinedLayer = Layer.mergeAll(storesLayer, servicesLayer);
+
+      const managedRuntime = ManagedRuntime.make(combinedLayer);
 
       // Cache for NEAR price
       const nearPriceCache: { price: number | null; cachedAt: number } = {
@@ -113,22 +131,23 @@ export default createPlugin({
       return {
         stripeService,
         runtime,
-        appLayer,
-        checkoutLayer,
-        orderLayer,
-        providerLayer,
+        managedRuntime,
         secrets: config.secrets,
         nearPriceCache,
       };
     }),
 
   shutdown: (context) =>
-    Effect.gen(function* () {
-      yield* Effect.promise(() => context.runtime.shutdown());
+    Effect.tryPromise({
+      try: async () => {
+        await context.runtime.shutdown();
+        await context.managedRuntime.dispose();
+      },
+      catch: (e) => new Error(`Shutdown failed: ${e instanceof Error ? e.message : String(e)}`),
     }),
 
   createRouter: (context, builder) => {
-    const { stripeService, runtime, appLayer, checkoutLayer, orderLayer, providerLayer, secrets, nearPriceCache } = context;
+    const { stripeService, runtime, managedRuntime, secrets, nearPriceCache } = context;
 
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.nearAccountId) {
@@ -152,76 +171,316 @@ export default createPlugin({
         };
       }),
 
+      subscribeNewsletter: builder.subscribeNewsletter.handler(async ({ input }) => {
+        const email = input.email.trim().toLowerCase();
+        if (!email) {
+          throw new ORPCError('BAD_REQUEST', { message: 'Please enter a valid email address' });
+        }
+
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* NewsletterService;
+            return yield* service.subscribe(email);
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return {
+          success: true,
+          status: exit.value.status,
+        };
+      }),
+
       getProducts: builder.getProducts.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getProducts(input);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
-      getProduct: builder.getProduct.handler(async ({ input }) => {
-        return await Effect.runPromise(
+      getProduct: builder.getProduct.handler(async ({ input, errors }) => {
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getProduct(input.id);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          if (error instanceof Error && error.message.includes('Product not found')) {
+            throw errors.NOT_FOUND({
+              message: error.message,
+              data: { resource: 'product', resourceId: input.id }
+            });
+          }
+          throw error;
+        }
+
+        return exit.value;
       }),
 
       searchProducts: builder.searchProducts.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.searchProducts(input);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getFeaturedProducts: builder.getFeaturedProducts.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getFeaturedProducts(input.limit);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getCollections: builder.getCollections.handler(async () => {
-        return await Effect.runPromise(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getCollections();
-          }).pipe(Effect.provide(appLayer))
+          })
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
-      getCollection: builder.getCollection.handler(async ({ input }) => {
-        return await Effect.runPromise(
+      getCollection: builder.getCollection.handler(async ({ input, errors }) => {
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getCollection(input.slug);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          if (error instanceof Error && error.message.includes('Collection not found')) {
+            throw errors.NOT_FOUND({
+              message: error.message,
+              data: { resource: 'collection', resourceId: input.slug }
+            });
+          }
+          throw error;
+        }
+
+        return exit.value;
+      }),
+
+      getCarouselCollections: builder.getCarouselCollections.handler(async () => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.getCarouselCollections();
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+updateCollection: builder.updateCollection.handler(async ({ input }) => {
+        const { slug, ...data } = input;
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateCollection(slug, data);
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      updateCollectionFeaturedProduct: builder.updateCollectionFeaturedProduct.handler(async ({ input }) => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateCollectionFeaturedProduct(input.slug, input.productId);
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       sync: builder.sync.handler(async () => {
-        return await Effect.runPromise(
-          Effect.gen(function* () {
-            const service = yield* ProductService;
-            return yield* service.sync();
-          }).pipe(Effect.provide(appLayer))
-        );
+        try {
+          return await managedRuntime.runPromise(
+            Effect.gen(function* () {
+              const service = yield* ProductService;
+              return yield* service.sync();
+            })
+          );
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          const getSyncStatusWithLayer = async () => {
+            return await managedRuntime.runPromise(
+              Effect.gen(function* () {
+                const service = yield* ProductService;
+                return yield* service.getSyncStatus();
+              })
+            );
+          };
+          
+          const status = await getSyncStatusWithLayer();
+          const now = Date.now();
+          const syncStartedAt = status.syncStartedAt;
+          const duration = syncStartedAt ? Math.floor((now - syncStartedAt) / 1000) : 0;
+          
+          if (errorMessage.includes('SYNC_IN_PROGRESS')) {
+            throw new ORPCError('SYNC_IN_PROGRESS', {
+              message: 'Sync is already in progress',
+              data: {
+                syncStartedAt: syncStartedAt ? new Date(syncStartedAt).toISOString() : new Date().toISOString(),
+                duration,
+              },
+            });
+          }
+          
+          if (errorMessage.includes('SYNC_PROVIDER_ERROR')) {
+            const errorData = status.errorData || {};
+            throw new ORPCError('SYNC_PROVIDER_ERROR', {
+              message: 'Fulfillment provider temporarily unavailable',
+              data: {
+                provider: errorData.provider || 'unknown',
+                errorType: errorData.errorType || 'API_ERROR',
+                retryAfter: errorData.retryAfter,
+                originalMessage: errorData.originalMessage || errorMessage,
+              },
+            });
+          }
+          
+          if (errorMessage.includes('SYNC_FAILED')) {
+            const errorData = status.errorData || {};
+            throw new ORPCError('SYNC_FAILED', {
+              message: 'Sync operation failed',
+              data: {
+                stage: errorData.stage || 'UNKNOWN',
+                errorMessage: errorMessage,
+                provider: errorData.provider,
+                syncDuration: errorData.syncDuration || duration,
+              },
+            });
+          }
+          
+          throw error;
+        }
       }),
 
       getSyncStatus: builder.getSyncStatus.handler(async () => {
-        return await Effect.runPromise(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.getSyncStatus();
-          }).pipe(Effect.provide(appLayer))
+          })
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getNearPrice: builder.getNearPrice.handler(async () => {
@@ -268,17 +527,29 @@ export default createPlugin({
       }),
 
       updateProductListing: builder.updateProductListing.handler(async ({ input }) => {
-        return await Effect.runPromise(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
             return yield* service.updateProductListing(input.id, input.listed);
-          }).pipe(Effect.provide(appLayer))
+          })
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
       createCheckout: builder.createCheckout
         .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const result = await Effect.runPromise(
+        .handler(async ({ input, context, errors }) => {
+          const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const service = yield* CheckoutService;
               return yield* service.createCheckout({
@@ -291,9 +562,31 @@ export default createPlugin({
                 cancelUrl: input.cancelUrl,
                 paymentProvider: input.paymentProvider,
               });
-            }).pipe(Effect.provide(checkoutLayer))
+            })
           );
 
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+
+            // Don't leak provider/internal details to the UI.
+            if (error instanceof CheckoutError) {
+              console.error('[createCheckout] Checkout failed:', error.message);
+              if (error.cause) console.error('[createCheckout] Cause:', error.cause);
+
+              throw new ORPCError('INTERNAL_SERVER_ERROR', {
+                message: 'Order Failed, please contact support (merch@near.foundation)',
+              });
+            }
+
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          const result = exit.value;
           return {
             checkoutSessionId: result.checkoutSessionId,
             checkoutUrl: result.checkoutUrl,
@@ -302,30 +595,47 @@ export default createPlugin({
         }),
 
       quote: builder.quote.handler(async ({ input }) => {
-        try {
-          return await Effect.runPromise(
-            Effect.gen(function* () {
-              const service = yield* CheckoutService;
-              return yield* service.getQuote(input.items, input.shippingAddress);
-            }).pipe(Effect.provide(checkoutLayer))
-          );
-        } catch (error) {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* CheckoutService;
+            return yield* service.getQuote(input.items, input.shippingAddress);
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
           throw new ORPCError('BAD_REQUEST', {
             message: error instanceof Error ? error.message : 'Failed to calculate shipping',
           });
         }
+
+        return exit.value;
       }),
 
       getOrders: builder.getOrders
         .use(requireAuth)
         .handler(async ({ input, context }) => {
-          const result = await Effect.runPromise(
+          const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.findByUser(context.nearAccountId!, input);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          const result = exit.value;
           return {
             orders: result.orders,
             total: result.total,
@@ -334,21 +644,38 @@ export default createPlugin({
 
       getOrder: builder.getOrder
         .use(requireAuth)
-        .handler(async ({ input, context }) => {
-          const order = await Effect.runPromise(
+        .handler(async ({ input, context, errors }) => {
+          const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.find(input.id);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw errors.NOT_FOUND({
+              message: 'Order not found',
+              data: { resource: 'order', resourceId: input.id }
+            });
+          }
+
+          const order = exit.value;
+          
           if (!order) {
-            throw new Error('Order not found');
+            throw errors.NOT_FOUND({
+              message: 'Order not found',
+              data: { resource: 'order', resourceId: input.id }
+            });
           }
 
           if (order.userId !== context.nearAccountId) {
-            throw new ORPCError('FORBIDDEN', {
-              message: 'You do not have permission to access this order'
+            throw errors.FORBIDDEN({
+              message: 'You do not have permission to access this order',
+              data: { action: 'read' }
             });
           }
 
@@ -356,14 +683,24 @@ export default createPlugin({
         }),
 
       getOrderByCheckoutSession: builder.getOrderByCheckoutSession.handler(async ({ input }) => {
-        const order = await Effect.runPromise(
+        const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const store = yield* OrderStore;
             return yield* store.findByCheckoutSession(input.sessionId);
-          }).pipe(Effect.provide(orderLayer))
+          })
         );
 
-        return { order };
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return { order: exit.value };
       }),
 
       subscribeOrderStatus: builder.subscribeOrderStatus.handler(async function* ({ input, signal }) {
@@ -374,11 +711,11 @@ export default createPlugin({
         let lastTrackingJson: string | undefined;
 
         while (!signal?.aborted) {
-          const order = await Effect.runPromise(
+          const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.findByCheckoutSession(input.sessionId);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (!order) {
@@ -412,7 +749,7 @@ export default createPlugin({
       getAllOrders: builder.getAllOrders
         .use(requireAuth)
         .handler(async ({ input }) => {
-          const result = await Effect.runPromise(
+          const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.findAll({
@@ -421,9 +758,20 @@ export default createPlugin({
                 status: input.status,
                 search: input.search,
               });
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          const result = exit.value;
           return {
             orders: result.orders,
             total: result.total,
@@ -435,7 +783,7 @@ export default createPlugin({
           throw new Error('Stripe is not configured');
         }
 
-        const event = await Effect.runPromise(
+        const event = await managedRuntime.runPromise(
           stripeService.verifyWebhookSignature(input.body, input.signature)
         );
 
@@ -445,36 +793,32 @@ export default createPlugin({
           const draftOrderIdsJson = session.metadata?.draftOrderIds;
 
           if (!orderId) {
-            console.log('[Stripe Webhook] No orderId in metadata, skipping');
             return { received: true };
           }
 
-          const order = await Effect.runPromise(
+          const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               return yield* store.find(orderId);
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (!order) {
-            console.error(`[Stripe Webhook] Order not found: ${orderId}`);
             return { received: true };
           }
 
           if (order.status !== 'draft_created' && order.status !== 'pending') {
-            console.log(`[Stripe Webhook] Order ${orderId} already processed (status: ${order.status}), skipping`);
             return { received: true };
           }
 
-          await Effect.runPromise(
+          await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
               yield* store.updateStatus(orderId, 'paid');
-            }).pipe(Effect.provide(orderLayer))
+            })
           );
 
           if (!draftOrderIdsJson) {
-            console.log('[Stripe Webhook] No draft orders to confirm');
             return { received: true };
           }
 
@@ -489,7 +833,6 @@ export default createPlugin({
 
               const provider = runtime.getProvider(providerName);
               if (!provider) {
-                console.error(`[Stripe Webhook] Provider not found: ${providerName}`);
                 confirmationResults[providerName] = { 
                   success: false, 
                   error: 'Provider not configured' 
@@ -510,36 +853,29 @@ export default createPlugin({
               );
 
               try {
-                const result = await Effect.runPromise(confirmEffect);
+                const result = await managedRuntime.runPromise(confirmEffect);
                 confirmationResults[providerName] = { success: true };
-                console.log(`[Stripe Webhook] Confirmed draft order ${draftId} at ${providerName}: ${result.status}`);
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 confirmationResults[providerName] = { success: false, error: errorMessage };
-                console.error(`[Stripe Webhook] Failed to confirm ${providerName} draft ${draftId}:`, errorMessage);
               }
             }
 
             const allSuccess = Object.values(confirmationResults).every(r => r.success);
             const finalStatus = allSuccess ? 'processing' : 'paid_pending_fulfillment';
 
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateStatus(orderId, finalStatus);
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
-
-            if (!allSuccess) {
-              console.error(`[Stripe Webhook] Order ${orderId} has failed confirmations:`, confirmationResults);
-            }
           } catch (error) {
-            console.error('[Stripe Webhook] Error processing draft confirmations:', error);
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
                 yield* store.updateStatus(orderId, 'paid_pending_fulfillment');
-              }).pipe(Effect.provide(orderLayer))
+              })
             );
           }
         }
@@ -548,187 +884,106 @@ export default createPlugin({
       }),
 
       printfulWebhook: builder.printfulWebhook.handler(async ({ input, context }) => {
-        const signature = context.reqHeaders?.get('x-pf-webhook-signature') || input.signature || '';
-
-        let webhookSecret = secrets.PRINTFUL_WEBHOOK_SECRET;
-        if (!webhookSecret) {
-          const dbSecret = await Effect.runPromise(
-            Effect.gen(function* () {
-              const store = yield* ProviderConfigStore;
-              return yield* store.getSecretKey('printful');
-            }).pipe(Effect.provide(providerLayer))
-          );
-          webhookSecret = dbSecret || undefined;
-        }
-
-        if (webhookSecret && signature) {
-          try {
-            const secretBuffer = Buffer.from(webhookSecret, 'hex');
-            const expected = crypto
-              .createHmac('sha256', secretBuffer)
-              .update(input.body)
-              .digest('hex');
-
-            if (signature.length !== expected.length) {
-              console.error('[Printful Webhook] Signature length mismatch');
-              throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
-            }
-
-            const isValid = crypto.timingSafeEqual(
-              Buffer.from(signature, 'hex'),
-              Buffer.from(expected, 'hex')
-            );
-
-            if (!isValid) {
-              console.error('[Printful Webhook] Invalid signature');
-              throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
-            }
-          } catch (error) {
-            if (error instanceof ORPCError) throw error;
-            console.error('[Printful Webhook] Signature verification error:', error);
-            throw new ORPCError('UNAUTHORIZED', { message: 'Webhook signature verification failed' });
-          }
-        } else if (webhookSecret) {
-          console.warn('[Printful Webhook] No signature provided, skipping verification');
-        }
+        const signature = context.reqHeaders?.get('x-pf-webhook-signature') || '';
+        const rawBody = (await context.getRawBody?.()) ?? JSON.stringify(input as unknown);
 
         try {
-          const payload = JSON.parse(input.body);
-          const eventType = payload.type;
-          const data = payload.data;
+          // Secret source of truth: DB (configured via admin UI). Env is a fallback.
+          const webhookSecret = await managedRuntime.runPromise(
+            Effect.gen(function* () {
+              const store = yield* ProviderConfigStore;
+              return (yield* store.getSecretKey('printful')) || secrets.PRINTFUL_WEBHOOK_SECRET;
+            })
+          );
 
-          console.log(`[Printful Webhook] Received event: ${eventType}`);
+          if (webhookSecret) {
+            verifyPrintfulWebhookSignature({ rawBody, signature, webhookSecretHex: webhookSecret });
+          }
 
-          const externalId = data?.order?.external_id;
+          const { eventType, externalId, data } = parsePrintfulWebhook(rawBody);
           if (!externalId) {
-            console.log('[Printful Webhook] No external_id found, skipping');
             return { received: true };
           }
 
-          const order = await Effect.runPromise(
+          console.log(`[Printful Webhook] Processing event: ${eventType}, external_id: ${externalId}`);
+
+          const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
-              return yield* store.find(externalId);
-            }).pipe(Effect.provide(orderLayer))
+              let order = yield* store.findByFulfillmentRef(externalId);
+              if (!order) {
+                order = yield* store.find(externalId);
+              }
+              return order;
+            })
           );
 
           if (!order) {
-            console.log(`[Printful Webhook] Order not found: ${externalId}`);
             return { received: true };
           }
 
-          let newStatus: OrderStatus | undefined = undefined;
-          let newTracking: TrackingInfo[] | undefined = undefined;
+          const { newStatus, newTracking } = computePrintfulUpdate({
+            eventType,
+            data,
+            currentStatus: order.status,
+          });
 
-          switch (eventType) {
-            case 'order_created':
-              console.log(`[Printful Webhook] Order ${externalId} created at Printful`);
-              if (order.status === 'paid' || order.status === 'paid_pending_fulfillment') {
-                newStatus = 'processing';
-              }
-              break;
-
-            case 'shipment_sent':
-            case 'package_shipped':
-              newStatus = 'shipped';
-              if (data.shipment) {
-                newTracking = [{
-                  trackingCode: data.shipment.tracking_number || '',
-                  trackingUrl: data.shipment.tracking_url || '',
-                  shipmentMethodName: data.shipment.service || 'Standard',
-                }];
-              }
-              break;
-
-            case 'shipment_delivered':
-              newStatus = 'delivered';
-              console.log(`[Printful Webhook] Shipment delivered for order ${externalId}`);
-              break;
-
-            case 'shipment_returned':
-              newStatus = 'returned';
-              console.log(`[Printful Webhook] Shipment returned for order ${externalId}`);
-              break;
-
-            case 'order_put_hold':
-            case 'order_put_hold_approval':
-              newStatus = 'on_hold';
-              console.log(`[Printful Webhook] Order ${externalId} put on hold: ${data?.reason || 'No reason provided'}`);
-              break;
-
-            case 'order_remove_hold':
-              if (order.status === 'on_hold') {
-                newStatus = 'processing';
-              }
-              console.log(`[Printful Webhook] Order ${externalId} hold removed`);
-              break;
-
-            case 'order_canceled':
-              newStatus = 'cancelled';
-              console.log(`[Printful Webhook] Order ${externalId} cancelled: ${data?.reason || 'No reason provided'}`);
-              break;
-
-            case 'order_failed':
-              newStatus = 'failed';
-              console.error(`[Printful Webhook] Order ${externalId} failed: ${data?.reason || 'No reason provided'}`);
-              break;
-
-            default:
-              console.log(`[Printful Webhook] Unhandled event type: ${eventType}`);
-          }
-
-          if (newStatus) {
+          if (newStatus && order) {
             const statusToUpdate = newStatus;
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateStatus(externalId, statusToUpdate);
-              }).pipe(Effect.provide(orderLayer))
+                yield* store.updateStatus(order.id, statusToUpdate);
+              })
             );
-            console.log(`[Printful Webhook] Updated order ${externalId} status to: ${statusToUpdate}`);
           }
 
-          if (newTracking) {
+          if (newTracking && order) {
             const trackingToUpdate = newTracking;
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateTracking(externalId, trackingToUpdate);
-              }).pipe(Effect.provide(orderLayer))
+                yield* store.updateTracking(order.id, trackingToUpdate);
+              })
             );
-            console.log(`[Printful Webhook] Updated tracking for order ${externalId}`);
           }
         } catch (error) {
-          if (error instanceof ORPCError) throw error;
-          console.error('[Printful Webhook] Error processing webhook:', error);
+          if (error instanceof ORPCError) {
+            console.error(`[Printful Webhook] ORPC error:`, error);
+            throw error;
+          }
+
+          // Log other errors but don't throw - return 200 to avoid webhook retries
+          console.error(`[Printful Webhook] Processing error:`, error);
         }
 
         return { received: true };
       }),
 
-      gelatoWebhook: builder.gelatoWebhook.handler(async ({ input }) => {
+      gelatoWebhook: builder.gelatoWebhook.handler(async ({ input, context }) => {
         try {
-          const payload = JSON.parse(input.body);
+          const rawBody = (await context.getRawBody?.()) ?? JSON.stringify(input as unknown);
+          const payload = JSON.parse(rawBody);
           const eventType = payload.event;
           const orderData = payload.order || payload;
 
-          console.log(`[Gelato Webhook] Received event: ${eventType}`);
-
           const externalId = orderData.orderReferenceId || orderData.externalId;
           if (!externalId) {
-            console.log('[Gelato Webhook] No external ID found, skipping');
             return { received: true };
           }
 
-          const order = await Effect.runPromise(
+          const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
-              return yield* store.find(externalId);
-            }).pipe(Effect.provide(orderLayer))
+              let order = yield* store.findByFulfillmentRef(externalId);
+              if (!order) {
+                order = yield* store.find(externalId);
+              }
+              return order;
+            })
           );
 
           if (!order) {
-            console.log(`[Gelato Webhook] Order not found: ${externalId}`);
             return { received: true };
           }
 
@@ -767,203 +1022,117 @@ export default createPlugin({
               break;
 
             default:
-              console.log(`[Gelato Webhook] Unhandled event type: ${eventType}`);
+              break;
           }
 
-          if (newStatus) {
+          if (newStatus && order) {
             const statusToUpdate = newStatus;
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateStatus(externalId, statusToUpdate);
-              }).pipe(Effect.provide(orderLayer))
+                yield* store.updateStatus(order.id, statusToUpdate);
+              })
             );
           }
 
-          if (newTracking) {
+          if (newTracking && order) {
             const trackingToUpdate = newTracking;
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateTracking(externalId, trackingToUpdate);
-              }).pipe(Effect.provide(orderLayer))
+                yield* store.updateTracking(order.id, trackingToUpdate);
+              })
             );
           }
         } catch (error) {
-          console.error('[Gelato Webhook] Error processing webhook:', error);
         }
 
         return { received: true };
       }),
 
       pingWebhook: builder.pingWebhook.handler(async ({ input, context }) => {
+        console.log('[PingPay Webhook] Starting to process webhook');
         const pingProvider = runtime.getPaymentProvider('pingpay');
         if (!pingProvider) {
-          console.error('[Ping Webhook] PingPay provider not configured');
+          console.error('[PingPay Webhook] PingPay provider not configured');
           throw new Error('PingPay provider not configured');
         }
 
         const signature = context.reqHeaders?.get('x-ping-signature') || '';
         const timestamp = context.reqHeaders?.get('x-ping-timestamp') || '';
-        const body = JSON.stringify(input);
+        const body = (await context.getRawBody?.()) ?? JSON.stringify(input as unknown);
 
-        const webhookResult = await Effect.runPromise(
-          Effect.tryPromise({
-            try: async () => {
-              const result = await pingProvider.client.verifyWebhook({
-                body,
-                signature,
-                timestamp,
-              });
-              return result;
-            },
-            catch: (error) =>
-              new Error(`Webhook verification failed: ${error instanceof Error ? error.message : String(error)}`),
-          })
-        );
-
-        const eventType = webhookResult.eventType;
-        console.log(`[Ping Webhook] Received event: ${eventType}`);
-
-        const { orderId, sessionId } = webhookResult;
-
-        let order = orderId
-          ? await Effect.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                return yield* store.find(orderId);
-              }).pipe(Effect.provide(orderLayer))
-            )
-          : null;
-
-        if (!order && sessionId) {
-          order = await Effect.runPromise(
-            Effect.gen(function* () {
-              const store = yield* OrderStore;
-              return yield* store.findByCheckoutSession(sessionId);
-            }).pipe(Effect.provide(orderLayer))
+        try {
+          await managedRuntime.runPromise(
+            handlePingPayWebhookEffect({
+              runtime,
+              pingProvider,
+              signature,
+              timestamp,
+              body,
+            })
           );
-        }
 
-        if (!order) {
-          console.log(`[Ping Webhook] Order not found for sessionId: ${sessionId}, orderId: ${orderId}`);
+          console.log('[PingPay Webhook] Webhook processed successfully');
           return { received: true };
+        } catch (error) {
+          console.error('[PingPay Webhook] Processing error:', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            signature: signature.substring(0, 20) + '...',
+            timestamp,
+          });
+          throw error;
         }
-
-        const resolvedOrderId = order.id;
-        const draftOrderIds = order.draftOrderIds || {};
-
-        switch (eventType) {
-          case 'payment.success':
-          case 'checkout.session.completed': {
-            if (order.status !== 'draft_created' && order.status !== 'pending' && order.status !== 'payment_pending') {
-              console.log(`[Ping Webhook] Order ${resolvedOrderId} already processed (status: ${order.status}), skipping`);
-              return { received: true };
-            }
-
-            await Effect.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                yield* store.updateStatus(resolvedOrderId, 'paid');
-              }).pipe(Effect.provide(orderLayer))
-            );
-
-            if (Object.keys(draftOrderIds).length === 0) {
-              console.log('[Ping Webhook] No draft orders to confirm');
-              return { received: true };
-            }
-
-            const confirmationResults: Record<string, { success: boolean; error?: string }> = {};
-
-            for (const [providerName, draftId] of Object.entries(draftOrderIds)) {
-              if (providerName === 'manual') {
-                confirmationResults[providerName] = { success: true };
-                continue;
-              }
-
-              const provider = runtime.getProvider(providerName);
-              if (!provider) {
-                console.error(`[Ping Webhook] Provider not found: ${providerName}`);
-                confirmationResults[providerName] = {
-                  success: false,
-                  error: 'Provider not configured',
-                };
-                continue;
-              }
-
-              const confirmEffect = Effect.tryPromise({
-                try: () => provider.client.confirmOrder({ id: draftId as string }),
-                catch: (error) =>
-                  new Error(
-                    `Failed to confirm order at ${providerName}: ${
-                      error instanceof Error ? error.message : String(error)
-                    }`
-                  ),
-              }).pipe(Effect.retry({ times: 3, schedule: Schedule.exponential('100 millis') }));
-
-              try {
-                const result = await Effect.runPromise(confirmEffect);
-                confirmationResults[providerName] = { success: true };
-                console.log(`[Ping Webhook] Confirmed draft order ${draftId} at ${providerName}: ${result.status}`);
-              } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                confirmationResults[providerName] = { success: false, error: errorMessage };
-                console.error(`[Ping Webhook] Failed to confirm ${providerName} draft ${draftId}:`, errorMessage);
-              }
-            }
-
-            const allSuccess = Object.values(confirmationResults).every((r) => r.success);
-            const finalStatus: OrderStatus = allSuccess ? 'processing' : 'paid_pending_fulfillment';
-
-            await Effect.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                yield* store.updateStatus(resolvedOrderId, finalStatus);
-              }).pipe(Effect.provide(orderLayer))
-            );
-
-            if (!allSuccess) {
-              console.error(`[Ping Webhook] Order ${resolvedOrderId} has failed confirmations:`, confirmationResults);
-            }
-            break;
-          }
-
-          case 'payment.failed':
-            console.error(`[Ping Webhook] Payment failed for order ${resolvedOrderId}`);
-            await Effect.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                yield* store.updateStatus(resolvedOrderId, 'payment_failed');
-              }).pipe(Effect.provide(orderLayer))
-            );
-            break;
-
-          default:
-            console.log(`[Ping Webhook] Unhandled event type: ${eventType}`);
-        }
-
-        return { received: true };
       }),
 
-      cleanupAbandonedDrafts: builder.cleanupAbandonedDrafts.handler(async ({ input }) => {
-        const maxAgeHours = input?.maxAgeHours || 24;
+      cleanupAbandonedDrafts: builder.cleanupAbandonedDrafts.handler(async ({ input, context }) => {
+        const cronSecret = context.reqHeaders?.get('x-cron-secret');
+        const expectedSecret = process.env.CRON_SECRET;
 
-        return await Effect.runPromise(
-          cleanupAbandonedDrafts(runtime, maxAgeHours).pipe(Effect.provide(orderLayer))
+        if (!expectedSecret || cronSecret !== expectedSecret) {
+          throw new ORPCError('UNAUTHORIZED', { message: 'Invalid or missing cron secret' });
+        }
+
+        const maxAgeHours = input?.maxAgeHours || 24;
+        const exit = await managedRuntime.runPromiseExit(
+          cleanupAbandonedDrafts(runtime, maxAgeHours)
         );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
       }),
 
       getProviderConfig: builder.getProviderConfig
         .use(requireAuth)
         .handler(async ({ input }) => {
-          const config = await Effect.runPromise(
+          const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const store = yield* ProviderConfigStore;
               return yield* store.getConfig(input.provider);
-            }).pipe(Effect.provide(providerLayer))
+            })
           );
 
-          return { config };
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          return { config: exit.value };
         }),
 
       configureWebhook: builder.configureWebhook
@@ -984,7 +1153,7 @@ export default createPlugin({
           
           let result;
           try {
-            result = await Effect.runPromise(
+            result = await managedRuntime.runPromise(
               printfulService.configureWebhooks({
                 defaultUrl: webhookUrl,
                 events: input.events,
@@ -999,7 +1168,7 @@ export default createPlugin({
           }
 
           try {
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* ProviderConfigStore;
                 yield* store.upsertConfig({
@@ -1013,7 +1182,7 @@ export default createPlugin({
                   lastConfiguredAt: Date.now(),
                   expiresAt: result.expiresAt,
                 });
-              }).pipe(Effect.provide(providerLayer))
+              })
             );
           } catch (error) {
             console.error('[configureWebhook] Failed to save webhook config:', error);
@@ -1046,7 +1215,7 @@ export default createPlugin({
           );
 
           try {
-            await Effect.runPromise(printfulService.disableWebhooks());
+            await managedRuntime.runPromise(printfulService.disableWebhooks());
           } catch (error) {
             console.error('[disableWebhook] Failed to disable Printful webhooks:', error);
             throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -1055,11 +1224,11 @@ export default createPlugin({
           }
 
           try {
-            await Effect.runPromise(
+            await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* ProviderConfigStore;
                 yield* store.clearWebhookConfig(input.provider);
-              }).pipe(Effect.provide(providerLayer))
+              })
             );
           } catch (error) {
             console.error('[disableWebhook] Failed to clear webhook config:', error);
@@ -1086,7 +1255,7 @@ export default createPlugin({
           );
 
           try {
-            const result = await Effect.runPromise(printfulService.ping());
+            const result = await managedRuntime.runPromise(printfulService.ping());
             return {
               success: result.success,
               timestamp: result.timestamp,
@@ -1099,6 +1268,249 @@ export default createPlugin({
             };
           }
         }),
+
+      getCategories: builder.getCategories.handler(async () => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.getCategories();
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      createCategory: builder.createCategory.handler(async ({ input }) => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.createCategory(input);
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      deleteCategory: builder.deleteCategory.handler(async ({ input }) => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.deleteCategory(input.id);
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      updateProductCategories: builder.updateProductCategories.handler(async ({ input }) => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateProductCollections(input.id, input.categoryIds);
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      updateProductTags: builder.updateProductTags.handler(async ({ input }) => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateProductTags(input.id, input.tags);
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      updateProductFeatured: builder.updateProductFeatured.handler(async ({ input }) => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            return yield* service.updateProductFeatured(input.id, input.featured);
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      updateProductType: builder.updateProductType.handler(async ({ input }) => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const productStore = yield* ProductStore;
+            const product = yield* productStore.updateProductType(input.id, input.productTypeSlug);
+            if (!product) {
+              return { success: false };
+            }
+            return { success: true, product };
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      getProductTypes: builder.getProductTypes.handler(async () => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const store = yield* ProductTypeStore;
+            const productTypes = yield* store.findAll();
+            return { productTypes };
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      createProductType: builder.createProductType.handler(async ({ input }) => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const store = yield* ProductTypeStore;
+            const productType = yield* store.create(input);
+            return { productType };
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      updateProductTypeItem: builder.updateProductTypeItem.handler(async ({ input }) => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const store = yield* ProductTypeStore;
+            const productType = yield* store.update(input.slug, {
+              label: input.label,
+              description: input.description,
+              displayOrder: input.displayOrder,
+            });
+            return { productType };
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
+
+      deleteProductType: builder.deleteProductType.handler(async ({ input }) => {
+        const exit = await managedRuntime.runPromiseExit(
+          Effect.gen(function* () {
+            const store = yield* ProductTypeStore;
+            const success = yield* store.delete(input.slug);
+            return { success };
+          })
+        );
+
+        if (Exit.isFailure(exit)) {
+          const error = Cause.squash(exit.cause);
+          if (error instanceof ORPCError) {
+            throw error;
+          }
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return exit.value;
+      }),
     };
   },
 });

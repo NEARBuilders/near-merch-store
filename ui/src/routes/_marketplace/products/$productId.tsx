@@ -5,6 +5,8 @@ import { ProductCard } from "@/components/marketplace/product-card";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
 import { useFavorites } from "@/hooks/use-favorites";
+import { useNearPrice } from "@/hooks/use-near-price";
+import { useCartSidebarStore } from "@/stores/cart-sidebar-store";
 import {
   requiresSize,
   useProducts,
@@ -14,6 +16,7 @@ import {
   COLOR_MAP,
   getAttributeHex,
   getOptionValue,
+  getVariantImageUrl,
 } from "@/lib/product-utils";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/utils/orpc";
@@ -41,10 +44,10 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
   head: ({ loaderData }) => {
     const product = loaderData?.data?.product;
     const title = product?.title
-      ? `${product.title} | Near Merch`
-      : "Near Merch";
+      ? `${product.title} | NEAR Merch Store`
+      : "NEAR Merch Store";
     const description =
-      product?.description || "NEAR-powered merch store for the NEAR ecosystem";
+      product?.description || "Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles";
     const image = product?.images?.[0]?.url;
 
     return {
@@ -54,10 +57,15 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
         { property: "og:title", content: title },
         { property: "og:description", content: description },
         { property: "og:type", content: "product" },
-        ...(image ? [{ property: "og:image", content: image }] : []),
+        ...(image ? [
+          { property: "og:image", content: image },
+          { property: "og:image:width", content: "1200" },
+          { property: "og:image:height", content: "630" }
+        ] : []),
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: description },
+        { name: "twitter:site", content: "@nearmerch" },
         ...(image ? [{ name: "twitter:image", content: image }] : []),
       ],
     };
@@ -97,6 +105,8 @@ function ProductDetailPage() {
   const canGoBack = useCanGoBack();
   const { addToCart } = useCart();
   const { favoriteIds, toggleFavorite } = useFavorites();
+  const { nearPrice, isLoading: isLoadingNearPrice } = useNearPrice();
+  const openCartSidebar = useCartSidebarStore((state) => state.open);
 
   const loaderData = Route.useLoaderData();
 
@@ -168,17 +178,24 @@ function ProductDetailPage() {
   const isInitialMountRef = useRef(true);
 
   const { data: relatedData } = useProducts({
-    category: product.category,
+    collectionSlugs: product.collections?.map((c) => c.slug) ?? [],
     limit: 4,
   });
   const relatedProducts = (relatedData?.products ?? [])
     .filter((p) => p.id !== product.id)
     .slice(0, 3);
 
-  // Determine display images (filter out 'detail' type/blueprints)
+  // Determine display images (filter out 'detail' type/blueprints and 'mockup' type)
   // Keep a STABLE order - don't reorder when variant changes
+  // Use only variant images (images with variantIds)
   const validImages = useMemo(
-    () => product.images.filter((img: ProductImage) => img.type !== "detail"),
+    () => product.images.filter(
+      (img: ProductImage) => 
+        img.type !== "detail" && 
+        img.type !== "mockup" &&
+        img.variantIds && 
+        img.variantIds.length > 0
+    ),
     [product.images]
   );
 
@@ -248,13 +265,15 @@ function ProductDetailPage() {
   const isFavorite = favoriteIds.includes(product.id);
 
   const needsSize =
-    requiresSize(product.category) && hasVariants && orderedSizes.length > 0;
+    requiresSize(product.collections) && hasVariants && orderedSizes.length > 0;
 
   const handleAddToCart = () => {
     if (!selectedVariant) return;
+    const variantImageUrl = selectedVariantId ? getVariantImageUrl(product, selectedVariantId) : undefined;
     for (let i = 0; i < quantity; i++) {
-      addToCart(product.slug, selectedVariantId || '', selectedSize, selectedColor);
+      addToCart(product.slug, selectedVariantId || '', selectedSize, selectedColor, variantImageUrl);
     }
+    openCartSidebar();
   };
 
   const handleImageClick = (index: number) => {
@@ -263,7 +282,7 @@ function ProductDetailPage() {
   };
 
   return (
-    <div className="bg-background w-full min-h-screen">
+    <div className="bg-background w-full min-h-screen pt-32">
       {viewerOpen && (
         <ImageViewer
           images={productImages}
@@ -273,8 +292,10 @@ function ProductDetailPage() {
         />
       )}
 
-      <div className="border-b border-border">
-        <div className="container-app py-4">
+      <div className="container-app mx-auto px-4 md:px-8 lg:px-16 mb-8">
+        {/* Back and Title Blocks */}
+        <div className="flex flex-row gap-4 mb-8">
+          {/* Back Block */}
           <button
             onClick={() => {
               if (canGoBack) {
@@ -283,23 +304,47 @@ function ProductDetailPage() {
                 router.navigate({ to: "/" });
               }
             }}
-            className="flex items-center gap-3 hover:opacity-70 transition-opacity cursor-pointer"
+            className="rounded-2xl border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
           >
-            <ArrowLeft className="size-4" />
-            <span className="tracking-tight">Back to Shop</span>
+            <ArrowLeft className="size-5" />
           </button>
+
+          {/* Title Block */}
+          <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
+            <div className="flex items-center justify-end gap-3">
+              {(product.collections ?? []).some((c) => c.name === "Exclusives") && (
+                <div className="h-[40px] flex items-center justify-center bg-muted/30 px-3 py-2 text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60 rounded-lg">
+                  EXCLUSIVE
+                </div>
+              )}
+              <FavoriteButton
+                isFavorite={isFavorite}
+                onToggle={() => toggleFavorite(product.id, product.title)}
+                variant="button"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="container-app py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+      <div className="container-app mx-auto px-4 md:px-8 lg:px-16 pb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+          {/* Image Block */}
+          <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-4 md:p-6">
           <div className="w-full space-y-4">
-            <div className="relative w-full aspect-square rounded-lg overflow-hidden shadow-[0_0_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_-10px_rgba(255,255,255,0.15)]">
+            {/* Title - Mobile only, inside image block */}
+            <div className="lg:hidden">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground/90 dark:text-muted-foreground">
+                {product.title}
+              </h1>
+            </div>
+              <div className="relative w-full aspect-square rounded-lg overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/40 to-background/90 dark:from-background/10 dark:via-background/60 dark:to-background z-0"></div>
               {productImages.map((img, index) => (
                 <div
                   key={index}
                   className={cn(
-                    "absolute inset-0 transition-opacity duration-500 cursor-pointer",
+                    "absolute inset-0 transition-opacity duration-500 cursor-pointer z-10",
                     index === currentImageIndex ? "opacity-100" : "opacity-0"
                   )}
                   onClick={() => handleImageClick(currentImageIndex)}
@@ -307,7 +352,9 @@ function ProductDetailPage() {
                   <img
                     src={img}
                     alt={`${product.title} - Image ${index + 1}`}
-                    className="w-full h-full object-cover"
+                    loading={index === currentImageIndex ? "eager" : "lazy"}
+                    decoding="async"
+                    className="w-full h-full object-cover relative z-10"
                   />
                 </div>
               ))}
@@ -324,10 +371,10 @@ function ProductDetailPage() {
                           productImages.length
                       );
                     }}
-                    className="group flex items-center justify-center w-10 h-10 rounded-full border border-white/20 bg-black/20 backdrop-blur-md hover:bg-white hover:border-white transition-all duration-300"
+                    className="flex items-center justify-center w-10 h-10 rounded-lg border border-border/60 bg-background/60 backdrop-blur-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-all duration-200 text-foreground/80"
                     aria-label="Previous image"
                   >
-                    <ChevronLeft className="h-5 w-5 text-white group-hover:text-black transition-colors" />
+                    <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     onClick={(e) => {
@@ -337,16 +384,16 @@ function ProductDetailPage() {
                         (prev) => (prev + 1) % productImages.length
                       );
                     }}
-                    className="group flex items-center justify-center w-10 h-10 rounded-full border border-white/20 bg-black/20 backdrop-blur-md hover:bg-white hover:border-white transition-all duration-300"
+                    className="flex items-center justify-center w-10 h-10 rounded-lg border border-border/60 bg-background/60 backdrop-blur-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-all duration-200 text-foreground/80"
                     aria-label="Next image"
                   >
-                    <ChevronRight className="h-5 w-5 text-white group-hover:text-black transition-colors" />
+                    <ChevronRight className="h-5 w-5" />
                   </button>
                 </div>
               )}
 
               {productImages.length > 1 && (
-                <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm text-white text-sm z-10">
+                <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground/90 dark:text-muted-foreground text-sm z-10">
                   {currentImageIndex + 1} / {productImages.length}
                 </div>
               )}
@@ -390,13 +437,15 @@ function ProductDetailPage() {
                       className={cn(
                         "flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all",
                         index === currentImageIndex
-                          ? "border-primary ring-1 ring-primary"
-                          : "border-transparent hover:border-border opacity-60 hover:opacity-100"
+                            ? "border-[#00EC97]"
+                            : "border-border/60 hover:border-[#00EC97]/60 opacity-60 hover:opacity-100"
                       )}
                     >
                       <img
                         src={img}
                         alt={`${product.title} - Thumbnail ${index + 1}`}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                     </button>
@@ -404,40 +453,67 @@ function ProductDetailPage() {
                 })}
               </div>
             )}
+            </div>
           </div>
 
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="inline-block border border-border px-2 py-1">
-                <span className="text-xs tracking-[-0.48px]">
-                  {product.category}
-                </span>
+            {/* Title Block - Desktop only */}
+            <div className="hidden lg:block rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 py-4 md:py-5">
+              <div className="space-y-2">
+                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground/90 dark:text-muted-foreground">
+                  {product.title}
+                </h1>
               </div>
-              <FavoriteButton
-                isFavorite={isFavorite}
-                onToggle={() => toggleFavorite(product.id, product.title)}
-                variant="button"
-              />
             </div>
 
-            <h1 className="text-2xl font-medium tracking-[-0.48px]">
-              {product.title}
-            </h1>
+            {/* Product Info Block */}
+            <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8 space-y-8">
+            {/* Price */}
+            <div className="flex items-baseline gap-4 flex-wrap">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl md:text-4xl font-bold text-foreground dark:text-foreground">
+                  ${displayPrice}
+                </span>
+                <span className="text-sm text-foreground/80 dark:text-muted-foreground/60 font-normal">
+                  USD
+                </span>
+              </div>
+              {nearPrice && (
+                <>
+                  <span className="text-foreground/60 dark:text-muted-foreground/30">•</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl md:text-4xl font-bold text-[#00EC97]">
+                      {isLoadingNearPrice ? '...' : (displayPrice / nearPrice).toFixed(2)}
+                    </span>
+                    <span className="text-sm text-[#00EC97]/80 font-normal">
+                      NEAR
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
 
-            <span className="text-lg tracking-[-0.48px]">${displayPrice}</span>
-
+            {/* Description */}
             {product.description && (
-              <p className="text-muted-foreground tracking-tight leading-6">
+              <div className="space-y-2">
+                <p className="text-base md:text-lg text-foreground/90 dark:text-muted-foreground leading-relaxed">
                 {product.description}
               </p>
+              </div>
             )}
 
-            <div className="h-px bg-border" />
+            {/* Separator */}
+            <div className="h-px bg-border/60" />
 
+            {/* Options Section */}
+            <div className="space-y-6">
+              {/* Color Selection */}
             {orderedColors.length > 0 && (
               <div className="space-y-3">
-                <label className="block tracking-[-0.48px]">Color</label>
-                <div className="flex flex-wrap gap-2">
+                  <label className="block text-sm font-semibold tracking-[-0.48px] text-foreground/90 dark:text-muted-foreground uppercase">
+                    Color
+                  </label>
+                  <div className="flex flex-wrap gap-3">
                   {orderedColors.map((color) => {
                     const sampleVariant = availableVariants.find(
                       (v) => getOptionValue(v.attributes, "Color") === color
@@ -458,28 +534,26 @@ function ProductDetailPage() {
                           setSelectedColor(color);
                         }}
                         className={cn(
-                          "size-8 rounded-full border transition-all p-0.5 relative ring-offset-background",
+                            "size-10 rounded-lg border-2 transition-colors overflow-hidden",
                           isSelected
-                            ? "border-primary ring-2 ring-primary ring-offset-2"
-                            : "border-transparent hover:border-border",
-                          "dark:ring-offset-background"
+                              ? "border-[#00EC97]"
+                              : "border-border/60 hover:border-[#00EC97]/60"
                         )}
                         title={color}
-                      >
-                        <div
-                          className="w-full h-full rounded-full border border-black/10 dark:border-white/20 shadow-sm"
                           style={{ backgroundColor: hex }}
                         />
-                      </button>
                     );
                   })}
                 </div>
               </div>
             )}
 
+              {/* Size Selection */}
             {hasVariants && orderedSizes.length > 0 && !(orderedSizes.length === 1 && orderedSizes[0] === "One size") && (
-              <div className="space-y-3">
-                <label className="block tracking-[-0.48px]">Size</label>
+              <div className="space-y-3 min-h-[80px]">
+                  <label className="block text-sm font-semibold tracking-[-0.48px] text-foreground/90 dark:text-muted-foreground uppercase">
+                    Size
+                  </label>
                 <div className="flex flex-wrap gap-2">
                   {orderedSizes.map((size) => {
                     const isAvailable = availableSizesForColor.includes(size);
@@ -490,10 +564,10 @@ function ProductDetailPage() {
                         onClick={() => setSelectedSize(size)}
                         disabled={!isAvailable}
                         className={cn(
-                          "px-4 py-2 tracking-[-0.48px] transition-colors",
+                            "px-5 py-2.5 tracking-[-0.48px] transition-all rounded-lg font-medium text-sm border-2",
                           size === selectedSize
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-background border border-border hover:bg-muted",
+                              ? "bg-[#00EC97] text-black border-[#00EC97]"
+                              : "bg-background/40 border-border/60 hover:border-[#00EC97] hover:text-[#00EC97] hover:bg-background/60",
                           !isAvailable &&
                             "opacity-50 cursor-not-allowed line-through"
                         )}
@@ -506,49 +580,67 @@ function ProductDetailPage() {
               </div>
             )}
 
+              {/* Quantity Selection */}
             <div className="space-y-3">
-              <label className="block tracking-tight">Quantity</label>
-              <div className="flex items-center gap-3 border border-border rounded w-fit px-1 py-1">
+                <label className="block text-sm font-semibold tracking-[-0.48px] text-foreground/90 dark:text-muted-foreground uppercase">
+                  Quantity
+                </label>
+                <div className="flex items-center gap-3 border border-border/60 rounded-lg w-fit px-2 py-1.5 bg-background/40">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="p-2 hover:bg-muted rounded transition-colors disabled:opacity-50"
+                    className="p-2 hover:bg-background/60 hover:text-[#00EC97] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={quantity <= 1}
+                    aria-label="Decrease quantity"
                 >
                   <Minus className="size-4" />
                 </button>
-                <span className="tracking-tight min-w-[2ch] text-center">
+                  <span className="tracking-tight min-w-[3ch] text-center text-base font-semibold text-foreground dark:text-foreground">
                   {quantity}
                 </span>
                 <button
                   onClick={() => setQuantity(quantity + 1)}
-                  className="p-2 hover:bg-muted rounded transition-colors"
+                    className="p-2 hover:bg-background/60 hover:text-[#00EC97] rounded-lg transition-colors"
+                    aria-label="Increase quantity"
                 >
                   <Plus className="size-4" />
                 </button>
+                </div>
               </div>
             </div>
 
+            {/* Add to Cart Button */}
+            <div className="pt-2">
             <Button
               onClick={handleAddToCart}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                className="w-full bg-[#00EC97] text-black hover:bg-[#00d97f] rounded-lg h-14 text-base font-bold transition-colors"
               disabled={needsSize && !selectedVariant}
             >
               Add to Cart - ${(displayPrice * quantity).toFixed(2)}
             </Button>
+            </div>
+            </div>
           </div>
         </div>
 
         {relatedProducts.length > 0 && (
-          <div className="mt-24 space-y-8">
-            <div className="space-y-2">
-              <h2 className="text-xl font-medium tracking-tight">
+          <div className="mt-16 space-y-6">
+            {/* Title Block */}
+            <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
+              <div className="flex flex-row items-center justify-between gap-4">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <h2 className="text-xl md:text-2xl font-medium tracking-tight text-foreground/90 dark:text-muted-foreground">
                 You Might Also Like
               </h2>
-              <p className="text-muted-foreground tracking-tight">
-                Explore more from our collection
-              </p>
+                </div>
+                <Link to="/products" search={() => ({ category: "", categoryId: undefined, collection: undefined })} className="shrink-0">
+                  <Button className="bg-[#00EC97] text-black hover:bg-[#00d97f] rounded-lg h-14 text-base font-bold whitespace-nowrap">
+                    All Products
+                  </Button>
+                </Link>
+              </div>
             </div>
 
+            {/* Products Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {relatedProducts.map((relatedProduct) => (
                 <ProductCard

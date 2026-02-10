@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { CartItem } from "@/integrations/api";
-import { toast } from "sonner";
 
 const CART_STORAGE_KEY = "marketplace-cart";
 
@@ -15,7 +14,7 @@ interface CartState {
   items: Record<string, CartItem>;
 
   // Actions
-  addToCart: (productId: string, variantId: string, size: string, color: string) => void;
+  addToCart: (productId: string, variantId: string, size: string, color: string, imageUrl?: string) => void;
   updateQuantity: (variantId: string, change: number) => void;
   removeItem: (variantId: string) => void;
   clearCart: () => void;
@@ -31,7 +30,7 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: {},
 
-      addToCart: (productId: string, variantId: string, size: string, color: string) => {
+      addToCart: (productId: string, variantId: string, size: string, color: string, imageUrl?: string) => {
         set((state) => {
           const existingItem = state.items[variantId];
 
@@ -44,11 +43,11 @@ export const useCartStore = create<CartState>()(
                 quantity: (existingItem?.quantity || 0) + 1,
                 size,
                 color,
+                imageUrl: imageUrl || existingItem?.imageUrl,
               },
             },
           };
         });
-        toast.success("Added to cart");
       },
 
       updateQuantity: (variantId: string, change: number) => {
@@ -77,7 +76,6 @@ export const useCartStore = create<CartState>()(
           const { [variantId]: _, ...rest } = state.items;
           return { items: rest };
         });
-        toast.success("Removed from cart");
       },
 
       clearCart: () => {

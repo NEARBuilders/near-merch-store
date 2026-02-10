@@ -1,29 +1,10 @@
 /// <reference types="@rsbuild/core/types" />
-
-interface ImportMetaEnv {
-  readonly PUBLIC_ACCOUNT_ID: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
-
-interface RuntimeConfig {
-  env: string;
-  title: string;
-  hostUrl: string;
-  ui: {
-    name: string;
-    url: string;
-  };
-  apiBase: string;
-  rpcBase: string;
-}
+import type { ClientRuntimeConfig } from "everything-dev/types";
 
 declare global {
   interface Window {
-    __RUNTIME_CONFIG__?: RuntimeConfig;
+    __RUNTIME_CONFIG__?: ClientRuntimeConfig;
   }
 }
 
-export {};
+export { };

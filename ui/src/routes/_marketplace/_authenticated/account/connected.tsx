@@ -1,34 +1,17 @@
-import { ProfileLine } from '@/components/profile-line';
 import { authClient } from '@/lib/auth-client';
-import { queryClient } from '@/utils/orpc';
 import { createFileRoute } from '@tanstack/react-router';
 import { Link2 } from 'lucide-react';
-import { Social } from 'near-social-js';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 export const Route = createFileRoute(
   "/_marketplace/_authenticated/account/connected"
 )({
   component: ConnectedAccountsPage,
-  loader: async () => {
-    const accountId = authClient.near.getAccountId();
-
-    if (!accountId) {
-      return { accountId: null, profile: null };
-    }
-
-    try {
-      const social = new Social({ network: "mainnet" });
-      const profile = await social.getProfile(accountId);
-      return { accountId, profile };
-    } catch (error) {
-      return { accountId, profile: null };
-    }
-  },
 });
 
 function ConnectedAccountsPage() {
-  const { accountId, profile } = Route.useLoaderData();
+  const queryClient = useQueryClient();
   const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
   const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
 
@@ -77,57 +60,53 @@ function ConnectedAccountsPage() {
     : null;
 
   return (
-    <div className="space-y-4">
-      <div className="mb-6">
-        <div className="flex items-start gap-3 mb-2">
-          <Link2 className="size-5 mt-0.5" />
-          <div>
-            <h2 className="text-lg font-medium mb-1">Connected Accounts</h2>
-            <p className="text-sm text-[#717182]">
-              Manage your linked authentication providers
-            </p>
-          </div>
-        </div>
+    <div className="space-y-4 md:space-y-6">
+      <div>
+        <h2 className="text-xl md:text-2xl lg:text-3xl font-bold tracking-tight mb-1 md:mb-2">Connected Accounts</h2>
+        <p className="text-xs md:text-sm text-foreground/90 dark:text-muted-foreground">
+          Manage your linked authentication providers
+        </p>
       </div>
 
-      {accountId && <ProfileLine accountId={accountId} profile={profile} />}
-
-      {linkedAccounts.length > 0 && (
-        <div className="border-t border-[rgba(0,0,0,0.1)] pt-4 space-y-3">
-          <p className="text-sm text-[#717182] mb-2">Linked Accounts</p>
+      {linkedAccounts.length > 0 ? (
+        <div className="space-y-3 md:space-y-4">
+          <h3 className="text-base md:text-lg font-semibold text-foreground/90 dark:text-muted-foreground">Linked Accounts</h3>
+          <div className="space-y-2 md:space-y-3">
           {linkedAccounts.map((account) => (
             <div
               key={account.providerId || account.accountId}
-              className={`p-4 flex items-center justify-between ${account === primaryAccount
-                ? "bg-[#d4fced] dark:bg-emerald-950/30 border border-[#00ec97] dark:border-emerald-900"
-                : "bg-card border border-border"
+                className={`rounded-xl md:rounded-2xl p-3 md:p-4 flex items-center justify-between border transition-colors ${
+                  account === primaryAccount
+                    ? "bg-[#00EC97]/10 dark:bg-[#00EC97]/20 border-[#00EC97]/60"
+                    : "bg-background border-border/60"
                 }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                 <div
-                  className={`size-10 flex items-center justify-center ${account.providerId === "siwn"
-                    ? "bg-[#00ec97]"
+                    className={`size-8 md:size-10 flex items-center justify-center rounded-lg shrink-0 ${
+                      account.providerId === "siwn"
+                        ? "bg-[#00EC97]"
                     : account.providerId === "github"
                       ? "bg-[#030213] dark:bg-white"
-                      : ""
+                          : "bg-muted"
                     }`}
                 >
                   {account.providerId === "siwn" && (
-                    <svg className="size-5" viewBox="0 0 24 24" fill="none">
+                    <svg className="size-4 md:size-5" viewBox="0 0 24 24" fill="none">
                       <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" fill="black" />
                     </svg>
                   )}
                 </div>
-                <div>
-                  <p className="text-sm">NEAR</p>
-                  <p className="text-xs text-[#717182]">
+                <div className="min-w-0 flex-1">
+                    <p className="text-xs md:text-sm font-medium">NEAR</p>
+                    <p className="text-xs text-foreground/70 dark:text-muted-foreground truncate">
                     {account.accountId?.split(":")[0] || account.accountId}
                   </p>
                 </div>
               </div>
               {account === primaryAccount ? (
                 <svg
-                  className="size-5 text-[#00ec97]"
+                    className="size-4 md:size-5 text-[#00EC97] shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 20 20"
@@ -145,7 +124,7 @@ function ConnectedAccountsPage() {
                   disabled={
                     isUnlinking === (account.providerId || account.accountId)
                   }
-                  className="text-red-500 hover:text-red-600 text-sm disabled:opacity-50"
+                    className="text-red-500 hover:text-red-600 text-xs md:text-sm disabled:opacity-50 transition-colors shrink-0"
                 >
                   {isUnlinking === (account.providerId || account.accountId)
                     ? "Unlinking..."
@@ -154,6 +133,13 @@ function ConnectedAccountsPage() {
               ) : null}
             </div>
           ))}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl md:rounded-2xl bg-background border border-border/60 p-8 md:p-12 text-center">
+          <Link2 className="mx-auto h-8 w-8 md:h-12 md:w-12 text-foreground/50 dark:text-muted-foreground mb-3 md:mb-4" />
+          <p className="text-sm md:text-base text-foreground/90 dark:text-muted-foreground font-medium mb-1">No linked accounts</p>
+          <p className="text-xs md:text-sm text-foreground/70 dark:text-muted-foreground">Your linked accounts will appear here</p>
         </div>
       )}
 

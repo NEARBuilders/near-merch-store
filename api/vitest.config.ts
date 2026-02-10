@@ -12,7 +12,6 @@ export default defineConfig({
     sequence: {
       hooks: 'stack',
     },
-    globalSetup: './tests/globalSetup.ts',
   },
   plugins: [
     tsconfigPaths({

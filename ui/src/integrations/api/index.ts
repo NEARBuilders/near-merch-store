@@ -1,5 +1,7 @@
 export * from './keys';
-import type { ProductCategory } from './keys';
+import type { Category } from './keys';
+export * from './collections';
+import type { Collection } from './collections';
 
 export interface CartItem {
   productId: string;
@@ -7,15 +9,15 @@ export interface CartItem {
   quantity: number;
   size: string;
   color: string;
+  imageUrl?: string;
 }
-
-export const COLLECTIONS: ProductCategory[] = ['Men', 'Women', 'Accessories', 'Exclusives'];
 
 export const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
 export type Size = (typeof SIZES)[number];
 
-export const requiresSize = (category: ProductCategory): boolean => {
-  return ['Men', 'Women', 'Exclusives'].includes(category);
+export const requiresSize = (items: Category[] | Collection[] | undefined): boolean => {
+  const names = (items ?? []).map((c) => c.name.toLowerCase());
+  return names.some((n) => ['men', 'women', 'exclusives'].includes(n));
 };
 
 export {
@@ -31,8 +33,18 @@ export {
   useSyncStatus,
   useSyncProducts,
   useUpdateProductListing,
+  useUpdateProductCategories,
+  useUpdateProductTags,
+  useUpdateProductFeatured,
+  useUpdateProductType,
+  useProductTypes,
+  useCreateProductType,
+  useUpdateProductTypeItem,
+  useDeleteProductType,
+  getPrimaryCategoryName,
   type Product,
   type ProductImage,
+  type ProductTypeData,
 } from './products';
 
 export {
@@ -40,9 +52,23 @@ export {
   useSuspenseCollections,
   useCollection,
   useSuspenseCollection,
+  useCarouselCollections,
+  useSuspenseCarouselCollections,
+  useUpdateCollection,
+  useUpdateCollectionFeaturedProduct,
+  useCreateCollection,
+  useDeleteCollection,
   collectionLoaders,
   type Collection,
+  type CarouselCollection,
 } from './collections';
+
+export {
+  useCategories,
+  useCreateCategory,
+  useDeleteCategory,
+  type Category,
+} from './categories';
 
 export {
   useOrders,
@@ -70,3 +96,8 @@ export {
   type ProviderConfig,
   type PrintfulWebhookEventType,
 } from './providers';
+
+export {
+  useSubscribeNewsletter,
+  type SubscribeNewsletterOutput,
+} from './newsletter';

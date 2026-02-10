@@ -1,40 +1,70 @@
 {
   "name": "monorepo",
   "private": true,
-  "workspaces": [
-    "api",
-    "ui",
-    "host"
-  ],
+  "workspaces": {
+    "packages": [
+      "api",
+      "ui"
+    ],
+    "catalog": {
+      "react": "19.2.4",
+      "react-dom": "19.2.4",
+      "@tanstack/react-query": "5.90.20",
+      "@tanstack/react-router": "1.157.16",
+      "near-kit": "0.10.0",
+      "@hot-labs/near-connect": "0.8.2",
+      "drizzle-orm": "^0.45.1",
+      "drizzle-kit": "^0.31.8",
+      "better-auth": "1.4.17",
+      "better-near-auth": "0.3.4",
+      "every-plugin": "0.8.8",
+      "typescript": "^5.9.3",
+      "vitest": "^4.0.17",
+      "@libsql/client": "0.17.0",
+      "@types/node": "^25.0.3",
+      "@types/react": "^19.2.7",
+      "@types/react-dom": "^19.2.3",
+      "effect": "^3.19.15",
+      "everything-dev": "0.2.1",
+      "@module-federation/enhanced": "0.22.1",
+      "@module-federation/node": "2.7.27",
+      "@module-federation/rsbuild-plugin": "0.22.1",
+      "@module-federation/runtime-core": "0.22.1"
+    }
+  },
   "scripts": {
-    "test": "turbo test --filter=api",
-    "dev": "turbo dev --filter=api --filter=host --filter=ui",
-    "dev:ui": "API_SOURCE=remote turbo dev --filter=host --filter=ui",
-    "dev:api": "UI_SOURCE=remote turbo dev --filter=host --filter=api",
-    "dev:host": "UI_SOURCE=remote API_SOURCE=remote turbo dev --filter=host",
-    "dev:proxy": "API_PROXY=true turbo dev --filter=host --filter=ui",
-    "start": "turbo preview --filter=host",
-    "build": "turbo build",
-    "build:api": "turbo build --filter=api",
-    "build:host": "turbo build --filter=host",
-    "build:ui": "turbo build --filter=ui",
-    "deploy": "NODE_ENV=production turbo build --filter=ui --filter=api",
-    "typecheck": "turbo typecheck",
-    "db:push": "turbo db:push",
-    "db:studio": "turbo db:studio",
-    "db:generate": "turbo db:generate",
-    "db:migrate": "turbo db:migrate",
-    "db:sync": "bun run scripts/sync-db.ts"
+    "init": "bun run db:migrate",
+    "bos": "bunx everything-dev",
+    "dev": "bos dev",
+    "dev:ui": "bos dev --api=remote",
+    "dev:api": "bos dev --ui=remote",
+    "dev:proxy": "bos dev --proxy",
+    "build": "bos build",
+    "build:api": "bun run --cwd api rsbuild build",
+    "build:ui": "bun run --cwd ui rsbuild build",
+    "deploy": "NODE_ENV=production bun run build:ui && bun run build:api",
+    "typecheck": "bun run --cwd ui tsc --noEmit && bun run --cwd api tsc --noEmit",
+    "start": "NODE_ENV=production bos start --no-interactive",
+    "db:push": "bun run --cwd api drizzle-kit push",
+    "db:studio": "bun run --cwd api drizzle-kit studio",
+    "db:generate": "bun run --cwd api drizzle-kit generate",
+    "db:migrate": "bun run --cwd api drizzle-kit migrate",
+    "test": "bun run test:api && bun run test:e2e",
+    "test:api": "cd api && bun test tests/integration/ tests/unit/",
+    "test:e2e": "bunx playwright test",
+    "test:e2e:ui": "bunx playwright test --ui",
+    "test:integration": "cd api && bun test tests/integration/"
   },
-  "dependencies": {
-    "@libsql/client": "^0.14.0",
-    "dotenv": "^16.4.5",
-    "drizzle-orm": "^0.45.1",
-    "nanoid": "^5.1.6"
-  },
+  "packageManager": "bun@1.2.20",
+  "module": "index.ts",
+  "type": "module",
   "devDependencies": {
-    "drizzle-kit": "^0.31.8",
-    "turbo": "^2.6.3"
+    "@changesets/cli": "^2.29.8",
+    "@playwright/test": "^1.58.1",
+    "@types/bun": "latest",
+    "everything-dev": "0.2.1"
   },
-  "packageManager": "bun@1.2.20"
+  "peerDependencies": {
+    "typescript": "^5"
+  }
 }

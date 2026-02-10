@@ -1,1 +1,0 @@
-ALTER TABLE `orders` ADD `draft_order_ids` text;

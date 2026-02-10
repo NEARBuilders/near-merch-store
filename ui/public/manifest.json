@@ -1,7 +1,7 @@
 {
   "short_name": "NEAR Merch",
-  "name": "NEAR Protocol Merch Store",
-  "description": "Official NEAR Protocol merchandise store - Shop exclusive blockchain apparel and accessories",
+  "name": "NEAR Merch Store",
+  "description": "Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles for the NEAR ecosystem",
   "icons": [
     {
       "src": "favicon-16x16.png",
@@ -52,8 +52,8 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff",
+  "theme_color": "#00EC97",
+  "background_color": "#171717",
   "categories": ["shopping", "lifestyle"],
   "orientation": "portrait-primary"
 }

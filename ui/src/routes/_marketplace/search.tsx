@@ -1,15 +1,15 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
-
-import { cn } from '@/lib/utils';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { ArrowLeft } from 'lucide-react';
 import { ProductCard } from '@/components/marketplace/product-card';
+import { LoadingSpinner } from '@/components/loading';
 import {
+  getPrimaryCategoryName,
   useSearchProducts,
   useProducts,
   productLoaders,
-  type ProductCategory,
+  type Product,
 } from '@/integrations/api';
-import { queryClient } from '@/utils/orpc';
+import { useMemo } from 'react';
 
 type SearchParams = {
   q?: string;
@@ -21,97 +21,107 @@ export const Route = createFileRoute('/_marketplace/search')({
     q: typeof search.q === 'string' ? search.q : undefined,
     category: typeof search.category === 'string' ? search.category : undefined,
   }),
-  loader: async () => {
-    await queryClient.ensureQueryData(productLoaders.list({ limit: 50 }));
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(productLoaders.list({ limit: 50 }));
   },
   component: SearchPage,
 });
 
-const SORT_OPTIONS = ['Featured', 'Price: Low to High', 'Price: High to Low'] as const;
-type SortOption = (typeof SORT_OPTIONS)[number];
-
 function SearchPage() {
-  const { q, category } = Route.useSearch();
-  const [activeFilter, setActiveFilter] = useState<string>(category || 'All');
-  const [sortBy, setSortBy] = useState<SortOption>('Featured');
+  const { q } = Route.useSearch();
 
-  const filters = ['All'];
-
-  const { data: searchData } = useSearchProducts(q || '', {
-    category: (activeFilter !== 'All' ? activeFilter : undefined) as ProductCategory | undefined,
+  const { data: searchData, isFetching: isSearching } = useSearchProducts(q || '', {
     limit: 50,
   });
 
-  const { data: allProductsData } = useProducts({
-    category: (activeFilter !== 'All' ? activeFilter : undefined) as ProductCategory | undefined,
+  const { data: allProductsData, isLoading } = useProducts({
     limit: 50,
   });
 
-  const products = q ? (searchData?.products ?? []) : (allProductsData?.products ?? []);
+  const normalizeSearchTerm = (term: string): string => {
+    const normalized = term.toLowerCase().trim();
+    const words = normalized.split(/\s+/);
+    
+    return words.map(word => {
+      if (word.endsWith('ies')) return word.slice(0, -3) + 'y';
+      if (word.endsWith('es') && word.length > 3) return word.slice(0, -2);
+      if (word.endsWith('s') && word.length > 2) return word.slice(0, -1);
+      return word;
+    }).join(' ');
+  };
 
-  const sortedProducts = [...products].sort((a, b) => {
-    if (sortBy === 'Price: Low to High') return a.price - b.price;
-    if (sortBy === 'Price: High to Low') return b.price - a.price;
-    return 0;
-  });
+  const matchesSearchQuery = (product: Product, query: string): boolean => {
+    if (!query.trim()) return true;
+    
+    const queryLower = query.toLowerCase().trim();
+    const normalizedQuery = normalizeSearchTerm(query);
+    const searchText = `${product.title} ${product.productType || ''} ${product.brand || ''} ${getPrimaryCategoryName(product) || ''}`.toLowerCase();
+    const normalizedSearchText = normalizeSearchTerm(searchText);
+    
+    return searchText.includes(queryLower) || 
+           normalizedSearchText.includes(normalizedQuery) ||
+           product.title.toLowerCase().includes(queryLower) ||
+           normalizeSearchTerm(product.title).includes(normalizedQuery);
+  };
+
+  const products = useMemo(() => {
+    if (!q) {
+      return allProductsData?.products ?? [];
+    }
+    
+    const apiResults = searchData?.products ?? [];
+    const allProducts = allProductsData?.products ?? [];
+    
+    const apiResultIds = new Set(apiResults.map(p => p.id));
+    const additionalResults = allProducts.filter(
+      product => !apiResultIds.has(product.id) && matchesSearchQuery(product, q)
+    );
+    
+    return [...apiResults, ...additionalResults];
+  }, [q, searchData, allProductsData]);
 
   return (
-    <section className="min-h-screen py-24 border-b border-border">
-      <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
-        <div className="text-center mb-12">
-          <h1 className="text-2xl font-medium text-foreground mb-6 tracking-[-0.48px]">
-            {q ? `Search results for "${q}"` : 'All Products'}
-          </h1>
-          <p className="text-lg text-[#717182] max-w-3xl mx-auto">
-            Browse our complete collection of premium NEAR Protocol merchandise.{' '}
-            {sortedProducts.length} products available.
-          </p>
-        </div>
+    <section className="section-padding relative z-10 bg-background pt-32">
+      <div className="container-app">
+        {/* Back and Title Blocks */}
+        <div className="flex flex-row gap-4 mb-8">
+          {/* Back Block */}
+          <Link
+            to="/"
+            className="rounded-2xl border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8 flex items-center justify-center hover:border-[#00EC97] hover:text-[#00EC97] transition-colors shrink-0"
+          >
+            <ArrowLeft className="size-5" />
+          </Link>
 
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-          <div className="flex flex-wrap gap-2">
-            {filters.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={cn(
-                  'px-4 py-2 border transition-colors tracking-[-0.48px]',
-                  activeFilter === filter
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-card text-foreground border-border hover:border-foreground'
-                )}
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-[#717182]">SORT BY:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="border border-border px-4 py-2 bg-card text-foreground cursor-pointer hover:border-foreground transition-colors"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </select>
+          {/* Title Block */}
+          <div className="flex-1 rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                  {q ? `Search results for "${q}"` : 'All Products'}
+                </h1>
+              </div>
+            </div>
           </div>
         </div>
 
-        {sortedProducts.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {sortedProducts.map((product) => (
+        {(isLoading || (isSearching && q)) ? (
+          <div className="flex items-center justify-center py-20">
+            <LoadingSpinner />
+          </div>
+        ) : products.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {products.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
+                variant="sm"
               />
             ))}
           </div>
         ) : (
-          <div className="text-center py-16">
-            <p className="text-[#717182] text-lg">
+          <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-12 md:py-16 text-center">
+            <p className="text-lg font-medium text-foreground/90 dark:text-muted-foreground">
               No products found {q ? `matching "${q}"` : ''}
             </p>
           </div>
@@ -120,4 +130,3 @@ function SearchPage() {
     </section>
   );
 }
-

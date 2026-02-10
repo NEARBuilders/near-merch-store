@@ -29,13 +29,13 @@ export function FavoriteButton({
         return (
             <button
                 onClick={handleClick}
-                className={cn("p-2 hover:bg-gray-100 transition-colors rounded-full", className)}
+                className={cn("p-2 bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-background/80 hover:text-[#00EC97] transition-all rounded-lg", className)}
                 aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
             >
                 <Heart
                     className={cn(
                         "size-6 transition-all duration-300",
-                        isFavorite ? "fill-red-500 stroke-red-500" : "stroke-black",
+                        isFavorite ? "fill-[#00EC97] stroke-[#00EC97]" : "stroke-foreground",
                         isAnimating && "animate-heart-pop"
                     )}
                 />
@@ -48,7 +48,7 @@ export function FavoriteButton({
             type="button"
             onClick={handleClick}
             className={cn(
-                "absolute top-2 right-2 p-2 bg-background/80 backdrop-blur-sm hover:bg-background transition-all z-10 rounded-full",
+                "absolute top-3 right-3 p-2 bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-background/80 hover:text-[#00EC97] transition-all z-10 rounded-lg",
                 className
             )}
             aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
@@ -56,7 +56,7 @@ export function FavoriteButton({
             <Heart
                 className={cn(
                     "size-4 transition-all duration-300 cursor-pointer",
-                    isFavorite ? "fill-red-500 stroke-red-500" : "stroke-black",
+                    isFavorite ? "fill-[#00EC97] stroke-[#00EC97]" : "stroke-foreground",
                     isAnimating && "animate-heart-pop"
                 )}
                 aria-hidden="true"

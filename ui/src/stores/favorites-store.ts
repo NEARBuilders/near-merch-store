@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { toast } from "sonner";
 
 const FAVORITES_STORAGE_KEY = "marketplace-favorites";
 
@@ -26,9 +25,6 @@ export const useFavoritesStore = create<FavoritesState>()(
                 set((state: FavoritesState) => {
                     if (state.favoriteIds.includes(productId)) return state;
                     console.log('Adding favorite:', productId, productName);
-                    if (productName) {
-                        toast.success(`${productName} added to favorites!`);
-                    }
 
                     return {
                         favoriteIds: [...state.favoriteIds, productId],

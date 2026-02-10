@@ -14,7 +14,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     launchOptions: {
@@ -39,9 +39,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'NODE_OPTIONS="--import tsx" bun run dev',
-    url: 'http://localhost:3001',
+    command: 'bunx everything-dev dev --no-interactive',
+    url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 300 * 1000,
   },
 });
