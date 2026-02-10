@@ -49,10 +49,9 @@
     "db:studio": "bun run --cwd api drizzle-kit studio",
     "db:generate": "bun run --cwd api drizzle-kit generate",
     "db:migrate": "bun run --cwd api drizzle-kit migrate",
+    "release": "echo 'Packages versioned - skipping npm publish'",
     "test": "bun run test:api && bun run test:e2e",
     "test:api": "cd api && bun test tests/integration/ tests/unit/",
-    "test:e2e": "bunx playwright test",
-    "test:e2e:ui": "bunx playwright test --ui",
     "test:integration": "cd api && bun test tests/integration/"
   },
   "packageManager": "bun@1.2.20",
@@ -60,7 +59,6 @@
   "type": "module",
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
-    "@playwright/test": "^1.58.1",
     "@types/bun": "latest",
     "everything-dev": "0.2.1"
   },
