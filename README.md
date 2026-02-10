@@ -113,9 +113,9 @@ All runtime configuration lives in `bos.config.json`:
 
 ## Related Projects
 
-- **[every-plugin](https://github.com/near-everything/every-plugin)** - Plugin framework for modular APIs
 - **[near-kit](https://kit.near.tools)** - Unified NEAR Protocol SDK
 - **[better-near-auth](https://github.com/elliotBraem/better-near-auth)** - NEAR authentication for Better-Auth
+- **[every-plugin](https://github.com/near-everything/every-plugin)** - Plugin framework for modular APIs
 
 ## License
 
