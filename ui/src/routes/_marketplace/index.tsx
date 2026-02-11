@@ -126,7 +126,7 @@ function MarketplaceHome() {
     const glowColors = ["#00ec97", "#0066ff", "#ff6b6b", "#ffd93d", "#6c5ce7", "#00b894"];
     
     return collections.slice(0, 4).map((collection: any, index: number) => ({
-      badge: "COLLECTION",
+      badge: collection.badge || "COLLECTION",
       title: (collection.carouselTitle || collection.name).split(' ').slice(0, 3).join(' ').toUpperCase(),
       subtitle: (collection.carouselTitle || collection.name).split(' ').slice(3).join(' ').toUpperCase() || "COLLECTION",
       description: collection.carouselDescription || collection.description || `Discover ${collection.name} - exclusive NEAR merch collection`,

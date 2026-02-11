@@ -61,7 +61,7 @@ export function useSuspenseCarouselCollections() {
 export function useUpdateCollection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { slug: string; name?: string; description?: string; carouselTitle?: string; carouselDescription?: string; showInCarousel?: boolean; carouselOrder?: number }) =>
+    mutationFn: (data: { slug: string; name?: string; description?: string; badge?: string; carouselTitle?: string; carouselDescription?: string; showInCarousel?: boolean; carouselOrder?: number }) =>
       apiClient.updateCollection(data),
     onMutate: async (variables) => {
       await qc.cancelQueries({ queryKey: collectionKeys.list() });
@@ -78,7 +78,7 @@ export function useUpdateCollection() {
           ...old,
           collections: old.collections.map((c: Collection) =>
             c.slug === variables.slug
-              ? { ...c, name: variables.name ?? c.name, description: variables.description ?? c.description, carouselTitle: variables.carouselTitle ?? c.carouselTitle, carouselDescription: variables.carouselDescription ?? c.carouselDescription, showInCarousel: variables.showInCarousel ?? c.showInCarousel, carouselOrder: variables.carouselOrder ?? c.carouselOrder }
+              ? { ...c, name: variables.name ?? c.name, description: variables.description ?? c.description, badge: variables.badge ?? c.badge, carouselTitle: variables.carouselTitle ?? c.carouselTitle, carouselDescription: variables.carouselDescription ?? c.carouselDescription, showInCarousel: variables.showInCarousel ?? c.showInCarousel, carouselOrder: variables.carouselOrder ?? c.carouselOrder }
               : c
           )
         };
@@ -90,6 +90,7 @@ export function useUpdateCollection() {
           ...old,
           name: variables.name ?? old.name,
           description: variables.description ?? old.description,
+          badge: variables.badge ?? old.badge,
           carouselTitle: variables.carouselTitle ?? old.carouselTitle,
           carouselDescription: variables.carouselDescription ?? old.carouselDescription,
           showInCarousel: variables.showInCarousel ?? old.showInCarousel,
@@ -103,7 +104,7 @@ export function useUpdateCollection() {
           ...old,
           collections: old.collections.map((c: any) =>
             c.slug === variables.slug
-              ? { ...c, name: variables.name ?? c.name, carouselTitle: variables.carouselTitle ?? c.carouselTitle, carouselDescription: variables.carouselDescription ?? c.carouselDescription, showInCarousel: variables.showInCarousel ?? c.showInCarousel, carouselOrder: variables.carouselOrder ?? c.carouselOrder }
+              ? { ...c, name: variables.name ?? c.name, badge: variables.badge ?? c.badge, carouselTitle: variables.carouselTitle ?? c.carouselTitle, carouselDescription: variables.carouselDescription ?? c.carouselDescription, showInCarousel: variables.showInCarousel ?? c.showInCarousel, carouselOrder: variables.carouselOrder ?? c.carouselOrder }
               : c
           )
         };

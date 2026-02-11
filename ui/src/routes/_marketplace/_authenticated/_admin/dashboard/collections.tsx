@@ -229,6 +229,17 @@ function AdminCollections() {
                             />
                           </div>
                           <div className="space-y-2">
+                            <Label>Badge</Label>
+                            <Input
+                              value={editCollection?.badge ?? ""}
+                              onChange={(e) => setEditCollection(prev => prev ? { ...prev, badge: e.target.value } : null)}
+                              placeholder="e.g. COLLECTION (shown on homepage carousel)"
+                            />
+                            <p className="text-xs text-foreground/60 dark:text-muted-foreground">
+                              Label displayed above the collection name on the homepage carousel
+                            </p>
+                          </div>
+                          <div className="space-y-2">
                             <Label>Carousel Order</Label>
                             <Input
                               type="number"
@@ -365,6 +376,7 @@ function AdminCollections() {
                                       slug: editCollection.slug, 
                                       name: editCollection.name, 
                                       description: editCollection.description, 
+                                      badge: editCollection.badge, 
                                       carouselTitle: editCollection.carouselTitle, 
                                       carouselDescription: editCollection.carouselDescription, 
                                       showInCarousel: editCollection.showInCarousel, 
