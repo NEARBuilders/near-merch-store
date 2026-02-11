@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0
+
+### Minor Changes
+
+- acee170: Add badge editing capability to collections admin panel - collections can now have customizable badge labels displayed on the homepage carousel
+
+### Patch Changes
+
+- acee170: Fix collections filter to use correct `useCollections()` API hook instead of deprecated `useCategories()`
+- acee170: Fix collections filter not updating product results - added collectionFilter to useMemo dependencies and Clear All handler
+- acee170: Fix mobile homepage lower box to display "Represent the NEAR protocol IRL" content instead of repeating carousel collection content
+- acee170: Fix mobile products page single view to display all products in a single column instead of just one item
+- acee170: Remove grid view toggle buttons from homepage - should only be available on the products page
+
 ## 1.0.0
 
 ### Major Changes
