@@ -27,8 +27,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Square,
-  Grid3x3,
 } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 
@@ -83,8 +81,6 @@ function MarketplaceHome() {
   const collections = carouselData?.collections ?? [];
 
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>('all');
-  const [currentProductIndex, setCurrentProductIndex] = useState(0);
-  const [viewMode, setViewMode] = useState<'single' | 'grid'>('single');
   
   const productTypeCategoriesForFilter = useMemo(() => [
     { key: 'all', label: 'All' },
@@ -130,7 +126,7 @@ function MarketplaceHome() {
     const glowColors = ["#00ec97", "#0066ff", "#ff6b6b", "#ffd93d", "#6c5ce7", "#00b894"];
     
     return collections.slice(0, 4).map((collection: any, index: number) => ({
-      badge: "COLLECTION",
+      badge: collection.badge || "COLLECTION",
       title: (collection.carouselTitle || collection.name).split(' ').slice(0, 3).join(' ').toUpperCase(),
       subtitle: (collection.carouselTitle || collection.name).split(' ').slice(3).join(' ').toUpperCase() || "COLLECTION",
       description: collection.carouselDescription || collection.description || `Discover ${collection.name} - exclusive NEAR merch collection`,
@@ -382,29 +378,19 @@ function MarketplaceHome() {
       {activeSlide && (
             <div className="lg:hidden rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 py-4 md:py-6 relative z-10 mx-4 md:mx-8 mb-8">
               <div className="flex flex-col gap-3 md:gap-4">
-                <div className="inline-block rounded-md bg-muted/30 px-2.5 py-0.5 text-[10px] md:text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60">
-                  {activeSlide.badge}
-                </div>
-
                 <div>
                   <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-1.5 md:mb-2">
-                    {activeSlide.title}
+                    Represent the NEAR protocol IRL
                   </h3>
-                  <h4 className="text-lg md:text-xl font-semibold tracking-tight text-foreground/95">
-                    {activeSlide.subtitle}
-                  </h4>
-                </div>
-
-                <div>
                   <p className="text-xs md:text-sm text-foreground/90 dark:text-muted-foreground">
-                    {activeSlide.description}
+                    Discover curated drops and official merch to show your support for NEAR in the real world.
                   </p>
                 </div>
 
                 <div>
                   <Link
                     to="/products"
-                    search={{ category: "all", categoryId: undefined, collection: activeSlide.collection?.slug }}
+                    search={{ category: "all", categoryId: undefined, collection: undefined }}
                     className="inline-flex items-center justify-center px-4 md:px-8 py-2 md:py-3 h-[40px] md:h-[48px] rounded-lg bg-[#00EC97] text-black font-semibold text-xs md:text-base hover:bg-[#00d97f] transition-colors whitespace-nowrap"
                   >
                     Shop Items
@@ -480,32 +466,7 @@ function MarketplaceHome() {
                   })}
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => setViewMode('single')}
-                    className={cn(
-                      "p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors",
-                      viewMode === 'single'
-                        ? "bg-[#00EC97] border-[#00EC97] text-black"
-                        : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
-                    )}
-                    aria-label="Single view"
-                  >
-                    <Square className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={cn(
-                      "p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors",
-                      viewMode === 'grid'
-                        ? "bg-[#00EC97] border-[#00EC97] text-black"
-                        : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
-                    )}
-                    aria-label="Grid view"
-                  >
-                    <Grid3x3 className="h-5 w-5" />
-                  </button>
-                </div>
+
               </div>
 
               <div className="hidden md:flex flex-wrap items-center justify-center gap-2 mb-8">
@@ -526,29 +487,16 @@ function MarketplaceHome() {
               </div>
 
               <div className="md:hidden mb-8">
-                {viewMode === 'single' ? (
-                  <div>
-                    {displayProducts.length > 0 && (
-                      <ProductCard
-                        key={displayProducts[currentProductIndex].id}
-                        product={displayProducts[currentProductIndex]}
-                        variant="sm"
-                        onQuickAdd={handleQuickAdd}
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    {displayProducts?.map((product: Product) => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        variant="sm"
-                        onQuickAdd={handleQuickAdd}
-                      />
-                    ))}
-                  </div>
-                )}
+                <div className="grid grid-cols-2 gap-4">
+                  {displayProducts?.map((product: Product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      variant="sm"
+                      onQuickAdd={handleQuickAdd}
+                    />
+                  ))}
+                </div>
               </div>
               
               <div className="hidden md:grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -564,25 +512,6 @@ function MarketplaceHome() {
               
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2 md:gap-0">
-                  {displayProducts.length > 1 && (
-                    <div className="md:hidden flex items-center gap-2">
-                      <button
-                        onClick={() => setCurrentProductIndex((prev) => (prev - 1 + displayProducts.length) % displayProducts.length)}
-                        className="inline-flex items-center justify-center px-4 py-2.5 h-[40px] rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
-                        aria-label="Previous product"
-                      >
-                        <ChevronLeft className="h-5 w-5 text-foreground" />
-                      </button>
-                      <button
-                        onClick={() => setCurrentProductIndex((prev) => (prev + 1) % displayProducts.length)}
-                        className="inline-flex items-center justify-center px-4 py-2.5 h-[40px] rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] transition-all duration-200 shadow-lg hover:shadow-xl"
-                        aria-label="Next product"
-                      >
-                        <ChevronRight className="h-5 w-5 text-foreground" />
-                      </button>
-                    </div>
-                  )}
-                  
                   <Link
                     to="/products"
                     search={{ category: selectedProductCategory === 'all' ? 'all' : selectedProductCategory, categoryId: undefined, collection: undefined }}

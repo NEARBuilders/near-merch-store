@@ -18,9 +18,10 @@ import {
   useProducts,
   useSearchProducts,
   getPrimaryCategoryName,
-  useCategories,
+  useCollections,
   useProductTypes,
   type Product,
+  type Collection,
 } from "@/integrations/api";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Search, Filter, X, ChevronDown, ChevronUp, Square, Grid3x3 } from "lucide-react";
@@ -115,8 +116,8 @@ function ProductsIndexPage() {
     limit: 100
   });
 
-  const { data: collectionsData } = useCategories();
-  const collections = collectionsData?.categories ?? [];
+  const { data: collectionsData } = useCollections();
+  const collections = collectionsData?.collections ?? [];
 
   // Get unique filter options from products
   const { availableSizes, availableColors, availableBrands } = useMemo(() => {
@@ -283,7 +284,7 @@ function ProductsIndexPage() {
     });
 
     return sortedProducts;
-  }, [searchQuery, searchData, allProductsData, categoryFilter, brandFilter, sizeFilter, colorFilter, priceRange, discountFilter, sortBy]);
+  }, [searchQuery, searchData, allProductsData, categoryFilter, collectionFilter, brandFilter, sizeFilter, colorFilter, priceRange, discountFilter, sortBy]);
 
   const handleQuickAdd = (product: Product) => {
     setSizeModalProduct(product);
@@ -531,7 +532,7 @@ function ProductsIndexPage() {
                             No collections yet.
                           </p>
                         ) : (
-                          collections.map((collection) => (
+                          collections.map((collection: Collection) => (
                             <label
                               key={collection.slug}
                               className="flex items-center gap-3 cursor-pointer"
@@ -879,6 +880,7 @@ function ProductsIndexPage() {
                       setColorFilter("all");
                       setCategoryFilter("all");
                       setBrandFilter("all");
+                      setCollectionFilter('all');
                       setSortBy("relevance");
                     }}
                     className="w-full px-8 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-base hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
@@ -943,26 +945,15 @@ function ProductsIndexPage() {
           ) : (
             <>
               {/* Mobile view */}
-              <div className="md:hidden grid grid-cols-2 gap-6">
-                {viewMode === 'single' ? (
-                  products.length > 0 ? (
-                    <ProductCard
-                      key={products[0].id}
-                      product={products[0]}
-                      variant="sm"
-                      onQuickAdd={handleQuickAdd}
-                    />
-                  ) : null
-                ) : (
-                  products.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      variant="sm"
-                      onQuickAdd={handleQuickAdd}
-                    />
-                  ))
-                )}
+              <div className={cn("md:hidden grid gap-6", viewMode === 'single' ? "grid-cols-1" : "grid-cols-2")}>
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    variant="sm"
+                    onQuickAdd={handleQuickAdd}
+                  />
+                ))}
               </div>
               {/* Desktop view */}
               <div className="hidden md:grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
