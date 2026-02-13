@@ -1,6 +1,6 @@
 {
   "account": "near-merch-store.near",
-  "template": "near-everything/every-plugin/demo",
+  "template": "nearbuilders/near-merch-store",
   "shared": {
     "ui": {
       "react": {
@@ -99,7 +99,7 @@
         "PING_API_KEY",
         "PING_WEBHOOK_SECRET"
       ],
-      "template": "near-everything/every-plugin/demo/api",
+      "template": "nearbuilders/near-merch-store/api",
       "files": [
         "rspack.config.cjs",
         "tsconfig.json",
