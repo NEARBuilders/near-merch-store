@@ -8,7 +8,7 @@ export class StripePaymentService {
 
   constructor(secretKey: string, webhookSecret: string) {
     this.stripe = new Stripe(secretKey, {
-      apiVersion: '2025-12-15.clover',
+      apiVersion: '2026-01-28.clover',
     });
     this.webhookSecret = webhookSecret;
   }

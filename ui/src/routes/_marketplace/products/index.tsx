@@ -1,4 +1,5 @@
 import { LoadingSpinner } from "@/components/loading";
+import { PageTransition } from "@/components/page-transition";
 import { CartSidebar } from "@/components/marketplace/cart-sidebar";
 import { ProductCard } from "@/components/marketplace/product-card";
 import { SizeSelectionModal } from "@/components/marketplace/size-selection-modal";
@@ -17,12 +18,13 @@ import {
   useProducts,
   useSearchProducts,
   getPrimaryCategoryName,
-  useCategories,
+  useCollections,
+  useProductTypes,
   type Product,
+  type Collection,
 } from "@/integrations/api";
-import { queryClient } from "@/utils/orpc";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Search, Filter, X, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Search, Filter, X, ChevronDown, ChevronUp, Square, Grid3x3 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
 export const Route = createFileRoute("/_marketplace/products/")({
@@ -31,13 +33,19 @@ export const Route = createFileRoute("/_marketplace/products/")({
     return {
       category: (search.category as string) || 'all',
       categoryId: (search.categoryId as string | undefined) || undefined,
+      collection: (search.collection as string | undefined) || undefined,
     };
   },
-  loader: async () => {
+  loader: async ({ context }) => {
+    const queryClient = context.queryClient;
     try {
       await queryClient.ensureQueryData(productLoaders.list({ limit: 100 }));
     } catch (error) {
-      console.warn('Failed to prefetch products:', error);
+      const errorCode = (error as any)?.response?.data?.code || (error as any)?.code;
+      const isExpected = errorCode === 'NOT_FOUND' || errorCode === 404 || errorCode?.toString() === '404';
+      if (!isExpected) {
+        console.warn('Failed to prefetch products:', error);
+      }
     }
   },
   component: ProductsIndexPage,
@@ -48,71 +56,16 @@ type DiscountFilter = 'all' | 'on-sale' | 'no-discount';
 type SortOption = 'relevance' | 'price-low-high' | 'price-high-low';
 type SizeFilter = 'all' | string;
 type ColorFilter = 'all' | string;
-type CategoryFilter = 'all' | 'tshirt' | 'hats' | 'hoodies' | 'long sleeved shirts' | 'Exclusives';
+type CategoryFilter = 'all' | string;
 type BrandFilter = 'all' | string;
 
-// Define product type categories
-const PRODUCT_TYPE_CATEGORIES = [
-  { key: 'tshirt', label: 'T-Shirts' },
-  { key: 'hats', label: 'Hats' },
-  { key: 'hoodies', label: 'Hoodies' },
-  { key: 'long sleeved shirts', label: 'Long Sleeved Shirts' },
-] as const;
-
-// Normalize product type for matching - checks both productType and product title
-// Returns a category key or null if no match found
-const normalizeProductType = (product: Product): string | null => {
-  // Check productType first
-  if (product.productType) {
-    const normalized = product.productType.toLowerCase().trim();
-    
-    // Map variations to standard categories
-    if (normalized.includes('t-shirt') || normalized.includes('tshirt') || normalized.includes('tee') || normalized.includes('t shirt')) {
-      return 'tshirt';
-    }
-    if (normalized.includes('hat') || normalized.includes('cap') || normalized.includes('beanie') || normalized.includes('cepure')) {
-      return 'hats';
-    }
-    if (normalized.includes('hoodie') || normalized.includes('hoody') || normalized.includes('hood')) {
-      return 'hoodies';
-    }
-    if (normalized.includes('long sleeve') || normalized.includes('long-sleeve') || normalized.includes('longsleeve') || normalized.includes('long sleeve')) {
-      return 'long sleeved shirts';
-    }
-  }
-  
-  // If productType doesn't match, check product title
-  if (product.title) {
-    const normalizedTitle = product.title.toLowerCase().trim();
-    
-    // Check for hat variations in title (check first to avoid false matches with "that", "what", etc.)
-    // Use word boundaries or specific patterns
-    if (normalizedTitle.includes(' hat ') || normalizedTitle.endsWith(' hat') || normalizedTitle.startsWith('hat ') || 
-        normalizedTitle.includes(' hat,') || normalizedTitle.includes(' hat.') ||
-        normalizedTitle.includes('cap ') || normalizedTitle.includes(' beanie') || normalizedTitle.includes('cap,') || normalizedTitle.includes('cap.') ||
-        normalizedTitle.includes('cap') || normalizedTitle.includes('beanie')) {
-      return 'hats';
-    }
-    // Check for t-shirt variations in title
-    if (normalizedTitle.includes('t-shirt') || normalizedTitle.includes('tshirt') || normalizedTitle.includes(' tee ') || normalizedTitle.includes('t shirt')) {
-      return 'tshirt';
-    }
-    // Check for hoodie variations in title
-    if (normalizedTitle.includes('hoodie') || normalizedTitle.includes('hoody') || normalizedTitle.includes(' hood ')) {
-      return 'hoodies';
-    }
-    // Check for long sleeve variations in title
-    if (normalizedTitle.includes('long sleeve') || normalizedTitle.includes('long-sleeve') || normalizedTitle.includes('longsleeve')) {
-      return 'long sleeved shirts';
-    }
-  }
-  
-  return null;
-};
 
 function ProductsIndexPage() {
   const { addToCart } = useCart();
-  const { category: urlCategory, categoryId } = Route.useSearch();
+  const { category: urlCategory } = Route.useSearch();
+  
+  const { data: productTypesData } = useProductTypes();
+  const productTypes = productTypesData?.productTypes ?? [];
   
   const [searchQuery, setSearchQuery] = useState('');
   const [priceRange, setPriceRange] = useState<PriceRange>('all');
@@ -123,6 +76,12 @@ function ProductsIndexPage() {
   const [brandFilter, setBrandFilter] = useState<BrandFilter>('all');
   const [collectionFilter, setCollectionFilter] = useState<'all' | string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('relevance');
+  const [viewMode, setViewMode] = useState<'single' | 'grid'>('single');
+  
+  const productTypeCategoriesForFilter = useMemo(() => [
+    { key: 'all', label: 'All' },
+    ...productTypes.map(pt => ({ key: pt.slug, label: pt.label }))
+  ], [productTypes]);
   
   // Update category filter when URL changes
   useEffect(() => {
@@ -149,20 +108,16 @@ function ProductsIndexPage() {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  const categoryIdsForFilter = categoryId ? [categoryId] : undefined;
-
   const { data: searchData, isFetching: isSearching } = useSearchProducts(searchQuery, {
     limit: 100,
-    categoryIds: categoryIdsForFilter,
   });
 
   const { data: allProductsData, isLoading, isError } = useProducts({
-    limit: 100,
-    categoryIds: categoryIdsForFilter,
+    limit: 100
   });
 
-  const { data: collectionsData } = useCategories();
-  const collections = collectionsData?.categories ?? [];
+  const { data: collectionsData } = useCollections();
+  const collections = collectionsData?.collections ?? [];
 
   // Get unique filter options from products
   const { availableSizes, availableColors, availableBrands } = useMemo(() => {
@@ -243,24 +198,17 @@ function ProductsIndexPage() {
       filteredProducts = allProductsData?.products ?? [];
     }
 
-    // Filter by product type category or Exclusives
+    // Filter by product type
     if (categoryFilter !== 'all') {
-      if (categoryFilter === 'Exclusives') {
-        filteredProducts = filteredProducts.filter((product) => {
-          return (product.categories ?? []).some((c) => c.name === 'Exclusives');
-        });
-      } else {
-        filteredProducts = filteredProducts.filter((product) => {
-          const normalizedType = normalizeProductType(product);
-          return normalizedType === categoryFilter;
-        });
-      }
+      filteredProducts = filteredProducts.filter((product) => {
+        return product.productType?.slug === categoryFilter;
+      });
     }
 
     // Filter by collection (dynamic categories)
     if (collectionFilter !== 'all') {
       filteredProducts = filteredProducts.filter((product) =>
-        (product.categories ?? []).some((c) => c.id === collectionFilter)
+        (product.collections ?? []).some((c) => c.slug === collectionFilter)
       );
     }
 
@@ -325,20 +273,18 @@ function ProductsIndexPage() {
       });
     }
 
-    // Sort
     const sortedProducts = [...filteredProducts].sort((a, b) => {
       if (sortBy === 'price-low-high') {
         return a.price - b.price;
       } else if (sortBy === 'price-high-low') {
         return b.price - a.price;
       } else {
-        // Relevance - keep original order
         return 0;
       }
     });
 
     return sortedProducts;
-  }, [searchQuery, searchData, allProductsData, categoryFilter, brandFilter, sizeFilter, colorFilter, priceRange, discountFilter, sortBy]);
+  }, [searchQuery, searchData, allProductsData, categoryFilter, collectionFilter, brandFilter, sizeFilter, colorFilter, priceRange, discountFilter, sortBy]);
 
   const handleQuickAdd = (product: Product) => {
     setSizeModalProduct(product);
@@ -351,7 +297,7 @@ function ProductsIndexPage() {
   };
 
   return (
-    <div className="bg-background w-full min-h-screen pt-32">
+    <PageTransition className="bg-background w-full min-h-screen pt-32">
       <div className="container-app mx-auto px-4 md:px-8 lg:px-16">
         <div className="flex flex-row gap-4 mb-8">
           <Link
@@ -364,51 +310,63 @@ function ProductsIndexPage() {
           <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-                {categoryFilter === 'all' 
-                  ? 'All Products' 
-                  : categoryFilter === 'Exclusives'
-                  ? 'Exclusives'
-                  : PRODUCT_TYPE_CATEGORIES.find(cat => cat.key === categoryFilter)?.label || 'Products'}
-              </h1>
+<h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                {categoryFilter === 'all'
+                  ? 'All Products'
+                  : productTypeCategoriesForFilter.find(cat => cat.key === categoryFilter)?.label || 'Products'}
+                </h1>
               </div>
             </div>
           </div>
         </div>
 
         <div className="mb-8">
-          {/* Mobile: Grid layout - 3 buttons first row, 2 buttons second row, full width */}
-          <div className="md:hidden grid grid-cols-3 gap-2 mb-8">
-            {[
-              { key: 'all' as const, label: 'All' },
-              ...PRODUCT_TYPE_CATEGORIES
-            ].map((category, index) => {
-              const isSecondRow = index >= 3;
-              return (
-                <button
-                  key={category.key}
-                  onClick={() => setCategoryFilter(category.key)}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-sm whitespace-nowrap",
-                    categoryFilter === category.key
-                      ? "bg-[#00EC97] border-[#00EC97] text-black"
-                      : "",
-                    isSecondRow && index === 3 && "col-start-1 col-span-1", // Hoodies starts at column 1, spans 1 column
-                    isSecondRow && index === 4 && "col-start-2 col-span-2" // Long Sleeved Shirts starts at column 2, spans 2 columns
-                  )}
-                >
-                  {category.label}
-                </button>
-              );
-            })}
+          {/* Mobile: Category buttons with view toggle */}
+          <div className="md:hidden flex items-center justify-between gap-2">
+            {/* Mobile: Grid layout - 3 buttons first row, 2 buttons second row, full width */}
+            <div className="grid grid-cols-3 gap-2">
+              {productTypeCategoriesForFilter.map((category, index) => {
+                const isSecondRow = index >= 3;
+                return (
+                  <button
+                    key={category.key}
+                    onClick={() => setCategoryFilter(category.key)}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-sm whitespace-nowrap",
+                      categoryFilter === category.key
+                        ? "bg-[#00EC97] border-[#00EC97] text-black"
+                        : "",
+                      isSecondRow && index === 3 && "col-start-1 col-span-1",
+                      isSecondRow && index === 4 && "col-start-2 col-span-2"
+                    )}
+                  >
+                    {category.label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Icon toggle: only show on mobile */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setViewMode('single')}
+                className={cn("p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors", viewMode === 'single' ? "bg-[#00EC97] border-[#00EC97] text-black" : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black")}
+                aria-label="Single view"
+              >
+                <Square className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setViewMode('grid')}
+                className={cn("p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors", viewMode === 'grid' ? "bg-[#00EC97] border-[#00EC97] text-black" : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black")}
+                aria-label="Grid view"
+              >
+                <Grid3x3 className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Desktop: Flex layout with Filter button on the right */}
           <div className="hidden md:flex flex-wrap items-center gap-2">
-            {[
-              { key: 'all' as const, label: 'All' },
-              ...PRODUCT_TYPE_CATEGORIES
-            ].map((category) => (
+            {productTypeCategoriesForFilter.map((category) => (
               <button
                 key={category.key}
                 onClick={() => setCategoryFilter(category.key)}
@@ -574,17 +532,17 @@ function ProductsIndexPage() {
                             No collections yet.
                           </p>
                         ) : (
-                          collections.map((collection) => (
+                          collections.map((collection: Collection) => (
                             <label
-                              key={collection.id}
+                              key={collection.slug}
                               className="flex items-center gap-3 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
-                                checked={collectionFilter === collection.id}
+                                checked={collectionFilter === collection.slug}
                                 onChange={() =>
                                   setCollectionFilter(
-                                    collection.id === collectionFilter ? 'all' : collection.id
+                                    collection.slug === collectionFilter ? 'all' : collection.slug
                                   )
                                 }
                                 className="sr-only"
@@ -592,7 +550,7 @@ function ProductsIndexPage() {
                               <div
                                 className={cn(
                                   "h-4 w-4 rounded border-2 transition-colors flex-shrink-0",
-                                  collectionFilter === collection.id
+                                  collectionFilter === collection.slug
                                     ? "bg-[#00EC97] border-[#00EC97]"
                                     : "bg-transparent border-border/60"
                                 )}
@@ -630,7 +588,7 @@ function ProductsIndexPage() {
                           )} />
                           <span className="text-sm">All Categories</span>
                         </label>
-              {PRODUCT_TYPE_CATEGORIES.map((category) => (
+              {productTypeCategoriesForFilter.filter(ct => ct.key !== 'all').map((category) => (
                           <label key={category.key} className="flex items-center gap-3 cursor-pointer">
                             <input
                               type="checkbox"
@@ -922,6 +880,7 @@ function ProductsIndexPage() {
                       setColorFilter("all");
                       setCategoryFilter("all");
                       setBrandFilter("all");
+                      setCollectionFilter('all');
                       setSortBy("relevance");
                     }}
                     className="w-full px-8 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-base hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
@@ -984,7 +943,9 @@ function ProductsIndexPage() {
               )}
             </div>
           ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <>
+              {/* Mobile view */}
+              <div className={cn("md:hidden grid gap-6", viewMode === 'single' ? "grid-cols-1" : "grid-cols-2")}>
                 {products.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -994,6 +955,18 @@ function ProductsIndexPage() {
                   />
                 ))}
               </div>
+              {/* Desktop view */}
+              <div className="hidden md:grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    variant="sm"
+                    onQuickAdd={handleQuickAdd}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </div>
 
@@ -1008,6 +981,6 @@ function ProductsIndexPage() {
         isOpen={isCartSidebarOpen}
         onClose={() => setIsCartSidebarOpen(false)}
       />
-    </div>
+    </PageTransition>
   );
 }

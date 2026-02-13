@@ -1,63 +1,26 @@
-import { QueryClient } from "@tanstack/react-query";
+// ============================================================================
+// Module Federation Client Router Bridge
+// ============================================================================
+// This file exports the client-side router for Module Federation remotes.
+//
+// DO NOT MODIFY unless you understand Module Federation client routing.
+// ============================================================================
+
+import { dehydrate, hydrate, QueryClient } from "@tanstack/react-query";
 import {
-  createBrowserHistory,
-  createRouter as createTanStackRouter,
-  Link,
+	createBrowserHistory,
+	createRouter as createTanStackRouter,
 } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import "./styles.css";
 import type { CreateRouterOptions } from "./types";
 
 export type {
-  ClientRuntimeConfig, CreateRouterOptions, RouterContext, RouterModule
+	ClientRuntimeConfig,
+	CreateRouterOptions,
+	RouterContext,
+	RouterModule
 } from "./types";
-
-function NotFoundComponent() {
-  return (
-    <div className="bg-background h-screen w-full flex items-center justify-center px-4 relative overflow-hidden">
-      {/* Video background - full page */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-        >
-          <source src="https://videos.near.org/BKLDE_v001_NEAR_03_master_h264_small.mp4" type="video/mp4" />
-        </video>
-        {/* Overlay for better readability - only in dark mode */}
-        <div className="absolute inset-0 dark:bg-background/30" />
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
-        {/* Single Block */}
-        <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 py-8 md:py-10 space-y-6 text-center">
-          <div className="space-y-3">
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground/90 dark:text-muted-foreground">
-              404
-            </h1>
-            <p className="text-xl md:text-2xl font-semibold text-foreground/90 dark:text-muted-foreground">
-              Page Not Found
-            </p>
-            <p className="text-base text-foreground/90 dark:text-muted-foreground">
-              The page you're looking for doesn't exist or has been moved.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <Link
-              to="/"
-              className="w-full bg-[#00EC97] text-black px-6 py-4 flex items-center justify-center gap-3 hover:bg-[#00d97f] transition-colors rounded-lg font-semibold"
-            >
-              <span className="text-sm font-medium">Go Home</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ErrorComponent({ error }: { error: Error }) {
   return (
@@ -84,11 +47,7 @@ function ErrorComponent({ error }: { error: Error }) {
 }
 
 function PendingComponent() {
-  return (
-    <div className="fixed inset-0 z-[9999] bg-background flex items-center justify-center">
-      <div className="animate-spin rounded-full h-16 w-16 border-4 border-border/60 border-t-[#00EC97]"></div>
-    </div>
-  );
+  return <div className="min-h-screen w-full bg-background" />;
 }
 
 export function createRouter(opts: CreateRouterOptions = {}) {
@@ -114,15 +73,29 @@ export function createRouter(opts: CreateRouterOptions = {}) {
       queryClient,
       assetsUrl: opts.context?.assetsUrl ?? "",
       runtimeConfig: opts.context?.runtimeConfig,
+      session: opts.context?.session,
     },
     defaultPreload: "intent",
     scrollRestoration: true,
     defaultStructuralSharing: true,
     defaultPreloadStaleTime: 0,
-    defaultNotFoundComponent: NotFoundComponent,
     defaultErrorComponent: ErrorComponent,
     defaultPendingComponent: PendingComponent,
-    defaultPendingMinMs: 0, // Show loading immediately
+    defaultPendingMinMs: 0,
+    dehydrate: () => {
+      if (typeof window === "undefined") {
+        console.log("[Router] Dehydrating query client state...");
+        const state = dehydrate(queryClient);
+        return { queryClientState: state };
+      }
+      return { queryClientState: {} };
+    },
+    hydrate: (dehydrated: { queryClientState?: unknown }) => {
+      if (typeof window !== "undefined" && dehydrated?.queryClientState) {
+        console.log("[Router] Hydrating query client state...");
+        hydrate(queryClient, dehydrated.queryClientState);
+      }
+    },
   });
 
   return { router, queryClient };

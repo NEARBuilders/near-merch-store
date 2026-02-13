@@ -135,7 +135,7 @@ function VerticalProductLayout({
   hidePrice,
   actionSlot,
   children,
-  imageOverride,
+  imageOverride: _imageOverride,
 }: ProductCardContentProps) {
   const { favoriteIds, toggleFavorite } = useFavorites();
   const { addToCart } = useCart();
@@ -148,7 +148,7 @@ function VerticalProductLayout({
   const sizeOption = product?.options?.find((opt) => opt.name === "Size");
   const orderedColors = colorOption?.values || [];
   const orderedSizes = sizeOption?.values || [];
-  const needsSize = product ? requiresSize(product.categories) : false;
+  const needsSize = product ? requiresSize(product.collections) : false;
   const availableSizes = needsSize && orderedSizes.length > 0 ? orderedSizes : ["N/A"];
   const availableVariants = product?.variants || [];
 
@@ -258,6 +258,8 @@ function VerticalProductLayout({
         <Link
           to="/products/$productId"
           params={{ productId: product.slug }}
+          preload="intent"
+          preloadDelay={0}
           className="block w-full h-full relative z-10"
           resetScroll={true}
         >
@@ -265,6 +267,10 @@ function VerticalProductLayout({
             <img
               src={displayImage}
               alt={product.title}
+              loading="lazy"
+              decoding="async"
+              width={400}
+              height={400}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10"
             />
           ) : (
@@ -303,9 +309,9 @@ function VerticalProductLayout({
               >
                 {product.title}
               </h3>
-              {product.categories && product.categories.length > 0 && (
+              {product.collections && product.collections.length > 0 && (
                 <p className="text-foreground/90 dark:text-muted-foreground text-xs uppercase tracking-wider drop-shadow-lg">
-                  {product.categories[0]?.name}
+                  {product.collections[0]?.name}
                 </p>
               )}
             </div>
@@ -482,6 +488,8 @@ function HorizontalProductLayout({
         <Link
           to="/products/$productId"
           params={{ productId: product.slug }}
+          preload="intent"
+          preloadDelay={0}
           className="block w-full h-full relative z-10"
           resetScroll={true}
         >
@@ -489,6 +497,10 @@ function HorizontalProductLayout({
             <img
               src={displayImage}
               alt={product.title}
+              loading="lazy"
+              decoding="async"
+              width={80}
+              height={80}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10"
             />
           ) : (
@@ -512,9 +524,9 @@ function HorizontalProductLayout({
                 {product.title}
               </h3>
             </Link>
-            {product.categories && product.categories.length > 0 && (
+            {product.collections && product.collections.length > 0 && (
               <p className="text-foreground/90 dark:text-muted-foreground text-xs uppercase tracking-wider mt-1">
-                {product.categories[0]?.name}
+                {product.collections[0]?.name}
               </p>
             )}
           </div>

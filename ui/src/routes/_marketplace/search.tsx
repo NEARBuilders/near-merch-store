@@ -9,7 +9,6 @@ import {
   productLoaders,
   type Product,
 } from '@/integrations/api';
-import { queryClient } from '@/utils/orpc';
 import { useMemo } from 'react';
 
 type SearchParams = {
@@ -22,8 +21,8 @@ export const Route = createFileRoute('/_marketplace/search')({
     q: typeof search.q === 'string' ? search.q : undefined,
     category: typeof search.category === 'string' ? search.category : undefined,
   }),
-  loader: async () => {
-    await queryClient.ensureQueryData(productLoaders.list({ limit: 50 }));
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(productLoaders.list({ limit: 50 }));
   },
   component: SearchPage,
 });
@@ -131,4 +130,3 @@ function SearchPage() {
     </section>
   );
 }
-

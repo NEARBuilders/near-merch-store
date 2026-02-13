@@ -12,18 +12,9 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -45,10 +36,19 @@ import {
 function ProvidersError({ error }: { error: Error }) {
   const router = useRouter();
 
+  const isDatabaseError = error.message?.includes('relation') ||
+                         error.message?.includes('table') ||
+                         error.message?.includes('column');
+
   return (
     <div className="text-center py-12">
       <p className="text-destructive mb-2 font-semibold">Failed to load configuration</p>
       <p className="text-sm text-foreground/90 dark:text-muted-foreground mb-4">{error.message}</p>
+      {isDatabaseError && (
+        <p className="text-xs text-foreground/60 dark:text-muted-foreground mb-4">
+          Database may not be initialized. Run <code className="bg-background px-1.5 py-0.5 rounded text-[#00EC97]">bun db:migrate</code> in your terminal.
+        </p>
+      )}
       <button
         type="button"
         onClick={() => router.invalidate()}

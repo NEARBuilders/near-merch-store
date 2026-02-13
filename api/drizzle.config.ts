@@ -3,10 +3,9 @@ import { defineConfig } from 'drizzle-kit';
 export default defineConfig({
   schema: './src/db/schema.ts',
   out: './src/db/migrations',
-  dialect: 'turso',
+  dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.API_DATABASE_URL || 'file:./marketplace.db',
-    authToken: process.env.API_DATABASE_AUTH_TOKEN,
+    url: process.env.API_DATABASE_URL || 'postgres://postgres:postgres@localhost:5433/api',
   },
   verbose: true,
   strict: true,

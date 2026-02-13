@@ -1,7 +1,8 @@
-import { apiClient, queryClient } from '@/utils/orpc';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/utils/orpc';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { categoryKeys } from './keys';
 import type { Category } from './keys';
+import { productKeys } from './keys';
 
 export function useCategories() {
   return useQuery({
@@ -15,6 +16,7 @@ export function useCategories() {
 }
 
 export function useCreateCategory() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { name: string; slug: string; description?: string }) =>
       apiClient.createCategory(input),
@@ -25,14 +27,14 @@ export function useCreateCategory() {
 }
 
 export function useDeleteCategory() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id }: { id: string }) => apiClient.deleteCategory({ id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: categoryKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
     },
   });
 }
 
 export type { Category };
-

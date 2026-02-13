@@ -1,9 +1,15 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { AnyRoute } from "@tanstack/react-router";
-import { createMemoryHistory, createRouter as createTanStackRouter } from "@tanstack/react-router";
-import { createRequestHandler, renderRouterToStream, RouterServer } from "@tanstack/react-router/ssr/server";
-import { createRouter } from "./router";
-import { routeTree } from "./routeTree.gen";
+import {
+  createMemoryHistory,
+  createRouter as createTanStackRouter,
+} from "@tanstack/react-router";
+import {
+  createRequestHandler,
+  renderRouterToStream,
+  RouterServer,
+} from "@tanstack/react-router/ssr/server";
+import { createRouter, routeTree } from "./router";
 import type {
   HeadData,
   HeadLink,
@@ -21,7 +27,7 @@ export type {
   HeadData,
   RenderOptions,
   RenderResult,
-  RouterContext,
+  RouterContext
 } from "./types";
 
 function getMetaKey(meta: HeadMeta): string {
@@ -29,8 +35,10 @@ function getMetaKey(meta: HeadMeta): string {
   if ("title" in meta) return "title";
   if ("charSet" in meta) return "charSet";
   if ("name" in meta) return `name:${(meta as { name: string }).name}`;
-  if ("property" in meta) return `property:${(meta as { property: string }).property}`;
-  if ("httpEquiv" in meta) return `httpEquiv:${(meta as { httpEquiv: string }).httpEquiv}`;
+  if ("property" in meta)
+    return `property:${(meta as { property: string }).property}`;
+  if ("httpEquiv" in meta)
+    return `httpEquiv:${(meta as { httpEquiv: string }).httpEquiv}`;
   return JSON.stringify(meta);
 }
 
@@ -43,13 +51,14 @@ function getLinkKey(link: HeadLink): string {
 function getScriptKey(script: HeadScript): string {
   if (!script) return "null";
   if ("src" in script && script.src) return `src:${script.src}`;
-  if ("children" in script && script.children) return `children:${typeof script.children === "string" ? script.children : JSON.stringify(script.children)}`;
+  if ("children" in script && script.children)
+    return `children:${typeof script.children === "string" ? script.children : JSON.stringify(script.children)}`;
   return JSON.stringify(script);
 }
 
 export async function getRouteHead(
   pathname: string,
-  context?: Partial<RouterContext>
+  context?: Partial<RouterContext>,
 ): Promise<HeadData> {
   const history = createMemoryHistory({ initialEntries: [pathname] });
 
@@ -73,7 +82,7 @@ export async function getRouteHead(
     const route = router.looseRoutesById[match.routeId] as AnyRoute | undefined;
     if (!route?.options?.head) continue;
 
-    let loaderData: unknown = undefined;
+    let loaderData: unknown;
     const loaderFn = route.options.loader;
 
     if (loaderFn) {
@@ -88,7 +97,7 @@ export async function getRouteHead(
       } catch (error) {
         console.warn(
           `[getRouteHead] Loader failed for ${match.routeId}:`,
-          error
+          error,
         );
       }
     }
@@ -130,12 +139,16 @@ export async function getRouteHead(
 
 export async function renderToStream(
   request: Request,
-  options: RenderOptions
+  options: RenderOptions,
 ): Promise<RenderResult> {
   const url = new URL(request.url);
-  const history = createMemoryHistory({ initialEntries: [url.pathname + url.search] });
+  const history = createMemoryHistory({
+    initialEntries: [url.pathname + url.search],
+  });
 
-  let queryClientRef: typeof import("@tanstack/react-query").QueryClient.prototype | null = null;
+  let queryClientRef:
+    | typeof import("@tanstack/react-query").QueryClient.prototype
+    | null = null;
 
   const handler = createRequestHandler({
     request,
@@ -145,6 +158,7 @@ export async function renderToStream(
         context: {
           assetsUrl: options.assetsUrl,
           runtimeConfig: options.runtimeConfig,
+          session: options.session,
         },
       });
       queryClientRef = queryClient;
@@ -168,6 +182,6 @@ export async function renderToStream(
   return {
     stream: response.body!,
     statusCode: response.status,
-    headers: new Headers(response.headers),
+    headers: response.headers,
   };
 }

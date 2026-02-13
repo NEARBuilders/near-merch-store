@@ -247,7 +247,7 @@ function OrderConfirmationPage() {
 
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!sessionId) {

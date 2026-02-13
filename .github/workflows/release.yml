@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".changeset/**"
+      - "package.json"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      ZE_SECRET_TOKEN: ${{ secrets.ZEPHYR_AUTH_TOKEN }}
+      ZE_SERVER_TOKEN: ${{ secrets.ZEPHYR_SERVER_AUTH_TOKEN }}
+      ZE_USER_EMAIL: ${{ secrets.ZEPHYR_USER_EMAIL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.20
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Create Release Pull Request or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: bun run version
+          publish: bun run release
+          title: "chore: version packages"
+          commit: "chore: version packages"
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Releases
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: |
+          for pkg in api ui; do
+            VERSION=$(jq -r '.version' "$pkg/package.json")
+            TAG="$pkg@$VERSION"
+            
+            if ! gh release view "$TAG" &>/dev/null; then
+              echo "Creating release for $TAG"
+              
+              NOTES=$(sed -n '/^## '$VERSION'/,/^## [0-9]/p' "$pkg/CHANGELOG.md" | sed '$d' | tail -n +2)
+              
+              if [ -z "$NOTES" ]; then
+                NOTES="Release $TAG"
+              fi
+              
+              gh release create "$TAG" \
+                --title "$TAG" \
+                --notes "$NOTES" \
+                --target main
+            else
+              echo "Release $TAG already exists, skipping"
+            fi
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build with Zephyr
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: bun run deploy
+
+      - name: Commit bos.config.json updates
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update deployment URLs [skip ci]"
+          file_pattern: bos.config.json

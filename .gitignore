@@ -292,6 +292,15 @@ fabric.properties
 
 # db
 /**/*.db
+*.sqlite
+*.sqlite3
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# database files
+database.db
+marketplace.db
 
 .turbo
 test-results/
@@ -300,3 +309,5 @@ test-results/
 
 # Playwright auth storage state
 .auth/
+
+.bos

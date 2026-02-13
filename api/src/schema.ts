@@ -1,7 +1,5 @@
 import { z } from 'every-plugin/zod';
 
-export const ProductCategorySchema = z.enum(['Men', 'Women', 'Accessories', 'Exclusives']);
-
 export const AttributeSchema = z.object({
   name: z.string(),
   value: z.string(),
@@ -61,28 +59,12 @@ export const ProductVariantSchema = z.object({
   inventoryQuantity: z.number().optional(),
 });
 
-export const ProductSchema = z.object({
+export const CollectionFeaturedProductSchema = z.object({
   id: z.string(),
-  slug: z.string(), // SEO-friendly slug with publicKey appended
   title: z.string(),
-  handle: z.string().optional(),
-  description: z.string().optional(),
+  slug: z.string(),
   price: z.number(),
-  currency: z.string().default('USD'),
-  category: ProductCategorySchema,
-  brand: z.string().optional(),
-  productType: z.string().optional(),
-  options: z.array(ProductOptionSchema).default([]),
-  images: z.array(ProductImageSchema).default([]),
-  variants: z.array(ProductVariantSchema).default([]),
-  designFiles: z.array(DesignFileSchema).default([]),
   thumbnailImage: z.string().optional(),
-  fulfillmentProvider: z.string().default('manual'),
-  externalProductId: z.string().optional(),
-  source: z.string().optional(),
-  tags: z.array(z.string()).default([]),
-  vendor: z.string().optional(),
-  listed: z.boolean().default(true),
 });
 
 export const CollectionSchema = z.object({
@@ -92,17 +74,57 @@ export const CollectionSchema = z.object({
   image: z.string().optional(),
   badge: z.string().optional(),
   features: z.array(z.string()).optional(),
+  featuredProductId: z.string().optional(),
+  featuredProduct: CollectionFeaturedProductSchema.optional(),
+  carouselTitle: z.string().optional(),
+  carouselDescription: z.string().optional(),
+  showInCarousel: z.boolean().default(true),
+  carouselOrder: z.number().default(0),
+});
+
+export const ProductTypeSchema = z.object({
+  slug: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  displayOrder: z.number().default(0),
+});
+
+export type ProductType = z.infer<typeof ProductTypeSchema>;
+
+export const ProductSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  title: z.string(),
+  handle: z.string().optional(),
+  description: z.string().optional(),
+  price: z.number(),
+  currency: z.string().default('USD'),
+  brand: z.string().optional(),
+  productType: ProductTypeSchema.optional(),
+  tags: z.array(z.string()).default([]),
+  featured: z.boolean().default(false),
+  collections: z.array(CollectionSchema).default([]),
+  options: z.array(ProductOptionSchema).default([]),
+  images: z.array(ProductImageSchema).default([]),
+  variants: z.array(ProductVariantSchema).default([]),
+  designFiles: z.array(DesignFileSchema).default([]),
+  thumbnailImage: z.string().optional(),
+  fulfillmentProvider: z.string().default('manual'),
+  externalProductId: z.string().optional(),
+  source: z.string().optional(),
+  vendor: z.string().optional(),
+  listed: z.boolean().default(true),
 });
 
 export type Product = z.infer<typeof ProductSchema>;
 export type ProductVariant = z.infer<typeof ProductVariantSchema>;
 export type ProductOption = z.infer<typeof ProductOptionSchema>;
 export type Attribute = z.infer<typeof AttributeSchema>;
-export type ProductCategory = z.infer<typeof ProductCategorySchema>;
 export type ProductImage = z.infer<typeof ProductImageSchema>;
 export type ProductImageType = z.infer<typeof ProductImageTypeSchema>;
 export type MockupConfig = z.infer<typeof MockupConfigSchema>;
 export type Collection = z.infer<typeof CollectionSchema>;
+export type CollectionFeaturedProduct = z.infer<typeof CollectionFeaturedProductSchema>;
 export type FulfillmentConfig = z.infer<typeof FulfillmentConfigSchema>;
 
 export const ShippingAddressSchema = z.object({
@@ -225,11 +247,25 @@ export const WebhookResponseSchema = z.object({
 
 export type WebhookResponse = z.infer<typeof WebhookResponseSchema>;
 
+export const SubscribeNewsletterInputSchema = z.object({
+  email: z.string().trim().email().max(320),
+});
+
+export const NewsletterSubscribeStatusSchema = z.enum(['subscribed', 'already_subscribed']);
+
+export const SubscribeNewsletterOutputSchema = z.object({
+  success: z.boolean(),
+  status: NewsletterSubscribeStatusSchema,
+});
+
+export type SubscribeNewsletterInput = z.infer<typeof SubscribeNewsletterInputSchema>;
+export type NewsletterSubscribeStatus = z.infer<typeof NewsletterSubscribeStatusSchema>;
+export type SubscribeNewsletterOutput = z.infer<typeof SubscribeNewsletterOutputSchema>;
+
 export const ReturnAddressSchema = ShippingAddressSchema;
 
 export type ReturnAddress = z.infer<typeof ReturnAddressSchema>;
 
-// Store/Service Types for Creating Entities
 export const CreateOrderItemInputSchema = z.object({
   productId: z.string(),
   variantId: z.string().optional(),
@@ -263,16 +299,16 @@ export const ProductVariantInputSchema = z.object({
 });
 
 export const ProductWithImagesSchema = z.object({
-  id: z.string(), // UUID v7
-  publicKey: z.string(), // nanoid (12 char) for URLs
-  slug: z.string(), // SEO-friendly slug with publicKey appended
+  id: z.string(),
+  publicKey: z.string(),
+  slug: z.string(),
   name: z.string(),
   description: z.string().optional(),
   price: z.number(),
   currency: z.string(),
-  category: ProductCategorySchema,
   brand: z.string().optional(),
-  productType: z.string().optional(),
+  productTypeSlug: z.string().optional(),
+  tags: z.array(z.string()).default([]),
   options: z.array(ProductOptionSchema),
   images: z.array(ProductImageSchema),
   thumbnailImage: z.string().optional(),
@@ -284,7 +320,10 @@ export const ProductWithImagesSchema = z.object({
 });
 
 export const ProductCriteriaSchema = z.object({
-  category: ProductCategorySchema.optional(),
+  productTypeSlug: z.string().optional(),
+  collectionSlugs: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+  featured: z.boolean().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
   includeUnlisted: z.boolean().optional(),

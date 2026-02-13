@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import { NearWordmark } from "@/components/near-wordmark";
-import { BuiltOnNear } from "@/components/built-on-near";
 
 export function MarketplaceFooter() {
   return (
@@ -27,15 +26,23 @@ export function MarketplaceFooter() {
                 href="https://x.com/nearmerch"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block link-muted text-sm"
+                className="block link-muted text-sm hover:text-[#00EC97] transition-colors"
               >
                 Near Merch on X
+              </a>
+              <a
+                href="https://t.me/nearmerch"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block link-muted text-sm hover:text-[#00EC97] transition-colors"
+              >
+                Telegram
               </a>
               <a
                 href="https://github.com/nearbuilders/near-merch-store"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block link-muted text-sm"
+                className="block link-muted text-sm hover:text-[#00EC97] transition-colors"
               >
                 GitHub
               </a>
@@ -48,14 +55,15 @@ export function MarketplaceFooter() {
             <div className="space-y-4 mt-4">
               <Link
                 to="/products"
-                className="block link-primary text-sm"
+                search={() => ({ category: "", categoryId: undefined, collection: undefined })}
+                className="block link-primary text-sm hover:text-[#00EC97] transition-colors"
               >
                 All Products
               </Link>
 
               <Link
                 to="/dashboard"
-                className="block link-primary text-sm"
+                className="block link-primary text-sm hover:text-[#00EC97] transition-colors"
               >
                 Admin Dashboard
               </Link>
@@ -68,7 +76,7 @@ export function MarketplaceFooter() {
             <div className="space-y-4 mt-4">
               <a
                 href="mailto:merch@near.foundation"
-                className="block link-muted text-sm"
+                className="block link-muted text-sm hover:text-[#00EC97] transition-colors"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => {
@@ -80,13 +88,13 @@ export function MarketplaceFooter() {
               </a>
               <Link
                 to="/faq"
-                className="block link-muted text-sm"
+                className="block link-muted text-sm hover:text-[#00EC97] transition-colors"
               >
                 FAQ
               </Link>
               <Link
                 to="/refunds-returns"
-                className="block link-muted text-sm"
+                className="block link-muted text-sm hover:text-[#00EC97] transition-colors"
               >
                 Refunds &amp; Returns
               </Link>

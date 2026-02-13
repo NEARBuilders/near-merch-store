@@ -1,5 +1,5 @@
 import { authClient } from "@/lib/auth-client";
-import { queryClient } from "@/utils/orpc";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   Link,
@@ -22,6 +22,7 @@ export const Route = createFileRoute("/_marketplace/_authenticated/account")({
 });
 
 function MyAccountPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const matchRoute = useMatchRoute();
   const { data: session } = authClient.useSession();

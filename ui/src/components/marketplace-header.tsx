@@ -1,4 +1,4 @@
-import { Link, useMatchRoute, useLocation } from "@tanstack/react-router";
+import { Link, useMatchRoute, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Search, Heart, ShoppingCart, User, Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,15 +22,13 @@ import { NearMark } from "@/components/near-mark";
 import { NearWordmark } from "@/components/near-wordmark";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
-import { queryClient } from "@/utils/orpc";
+import { useQueryClient } from "@tanstack/react-query";
 import nearLogo from "@/assets/images/pngs/logo_sq.png";
 import { useCategories } from "@/integrations/api";
 
 function CollectionsDropdown() {
   const matchRoute = useMatchRoute();
   const location = useLocation();
-  const searchParams = location.search as { categoryId?: string };
-  const currentCategoryId = searchParams?.categoryId || null;
 
   const { data, isLoading } = useCategories();
   const categories = data?.categories ?? [];
@@ -38,7 +36,7 @@ function CollectionsDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="text-sm font-semibold text-foreground hover:text-[#00EC97] transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg focus:outline-none focus:ring-0 border-0">
+        <button type="button" className="cursor-pointer text-sm font-semibold text-foreground hover:text-[#00EC97] transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg focus:outline-none focus:ring-0 border-0">
           Collections
           <ChevronDown className="h-4 w-4" />
         </button>
@@ -46,19 +44,20 @@ function CollectionsDropdown() {
       <DropdownMenuContent align="start" sideOffset={20} className="w-56 bg-background/60 backdrop-blur-sm border border-border/60 rounded-2xl p-2 shadow-lg">
         <DropdownMenuItem asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97]">
           <Link
-            to="/products"
-            search={{ category: "all", categoryId: currentCategoryId ?? undefined }}
+            to="/collections"
+            preload="intent"
+            preloadDelay={0}
             className={`cursor-pointer rounded-lg px-3 py-2 hover:text-[#00EC97] focus:text-[#00EC97] transition-colors ${
-              matchRoute({ to: "/products" }) && !currentCategoryId ? "text-[#00EC97]" : ""
+              matchRoute({ to: "/collections" }) ? "text-[#00EC97]" : ""
             }`}
           >
-            All products
+            All Collections
           </Link>
         </DropdownMenuItem>
 
         {isLoading && (
           <div className="px-3 py-2 text-xs text-foreground/60 dark:text-muted-foreground">
-            Loading categories…
+            Loading collections…
           </div>
         )}
 
@@ -69,16 +68,18 @@ function CollectionsDropdown() {
         )}
 
         {categories.map((cat) => {
-          const isActive = matchRoute({ to: "/products" }) && currentCategoryId === cat.id;
+          const isActive = matchRoute({ to: "/collections/$collection" }) && location.pathname === `/collections/${cat.slug}`;
           return (
             <DropdownMenuItem
-              key={cat.id}
+              key={cat.slug}
               asChild
               className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97]"
             >
               <Link
-                to="/products"
-                search={{ category: "all", categoryId: cat.id }}
+                to="/collections/$collection"
+                params={{ collection: cat.slug }}
+                preload="intent"
+                preloadDelay={0}
                 className={`cursor-pointer rounded-lg px-3 py-2 hover:text-[#00EC97] focus:text-[#00EC97] transition-colors ${
                   isActive ? "text-[#00EC97]" : ""
                 }`}
@@ -94,6 +95,7 @@ function CollectionsDropdown() {
 }
 
 export function MarketplaceHeader() {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -123,15 +125,14 @@ export function MarketplaceHeader() {
 
   const matchRoute = useMatchRoute();
   const location = useLocation();
-  const searchParams = location.search as { category?: string; categoryId?: string };
-  const currentCategory = searchParams?.category || null;
-  const currentCategoryId = searchParams?.categoryId || null;
+  const navigate = useNavigate();
+  const currentCategoryId = (location.search as { categoryId?: string })?.categoryId || null;
 
   const { data: categoriesData } = useCategories();
   const categories = categoriesData?.categories ?? [];
 
   const isProductsActive = !!matchRoute({ to: '/products' });
-  const isExclusivesActive = isProductsActive && currentCategory === 'Exclusives';
+  const isExclusivesActive = !!matchRoute({ to: '/exclusives' });
   const isTrackOrderActive = !!matchRoute({ to: '/account/orders' });
 
   const handleConnectWallet = async () => {
@@ -232,7 +233,7 @@ export function MarketplaceHeader() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = `/search?q=${encodeURIComponent(searchQuery)}`;
+      navigate({ to: '/search', search: { q: searchQuery } });
     }
   };
 
@@ -264,7 +265,9 @@ export function MarketplaceHeader() {
           <nav className="hidden lg:flex items-center gap-2">
             <Link
               to="/products"
-              search={{ category: "all", categoryId: undefined }}
+              search={{ category: "all", categoryId: undefined, collection: undefined }}
+              preload="intent"
+              preloadDelay={0}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
                 isProductsActive && !currentCategoryId ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
               }`}
@@ -275,8 +278,9 @@ export function MarketplaceHeader() {
             <CollectionsDropdown />
             
             <Link
-            to="/products"
-            search={{ category: 'Exclusives', categoryId: undefined }}
+            to="/exclusives"
+            preload="intent"
+            preloadDelay={0}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
                 isExclusivesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
               }`}
@@ -286,6 +290,8 @@ export function MarketplaceHeader() {
             
             <Link
               to="/account/orders"
+              preload="intent"
+              preloadDelay={0}
               className={`text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg ${
                 isTrackOrderActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
               }`}
@@ -316,7 +322,7 @@ export function MarketplaceHeader() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                className="cursor-pointer relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
                 onClick={() => setIsSearchOpen((prev) => !prev)}
               >
                 <Search className="h-5 w-5" />
@@ -327,7 +333,7 @@ export function MarketplaceHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                className="cursor-pointer relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
               >
                 <Heart className="h-5 w-5" />
                 {favoritesCount > 0 && (
@@ -342,7 +348,7 @@ export function MarketplaceHeader() {
               variant="ghost"
               size="icon"
               onClick={openCartSidebar}
-              className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+              className="cursor-pointer relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
             >
                 <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && (
@@ -356,7 +362,7 @@ export function MarketplaceHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                className="cursor-pointer relative hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
               >
                 <Heart className="h-5 w-5" />
                 {favoritesCount > 0 && (
@@ -373,19 +379,19 @@ export function MarketplaceHeader() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                    className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
                   >
                 <User className="h-5 w-5" />
               </Button>
             </Link>
               ) : (
-                <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                    >
+<Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                      >
                       <User className="h-5 w-5" />
                     </Button>
                   </DialogTrigger>
@@ -436,6 +442,8 @@ export function MarketplaceHeader() {
                             <img
                               src={nearLogo}
                               alt="NEAR"
+                              loading="eager"
+                              decoding="async"
                               className="w-full h-full object-contain invert dark:invert-0"
                             />
                           </div>
@@ -450,17 +458,19 @@ export function MarketplaceHeader() {
                             <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
                           </div>
                           
-                          <button
-                            onClick={handleSignIn}
-                            disabled={isSigningIn}
-                            className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                          >
-                            <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                              <img
-                                src={nearLogo}
-                                alt="NEAR"
-                                className="w-full h-full object-contain invert dark:invert-0"
-                              />
+<button
+                          onClick={handleSignIn}
+                          disabled={isSigningIn}
+                          className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                        >
+                          <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                            <img
+                              src={nearLogo}
+                              alt="NEAR"
+                              loading="eager"
+                              decoding="async"
+                              className="w-full h-full object-contain invert dark:invert-0"
+                            />
                             </div>
                             <span>
                               {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
@@ -497,7 +507,7 @@ export function MarketplaceHeader() {
                   <Button
                     variant="ghost"
                     size="icon"
-                      className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                      className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
                     >
                       <User className="h-5 w-5" />
                     </Button>
@@ -508,7 +518,7 @@ export function MarketplaceHeader() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                        className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
                       >
                         <User className="h-5 w-5" />
                       </Button>
@@ -560,6 +570,8 @@ export function MarketplaceHeader() {
                               <img
                                 src={nearLogo}
                                 alt="NEAR"
+                                loading="eager"
+                                decoding="async"
                                 className="w-full h-full object-contain invert dark:invert-0"
                               />
                             </div>
@@ -579,12 +591,14 @@ export function MarketplaceHeader() {
                               disabled={isSigningIn}
                               className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
                             >
-                              <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                                <img
-                                  src={nearLogo}
-                                  alt="NEAR"
-                                  className="w-full h-full object-contain invert dark:invert-0"
-                                />
+<div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                              <img
+                                src={nearLogo}
+                                alt="NEAR"
+                                loading="eager"
+                                decoding="async"
+                                className="w-full h-full object-contain invert dark:invert-0"
+                              />
                               </div>
                               <span>
                                 {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
@@ -665,7 +679,9 @@ export function MarketplaceHeader() {
             <div className="rounded-2xl bg-background/80 backdrop-blur-sm border border-border/60 px-6 py-4 space-y-2">
               <Link
                 to="/products"
-                search={{ category: "all", categoryId: undefined }}
+                search={{ category: "all", categoryId: undefined, collection: undefined }}
+                preload="intent"
+                preloadDelay={0}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
                   isProductsActive && !currentCategoryId ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
@@ -681,13 +697,15 @@ export function MarketplaceHeader() {
                     No collections yet.
                   </div>
                 ) : (
-                  categories.map((cat: { id: string; name: string }) => {
-                    const isActive = isProductsActive && currentCategoryId === cat.id;
+                  categories.map((cat) => {
+                    const isActive = matchRoute({ to: "/collections/$collection" }) && location.pathname === `/collections/${cat.slug}`;
                     return (
                       <Link
-                        key={cat.id}
-                        to="/products"
-                        search={{ category: "all", categoryId: cat.id }}
+                        key={cat.slug}
+                        to="/collections/$collection"
+                        params={{ collection: cat.slug }}
+                        preload="intent"
+                        preloadDelay={0}
                         onClick={() => setMobileMenuOpen(false)}
                         className={`block pl-6 pr-3 py-2 text-sm transition-colors rounded-lg ${
                           isActive ? 'text-[#00EC97]' : 'text-foreground/90 hover:text-[#00EC97]'
@@ -701,8 +719,10 @@ export function MarketplaceHeader() {
               </div>
               
               <Link
-                to="/products"
-                search={{ category: 'Exclusives', categoryId: undefined }}
+                to="/exclusives"
+
+                preload="intent"
+                preloadDelay={0}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
                   isExclusivesActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
@@ -711,15 +731,17 @@ export function MarketplaceHeader() {
                 Exclusives
               </Link>
               
-              <Link
-                to="/account/orders"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
-                  isTrackOrderActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
-                }`}
-              >
-                Track Order
-              </Link>
+<Link
+                    to="/account/orders"
+                    preload="intent"
+                    preloadDelay={0}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                      isTrackOrderActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                    }`}
+                  >
+                    Track Order
+                  </Link>
             </div>
           </div>
         )}

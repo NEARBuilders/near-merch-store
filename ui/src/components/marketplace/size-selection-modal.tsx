@@ -42,7 +42,7 @@ export function SizeSelectionModal({
     orderedSizes.includes("M") ? "M" : orderedSizes[0] || ""
   );
 
-  const needsSize = product ? requiresSize(product.categories) : false;
+  const needsSize = product ? requiresSize(product.collections) : false;
   const availableSizes =
     needsSize && orderedSizes.length > 0 ? orderedSizes : ["N/A"];
 

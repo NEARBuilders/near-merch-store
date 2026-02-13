@@ -1,7 +1,7 @@
 import { authClient } from '@/lib/auth-client';
-import { queryClient } from '@/utils/orpc';
 import { createFileRoute } from '@tanstack/react-router';
 import { Link2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 export const Route = createFileRoute(
@@ -11,6 +11,7 @@ export const Route = createFileRoute(
 });
 
 function ConnectedAccountsPage() {
+  const queryClient = useQueryClient();
   const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
   const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
 

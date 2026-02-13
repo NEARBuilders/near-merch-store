@@ -46,17 +46,6 @@ export const FulfillmentContract = oc.router({
     .input(z.object({ id: z.string() }))
     .output(z.object({ order: FulfillmentOrderSchema })),
 
-  webhook: oc
-    .route({ method: 'POST', path: '/webhook' })
-    .input(z.object({
-      body: z.string(),
-      signature: z.string().optional(),
-    }))
-    .output(z.object({
-      received: z.boolean(),
-      eventType: z.string().optional(),
-    })),
-
   quoteOrder: oc
     .route({ method: 'POST', path: '/orders/quote' })
     .input(ShippingQuoteInputSchema)

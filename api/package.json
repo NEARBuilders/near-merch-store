@@ -1,6 +1,6 @@
 {
   "name": "api",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "exports": {
     ".": {
@@ -12,13 +12,16 @@
     "typescript": "catalog:"
   },
   "dependencies": {
-    "@libsql/client": "catalog:",
+    "@orpc/contract": "^1.13.4",
+    "@orpc/server": "^1.13.4",
+    "@types/pg": "^8.16.0",
     "drizzle-kit": "catalog:",
     "drizzle-orm": "catalog:",
     "effect": "catalog:",
     "nanoid": "^5.1.6",
     "near-kit": "catalog:",
     "near-social-js": "^2.0.3",
+    "postgres": "^3.4.8",
     "printful-sdk-js-v2": "^2.0.3-beta",
     "stripe": "^20.0.0",
     "uuidv7": "^1.1.0"
@@ -30,7 +33,7 @@
     "@rspack/core": "^1.7.3",
     "@types/node": "catalog:",
     "dotenv": "^17.2.3",
-    "every-plugin": "0.8.8",
+    "every-plugin": "catalog:",
     "vite-tsconfig-paths": "^6.0.5",
     "vitest": "catalog:",
     "zephyr-rspack-plugin": "^0.1.2"
@@ -45,6 +48,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "deploy": "DEPLOY=true rspack build"
   }
 }

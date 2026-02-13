@@ -6,11 +6,12 @@ import {
   useSuspenseCollections,
   collectionLoaders,
 } from '@/integrations/api';
-import { queryClient } from '@/utils/orpc';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const Route = createFileRoute('/_marketplace/collections/')({
   pendingComponent: LoadingSpinner,
-  loader: async () => {
+  loader: async ({ context }) => {
+    const queryClient = context.queryClient;
     // Prefetch collection list + details so UI can show accurate counts without hardcoding.
     const listData = await queryClient.ensureQueryData(collectionLoaders.list());
     await Promise.all(
@@ -51,8 +52,18 @@ export const Route = createFileRoute('/_marketplace/collections/')({
 });
 
 function CollectionsPage() {
+  const queryClient = useQueryClient();
   const { data: collectionsData } = useSuspenseCollections();
-  const collections = collectionsData.collections;
+  const collections = [...(collectionsData?.collections ?? [])].sort((a, b) => {
+    const aOrder = a.carouselOrder ?? 0;
+    const bOrder = b.carouselOrder ?? 0;
+    
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+    
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <div className="bg-background min-h-screen pt-32">
@@ -72,7 +83,7 @@ function CollectionsPage() {
             <div className="text-center space-y-4">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Our Collections</h1>
               <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base max-w-[723px] mx-auto">
-              Discover premium NEAR Protocol merchandise across four curated collections. Each piece is designed with quality and sustainability in mind.
+              Discover premium NEAR Protocol merchandise across curated collections. Each piece is designed with quality and sustainability in mind.
             </p>
           </div>
         </div>
@@ -81,7 +92,7 @@ function CollectionsPage() {
         {/* Collections Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
           {collections.map((collection) => {
-            const imageSrc = collection.image || '/ui/src/assets/images/pngs/man_on_near.png';
+            
 
             // Product count comes from the prefetched detail query.
             const detailData = queryClient.getQueryData(
@@ -96,12 +107,23 @@ function CollectionsPage() {
                 params={{ collection: collection.slug }}
                 className="rounded-2xl bg-background border border-border/60 overflow-hidden cursor-pointer hover:border-[#00EC97] hover:shadow-xl transition-all group"
               >
-                <div className="bg-[#ececf0] h-[400px] md:h-[517.5px] overflow-hidden">
-                  <img
-                    src={imageSrc}
-                    alt={collection.name}
-                    className="w-full h-full object-cover"
-                  />
+                <div className="relative h-[400px] md:h-[517.5px] overflow-hidden bg-black/40">
+                  {collection.featuredProduct?.thumbnailImage ? (
+                    <>
+                      <div className="absolute inset-0">
+                        <img
+                          src={collection.featuredProduct.thumbnailImage}
+                          alt={collection.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="absolute inset-0 bg-muted" />
+                  )}
                 </div>
                 <div className="p-6 space-y-3">
                   <div className="flex items-center gap-2">
@@ -138,7 +160,7 @@ function CollectionsPage() {
               Browse our entire collection and find the perfect piece for you.
             </p>
           </div>
-            <Link to="/products">
+            <Link to="/products" search={() => ({ category: "", categoryId: undefined, collection: undefined })}>
               <button
                 type="button"
                 className="px-8 py-3 rounded-lg bg-[#00EC97] text-black flex items-center justify-center font-semibold text-base hover:bg-[#00d97f] transition-colors mx-auto"

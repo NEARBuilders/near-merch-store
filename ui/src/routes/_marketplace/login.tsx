@@ -2,7 +2,7 @@ import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/rea
 import { useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
-import { queryClient } from "@/utils/orpc";
+import { useQueryClient } from "@tanstack/react-query";
 import nearLogo from "@/assets/images/pngs/logo_sq.png";
 
 type SearchParams = {
@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_marketplace/login")({
 });
 
 function LoginPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { redirect: redirectPath } = useSearch({ from: "/_marketplace/login" });
   const [isConnecting, setIsConnecting] = useState(false);

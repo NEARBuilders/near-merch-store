@@ -1,23 +1,17 @@
 import { Context, Effect, Layer } from 'every-plugin/effect';
 import type { FulfillmentProvider, MarketplaceRuntime } from '../runtime';
-import type { Collection, FulfillmentConfig, Product, ProductCategory, ProductImage, ProductOption } from '../schema';
-import { ProductStore, type ProductVariantInput, type ProductWithImages } from '../store';
+import type { Collection, FulfillmentConfig, Product, ProductImage, ProductOption, ProductCriteria } from '../schema';
+import { ProductStore, CollectionStore, type ProductVariantInput, type ProductWithImages } from '../store';
 import type { ProviderProduct } from './fulfillment/schema';
 import { generateProductId, generatePublicKey, generateSlug } from '../utils/product-ids';
 
 export class ProductService extends Context.Tag('ProductService')<
   ProductService,
   {
-    readonly getProducts: (options: {
-      category?: ProductCategory;
-      limit?: number;
-      offset?: number;
-      includeUnlisted?: boolean;
-    }) => Effect.Effect<{ products: Product[]; total: number }, Error>;
+    readonly getProducts: (options: ProductCriteria) => Effect.Effect<{ products: Product[]; total: number }, Error>;
     readonly getProduct: (id: string) => Effect.Effect<{ product: Product }, Error>;
     readonly searchProducts: (options: {
       query: string;
-      category?: ProductCategory;
       limit?: number;
     }) => Effect.Effect<{ products: Product[] }, Error>;
     readonly getFeaturedProducts: (limit?: number) => Effect.Effect<{ products: Product[] }, Error>;
@@ -25,13 +19,40 @@ export class ProductService extends Context.Tag('ProductService')<
     readonly getCollection: (
       slug: string
     ) => Effect.Effect<{ collection: Collection; products: Product[] }, Error>;
-    readonly sync: () => Effect.Effect<{ status: string; count: number }, Error>;
+    readonly getCarouselCollections: () => Effect.Effect<{ collections: Collection[] }, Error>;
+    readonly updateCollection: (
+      slug: string,
+      data: {
+        name?: string;
+        description?: string;
+        image?: string;
+        badge?: string;
+        carouselTitle?: string;
+        carouselDescription?: string;
+        showInCarousel?: boolean;
+        carouselOrder?: number;
+      }
+    ) => Effect.Effect<{ collection: Collection | null }, Error>;
+    readonly updateCollectionFeaturedProduct: (
+      slug: string,
+      productId: string | null
+    ) => Effect.Effect<{ collection: Collection | null }, Error>;
+    readonly sync: () => Effect.Effect<{
+      status: 'idle' | 'running' | 'error' | 'completed';
+      count?: number;
+      removed?: number;
+      syncStartedAt?: string;
+      syncDuration?: number;
+    }, Error>;
     readonly getSyncStatus: () => Effect.Effect<
       {
         status: 'idle' | 'running' | 'error';
         lastSuccessAt: number | null;
         lastErrorAt: number | null;
         errorMessage: string | null;
+        syncStartedAt: number | null;
+        updatedAt: number;
+        errorData: Record<string, any> | null;
       },
       Error
     >;
@@ -39,6 +60,26 @@ export class ProductService extends Context.Tag('ProductService')<
       id: string,
       listed: boolean
     ) => Effect.Effect<{ success: boolean; product?: Product }, Error>;
+    readonly updateProductTags: (
+      id: string,
+      tags: string[]
+    ) => Effect.Effect<{ success: boolean; product?: Product }, Error>;
+    readonly updateProductFeatured: (
+      id: string,
+      featured: boolean
+    ) => Effect.Effect<{ success: boolean; product?: Product }, Error>;
+    readonly updateProductCollections: (
+      id: string,
+      collectionSlugs: string[]
+    ) => Effect.Effect<{ success: boolean; product?: Product }, Error>;
+    readonly getCategories: () => Effect.Effect<{ categories: Collection[] }, Error>;
+    readonly createCategory: (data: {
+      name: string;
+      slug: string;
+      description?: string;
+      image?: string;
+    }) => Effect.Effect<{ category: Collection }, Error>;
+    readonly deleteCategory: (slug: string) => Effect.Effect<{ success: boolean }, Error>;
   }
 >() { }
 
@@ -50,7 +91,6 @@ function transformProviderProduct(
   const designFiles = firstVariantWithDesigns?.designFiles || [];
 
   const imageMap = new Map<string, ProductImage>();
-  const seenUrls = new Set<string>();
   const thumbnailUrl = product.thumbnailUrl;
 
   if (thumbnailUrl) {
@@ -59,9 +99,8 @@ function transformProviderProduct(
       url: thumbnailUrl,
       type: 'catalog',
       order: 0,
-      variantIds: [], // Thumbnail is not variant-specific
+      variantIds: [],
     });
-    seenUrls.add(thumbnailUrl);
   }
 
   let imageOrder = 1;
@@ -94,7 +133,6 @@ function transformProviderProduct(
 
   const images = Array.from(imageMap.values()).sort((a, b) => a.order - b.order);
 
-  // Extract unique options from all variants
   const optionsMap = new Map<string, Set<string>>();
   for (const variant of product.variants) {
     if (variant.size) {
@@ -114,18 +152,18 @@ function transformProviderProduct(
     position: index + 1,
   }));
 
-  const firstVariant = product.variants[0];
   const basePrice = product.variants.length > 0
     ? Math.min(...product.variants.map(v => v.retailPrice))
     : 0;
 
+  const firstVariant = product.variants[0];
   const baseCurrency = firstVariant?.currency || 'USD';
 
   const variants: ProductVariantInput[] = product.variants.map((variant) => {
     const variantId = String(variant.id);
 
     const fulfillmentConfig: FulfillmentConfig = {
-      externalVariantId: variantId,
+      externalVariantId: providerName === 'printful' ? String(variant.id) : variantId,
       externalProductId: String(product.sourceId),
       designFiles: variant.designFiles,
       providerData: providerName === 'printful'
@@ -154,7 +192,6 @@ function transformProviderProduct(
     };
   });
 
-  // Generate new IDs: UUID v7 for primary key, nanoid for public URL key
   const id = generateProductId();
   const publicKey = generatePublicKey();
   const slug = generateSlug(product.name, publicKey);
@@ -167,7 +204,8 @@ function transformProviderProduct(
     description: product.description || undefined,
     price: basePrice,
     currency: baseCurrency,
-    category: 'Exclusives',
+    productTypeSlug: undefined,
+    tags: [],
     options,
     images,
     thumbnailImage: thumbnailUrl,
@@ -184,6 +222,7 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
     ProductService,
     Effect.gen(function* () {
       const store = yield* ProductStore;
+      const collectionStore = yield* CollectionStore;
       const { providers } = runtime;
 
       const extractValidationIssues = (err: unknown): string | null => {
@@ -237,8 +276,6 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
             try {
               const localProduct = transformProviderProduct(provider.name, product);
 
-
-
               yield* store.upsert(localProduct);
               syncedCount++;
               console.log(`[ProductSync] Synced product: ${localProduct.name} with ${localProduct.variants.length} variants`);
@@ -259,8 +296,8 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
       return {
         getProducts: (options) =>
           Effect.gen(function* () {
-            const { category, limit = 50, offset = 0, includeUnlisted = false } = options;
-            return yield* store.findMany({ category, limit, offset, includeUnlisted });
+            const { productTypeSlug, collectionSlugs, tags, featured, limit = 50, offset = 0, includeUnlisted = false } = options;
+            return yield* store.findMany({ productTypeSlug, collectionSlugs, tags, featured, limit, offset, includeUnlisted });
           }),
 
         getProduct: (identifier) =>
@@ -275,34 +312,143 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
         searchProducts: (options) =>
           Effect.gen(function* () {
-            const { query, category, limit = 20 } = options;
-            const products = yield* store.search(query, category, limit);
+            const { query, limit = 20 } = options;
+            const products = yield* store.search(query, limit);
             return { products };
           }),
 
         getFeaturedProducts: (limit = 12) =>
           Effect.gen(function* () {
-            // Featured products should only show listed products
-            const result = yield* store.findMany({ limit, offset: 0, includeUnlisted: false });
+            const result = yield* store.findMany({ featured: true, limit, offset: 0, includeUnlisted: false });
+            if (result.products.length === 0) {
+              const fallback = yield* store.findMany({ limit, offset: 0, includeUnlisted: false });
+              return { products: fallback.products };
+            }
             return { products: result.products };
           }),
 
-        getCollections: () => Effect.succeed({ collections: [] }),
+        getCollections: () =>
+          Effect.gen(function* () {
+            const collections = yield* collectionStore.findAll();
+            return { collections };
+          }),
 
         getCollection: (slug) =>
           Effect.gen(function* () {
-            return yield* Effect.fail(new Error(`Collection not found: ${slug}`));
+            const collection = yield* collectionStore.find(slug);
+            if (!collection) {
+              return yield* Effect.fail(new Error(`Collection not found: ${slug}`));
+            }
+            
+            const result = yield* store.findMany({ 
+              collectionSlugs: [slug], 
+              limit: 100, 
+              offset: 0, 
+              includeUnlisted: false 
+            });
+            
+            return { collection, products: result.products };
+          }),
+
+        getCarouselCollections: () =>
+          Effect.gen(function* () {
+            const collections = yield* collectionStore.findCarouselCollections();
+            return { collections };
+          }),
+
+        updateCollection: (slug, data) =>
+          Effect.gen(function* () {
+            const collection = yield* collectionStore.update(slug, data);
+            return { collection };
+          }),
+
+        updateCollectionFeaturedProduct: (slug, productId) =>
+          Effect.gen(function* () {
+            const collection = yield* collectionStore.updateFeaturedProduct(slug, productId);
+            return { collection };
           }),
 
         sync: () =>
           Effect.gen(function* () {
+            const SYNC_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+            
+            const syncStartedAt = new Date();
+            
+            // CHECK 1: Is sync already in progress (and not stale)?
+            const isInProgress = yield* store.isSyncInProgress('products');
+            if (isInProgress) {
+              const existingStatus = yield* store.getSyncStatus('products');
+              const duration = existingStatus.syncStartedAt
+                ? Math.floor((Date.now() - existingStatus.syncStartedAt) / 1000)
+                : 0;
+              
+              // If sync has been running longer than timeout, it's stale - allow retry
+              const isStale = existingStatus.syncStartedAt && 
+                (Date.now() - new Date(existingStatus.syncStartedAt).getTime()) > SYNC_TIMEOUT_MS;
+              
+              if (isStale) {
+                console.warn('[ProductSync] Detected stale sync, cleaning up and retrying:', {
+                  syncStartedAt: existingStatus.syncStartedAt
+                    ? new Date(existingStatus.syncStartedAt).toISOString()
+                    : null,
+                  duration,
+                });
+                yield* store.setSyncStatus(
+                  'products',
+                  'idle',
+                  null,
+                  new Date(),
+                  'Sync timed out',
+                  { errorType: 'SYNC_TIMEOUT', duration },
+                  null
+                );
+              } else {
+                console.error('[ProductSync] Sync attempt rejected - already in progress:', {
+                  syncStartedAt: existingStatus.syncStartedAt
+                    ? new Date(existingStatus.syncStartedAt).toISOString()
+                    : null,
+                  currentAttemptAt: syncStartedAt.toISOString(),
+                  duration,
+                  providersCount: providers.length,
+                });
+                
+                throw new Error('SYNC_IN_PROGRESS');
+              }
+            }
+            
             if (providers.length === 0) {
               console.log('[ProductSync] No providers configured, skipping sync');
-              return { status: 'completed', count: 0, removed: 0 };
+              return {
+                status: 'completed',
+                count: 0,
+                removed: 0,
+                syncStartedAt: undefined,
+                syncDuration: 0,
+              };
             }
+            
+            // CHECK 2: Stale sync detection (clean up if needed)
+            const existingStatus = yield* store.getSyncStatus('products');
+            if (existingStatus.status === 'error' && 
+                existingStatus.errorMessage?.includes('timed out')) {
+              yield* store.setSyncStatus('products', 'idle', null, null, null, null, new Date());
+            }
+            
+            // Set running status (transactional)
+            yield* store.setSyncStatus(
+              'products',
+              'running',
+              null,
+              null,
+              null,
+              null, // errorData
+              syncStartedAt
+            );
 
-            const syncStartedAt = new Date();
-            yield* store.setSyncStatus('products', 'running', null, null, null);
+            console.log('[ProductSync] Starting sync:', {
+              syncStartedAt: syncStartedAt.toISOString(),
+              providersCount: providers.length,
+            });
 
             try {
               const results = yield* Effect.all(
@@ -312,13 +458,89 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
               const totalSynced = results.reduce((sum, r) => sum + r.synced, 0);
               const totalRemoved = results.reduce((sum, r) => sum + r.removed, 0);
-              yield* store.setSyncStatus('products', 'idle', new Date(), null, null);
-              console.log(`[ProductSync] Completed: ${totalSynced} synced, ${totalRemoved} removed`);
-              return { status: 'completed', count: totalSynced, removed: totalRemoved };
+              const syncDuration = Math.floor((Date.now() - syncStartedAt.getTime()) / 1000);
+              
+              yield* store.setSyncStatus('products', 'idle', new Date(), null, null, null, new Date());
+              console.log(`[ProductSync] Completed: ${totalSynced} synced, ${totalRemoved} removed (${syncDuration}s)`);
+              
+              return { 
+                status: 'completed', 
+                count: totalSynced, 
+                removed: totalRemoved,
+                syncStartedAt: syncStartedAt.toISOString(),
+                syncDuration,
+              };
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : String(error);
-              yield* store.setSyncStatus('products', 'error', null, new Date(), errorMessage);
-              return yield* Effect.fail(new Error(`Sync failed: ${errorMessage}`));
+              const errorObj = error as Error;
+              
+              // Log full error context BEFORE throwing
+              console.error('[ProductSync] Sync failed:', {
+                errorType: error instanceof Error ? errorObj.constructor?.name : typeof error,
+                message: errorMessage,
+                stack: error instanceof Error ? errorObj.stack : undefined,
+                timestamp: new Date().toISOString(),
+                syncStartedAt: syncStartedAt.toISOString(),
+                syncDuration: Math.floor((Date.now() - syncStartedAt.getTime()) / 1000),
+                providersCount: providers.length,
+                errorDetails: error instanceof Error ? {
+                  statusCode: (error as any).statusCode,
+                  providerError: (error as any).code,
+                  response: (error as any).response,
+                } : {},
+              });
+              
+              // Determine error type
+              if (errorMessage.includes('SYNC_IN_PROGRESS')) {
+                throw new Error('SYNC_IN_PROGRESS');
+              }
+              
+              // Provider service unavailable errors
+              if (errorMessage.includes('503') || errorMessage.includes('Service Unavailable') || 
+                  errorMessage.includes('unavailable')) {
+                const retryAfter = errorMessage.includes('429') ? 60 : null;
+                
+                const errorData = {
+                  provider: 'printful',
+                  errorType: 'SERVICE_UNAVAILABLE',
+                  retryAfter,
+                  originalMessage: errorMessage,
+                  syncDuration: Math.floor((Date.now() - syncStartedAt.getTime()) / 1000),
+                };
+                
+                yield* store.setSyncStatus(
+                  'products',
+                  'error',
+                  null,
+                  new Date(),
+                  'Sync failed: Service unavailable',
+                  errorData,
+                  null
+                );
+                
+                throw new Error('SYNC_PROVIDER_ERROR');
+              }
+              
+              // Generic sync failure with context
+              const errorData = {
+                stage: 'SYNC_COMPLETED',
+                errorMessage,
+                timestamp: new Date().toISOString(),
+                syncDuration: Math.floor((Date.now() - syncStartedAt.getTime()) / 1000),
+                providersCount: providers.length,
+              };
+              
+              yield* store.setSyncStatus(
+                'products',
+                'error',
+                null,
+                new Date(),
+                errorMessage,
+                errorData,
+                null
+              );
+              
+              throw new Error('SYNC_FAILED');
             }
           }),
 
@@ -334,6 +556,52 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
               return { success: false };
             }
             return { success: true, product };
+          }),
+
+        updateProductTags: (id, tags) =>
+          Effect.gen(function* () {
+            const product = yield* store.updateTags(id, tags);
+            if (!product) {
+              return { success: false };
+            }
+            return { success: true, product };
+          }),
+
+        updateProductFeatured: (id, featured) =>
+          Effect.gen(function* () {
+            const product = yield* store.updateFeatured(id, featured);
+            if (!product) {
+              return { success: false };
+            }
+            return { success: true, product };
+          }),
+
+        updateProductCollections: (id, collectionSlugs) =>
+          Effect.gen(function* () {
+            yield* collectionStore.setProductCollections(id, collectionSlugs);
+            const product = yield* store.find(id);
+            if (!product) {
+              return { success: false };
+            }
+            return { success: true, product };
+          }),
+
+        getCategories: () =>
+          Effect.gen(function* () {
+            const categories = yield* collectionStore.findAll();
+            return { categories };
+          }),
+
+        createCategory: (data) =>
+          Effect.gen(function* () {
+            const category = yield* collectionStore.create(data);
+            return { category };
+          }),
+
+        deleteCategory: (slug) =>
+          Effect.gen(function* () {
+            yield* collectionStore.delete(slug);
+            return { success: true };
           }),
       };
     })

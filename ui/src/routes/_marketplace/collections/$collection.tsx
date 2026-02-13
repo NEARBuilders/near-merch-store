@@ -1,23 +1,23 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Square, Grid3x3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/loading';
 import { SizeSelectionModal } from '@/components/marketplace/size-selection-modal';
 import { CartSidebar } from '@/components/marketplace/cart-sidebar';
 import { ProductCard } from '@/components/marketplace/product-card';
 import { useCart } from '@/hooks/use-cart';
+import { cn } from '@/lib/utils';
 import {
   useSuspenseCollection,
   collectionLoaders,
   type Product,
 } from '@/integrations/api';
-import { queryClient } from '@/utils/orpc';
 
 export const Route = createFileRoute('/_marketplace/collections/$collection')({
   pendingComponent: LoadingSpinner,
-  loader: async ({ params }) => {
-    await queryClient.ensureQueryData(collectionLoaders.detail(params.collection));
+  loader: async ({ params, context }) => {
+    await context.queryClient.ensureQueryData(collectionLoaders.detail(params.collection));
   },
   errorComponent: ({ error }) => {
     const router = useRouter();
@@ -58,8 +58,7 @@ function CollectionDetailPage() {
 
   const { data } = useSuspenseCollection(collectionSlug);
   const { collection, products } = data;
-  // Render collection features from API (no hardcoded UI metadata).
-  const features = collection?.features ?? [];
+  const [viewMode, setViewMode] = useState<'single' | 'grid'>('single');
 
   const handleAddToCart = (product: Product) => {
     setSizeModalProduct(product);
@@ -103,61 +102,75 @@ function CollectionDetailPage() {
         </div>
       </div>
 
-        {/* Collection Hero Section */}
-        <div className="grid md:grid-cols-2 gap-6 mb-12">
-          <div className="rounded-2xl bg-background border border-border/60 overflow-hidden">
-            <div className="bg-[#ececf0] h-[400px] md:h-[529px] overflow-hidden">
-            <img
-              src={collection.image}
-              alt={collection.name}
-              className="w-full h-full object-cover"
-            />
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-8 md:py-10 flex flex-col justify-center">
-            <div className="space-y-6">
-              <p className="text-foreground/90 dark:text-muted-foreground text-base md:text-lg leading-7">
-                {collection.description || ''}
-              </p>
-
-              {features.length > 0 && (
-                <div className="space-y-3">
-                  {features.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-3">
-                      <div className="w-2 h-2 bg-[#00EC97] rounded-full" />
-                      <p className="text-foreground/90 dark:text-muted-foreground">{feature}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex gap-6 pt-4 border-t border-border/60">
-                <div>
-                  <p className="text-foreground/70 dark:text-muted-foreground text-sm mb-1">Products</p>
-                  <p className="text-lg font-semibold">{products.length}</p>
-                </div>
-                <div>
-                  <p className="text-foreground/70 dark:text-muted-foreground text-sm mb-1">Category</p>
-                  <p className="text-lg font-semibold">{collection.name}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
         {/* Products Section */}
         <div className="rounded-2xl bg-background border border-border/60 px-6 md:px-8 lg:px-10 py-8 md:py-10 mb-12">
-          <div className="mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
-              All {collection.name}
-            </h2>
-            <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base">
-              Browse our complete {collection.name.toLowerCase()} collection
-            </p>
+          <div className="flex items-center justify-between gap-2 mb-8">
+            <div>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
+                {collection.name}
+              </h2>
+              {collection.description && (
+                <p className="text-foreground/90 dark:text-muted-foreground text-sm md:text-base">
+                  {collection.description}
+                </p>
+              )}
+            </div>
+
+            <div className="md:hidden flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setViewMode('single')}
+                className={cn(
+                  "p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors",
+                  viewMode === 'single'
+                    ? "bg-[#00EC97] border-[#00EC97] text-black"
+                    : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
+                )}
+                aria-label="Single view"
+              >
+                <Square className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setViewMode('grid')}
+                className={cn(
+                  "p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors",
+                  viewMode === 'grid'
+                    ? "bg-[#00EC97] border-[#00EC97] text-black"
+                    : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
+                )}
+                aria-label="Grid view"
+              >
+                <Grid3x3 className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="md:hidden mb-8">
+            {viewMode === 'single' ? (
+              <div>
+                {products.length > 0 && (
+                  <ProductCard
+                    key={products[0]?.id}
+                    product={products[0]}
+                    onQuickAdd={handleAddToCart}
+                    variant="lg"
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onQuickAdd={handleAddToCart}
+                    variant="lg"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="hidden md:grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {products.map((product) => (
               <ProductCard
                 key={product.id}

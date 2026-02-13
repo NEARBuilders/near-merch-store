@@ -1,5 +1,5 @@
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { apiClient, queryClient } from '@/utils/orpc';
+import { useQuery, useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/utils/orpc';
 import { orderKeys } from './keys';
 
 export type Order = Awaited<ReturnType<typeof apiClient.getOrder>>['order'];
@@ -72,11 +72,11 @@ export const orderLoaders = {
     queryFn: () => apiClient.getOrder({ id }),
   }),
 
-  prefetchOrders: async (options?: { limit?: number; offset?: number }) => {
-    await queryClient.prefetchQuery(orderLoaders.list(options));
+  prefetchOrders: async (qc: QueryClient, options?: { limit?: number; offset?: number }) => {
+    await qc.prefetchQuery(orderLoaders.list(options));
   },
 
-  prefetchOrder: async (id: string) => {
-    await queryClient.prefetchQuery(orderLoaders.detail(id));
+  prefetchOrder: async (qc: QueryClient, id: string) => {
+    await qc.prefetchQuery(orderLoaders.detail(id));
   },
 };

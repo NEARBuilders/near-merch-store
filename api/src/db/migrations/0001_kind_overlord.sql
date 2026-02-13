@@ -1,1 +1,0 @@
-ALTER TABLE `products` ADD `last_synced_at` integer;
