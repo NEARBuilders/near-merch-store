@@ -7,6 +7,13 @@ import { ProductCard } from "@/components/marketplace/product-card";
 import { SizeSelectionModal } from "@/components/marketplace/size-selection-modal";
 import { useCart } from "@/hooks/use-cart";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -27,6 +34,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Square,
+  Grid3x3,
 } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 
@@ -81,6 +90,7 @@ function MarketplaceHome() {
   const collections = carouselData?.collections ?? [];
 
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'single' | 'grid'>('single');
   
   const productTypeCategoriesForFilter = useMemo(() => [
     { key: 'all', label: 'All' },
@@ -189,10 +199,10 @@ function MarketplaceHome() {
       {activeSlide && <VideoBackground position="absolute" height="calc(100vh - 80px)" />}
       {!activeSlide && (isCollectionsLoading || collections.length === 0) && <VideoBackground position="absolute" height="calc(100vh - 80px)" />}
       {activeSlide && (
-      <section className="pt-28 md:pt-32 relative z-10 min-h-[calc(100vh-120px)] flex items-center">
+      <section className="pt-24 md:pt-32 relative z-10 min-h-[calc(100vh-120px)] flex items-center">
         <div className="w-full max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16">
-          <div className="flex flex-col gap-8 lg:gap-10">
-            <div className="flex flex-col lg:flex-row items-stretch gap-8 lg:gap-10">
+          <div className="flex flex-col gap-4 md:gap-8 lg:gap-10">
+            <div className="flex flex-col lg:flex-row items-stretch gap-4 md:gap-8 lg:gap-10">
               <div className="hidden lg:flex flex-col lg:flex-1 gap-6 lg:gap-8 lg:h-full lg:min-h-[700px]">
                 <div className="flex-1 lg:flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-10 py-8 md:py-10 flex flex-col justify-center space-y-4 md:space-y-6">
                   <div className="inline-block rounded-md bg-muted/30 px-2.5 py-0.5 text-[10px] md:text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60">
@@ -237,7 +247,7 @@ function MarketplaceHome() {
               </div>
 
               <div
-                className="flex-1 lg:flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-3 md:px-5 py-3 md:py-5 relative min-h-[400px] md:min-h-[500px] lg:h-full lg:min-h-[700px]"
+                className="flex-1 lg:flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-3 md:px-5 py-3 md:py-5 relative min-h-[52vh] md:min-h-[500px] lg:h-full lg:min-h-[700px]"
                 onMouseEnter={() => setIsPaused(true)}
                 onMouseLeave={() => setIsPaused(false)}
               >
@@ -376,7 +386,7 @@ function MarketplaceHome() {
       {!activeSlide && (isCollectionsLoading || collections.length === 0) && <MarketplaceSkeletonLoader />}
 
       {activeSlide && (
-            <div className="lg:hidden rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 py-4 md:py-6 relative z-10 mx-4 md:mx-8 mb-8">
+            <div className="lg:hidden rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-6 py-4 md:py-6 relative z-10 mx-4 md:mx-8 -mt-4 md:mt-0 mb-6 md:mb-8">
               <div className="flex flex-col gap-3 md:gap-4">
                 <div>
                   <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-1.5 md:mb-2">
@@ -401,7 +411,7 @@ function MarketplaceHome() {
       )}
 
       {activeSlide && (
-        <div className="relative w-full h-64 md:h-96 bg-gradient-to-b from-transparent via-background/50 to-background pointer-events-none -mt-64 md:-mt-96 z-[5]" />
+        <div className="relative w-full h-48 md:h-96 bg-gradient-to-b from-transparent via-background/50 to-background pointer-events-none -mt-48 md:-mt-96 z-[5]" />
       )}
 
       <section className={cn("section-padding relative z-10", !activeSlide && "pt-32 md:pt-40")} id="featured-products">
@@ -442,31 +452,38 @@ function MarketplaceHome() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-2 mb-8">
-                <div className="md:hidden grid grid-cols-3 gap-2">
-                  {productTypeCategoriesForFilter.map((category, index) => {
-                    const isSecondRow = index >= 3;
-                    
-                    return (
-                      <button
-                        key={category.key}
-                        onClick={() => setSelectedProductCategory(category.key)}
-                        className={cn(
-                          "inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-sm whitespace-nowrap",
-                          selectedProductCategory === category.key
-                            ? "bg-[#00EC97] border-[#00EC97] text-black"
-                            : "",
-                          isSecondRow && index === 3 && "col-start-1 col-span-1",
-                          isSecondRow && index === 4 && "col-start-2 col-span-2"
-                        )}
-                      >
-                        {category.label}
-                      </button>
-                    );
-                  })}
+              <div className="flex items-center gap-2 mb-8">
+                {/* Mobile: Category dropdown + view toggle */}
+                <div className="md:hidden flex items-center gap-2 flex-1">
+                  <Select value={selectedProductCategory} onValueChange={(v) => setSelectedProductCategory(v)}>
+                    <SelectTrigger className="flex-1 h-11 rounded-xl bg-background/60 backdrop-blur-sm border border-border/60 font-semibold text-sm hover:bg-background/80 hover:border-[#00EC97]/60 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-[#00EC97] data-[state=open]:bg-background/80">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background/60 backdrop-blur-sm border border-border/60 rounded-2xl p-2 shadow-lg min-w-[var(--radix-select-trigger-width)]">
+                      {productTypeCategoriesForFilter.map((category) => (
+                        <SelectItem key={category.key} value={category.key} className="rounded-lg py-2.5 pr-3 focus:bg-[#00EC97] focus:text-black data-[highlighted]:bg-[#00EC97] data-[highlighted]:text-black cursor-pointer [&>span.absolute]:hidden">
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => setViewMode('single')}
+                      className={cn("h-11 w-11 flex items-center justify-center rounded-xl bg-background/60 backdrop-blur-sm border border-border/60 transition-colors shrink-0", viewMode === 'single' ? "bg-[#00EC97] border-[#00EC97] text-black" : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black")}
+                      aria-label="Single view"
+                    >
+                      <Square className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={cn("h-11 w-11 flex items-center justify-center rounded-xl bg-background/60 backdrop-blur-sm border border-border/60 transition-colors shrink-0", viewMode === 'grid' ? "bg-[#00EC97] border-[#00EC97] text-black" : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black")}
+                      aria-label="Grid view"
+                    >
+                      <Grid3x3 className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
-
-
               </div>
 
               <div className="hidden md:flex flex-wrap items-center justify-center gap-2 mb-8">
@@ -487,7 +504,10 @@ function MarketplaceHome() {
               </div>
 
               <div className="md:hidden mb-8">
-                <div className="grid grid-cols-2 gap-4">
+                <div className={cn(
+                  "grid gap-4",
+                  viewMode === 'single' ? "grid-cols-1" : "grid-cols-2"
+                )}>
                   {displayProducts?.map((product: Product) => (
                     <ProductCard
                       key={product.id}

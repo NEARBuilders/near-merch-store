@@ -479,6 +479,9 @@ function OrderConfirmationPage() {
                       {order.shippingAddress.postCode}
                     </p>
                     <p>{order.shippingAddress.country}</p>
+                    {order.shippingAddress.phone && (
+                      <p className="pt-1">{order.shippingAddress.phone}</p>
+                    )}
                   </div>
                 </div>
 

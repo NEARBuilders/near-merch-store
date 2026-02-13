@@ -149,7 +149,7 @@ function VerticalProductLayout({
   const orderedColors = colorOption?.values || [];
   const orderedSizes = sizeOption?.values || [];
   const needsSize = product ? requiresSize(product.collections) : false;
-  const availableSizes = needsSize && orderedSizes.length > 0 ? orderedSizes : ["N/A"];
+  const availableSizes = orderedSizes.length > 0 ? orderedSizes : ["N/A"];
   const availableVariants = product?.variants || [];
 
   useEffect(() => {
@@ -344,7 +344,7 @@ function VerticalProductLayout({
         {/* Expanded Quick Add Section - appears at bottom of image */}
         {isExpanded && !hideActions && (
           <div className="absolute bottom-3 left-3 right-3 z-30 rounded-2xl bg-background/95 backdrop-blur-sm border border-border/60 p-4 space-y-4 max-h-[60%] overflow-y-auto shadow-xl">
-            {orderedColors.length > 1 && (
+            {orderedColors.length > 0 && (
               <div>
                 <label className="block text-xs font-medium mb-2 text-foreground/90 dark:text-foreground/90 dark:text-muted-foreground">
                   Color: {selectedColor}
