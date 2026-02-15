@@ -1,7 +1,7 @@
 export const COLOR_MAP: Record<string, string> = {
   Black: "#000000",
   White: "#FFFFFF",
-  Navy: "#000080",
+  Navy: "#1B3B6F",
   "Dark Grey Heather": "#333333",
   "Sport Grey": "#808080",
   Blue: "#0000FF",
@@ -28,6 +28,15 @@ export const COLOR_MAP: Record<string, string> = {
   "Heather Slate": "#708090",
   Cranberry: "#9B1B30",
   "Green Camo": "#4B6F44",
+  // Additional apparel/merchandise colors
+  Asphalt: "#3D3D3D",
+  "Blue Jean": "#5B7C99",
+  Brown: "#5C4033",
+  Espresso: "#3C2415",
+  Forest: "#228B22",
+  "Heather Brown": "#8B7355",
+  "Heather Forest": "#4A5D4A",
+  Sage: "#9CAF88",
 };
 
 export function getOptionValue(

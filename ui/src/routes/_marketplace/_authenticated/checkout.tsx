@@ -79,6 +79,7 @@ function CheckoutPage() {
       firstName: '',
       lastName: '',
       email: '',
+      phone: '',
       country: '',
       addressLine1: '',
       addressLine2: '',
@@ -309,9 +310,34 @@ function CheckoutPage() {
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, 'addressLine1')}
+                      onKeyDown={(e) => handleKeyDown(e, 'phone')}
                       autoComplete="email"
                       required
+                      className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
+                    />
+                  </div>
+                )}
+              />
+
+              <form.Field
+                name="phone"
+                children={(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">
+                      Phone <span className="text-muted-foreground text-xs">(optional – helps carriers reach you for delivery)</span>
+                    </Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      ref={(el) => {
+                        if (el) fieldRefs.current.set('phone', el);
+                      }}
+                      placeholder="+1 234 567 8900"
+                      value={field.state.value || ''}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, 'addressLine1')}
+                      autoComplete="tel"
                       className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                     />
                   </div>

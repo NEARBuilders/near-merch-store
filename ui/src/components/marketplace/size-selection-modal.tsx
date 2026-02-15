@@ -44,7 +44,7 @@ export function SizeSelectionModal({
 
   const needsSize = product ? requiresSize(product.collections) : false;
   const availableSizes =
-    needsSize && orderedSizes.length > 0 ? orderedSizes : ["N/A"];
+    orderedSizes.length > 0 ? orderedSizes : ["N/A"];
 
   useEffect(() => {
     if (isOpen && product) {
@@ -135,7 +135,7 @@ export function SizeSelectionModal({
             className="mb-6 p-0 shadow-none hover:shadow-none bg-transparent"
           />
 
-          {orderedColors.length > 1 && (
+          {orderedColors.length > 0 && (
             <div className="mb-6">
               <label className="block text-[14px] tracking-[-0.48px] mb-3">
                 Color

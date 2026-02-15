@@ -691,7 +691,17 @@ export function MarketplaceHeader() {
               </Link>
               
               <div className="space-y-1">
-                <div className="text-sm font-semibold text-foreground px-3 py-2">Collections</div>
+                <Link
+                  to="/collections"
+                  preload="intent"
+                  preloadDelay={0}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                    matchRoute({ to: "/collections" }) && !matchRoute({ to: "/collections/$collection" }) ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                  }`}
+                >
+                  Collections
+                </Link>
                 {categories.length === 0 ? (
                   <div className="px-3 py-2 text-xs text-foreground/60 dark:text-muted-foreground">
                     No collections yet.

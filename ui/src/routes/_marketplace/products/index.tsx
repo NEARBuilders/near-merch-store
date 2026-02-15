@@ -9,6 +9,13 @@ import {
   Sheet,
   SheetContent,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCart } from "@/hooks/use-cart";
 import { cn } from "@/lib/utils";
 import { COLOR_MAP } from "@/lib/product-utils";
@@ -321,42 +328,31 @@ function ProductsIndexPage() {
         </div>
 
         <div className="mb-8">
-          {/* Mobile: Category buttons with view toggle */}
-          <div className="md:hidden flex items-center justify-between gap-2">
-            {/* Mobile: Grid layout - 3 buttons first row, 2 buttons second row, full width */}
-            <div className="grid grid-cols-3 gap-2">
-              {productTypeCategoriesForFilter.map((category, index) => {
-                const isSecondRow = index >= 3;
-                return (
-                  <button
-                    key={category.key}
-                    onClick={() => setCategoryFilter(category.key)}
-                    className={cn(
-                      "inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors font-semibold text-sm whitespace-nowrap",
-                      categoryFilter === category.key
-                        ? "bg-[#00EC97] border-[#00EC97] text-black"
-                        : "",
-                      isSecondRow && index === 3 && "col-start-1 col-span-1",
-                      isSecondRow && index === 4 && "col-start-2 col-span-2"
-                    )}
-                  >
+          {/* Mobile: Category dropdown + view toggle */}
+          <div className="md:hidden flex items-center gap-2">
+            <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}>
+              <SelectTrigger className="flex-1 h-11 rounded-xl bg-background/60 backdrop-blur-sm border border-border/60 font-semibold text-sm hover:bg-background/80 hover:border-[#00EC97]/60 focus:ring-0 focus:ring-offset-0 data-[state=open]:border-[#00EC97] data-[state=open]:bg-background/80">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent className="bg-background/60 backdrop-blur-sm border border-border/60 rounded-2xl p-2 shadow-lg min-w-[var(--radix-select-trigger-width)]">
+                {productTypeCategoriesForFilter.map((category) => (
+                  <SelectItem key={category.key} value={category.key} className="rounded-lg py-2.5 pr-3 focus:bg-[#00EC97] focus:text-black data-[highlighted]:bg-[#00EC97] data-[highlighted]:text-black cursor-pointer [&>span.absolute]:hidden">
                     {category.label}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Icon toggle: only show on mobile */}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => setViewMode('single')}
-                className={cn("p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors", viewMode === 'single' ? "bg-[#00EC97] border-[#00EC97] text-black" : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black")}
+                className={cn("h-11 w-11 flex items-center justify-center rounded-xl bg-background/60 backdrop-blur-sm border border-border/60 transition-colors shrink-0", viewMode === 'single' ? "bg-[#00EC97] border-[#00EC97] text-black" : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black")}
                 aria-label="Single view"
               >
                 <Square className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setViewMode('grid')}
-                className={cn("p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 transition-colors", viewMode === 'grid' ? "bg-[#00EC97] border-[#00EC97] text-black" : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black")}
+                className={cn("h-11 w-11 flex items-center justify-center rounded-xl bg-background/60 backdrop-blur-sm border border-border/60 transition-colors shrink-0", viewMode === 'grid' ? "bg-[#00EC97] border-[#00EC97] text-black" : "hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black")}
                 aria-label="Grid view"
               >
                 <Grid3x3 className="h-5 w-5" />
