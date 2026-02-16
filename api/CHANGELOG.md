@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+### Patch Changes
+
+- f0d20a9: Harden ShippingAddress input parsing by trimming strings and treating empty optional fields (e.g. phone/state) as undefined.
+
 ## 1.0.1
 
 ### Patch Changes
