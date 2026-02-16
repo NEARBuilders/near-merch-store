@@ -1,6 +1,8 @@
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import Plugin from '@/index';
 import { createDatabase, type DatabaseType } from '@/db';
+import * as schema from '@/db/schema';
 import pluginDevConfig from '../plugin.dev';
 import { createPluginRuntime } from 'every-plugin';
 import { dirname, join } from 'node:path';
@@ -52,8 +54,6 @@ export function getTestDb(): DatabaseType {
       });
     }
 
-    const { drizzle } = require('drizzle-orm/postgres-js');
-    const schema = require('../src/db/schema');
     _testDb = drizzle({ client: _postgresClient, schema });
   }
 

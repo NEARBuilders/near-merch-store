@@ -127,19 +127,32 @@ export type Collection = z.infer<typeof CollectionSchema>;
 export type CollectionFeaturedProduct = z.infer<typeof CollectionFeaturedProductSchema>;
 export type FulfillmentConfig = z.infer<typeof FulfillmentConfigSchema>;
 
+const emptyStringToUndefined = (value: unknown) => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
+};
+
+const OptionalNonEmptyTrimmedString = z
+  .preprocess(emptyStringToUndefined, z.string().min(1).optional())
+  .optional();
+
+const RequiredNonEmptyTrimmedString = z.string().trim().min(1);
+
 export const ShippingAddressSchema = z.object({
-  companyName: z.string().optional(),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  addressLine1: z.string().min(1),
-  addressLine2: z.string().optional(),
-  city: z.string().min(1),
-  state: z.string().min(1).optional(),
-  postCode: z.string().min(1),
-  country: z.string().length(2),
-  email: z.string().email(),
-  phone: z.string().min(1).optional(),
-  taxId: z.string().optional(),
+  companyName: OptionalNonEmptyTrimmedString,
+  firstName: RequiredNonEmptyTrimmedString,
+  lastName: RequiredNonEmptyTrimmedString,
+  addressLine1: RequiredNonEmptyTrimmedString,
+  addressLine2: OptionalNonEmptyTrimmedString,
+  city: RequiredNonEmptyTrimmedString,
+  state: OptionalNonEmptyTrimmedString,
+  postCode: RequiredNonEmptyTrimmedString,
+  country: z.string().trim().length(2),
+  email: z.string().trim().email(),
+  phone: OptionalNonEmptyTrimmedString,
+  taxId: OptionalNonEmptyTrimmedString,
 });
 
 export const DeliveryEstimateSchema = z.object({
