@@ -9,6 +9,7 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { getBaseStyles, getRemoteScripts } from "@/remote/head";
 import type { RouterContext } from "@/types";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
@@ -118,10 +119,12 @@ function RootComponent() {
           forcedTheme="dark"
           enableSystem={false}
         >
-          <div id="root">
-            <Outlet />
-          </div>
-          <Toaster position="bottom-right" richColors closeButton />
+          <TooltipProvider>
+            <div id="root">
+              <Outlet />
+            </div>
+            <Toaster position="bottom-right" richColors closeButton />
+          </TooltipProvider>
         </ThemeProvider>
         <Scripts />
         {process.env.NODE_ENV === "development" && (
