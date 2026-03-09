@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from 'every-plugin/effect';
 import type { MarketplaceRuntime } from '../runtime';
-import type { ProviderBreakdown, ProviderShippingOption, QuoteItemInput, QuoteOutput, ShippingAddress, FulfillmentConfig } from '../schema';
+import type { ProviderBreakdown, ProviderShippingOption, QuoteItemInput, QuoteOutput, ShippingAddress, FulfillmentConfig, TaxBreakdown } from '../schema';
 import { OrderStore, ProductStore } from '../store';
 import type { FulfillmentOrderItem } from './fulfillment/schema';
 import type { PaymentLineItem } from './payment/schema';
@@ -259,12 +259,68 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               }
             }
 
-            const tax = totalSubtotal * 0.08;
+            const taxCalculationItems: Array<{ catalogVariantId: number; quantity: number }> = [];
+            for (const [providerName, providerItems] of itemsByProvider.entries()) {
+              if (providerName === 'manual') continue;
+              for (const pi of providerItems) {
+                const catalogVariantId = pi.fulfillmentConfig?.providerData?.catalogVariantId;
+                if (catalogVariantId && typeof catalogVariantId === 'number') {
+                  taxCalculationItems.push({
+                    catalogVariantId,
+                    quantity: pi.item.quantity,
+                  });
+                }
+              }
+            }
+
+            let tax = 0;
+            let taxBreakdown: { required: boolean; rate: number; shippingTaxable: boolean; exempt: boolean } | undefined;
+
+            if (taxCalculationItems.length > 0) {
+              const printfulProvider = runtime.getProvider('printful');
+              if (printfulProvider) {
+                const taxResult = yield* Effect.tryPromise({
+                  try: () =>
+                    printfulProvider.client.calculateTax({
+                      recipient: {
+                        countryCode: address.country,
+                        stateCode: address.state,
+                        zip: address.postCode,
+                        city: address.city,
+                        taxId: address.taxId,
+                      },
+                      items: taxCalculationItems,
+                      currency,
+                    }),
+                  catch: (error) => {
+                    console.error('[getQuote] Tax calculation failed:', error);
+                    return null;
+                  },
+                });
+
+                if (taxResult) {
+                  taxBreakdown = {
+                    required: taxResult.required,
+                    rate: taxResult.rate,
+                    shippingTaxable: taxResult.shippingTaxable,
+                    exempt: taxResult.exempt,
+                  };
+
+                  if (taxResult.required && taxResult.rate > 0) {
+                    const taxableAmount = taxResult.shippingTaxable
+                      ? totalSubtotal + totalShippingCost
+                      : totalSubtotal;
+                    tax = Math.round(taxableAmount * taxResult.rate);
+                  }
+                }
+              }
+            }
 
             return {
               subtotal: totalSubtotal,
               shippingCost: totalShippingCost,
               tax,
+              taxBreakdown,
               total: totalSubtotal + totalShippingCost + tax,
               currency,
               providerBreakdown,
@@ -320,8 +376,101 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               });
             }
 
-            const tax = totalSubtotal * 0.08;
-            const totalAmount = totalSubtotal + shippingCost + tax;
+            let verifiedShippingCost = 0;
+            const taxCalculationItems: Array<{ catalogVariantId: number; quantity: number }> = [];
+
+            for (const [providerName, providerItems] of itemsByProvider.entries()) {
+              if (providerName === 'manual') continue;
+
+              const provider = runtime.getProvider(providerName);
+              if (!provider) continue;
+
+              const selectedRateId = selectedRates[providerName];
+              if (!selectedRateId) continue;
+
+              const fulfillmentItems = mapToFulfillmentItems(providerItems);
+
+              const quoteResult = yield* Effect.tryPromise({
+                try: () =>
+                  provider.client.quoteOrder({
+                    recipient: buildRecipient(address),
+                    items: fulfillmentItems,
+                    currency,
+                  }),
+                catch: (error) => {
+                  console.error(`[createCheckout] Failed to get shipping rates for ${providerName}:`, error);
+                  return null;
+                },
+              });
+
+              if (quoteResult) {
+                const selectedRate = quoteResult.rates?.find(r => r.id === selectedRateId);
+                if (selectedRate) {
+                  verifiedShippingCost += selectedRate.rate;
+                }
+              }
+
+              for (const pi of providerItems) {
+                const catalogVariantId = pi.fulfillmentConfig?.providerData?.catalogVariantId;
+                if (catalogVariantId && typeof catalogVariantId === 'number') {
+                  taxCalculationItems.push({
+                    catalogVariantId,
+                    quantity: pi.item.quantity,
+                  });
+                }
+              }
+            }
+
+            const manualItems = itemsByProvider.get('manual') || [];
+            if (manualItems.length > 0) {
+              verifiedShippingCost += 0;
+            }
+
+            let tax = 0;
+            let taxRequired: boolean | undefined;
+            let taxRate: number | undefined;
+            let taxShippingTaxable: boolean | undefined;
+            let taxExempt = false;
+
+            if (taxCalculationItems.length > 0) {
+              const printfulProvider = runtime.getProvider('printful');
+              if (printfulProvider) {
+                const taxResult = yield* Effect.tryPromise({
+                  try: () =>
+                    printfulProvider.client.calculateTax({
+                      recipient: {
+                        countryCode: address.country,
+                        stateCode: address.state,
+                        zip: address.postCode,
+                        city: address.city,
+                        taxId: address.taxId,
+                      },
+                      items: taxCalculationItems,
+                      currency,
+                    }),
+                  catch: (error) => {
+                    console.error('[createCheckout] Tax calculation failed:', error);
+                    return null;
+                  },
+                });
+
+                if (taxResult) {
+                  taxRequired = taxResult.required;
+                  taxRate = taxResult.rate;
+                  taxShippingTaxable = taxResult.shippingTaxable;
+                  taxExempt = taxResult.exempt;
+
+                  if (taxResult.required && taxResult.rate > 0) {
+                    const taxableAmount = taxResult.shippingTaxable
+                      ? totalSubtotal + verifiedShippingCost
+                      : totalSubtotal;
+                    tax = Math.round(taxableAmount * taxResult.rate);
+                  }
+                }
+              }
+            }
+
+            const totalAmount = totalSubtotal + verifiedShippingCost + tax;
 
             const orderItems = Array.from(itemsByProvider.values())
               .flat()
@@ -338,6 +487,14 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             const order = yield* orderStore.create({
               userId,
               items: orderItems,
+              subtotal: totalSubtotal,
+              shippingCost: verifiedShippingCost,
+              taxAmount: tax,
+              taxRequired,
+              taxRate: taxRate !== undefined ? Math.round(taxRate * 10000) : undefined,
+              taxShippingTaxable,
+              taxExempt,
+              customerTaxId: address.taxId,
               totalAmount,
               currency,
             });
@@ -406,10 +563,10 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                 quantity: pi.item.quantity,
               }));
 
-            if (shippingCost > 0) {
+            if (verifiedShippingCost > 0) {
               lineItems.push({
                 name: 'Shipping',
-                unitAmount: Math.round(shippingCost * 100),
+                unitAmount: Math.round(verifiedShippingCost * 100),
                 quantity: 1,
               });
             }

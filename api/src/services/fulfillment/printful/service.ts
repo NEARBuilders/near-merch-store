@@ -284,6 +284,52 @@ export class PrintfulService {
     });
   }
 
+  calculateTax(params: {
+    recipient: {
+      countryCode: string;
+      stateCode?: string;
+      zip?: string;
+      city?: string;
+      taxId?: string;
+    };
+    items: Array<{
+      catalogVariantId: number;
+      quantity: number;
+    }>;
+    currency?: string;
+  }): Effect.Effect<{
+    required: boolean;
+    rate: number;
+    shippingTaxable: boolean;
+    exempt: boolean;
+  }, Error> {
+    return Effect.tryPromise({
+      try: async () => {
+        const response = await this.client.calculateTaxRate({
+          recipient: {
+            country_code: params.recipient.countryCode,
+            state_code: params.recipient.stateCode || undefined,
+            zip: params.recipient.zip,
+            city: params.recipient.city,
+            tax_number: params.recipient.taxId,
+          },
+          items: params.items,
+          currency: params.currency || 'USD',
+        });
+
+        const exempt = !response.required || response.rate === 0;
+
+        return {
+          required: response.required,
+          rate: response.rate,
+          shippingTaxable: response.shipping_taxable,
+          exempt,
+        };
+      },
+      catch: (e) => new Error(`Failed to calculate tax: ${e instanceof Error ? e.message : String(e)}`),
+    });
+  }
+
   confirmOrder(orderId: string) {
     return Effect.gen(this, function* () {
       yield* Effect.tryPromise({

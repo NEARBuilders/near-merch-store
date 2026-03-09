@@ -123,6 +123,28 @@ export const ShippingQuoteOutputSchema = z.object({
   currency: z.string(),
 });
 
+export const TaxQuoteInputSchema = z.object({
+  recipient: z.object({
+    countryCode: z.string(),
+    stateCode: z.string().optional(),
+    zip: z.string().optional(),
+    city: z.string().optional(),
+    taxId: z.string().optional(),
+  }),
+  items: z.array(z.object({
+    catalogVariantId: z.number(),
+    quantity: z.number().int().positive(),
+  })),
+  currency: z.string().optional(),
+});
+
+export const TaxQuoteOutputSchema = z.object({
+  required: z.boolean(),
+  rate: z.number(),
+  shippingTaxable: z.boolean(),
+  exempt: z.boolean(),
+});
+
 export type FulfillmentProvider = z.infer<typeof FulfillmentProviderSchema>;
 export type FulfillmentOrderStatus = z.infer<typeof FulfillmentOrderStatusSchema>;
 export type ProviderProduct = z.infer<typeof ProviderProductSchema>;
@@ -133,3 +155,5 @@ export type FulfillmentOrder = z.infer<typeof FulfillmentOrderSchema>;
 export type ShippingRate = z.infer<typeof ShippingRateSchema>;
 export type ShippingQuoteInput = z.infer<typeof ShippingQuoteInputSchema>;
 export type ShippingQuoteOutput = z.infer<typeof ShippingQuoteOutputSchema>;
+export type TaxQuoteInput = z.infer<typeof TaxQuoteInputSchema>;
+export type TaxQuoteOutput = z.infer<typeof TaxQuoteOutputSchema>;

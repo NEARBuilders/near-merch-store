@@ -268,4 +268,43 @@ export class PrintfulClient {
   get storesV2() {
     return this.sdk.storesV2;
   }
+
+  async calculateTaxRate(params: {
+    recipient: {
+      country_code: string;
+      state_code?: string;
+      zip?: string;
+      city?: string;
+      tax_number?: string;
+    };
+    items: Array<{
+      catalog_variant_id: number;
+      quantity: number;
+    }>;
+    currency?: string;
+  }): Promise<{
+    required: boolean;
+    rate: number;
+    shipping_taxable: boolean;
+  }> {
+    const result = await this.request<PrintfulResponse<{
+      required: boolean;
+      rate: number;
+      shipping_taxable: boolean;
+    }>>(
+      `${this.v1BaseUrl}/tax/rates`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient: params.recipient,
+          items: params.items.map(item => ({
+            catalog_variant_id: item.catalog_variant_id,
+            quantity: item.quantity,
+          })),
+          currency: params.currency || 'USD',
+        }),
+      }
+    );
+    return result.result;
+  }
 }

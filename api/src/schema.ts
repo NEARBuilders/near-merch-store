@@ -294,6 +294,14 @@ export const CreateOrderItemInputSchema = z.object({
 export const CreateOrderInputSchema = z.object({
   userId: z.string(),
   items: z.array(CreateOrderItemInputSchema),
+  subtotal: z.number().optional(),
+  shippingCost: z.number().optional(),
+  taxAmount: z.number().optional(),
+  taxRequired: z.boolean().optional(),
+  taxRate: z.number().optional(),
+  taxShippingTaxable: z.boolean().optional(),
+  taxExempt: z.boolean().optional(),
+  customerTaxId: z.string().optional(),
   totalAmount: z.number(),
   currency: z.string(),
   shippingMethod: z.string().optional(),
@@ -346,6 +354,14 @@ export const OrderWithItemsSchema = z.object({
   id: z.string(),
   userId: z.string(),
   status: OrderStatusSchema,
+  subtotal: z.number().optional(),
+  shippingCost: z.number().optional(),
+  taxAmount: z.number().optional(),
+  taxRequired: z.boolean().optional(),
+  taxRate: z.number().optional(),
+  taxShippingTaxable: z.boolean().optional(),
+  taxExempt: z.boolean().optional(),
+  customerTaxId: z.string().optional(),
   totalAmount: z.number(),
   currency: z.string(),
   checkoutSessionId: z.string().optional(),
@@ -394,10 +410,18 @@ export const ProviderBreakdownSchema = z.object({
   availableRates: z.array(ProviderShippingOptionSchema),
 });
 
+export const TaxBreakdownSchema = z.object({
+  required: z.boolean(),
+  rate: z.number(),
+  shippingTaxable: z.boolean(),
+  exempt: z.boolean(),
+});
+
 export const QuoteOutputSchema = z.object({
   subtotal: z.number(),
   shippingCost: z.number(),
   tax: z.number(),
+  taxBreakdown: TaxBreakdownSchema.optional(),
   total: z.number(),
   currency: z.string(),
   providerBreakdown: z.array(ProviderBreakdownSchema),
@@ -410,6 +434,7 @@ export const QuoteOutputSchema = z.object({
 export type QuoteItemInput = z.infer<typeof QuoteItemInputSchema>;
 export type ProviderShippingOption = z.infer<typeof ProviderShippingOptionSchema>;
 export type ProviderBreakdown = z.infer<typeof ProviderBreakdownSchema>;
+export type TaxBreakdown = z.infer<typeof TaxBreakdownSchema>;
 export type QuoteOutput = z.infer<typeof QuoteOutputSchema>;
 
 export const PrintfulWebhookEventTypeSchema = z.enum([

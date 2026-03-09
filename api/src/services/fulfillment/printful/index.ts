@@ -110,6 +110,10 @@ export default createPlugin({
         );
       }),
 
+      calculateTax: builder.calculateTax.handler(async ({ input }) => {
+        return await Effect.runPromise(service.calculateTax(input));
+      }),
+
       confirmOrder: builder.confirmOrder.handler(async ({ input }) => {
         return await Effect.runPromise(service.confirmOrder(input.id));
       }),

@@ -6,6 +6,8 @@ import {
   FulfillmentOrderSchema,
   ShippingQuoteInputSchema,
   ShippingQuoteOutputSchema,
+  TaxQuoteInputSchema,
+  TaxQuoteOutputSchema,
 } from './schema';
 
 export const FulfillmentContract = oc.router({
@@ -50,6 +52,11 @@ export const FulfillmentContract = oc.router({
     .route({ method: 'POST', path: '/orders/quote' })
     .input(ShippingQuoteInputSchema)
     .output(ShippingQuoteOutputSchema),
+
+  calculateTax: oc
+    .route({ method: 'POST', path: '/tax/calculate' })
+    .input(TaxQuoteInputSchema)
+    .output(TaxQuoteOutputSchema),
 
   confirmOrder: oc
     .route({ method: 'POST', path: '/orders/{id}/confirm' })

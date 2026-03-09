@@ -64,6 +64,14 @@ export const OrderStoreLive = Layer.effect(
         id: row.id,
         userId: row.userId,
         status: row.status as OrderStatus,
+        subtotal: row.subtotal !== null ? row.subtotal / 100 : undefined,
+        shippingCost: row.shippingCost !== null ? row.shippingCost / 100 : undefined,
+        taxAmount: row.taxAmount !== null ? row.taxAmount / 100 : undefined,
+        taxRequired: row.taxRequired ?? undefined,
+        taxRate: row.taxRate ?? undefined,
+        taxShippingTaxable: row.taxShippingTaxable ?? undefined,
+        taxExempt: row.taxExempt ?? undefined,
+        customerTaxId: row.customerTaxId ?? undefined,
         totalAmount: row.totalAmount / 100,
         currency: row.currency,
         checkoutSessionId: row.checkoutSessionId || undefined,
@@ -104,14 +112,20 @@ export const OrderStoreLive = Layer.effect(
           try: async () => {
             const now = new Date();
             const orderId = crypto.randomUUID();
-            // Keep this short for fulfillment providers (e.g. Printful external_id).
-            // 16 chars total: `o` + 15 base36 chars.
             const fulfillmentReferenceId = `o${makeFulfillmentReferenceId()}`;
 
             await db.insert(schema.orders).values({
               id: orderId,
               userId: input.userId,
               status: 'pending',
+              subtotal: input.subtotal !== undefined ? Math.round(input.subtotal * 100) : null,
+              shippingCost: input.shippingCost !== undefined ? Math.round(input.shippingCost * 100) : null,
+              taxAmount: input.taxAmount !== undefined ? Math.round(input.taxAmount * 100) : null,
+              taxRequired: input.taxRequired ?? null,
+              taxRate: input.taxRate ?? null,
+              taxShippingTaxable: input.taxShippingTaxable ?? null,
+              taxExempt: input.taxExempt ?? false,
+              customerTaxId: input.customerTaxId ?? null,
               totalAmount: Math.round(input.totalAmount * 100),
               currency: input.currency,
               shippingMethod: input.shippingMethod || null,
