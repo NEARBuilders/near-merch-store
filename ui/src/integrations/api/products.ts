@@ -9,7 +9,7 @@ import {
 } from '@tanstack/react-query';
 import { productKeys, productTypeKeys, collectionKeys, categoryKeys, type Category } from './keys';
 import { toast } from 'sonner';
-import { useEffect, useState, useRef } from 'react';
+
 
 type SyncProgressStream = Awaited<ReturnType<typeof apiClient.subscribeSyncProgress>>;
 export type SyncProgressEvent = SyncProgressStream extends AsyncIterable<infer T> ? T : never;
@@ -238,44 +238,37 @@ export function useSyncStatus() {
 }
 
 export function useSyncProgress() {
-  const [progress, setProgress] = useState<SyncProgressEvent | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    (async () => {
-      try {
-        const stream = await apiClient.subscribeSyncProgress({}, { signal: abortController.signal });
-        
-        for await (const event of stream) {
-          setProgress(event);
+  return useQuery({
+    queryKey: ['syncProgress'],
+    queryFn: async () => {
+      const events: SyncProgressEvent[] = [];
+      const stream = await apiClient.subscribeSyncProgress({});
+      
+      for await (const event of stream) {
+        events.push(event);
+        if (event.status === 'completed' || event.status === 'error') {
+          return { events, finalEvent: event };
         }
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return;
-        console.error('Sync progress stream error:', err);
       }
-    })();
-
-    return () => abortController.abort();
-  }, []);
-
-  // Auto-clear 30 seconds after completion
-  useEffect(() => {
-    if (progress?.status === 'completed' || progress?.status === 'error') {
-      const timer = setTimeout(() => setProgress(null), 30_000);
-      return () => clearTimeout(timer);
-    }
-  }, [progress?.status]);
-
-  return { progress };
+      
+      return { events, finalEvent: null };
+    },
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60,
+    enabled: false,
+  });
 }
 
 export function useSyncProducts() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => apiClient.sync(),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['syncProgress'] });
+      queryClient.removeQueries({ queryKey: ['syncProgress'] });
+      queryClient.setQueryData(['syncProgress'], { events: [], finalEvent: null });
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
       queryClient.invalidateQueries({ 
@@ -329,6 +322,21 @@ export function useSyncProducts() {
         default:
           toast.error(errorMessage || 'Sync failed');
       }
+    },
+  });
+}
+
+export function useCancelSync() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.cancelSync(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
+      queryClient.removeQueries({ queryKey: ['syncProgress'] });
+      toast.success('Sync cancelled');
+    },
+    onError: () => {
+      toast.error('Failed to cancel sync');
     },
   });
 }

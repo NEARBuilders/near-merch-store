@@ -14,6 +14,7 @@ import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
 import { NewsletterService, NewsletterServiceLive } from './services/newsletter';
 import { syncProgressStore, type SyncProgress } from './services/sync-progress';
+import { syncManager } from './services/sync-manager';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStore, ProductStoreLive, ProductTypeStore, ProductTypeStoreLive, CollectionStoreLive } from './store';
 import { NewsletterStoreLive } from './store/newsletter';
 import { ProviderConfigStore, ProviderConfigStoreLive } from './store/providers';
@@ -532,6 +533,37 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         } finally {
           unsubscribe();
         }
+      }),
+
+      cancelSync: builder.cancelSync.handler(async () => {
+        return await managedRuntime.runPromise(
+          Effect.gen(function* () {
+            const cancelled = yield* syncManager.cancelSync();
+            const store = yield* ProductStore;
+            
+            if (cancelled) {
+              yield* store.setSyncStatus(
+                'products',
+                'idle',
+                null,
+                null,
+                null,
+                null,
+                null
+              );
+              
+              return {
+                success: true,
+                message: 'Sync cancelled successfully',
+              };
+            }
+            
+            return {
+              success: false,
+              message: 'No active sync to cancel',
+            };
+          })
+        );
       }),
 
       getNearPrice: builder.getNearPrice.handler(async () => {

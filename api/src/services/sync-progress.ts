@@ -5,6 +5,7 @@ export type { ProviderProgress, SyncProgress };
 class SyncProgressStore {
   private progress: SyncProgress;
   private subscribers = new Set<(p: SyncProgress) => void>();
+  private lastUpdateTime: number;
 
   constructor() {
     this.progress = {
@@ -16,6 +17,11 @@ class SyncProgressStore {
       timestamp: Date.now(),
       message: undefined,
     };
+    this.lastUpdateTime = Date.now();
+  }
+
+  getLastUpdateTime(): number {
+    return this.lastUpdateTime;
   }
 
   updateProvider(provider: string, update: Partial<ProviderProgress> & { timestamp?: number }) {
@@ -39,6 +45,7 @@ class SyncProgressStore {
 
     this.progress.status = 'syncing';
     this.progress.timestamp = update.timestamp ?? Date.now();
+    this.lastUpdateTime = Date.now();
     this.broadcast();
   }
 
@@ -48,6 +55,7 @@ class SyncProgressStore {
     this.progress.totalFailed = totals.failed;
     this.progress.totalRemoved = totals.removed;
     this.progress.timestamp = Date.now();
+    this.lastUpdateTime = Date.now();
     this.broadcast();
   }
 
@@ -55,6 +63,7 @@ class SyncProgressStore {
     this.progress.status = 'error';
     this.progress.message = message;
     this.progress.timestamp = Date.now();
+    this.lastUpdateTime = Date.now();
     
     if (provider && this.progress.providers[provider]) {
       const existing = this.progress.providers[provider];
@@ -81,6 +90,7 @@ class SyncProgressStore {
       timestamp: Date.now(),
       message: undefined,
     };
+    this.lastUpdateTime = Date.now();
     this.broadcast();
   }
 

@@ -452,11 +452,27 @@ export const contract = oc.router({
         data: z.object({
           stage: z.enum(['SET_STATUS', 'FETCH_PRODUCTS', 'UPSERT', 'FINALIZE', 'UNKNOWN']).describe('Where failure occurred'),
           errorMessage: z.string().describe('Detailed error message'),
-          provider: z.string().optional().describe('Provider if applicable'),
           syncDuration: z.number().optional().describe('Duration at failure'),
         }),
       },
     }),
+
+  cancelSync: oc
+    .route({
+      method: 'POST',
+      path: '/sync/cancel',
+      summary: 'Cancel active sync',
+      description: 
+        'Interrupts an in-progress sync and resets to idle state. ' +
+        'Useful for recovering from stuck or stale sync operations.',
+      tags: ['Sync'],
+    })
+    .output(
+      z.object({
+        success: z.boolean().describe('Whether a sync was cancelled'),
+        message: z.string().describe('Human-readable result'),
+      })
+    ),
 
   getSyncStatus: oc
     .route({

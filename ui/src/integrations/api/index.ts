@@ -33,6 +33,7 @@ export {
   useSyncStatus,
   useSyncProgress,
   useSyncProducts,
+  useCancelSync,
   useUpdateProductListing,
   useUpdateProductCategories,
   useUpdateProductTags,

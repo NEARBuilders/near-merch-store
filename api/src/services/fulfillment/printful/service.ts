@@ -29,6 +29,7 @@ import {
   type PrintfulSyncProduct,
   type PrintfulSyncVariant
 } from './types';
+import { printfulRateLimiter, type RateLimiter } from '../rate-limiter';
 
 export class PrintfulService {
   private client: PrintfulClient;
@@ -138,10 +139,31 @@ export class PrintfulService {
         return this.catalogVariantCache.get(variantId)!;
       }
 
-      const variant = yield* Effect.tryPromise({
-        try: () => this.client.getCatalogVariant(variantId),
-        catch: () => null,
-      });
+      const rateLimiter = yield* printfulRateLimiter;
+
+      const variant = yield* rateLimiter.withRateLimit(
+        Effect.tryPromise({
+          try: () => this.client.getCatalogVariant(variantId),
+          catch: (error) => {
+            if (error instanceof FulfillmentError) {
+              return error;
+            }
+            return FulfillmentError.fromHttpStatus(
+              500,
+              'printful',
+              error instanceof Error ? error.message : String(error),
+              error
+            );
+          },
+        })
+      ).pipe(
+        Effect.retry({
+          times: 5,
+          schedule: Schedule.exponential('1 second'),
+          while: (error) => error instanceof FulfillmentError && error.code === 'RATE_LIMIT',
+        }),
+        Effect.catchAll(() => Effect.succeed(null))
+      );
 
       if (variant) {
         this.catalogVariantCache.set(variantId, variant);
