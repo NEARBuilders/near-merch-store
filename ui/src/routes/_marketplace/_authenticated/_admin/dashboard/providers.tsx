@@ -107,6 +107,7 @@ function ProvidersPage() {
     "shipment_returned",
     "shipment_canceled",
     "order_created",
+    "order_updated",
     "order_canceled",
     "order_failed",
   ]);
