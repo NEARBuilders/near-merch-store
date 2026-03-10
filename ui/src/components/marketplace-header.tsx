@@ -1,13 +1,8 @@
 import { Link, useMatchRoute, useLocation, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Search, Heart, ShoppingCart, User, Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,9 +16,6 @@ import { useCartSidebarStore } from "@/stores/cart-sidebar-store";
 import { NearMark } from "@/components/near-mark";
 import { NearWordmark } from "@/components/near-wordmark";
 import { authClient } from "@/lib/auth-client";
-import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
-import nearLogo from "@/assets/images/pngs/logo_sq.png";
 import { useCategories } from "@/integrations/api";
 
 function CollectionsDropdown() {
@@ -95,12 +87,9 @@ function CollectionsDropdown() {
 }
 
 export function MarketplaceHeader() {
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [isSigningIn, setIsSigningIn] = useState(false);
   const isCartSidebarOpen = useCartSidebarStore((state) => state.isOpen);
   const closeCartSidebar = useCartSidebarStore((state) => state.close);
   const openCartSidebar = useCartSidebarStore((state) => state.open);
@@ -108,15 +97,8 @@ export function MarketplaceHeader() {
   const { totalCount: cartCount } = useCart();
   const { count: favoritesCount } = useFavorites();
 
-  const { data: session, refetch: refetchSession } = authClient.useSession();
+  const { data: session } = authClient.useSession();
   const isLoggedIn = !!session?.user;
-
-  // Close login modal when user becomes logged in
-  useEffect(() => {
-    if (isLoggedIn && isLoginOpen) {
-      setIsLoginOpen(false);
-    }
-  }, [isLoggedIn, isLoginOpen]);
 
   const matchRoute = useMatchRoute();
   const location = useLocation();
@@ -129,50 +111,6 @@ export function MarketplaceHeader() {
   const isProductsActive = !!matchRoute({ to: '/products' });
   const isExclusivesActive = !!matchRoute({ to: '/exclusives' });
   const isTrackOrderActive = !!matchRoute({ to: '/account/orders' });
-
-  const handleSignIn = async () => {
-    setIsSigningIn(true);
-    try {
-      await authClient.signIn.near({
-        onSuccess: async () => {
-          await new Promise(resolve => setTimeout(resolve, 200));
-          await refetchSession();
-          queryClient.invalidateQueries();
-          setIsSigningIn(false);
-          setIsLoginOpen(false);
-        },
-        onError: (error: any) => {
-          setIsSigningIn(false);
-          console.error("Sign in error:", error);
-          
-          if (error?.code === "UNAUTHORIZED_NONCE_REPLAY") {
-            toast.error("This sign-in request was already used. Please try again.");
-          } else if (error?.code === "UNAUTHORIZED_INVALID_SIGNATURE") {
-            toast.error("Signature verification failed. Please try again.");
-          } else {
-            toast.error("Failed to sign in. Please try again.");
-          }
-        },
-      });
-    } catch (error) {
-      setIsSigningIn(false);
-      console.error("Sign in error:", error);
-      toast.error("Failed to sign in. Please try again.");
-    }
-  };
-
-  const handleCreateWallet = () => {
-    const width = 500;
-    const height = 700;
-    const left = (window.screen.width - width) / 2;
-    const top = (window.screen.height - height) / 2;
-    
-    window.open(
-      'https://wallet.meteorwallet.app/connect/mainnet/login?connectionUid=8Lt_7EFCO9g84frjAdAxw&',
-      'Meteor Wallet',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-    );
-  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -329,75 +267,15 @@ export function MarketplaceHeader() {
               </Button>
             </Link>
               ) : (
-<Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                      >
-                      <User className="h-5 w-5" />
-                    </Button>
-                  </DialogTrigger>
-                <DialogContent 
-                  showCloseButton={false}
-                  className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-0"
-                >
-                  <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Sign In</h2>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                        onClick={() => setIsLoginOpen(false)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="space-y-3 sm:space-y-4">
-                      <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
-                        Connect your NEAR wallet to continue
-                      </p>
-                      {!isSigningIn && (
-                        <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
-                          Don't have a NEAR wallet?{" "}
-                          <button
-                            onClick={handleCreateWallet}
-                            className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
-                          >
-                            Create one here
-                          </button>
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-3 sm:space-y-4">
-                      <button
-                        onClick={handleSignIn}
-                        disabled={isSigningIn}
-                        className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                      >
-                        <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                          <img
-                            src={nearLogo}
-                            alt="NEAR"
-                            loading="eager"
-                            decoding="async"
-                            className="w-full h-full object-contain invert dark:invert-0"
-                          />
-                        </div>
-                        <span>{isSigningIn ? "Signing in..." : "Sign in with NEAR"}</span>
-                      </button>
-                    </div>
-
-                    <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
-                      <p>Free, no transaction required</p>
-                    </div>
-                  </div>
-                </DialogContent>
-                </Dialog>
+            <Link to="/login" search={{ redirect: location.pathname }}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                  >
+                    <User className="h-5 w-5" />
+                  </Button>
+                </Link>
                 )}
             </div>
 
@@ -413,75 +291,15 @@ export function MarketplaceHeader() {
                     </Button>
                   </Link>
                 ) : (
-                  <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                      >
-                        <User className="h-5 w-5" />
-                      </Button>
-                    </DialogTrigger>
-                  <DialogContent 
-                    showCloseButton={false}
-                    className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 p-0"
-                  >
-                    <div className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Sign In</h2>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
-                          onClick={() => setIsLoginOpen(false)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="space-y-3 sm:space-y-4">
-                        <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
-                          Connect your NEAR wallet to continue
-                        </p>
-                        {!isSigningIn && (
-                          <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
-                            Don't have a NEAR wallet?{" "}
-                            <button
-                              onClick={handleCreateWallet}
-                              className="underline hover:text-[#00EC97] cursor-pointer transition-colors"
-                            >
-                              Create one here
-                            </button>
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="space-y-3 sm:space-y-4">
-                        <button
-                          onClick={handleSignIn}
-                          disabled={isSigningIn}
-                          className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                        >
-                          <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                            <img
-                              src={nearLogo}
-                              alt="NEAR"
-                              loading="eager"
-                              decoding="async"
-                              className="w-full h-full object-contain invert dark:invert-0"
-                            />
-                          </div>
-                          <span>{isSigningIn ? "Signing in..." : "Sign in with NEAR"}</span>
-                        </button>
-                      </div>
-
-                      <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
-                        <p>Free, no transaction required</p>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                  <Link to="/login" search={{ redirect: location.pathname }}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="cursor-pointer hover:bg-transparent hover:!bg-transparent focus-visible:!bg-transparent hover:text-[#00EC97]"
+                    >
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </Link>
                 )}
             </div>
 
