@@ -284,6 +284,53 @@ export class PrintfulService {
     });
   }
 
+  estimateOrder(params: {
+    recipient: {
+      countryCode: string;
+      zip: string;
+      stateCode?: string;
+    };
+    items: Array<{
+      catalogVariantId: number;
+      quantity: number;
+      designFiles?: Array<{ placement: string; url: string }>;
+    }>;
+    currency?: string;
+  }): Effect.Effect<{
+    subtotal: number;
+    shipping: number;
+    tax: number;
+    vat: number;
+    total: number;
+    currency: string;
+  }, Error> {
+    return Effect.tryPromise({
+      try: async () => {
+        const result = await this.client.estimateOrder({
+          recipient: {
+            country_code: params.recipient.countryCode,
+            zip: params.recipient.zip,
+            state_code: params.recipient.stateCode || undefined,
+          },
+          items: params.items.map(item => ({
+            catalog_variant_id: item.catalogVariantId,
+            quantity: item.quantity,
+            designFiles: item.designFiles,
+          })),
+          currency: params.currency || 'USD',
+        });
+
+        return result;
+      },
+      catch: (e) => new Error(`Failed to estimate order: ${e instanceof Error ? e.message : String(e)}`),
+    }).pipe(
+      Effect.retry({
+        times: 3,
+        schedule: Schedule.exponential(100),
+      })
+    );
+  }
+
   confirmOrder(orderId: string) {
     return Effect.gen(this, function* () {
       yield* Effect.tryPromise({

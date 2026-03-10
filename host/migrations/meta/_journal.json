@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1766092795676,
+      "tag": "0000_tranquil_black_widow",
+      "breakpoints": true
+    }
+  ]
+}

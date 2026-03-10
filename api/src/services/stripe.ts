@@ -9,7 +9,7 @@ export class StripeService {
 
   constructor(secretKey: string, webhookSecret: string) {
     this.stripe = new Stripe(secretKey, {
-      apiVersion: '2026-01-28.clover',
+      apiVersion: '2026-02-25.clover',
     });
     this.webhookSecret = webhookSecret;
   }

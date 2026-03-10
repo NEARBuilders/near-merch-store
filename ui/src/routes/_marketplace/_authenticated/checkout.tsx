@@ -1,5 +1,6 @@
 import { useCart } from '@/hooks/use-cart';
 import { useNearPrice } from '@/hooks/use-near-price';
+import { useFormPersistence } from '@/hooks/use-form-persistence';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
 import pingpayLogoDark from '@/assets/pingpay/pingpay-logo-dark.png';
@@ -26,6 +27,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Country, State } from 'country-state-city';
 import type { IState } from 'country-state-city';
 import { cn } from '@/lib/utils';
@@ -71,6 +73,7 @@ function CheckoutPage() {
 
   const shippingCost = shippingQuote?.shippingCost ?? 0;
   const tax = shippingQuote?.tax ?? 0;
+  const vat = shippingQuote?.vat ?? 0;
   const total = shippingQuote?.total ?? subtotal;
   const nearAmount = (total / nearPrice).toFixed(2);
 
@@ -88,10 +91,23 @@ function CheckoutPage() {
       postCode: '',
       taxId: '',
     } as ShippingAddress,
+    validators: {
+      onSubmit: ({ value }) => {
+        if (availableStates.length > 0 && !value.state) {
+          return 'State/Province is required for the selected country';
+        }
+        if (value.country === 'BR' && !value.taxId) {
+          return 'Tax ID (CPF/CNPJ) is required for orders to Brazil';
+        }
+        return undefined;
+      },
+    },
     onSubmit: async ({ value }) => {
       await handleCalculateShipping(value);
     },
   });
+
+  const { clearPersistence } = useFormPersistence(form, 'checkout-form-data');
 
   const quoteMutation = useMutation({
     mutationFn: async (params: {
@@ -149,6 +165,7 @@ function CheckoutPage() {
       return result;
     },
     onSuccess: (data) => {
+      clearPersistence();
       if (data?.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {
@@ -172,7 +189,9 @@ function CheckoutPage() {
         })),
         shippingAddress: {
           ...formData,
-          state: formData.state || undefined,
+          state: String(formData.state || '') || undefined,
+          addressLine2: String(formData.addressLine2 || '') || undefined,
+          phone: String(formData.phone || '') || undefined,
         },
       });
     } finally {
@@ -192,24 +211,12 @@ function CheckoutPage() {
       return;
     }
 
+    if (!acceptedTerms) {
+      toast.error('Please accept the Terms of Service to continue');
+      return;
+    }
+
     const formData = form.state.values;
-
-    if (!formData.firstName || !formData.lastName ||
-      !formData.email || !formData.country ||
-      !formData.addressLine1 || !formData.city || !formData.postCode) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    if (availableStates.length > 0 && !formData.state) {
-      toast.error('State/Province is required for the selected country');
-      return;
-    }
-
-    if (formData.country === 'BR' && !formData.taxId) {
-      toast.error('Tax ID (CPF/CNPJ) is required for orders to Brazil');
-      return;
-    }
 
     if (!shippingQuote) {
       await handleCalculateShipping(formData);
@@ -247,6 +254,14 @@ function CheckoutPage() {
               <div className="grid grid-cols-2 gap-4">
                 <form.Field
                   name="firstName"
+                  validators={{
+                    onBlur: ({ value }) => {
+                      if (!value || value.trim() === '') {
+                        return 'First name is required';
+                      }
+                      return undefined;
+                    }
+                  }}
                   children={(field) => (
                     <div className="space-y-2">
                       <Label htmlFor="firstName">
@@ -263,14 +278,28 @@ function CheckoutPage() {
                         onKeyDown={(e) => handleKeyDown(e, 'lastName')}
                         autoComplete="given-name"
                         required
-                        className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
+                        className={cn(
+                          "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                          field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                        )}
                       />
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                        <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                      )}
                     </div>
-                  )}
-                />
+                   )}
+                 />
 
                 <form.Field
                   name="lastName"
+                  validators={{
+                    onBlur: ({ value }) => {
+                      if (!value || value.trim() === '') {
+                        return 'Last name is required';
+                      }
+                      return undefined;
+                    }
+                  }}
                   children={(field) => (
                     <div className="space-y-2">
                       <Label htmlFor="lastName">
@@ -287,15 +316,33 @@ function CheckoutPage() {
                         onKeyDown={(e) => handleKeyDown(e, 'email')}
                         autoComplete="family-name"
                         required
-                        className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
+                        className={cn(
+                          "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                          field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                        )}
                       />
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                        <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                      )}
                     </div>
-                  )}
-                />
-              </div>
+                   )}
+                 />
+               </div>
 
-              <form.Field
-                name="email"
+               <form.Field
+                 name="email"
+                validators={{
+                  onBlur: ({ value }) => {
+                    if (!value || value.trim() === '') {
+                      return 'Email is required';
+                    }
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(value)) {
+                      return 'Please enter a valid email address';
+                    }
+                    return undefined;
+                  }
+                }}
                 children={(field) => (
                   <div className="space-y-2">
                     <Label htmlFor="email">
@@ -313,14 +360,31 @@ function CheckoutPage() {
                       onKeyDown={(e) => handleKeyDown(e, 'phone')}
                       autoComplete="email"
                       required
-                      className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
+                      className={cn(
+                        "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                        field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                      )}
                     />
+                    {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                      <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                    )}
                   </div>
                 )}
               />
 
               <form.Field
                 name="phone"
+                validators={{
+                  onBlur: ({ value }) => {
+                    if (!value) return undefined;
+                    const phoneStr = String(value);
+                    const digits = phoneStr.replace(/\D/g, '');
+                    if (digits.length < 7) {
+                      return 'Please enter a valid phone number';
+                    }
+                    return undefined;
+                  }
+                }}
                 children={(field) => (
                   <div className="space-y-2">
                     <Label htmlFor="phone">
@@ -333,19 +397,33 @@ function CheckoutPage() {
                         if (el) fieldRefs.current.set('phone', el);
                       }}
                       placeholder="+1 234 567 8900"
-                      value={field.state.value || ''}
+                      value={String(field.state.value || '')}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, 'addressLine1')}
                       autoComplete="tel"
-                      className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
-                    />
-                  </div>
-                )}
-              />
+                      className={cn(
+                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                       )}
+                     />
+                     {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                     )}
+                   </div>
+                 )}
+               />
 
-              <form.Field
-                name="addressLine1"
+               <form.Field
+                 name="addressLine1"
+                validators={{
+                  onBlur: ({ value }) => {
+                    if (!value || value.trim() === '') {
+                      return 'Street address is required';
+                    }
+                    return undefined;
+                  }
+                }}
                 children={(field) => (
                   <div className="space-y-2">
                     <Label htmlFor="addressLine1">
@@ -363,14 +441,20 @@ function CheckoutPage() {
                       onKeyDown={(e) => handleKeyDown(e, 'addressLine2')}
                       autoComplete="address-line1"
                       required
-                      className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
-                    />
-                  </div>
-                )}
-              />
+                       className={cn(
+                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                       )}
+                     />
+                     {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                     )}
+                   </div>
+                 )}
+               />
 
-              <form.Field
-                name="addressLine2"
+               <form.Field
+                 name="addressLine2"
                 children={(field) => (
                   <div className="space-y-2">
                     <Label htmlFor="addressLine2">
@@ -382,7 +466,7 @@ function CheckoutPage() {
                         if (el) fieldRefs.current.set('addressLine2', el);
                       }}
                       placeholder="Apartment, suite, unit, etc."
-                      value={field.state.value || ''}
+                      value={String(field.state.value || '')}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onKeyDown={(e) => handleKeyDown(e, 'city')}
@@ -395,6 +479,14 @@ function CheckoutPage() {
 
               <form.Field
                 name="city"
+                validators={{
+                  onBlur: ({ value }) => {
+                    if (!value || value.trim() === '') {
+                      return 'Town / City is required';
+                    }
+                    return undefined;
+                  }
+                }}
                 children={(field) => (
                   <div className="space-y-2">
                     <Label htmlFor="city">
@@ -411,20 +503,35 @@ function CheckoutPage() {
                       onKeyDown={(e) => handleKeyDown(e, 'country')}
                       autoComplete="address-level2"
                       required
-                      className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
-                    />
-                  </div>
-                )}
-              />
+                       className={cn(
+                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                       )}
+                     />
+                     {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                     )}
+                   </div>
+                 )}
+               />
 
-              <form.Field
-                name="country"
+               <form.Field
+                 name="country"
+                validators={{
+                  onBlur: ({ value }) => {
+                    if (!value) {
+                      return 'Country / Region is required';
+                    }
+                    return undefined;
+                  }
+                }}
                 listeners={{
                   onChange: ({ value }) => {
                     if (value) {
                       const states = State.getStatesOfCountry(value);
                       setAvailableStates(states);
                       form.setFieldValue('state', '');
+                      setShippingQuote(null);
                       if (states.length > 0) {
                         setTimeout(() => focusField('state'), 100);
                       } else {
@@ -450,7 +557,10 @@ function CheckoutPage() {
                           variant="outline"
                           role="combobox"
                           aria-expanded={countryOpen}
-                          className="w-full justify-between font-normal bg-background/70 border border-border/60 rounded-lg hover:border-[#00EC97] focus-visible:border-[#00EC97] transition-colors"
+                          className={cn(
+                            "w-full justify-between font-normal bg-background/70 border rounded-lg transition-colors",
+                            field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-[#00EC97] focus-visible:border-[#00EC97]"
+                          )}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
@@ -494,6 +604,9 @@ function CheckoutPage() {
                         </Command>
                       </PopoverContent>
                     </Popover>
+                    {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                      <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                    )}
                   </div>
                 )}
               />
@@ -502,6 +615,14 @@ function CheckoutPage() {
                 {availableStates.length > 0 && (
                   <form.Field
                     name="state"
+                    validators={{
+                      onBlur: ({ value }) => {
+                        if (availableStates.length > 0 && !value) {
+                          return 'State / Province is required';
+                        }
+                        return undefined;
+                      }
+                    }}
                     listeners={{
                       onChange: () => {
                         setTimeout(() => focusField('postCode'), 100);
@@ -521,7 +642,10 @@ function CheckoutPage() {
                               variant="outline"
                               role="combobox"
                               aria-expanded={stateOpen}
-                              className="w-full justify-between font-normal bg-background/70 border border-border/60 rounded-lg hover:border-[#00EC97] focus-visible:border-[#00EC97] transition-colors"
+                               className={cn(
+                                 "w-full justify-between font-normal bg-background/70 border rounded-lg transition-colors",
+                                 field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-[#00EC97] focus-visible:border-[#00EC97]"
+                               )}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
@@ -530,7 +654,7 @@ function CheckoutPage() {
                               }}
                             >
                               {field.state.value
-                                ? availableStates.find((s) => s.isoCode === field.state.value)?.name
+                                ? availableStates.find((s) => s.isoCode === String(field.state.value))?.name
                                 : "Select a state..."}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
@@ -563,14 +687,25 @@ function CheckoutPage() {
                               </CommandList>
                             </Command>
                           </PopoverContent>
-                        </Popover>
-                      </div>
-                    )}
-                  />
-                )}
+                         </Popover>
+                         {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                           <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                         )}
+                       </div>
+                     )}
+                   />
+                 )}
 
-                <form.Field
-                  name="postCode"
+                 <form.Field
+                   name="postCode"
+                  validators={{
+                    onBlur: ({ value }) => {
+                      if (!value || value.trim() === '') {
+                        return 'ZIP / Postal Code is required';
+                      }
+                      return undefined;
+                    }
+                  }}
                   children={(field) => (
                     <div className="space-y-2">
                       <Label htmlFor="postCode">
@@ -586,11 +721,17 @@ function CheckoutPage() {
                         onChange={(e) => field.handleChange(e.target.value)}
                         autoComplete="postal-code"
                         required
-                        className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
-                      />
-                    </div>
-                  )}
-                />
+                       className={cn(
+                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                       )}
+                     />
+                     {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                     )}
+                   </div>
+                 )}
+               />
               </div>
 
               {form.state.values.country === 'BR' && (
@@ -606,7 +747,7 @@ function CheckoutPage() {
                         ref={(el) => {
                           if (el) fieldRefs.current.set('taxId', el);
                         }}
-                        value={field.state.value || ''}
+                        value={String(field.state.value || '')}
                         onBlur={field.handleBlur}
                         onChange={(e) => {
                           let value = e.target.value.replace(/[^\d]/g, '');
@@ -643,7 +784,7 @@ function CheckoutPage() {
                         ref={(el) => {
                           if (el) fieldRefs.current.set('taxId', el);
                         }}
-                        value={field.state.value || ''}
+                        value={String(field.state.value || '')}
                         onBlur={field.handleBlur}
                         onChange={(e) => {
                           let value = e.target.value.replace(/[^\dkK]/gi, '');
@@ -677,7 +818,7 @@ function CheckoutPage() {
                         ref={(el) => {
                           if (el) fieldRefs.current.set('taxId', el);
                         }}
-                        value={field.state.value || ''}
+                        value={String(field.state.value || '')}
                         onBlur={field.handleBlur}
                         onChange={(e) => {
                           let value = e.target.value.toUpperCase().replace(/[^P\d]/g, '');
@@ -701,9 +842,17 @@ function CheckoutPage() {
               <div className="pt-6">
                 <Button
                   type="button"
-                  onClick={() => handleCalculateShipping(form.state.values)}
+                  onClick={() => {
+                    handleCalculateShipping(form.state.values);
+                  }}
                   disabled={isCalculatingShipping || quoteMutation.isPending}
-                  className="w-full bg-[#00EC97] text-black hover:bg-[#00d97f] transition-colors"
+                  variant={shippingQuote ? "outline" : "default"}
+                  className={cn(
+                    "w-full transition-colors",
+                    shippingQuote 
+                      ? "bg-background border-border/60 hover:border-[#00EC97] hover:text-[#00EC97]" 
+                      : "bg-[#00EC97] text-black hover:bg-[#00d97f]"
+                  )}
                   size="lg"
                 >
                   {isCalculatingShipping || quoteMutation.isPending ? (
@@ -801,11 +950,16 @@ function CheckoutPage() {
                   <span className="text-foreground/70 dark:text-muted-foreground">Shipping</span>
                   <span className="text-foreground/90 dark:text-muted-foreground">
                     {isCalculatingShipping ? (
-                      <span className="text-foreground/50 dark:text-muted-foreground">Calculating...</span>
+                      <span className="flex items-center gap-1.5">
+                        <div className="animate-spin size-3 border-2 border-current border-t-transparent rounded-full" />
+                        Calculating...
+                      </span>
                     ) : shippingQuote ? (
                       `$${shippingCost.toFixed(2)}`
                     ) : (
-                      <span className="text-foreground/50 dark:text-muted-foreground">Waiting for shipping quote...</span>
+                      <span className="text-foreground/50 dark:text-muted-foreground">
+                        Click "Calculate Shipping"
+                      </span>
                     )}
                   </span>
                 </div>
@@ -829,6 +983,20 @@ function CheckoutPage() {
                     )}
                   </span>
                 </div>
+                {vat > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground/70 dark:text-muted-foreground">VAT</span>
+                    <span className="text-foreground/90 dark:text-muted-foreground">
+                      {isCalculatingShipping ? (
+                        <span className="text-foreground/50 dark:text-muted-foreground">Calculating...</span>
+                      ) : shippingQuote ? (
+                        `$${vat.toFixed(2)}`
+                      ) : (
+                        <span className="text-foreground/50 dark:text-muted-foreground">Calculated with quote</span>
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="h-px bg-border/60 mb-3" />
@@ -856,87 +1024,131 @@ function CheckoutPage() {
             </div>
 
             {/* Terms Checkbox Block */}
-            <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
+            <div className="rounded-2xl bg-[#00EC97]/5 dark:bg-[#00EC97]/10 border-l-4 border-[#00EC97] px-6 md:px-8 lg:px-10 py-6 md:py-8">
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="terms"
                   checked={acceptedTerms}
                   onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
-                  className="mt-0.5"
+                  className="mt-0.5 data-[state=checked]:bg-[#00EC97] data-[state=checked]:border-[#00EC97]"
                 />
-                <label
-                  htmlFor="terms"
-                  className="text-sm leading-relaxed cursor-pointer select-none text-foreground/90 dark:text-muted-foreground"
-                >
-                  By checking this box, you agree to our{' '}
-                  <Link
-                    to="/terms-of-service"
-                    className="underline hover:text-[#00EC97] transition-colors"
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <label
+                      htmlFor="terms"
+                      className="text-sm font-medium cursor-pointer select-none"
+                    >
+                      Terms of Service
+                    </label>
+                    <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full font-medium">
+                      Required
+                    </span>
+                  </div>
+                  <label
+                    htmlFor="terms"
+                    className="text-sm text-muted-foreground cursor-pointer select-none"
                   >
-                    Terms of Service
-                  </Link>
-                </label>
+                    By checking this box, you agree to our{' '}
+                    <Link
+                      to="/terms-of-service"
+                      className="underline hover:text-[#00EC97] transition-colors"
+                    >
+                      Terms of Service
+                    </Link>
+                  </label>
+                </div>
               </div>
             </div>
 
-            {acceptedTerms && (
-              <>
-                {/* Payment Method Block */}
-                <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
-                  <h2 className="text-xl md:text-2xl font-bold tracking-tight mb-6">
-                    Choose Payment Method
-                  </h2>
+            {/* Payment Method Block */}
+            <div className="rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-6 md:px-8 lg:px-10 py-6 md:py-8">
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight mb-6">
+                Choose Payment Method
+              </h2>
 
-                  <div className="space-y-4">
-                    <button
-                      onClick={handlePayWithPing}
-                      disabled={!shippingQuote || checkoutMutation.isPending}
-                      type="button"
-                      style={
-                        {
-                          // Keep these as CSS vars so it's easy to retheme.
-                          '--ping-bg': '#F9F7FF',
-                          '--ping-text': '#3D315E',
-                          '--ping-border': '#AF9EF9',
-                          '--ping-border-hover': '#AF9EF9',
-                          '--ping-ring': 'rgba(175, 158, 249, 0.35)',
-                        } as CSSProperties
+              <div className="space-y-4">
+                <form.Subscribe
+                  selector={(state) => ({
+                    canSubmit: state.canSubmit,
+                    hasErrors: Object.keys(state.errors || {}).length > 0
+                  })}
+                  children={({ canSubmit, hasErrors }) => {
+                    const isFormValid = canSubmit && !hasErrors;
+                    const hasShippingQuote = !!shippingQuote;
+                    const hasAcceptedTerms = acceptedTerms;
+                    
+                    const getDisabledState = () => {
+                      if (!isFormValid) {
+                        return { disabled: true, reason: 'Complete all required fields' };
                       }
-                      className={cn(
-                        'group flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 px-6 text-sm font-semibold transition-colors',
-                        'bg-[color:var(--ping-bg)] border-[color:var(--ping-border)] text-[color:var(--ping-text)]',
-                        'hover:border-[color:var(--ping-border-hover)]',
-                        'shadow-sm hover:shadow',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ping-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                        'disabled:opacity-50 disabled:cursor-not-allowed'
-                      )}
-                      data-testid="pay-with-card-button"
-                      aria-label={checkoutMutation.isPending ? 'Redirecting to PingPay' : 'Pay with PingPay'}
-                    >
-                      {checkoutMutation.isPending ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <span className="animate-spin size-4 rounded-full border-2 border-[color:var(--ping-border)] border-t-[color:var(--ping-text)]" />
-                          Redirecting...
-                        </span>
-                      ) : (
-                        <span className="flex items-center justify-center gap-2">
-                          <span>Pay with</span>
-                          <span className="inline-flex items-center">
-                            <img
-                              src={pingpayLogoDark}
-                              alt="PingPay"
-                              loading="eager"
-                              decoding="async"
-                              className="h-5 w-auto object-contain"
-                            />
-                          </span>
-                        </span>
-                      )}
-                    </button>
-                </div>
-                </div>
-              </>
-            )}
+                      if (!hasShippingQuote) {
+                        return { disabled: true, reason: 'Shipping calculation required' };
+                      }
+                      if (!hasAcceptedTerms) {
+                        return { disabled: true, reason: 'Please accept the Terms of Service' };
+                      }
+                      return { disabled: false, reason: '' };
+                    };
+                    
+                    const { disabled, reason } = getDisabledState();
+                    
+                    return (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={handlePayWithPing}
+                            disabled={disabled || checkoutMutation.isPending}
+                            type="button"
+                            style={{
+                              '--ping-bg': '#F9F7FF',
+                              '--ping-text': '#3D315E',
+                              '--ping-border': '#AF9EF9',
+                              '--ping-border-hover': '#AF9EF9',
+                              '--ping-ring': 'rgba(175, 158, 249, 0.35)',
+                            } as CSSProperties}
+                            className={cn(
+                              'group flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 px-6 text-sm font-semibold transition-colors',
+                              'bg-[color:var(--ping-bg)] border-[color:var(--ping-border)] text-[color:var(--ping-text)]',
+                              'hover:border-[color:var(--ping-border-hover)]',
+                              'shadow-sm hover:shadow',
+                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ping-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                              disabled && 'opacity-50 cursor-not-allowed hover:shadow-sm'
+                            )}
+                            data-testid="pay-with-card-button"
+                            aria-label={checkoutMutation.isPending ? 'Redirecting to PingPay' : 'Pay with PingPay'}
+                          >
+                            {checkoutMutation.isPending ? (
+                              <span className="flex items-center justify-center gap-2">
+                                <span className="animate-spin size-4 rounded-full border-2 border-[color:var(--ping-border)] border-t-[color:var(--ping-text)]" />
+                                Redirecting...
+                              </span>
+                            ) : (
+                              <span className="flex items-center justify-center gap-2">
+                                <span>Pay with</span>
+                                <span className="inline-flex items-center">
+                                  <img
+                                    src={pingpayLogoDark}
+                                    alt="PingPay"
+                                    loading="eager"
+                                    decoding="async"
+                                    className="h-5 w-auto object-contain"
+                                  />
+                                </span>
+                              </span>
+                            )}
+                          </button>
+                        </TooltipTrigger>
+                        {disabled && (
+                          <TooltipContent side="top" className="max-w-xs">
+                            <p>{reason}</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    );
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -124,8 +124,19 @@ export const orders = pgTable('orders', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull(),
   status: text('status').notNull().default('pending'),
+
+  subtotal: integer('subtotal'),
+  shippingCost: integer('shipping_cost'),
+  taxAmount: integer('tax_amount'),
+  vatAmount: integer('vat_amount'),
   totalAmount: integer('total_amount').notNull(),
   currency: text('currency').notNull().default('USD'),
+
+  taxRequired: boolean('tax_required'),
+  taxRate: integer('tax_rate'),
+  taxShippingTaxable: boolean('tax_shipping_taxable'),
+  taxExempt: boolean('tax_exempt').default(false),
+  customerTaxId: text('customer_tax_id'),
 
   checkoutSessionId: text('checkout_session_id'),
   checkoutProvider: text('checkout_provider'),
