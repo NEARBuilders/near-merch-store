@@ -111,7 +111,30 @@ export default createPlugin({
       }),
 
       calculateTax: builder.calculateTax.handler(async ({ input }) => {
-        return await Effect.runPromise(service.calculateTax(input));
+        const result = await Effect.runPromise(service.estimateOrder({
+          recipient: {
+            countryCode: input.recipient.countryCode,
+            zip: input.recipient.zip,
+            stateCode: input.recipient.stateCode,
+          },
+          items: input.items.map(item => ({
+            catalogVariantId: item.catalogVariantId,
+            quantity: item.quantity,
+            designFiles: item.designFiles,
+          })),
+          currency: input.currency,
+        }));
+        
+        const hasTax = result.tax > 0 || result.vat > 0;
+        
+        return {
+          required: hasTax,
+          rate: result.subtotal > 0 ? result.tax / result.subtotal : 0,
+          shippingTaxable: true,
+          exempt: !hasTax,
+          taxAmount: result.tax,
+          vat: result.vat,
+        };
       }),
 
       confirmOrder: builder.confirmOrder.handler(async ({ input }) => {

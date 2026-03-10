@@ -128,6 +128,7 @@ export const orders = pgTable('orders', {
   subtotal: integer('subtotal'),
   shippingCost: integer('shipping_cost'),
   taxAmount: integer('tax_amount'),
+  vatAmount: integer('vat_amount'),
   totalAmount: integer('total_amount').notNull(),
   currency: text('currency').notNull().default('USD'),
 

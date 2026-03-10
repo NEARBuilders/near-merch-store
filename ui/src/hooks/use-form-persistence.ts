@@ -29,7 +29,9 @@ export function useFormPersistence<T extends Record<string, unknown>>(
         
         if (now - parsed.timestamp < expireAfterMs) {
           isRestoringRef.current = true;
-          form.reset(parsed.values);
+          Object.entries(parsed.values).forEach(([key, value]) => {
+            form.setFieldValue(key as any, value);
+          });
           setTimeout(() => {
             isRestoringRef.current = false;
           }, 0);

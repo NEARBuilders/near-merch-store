@@ -4,7 +4,7 @@ import { useFormPersistence } from '@/hooks/use-form-persistence';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
 import pingpayLogoDark from '@/assets/pingpay/pingpay-logo-dark.png';
-import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties } from 'react';
+import { useState, useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/utils/orpc';
 import { toast } from 'sonner';
@@ -50,7 +50,6 @@ function CheckoutPage() {
   const [availableStates, setAvailableStates] = useState<IState[]>([]);
   const [countryOpen, setCountryOpen] = useState(false);
   const [stateOpen, setStateOpen] = useState(false);
-  const [hasCalculatedShipping, setHasCalculatedShipping] = useState(false);
   const navigate = useNavigate();
 
   const fieldRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -74,6 +73,7 @@ function CheckoutPage() {
 
   const shippingCost = shippingQuote?.shippingCost ?? 0;
   const tax = shippingQuote?.tax ?? 0;
+  const vat = shippingQuote?.vat ?? 0;
   const total = shippingQuote?.total ?? subtotal;
   const nearAmount = (total / nearPrice).toFixed(2);
 
@@ -108,41 +108,6 @@ function CheckoutPage() {
   });
 
   const { clearPersistence } = useFormPersistence(form, 'checkout-form-data');
-
-  const checkFormValidity = useCallback((values: ShippingAddress): boolean => {
-    if (!values.firstName?.trim() || !values.lastName?.trim() || 
-        !values.email?.trim() || !values.addressLine1?.trim() || 
-        !values.city?.trim() || !values.postCode?.trim() || 
-        !values.country) {
-      return false;
-    }
-    
-    if (availableStates.length > 0 && !values.state) {
-      return false;
-    }
-    
-    if (values.country === 'BR' && !String(values.taxId || '').trim()) {
-      return false;
-    }
-    
-    return true;
-  }, [availableStates.length]);
-
-  useEffect(() => {
-    const isValid = checkFormValidity(form.state.values);
-    
-    if (isValid && !hasCalculatedShipping && !shippingQuote && 
-        !isCalculatingShipping && cartItems.length > 0) {
-      handleCalculateShipping(form.state.values);
-      setHasCalculatedShipping(true);
-    }
-  }, [form.state.values, hasCalculatedShipping, shippingQuote, 
-      isCalculatingShipping, cartItems.length, checkFormValidity]);
-
-  useEffect(() => {
-    setHasCalculatedShipping(false);
-  }, [form.state.values.country, form.state.values.postCode, 
-      form.state.values.state, form.state.values.taxId]);
 
   const quoteMutation = useMutation({
     mutationFn: async (params: {
@@ -315,15 +280,15 @@ function CheckoutPage() {
                         required
                         className={cn(
                           "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
-                          field.state.meta.errors ? "border-red-500" : "border-border/60 hover:border-border/60"
+                          field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
                         )}
                       />
-                      {field.state.meta.errors && (
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
                         <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
                       )}
                     </div>
-                  )}
-                />
+                   )}
+                 />
 
                 <form.Field
                   name="lastName"
@@ -353,19 +318,19 @@ function CheckoutPage() {
                         required
                         className={cn(
                           "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
-                          field.state.meta.errors ? "border-red-500" : "border-border/60 hover:border-border/60"
+                          field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
                         )}
                       />
-                      {field.state.meta.errors && (
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
                         <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
                       )}
                     </div>
-                  )}
-                />
-              </div>
+                   )}
+                 />
+               </div>
 
-              <form.Field
-                name="email"
+               <form.Field
+                 name="email"
                 validators={{
                   onBlur: ({ value }) => {
                     if (!value || value.trim() === '') {
@@ -397,10 +362,10 @@ function CheckoutPage() {
                       required
                       className={cn(
                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
-                        field.state.meta.errors ? "border-red-500" : "border-border/60 hover:border-border/60"
+                        field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
                       )}
                     />
-                    {field.state.meta.errors && (
+                    {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
                     )}
                   </div>
@@ -438,19 +403,19 @@ function CheckoutPage() {
                       onKeyDown={(e) => handleKeyDown(e, 'addressLine1')}
                       autoComplete="tel"
                       className={cn(
-                        "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
-                        field.state.meta.errors ? "border-red-500" : "border-border/60 hover:border-border/60"
-                      )}
-                    />
-                    {field.state.meta.errors && (
-                      <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
-                    )}
-                  </div>
-                )}
-              />
+                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                       )}
+                     />
+                     {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                     )}
+                   </div>
+                 )}
+               />
 
-              <form.Field
-                name="addressLine1"
+               <form.Field
+                 name="addressLine1"
                 validators={{
                   onBlur: ({ value }) => {
                     if (!value || value.trim() === '') {
@@ -476,20 +441,20 @@ function CheckoutPage() {
                       onKeyDown={(e) => handleKeyDown(e, 'addressLine2')}
                       autoComplete="address-line1"
                       required
-                      className={cn(
-                        "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
-                        field.state.meta.errors ? "border-red-500" : "border-border/60 hover:border-border/60"
-                      )}
-                    />
-                    {field.state.meta.errors && (
-                      <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
-                    )}
-                  </div>
-                )}
-              />
+                       className={cn(
+                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                       )}
+                     />
+                     {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                     )}
+                   </div>
+                 )}
+               />
 
-              <form.Field
-                name="addressLine2"
+               <form.Field
+                 name="addressLine2"
                 children={(field) => (
                   <div className="space-y-2">
                     <Label htmlFor="addressLine2">
@@ -538,20 +503,20 @@ function CheckoutPage() {
                       onKeyDown={(e) => handleKeyDown(e, 'country')}
                       autoComplete="address-level2"
                       required
-                      className={cn(
-                        "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
-                        field.state.meta.errors ? "border-red-500" : "border-border/60 hover:border-border/60"
-                      )}
-                    />
-                    {field.state.meta.errors && (
-                      <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
-                    )}
-                  </div>
-                )}
-              />
+                       className={cn(
+                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                       )}
+                     />
+                     {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                     )}
+                   </div>
+                 )}
+               />
 
-              <form.Field
-                name="country"
+               <form.Field
+                 name="country"
                 validators={{
                   onBlur: ({ value }) => {
                     if (!value) {
@@ -566,7 +531,6 @@ function CheckoutPage() {
                       const states = State.getStatesOfCountry(value);
                       setAvailableStates(states);
                       form.setFieldValue('state', '');
-                      setHasCalculatedShipping(false);
                       setShippingQuote(null);
                       if (states.length > 0) {
                         setTimeout(() => focusField('state'), 100);
@@ -595,7 +559,7 @@ function CheckoutPage() {
                           aria-expanded={countryOpen}
                           className={cn(
                             "w-full justify-between font-normal bg-background/70 border rounded-lg transition-colors",
-                            field.state.meta.errors ? "border-red-500" : "border-border/60 hover:border-[#00EC97] focus-visible:border-[#00EC97]"
+                            field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-[#00EC97] focus-visible:border-[#00EC97]"
                           )}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
@@ -640,7 +604,7 @@ function CheckoutPage() {
                         </Command>
                       </PopoverContent>
                     </Popover>
-                    {field.state.meta.errors && (
+                    {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
                     )}
                   </div>
@@ -678,10 +642,10 @@ function CheckoutPage() {
                               variant="outline"
                               role="combobox"
                               aria-expanded={stateOpen}
-                              className={cn(
-                                "w-full justify-between font-normal bg-background/70 border rounded-lg transition-colors",
-                                field.state.meta.errors ? "border-red-500" : "border-border/60 hover:border-[#00EC97] focus-visible:border-[#00EC97]"
-                              )}
+                               className={cn(
+                                 "w-full justify-between font-normal bg-background/70 border rounded-lg transition-colors",
+                                 field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-[#00EC97] focus-visible:border-[#00EC97]"
+                               )}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
@@ -723,17 +687,17 @@ function CheckoutPage() {
                               </CommandList>
                             </Command>
                           </PopoverContent>
-                        </Popover>
-                        {field.state.meta.errors && (
-                          <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
-                        )}
-                      </div>
-                    )}
-                  />
-                )}
+                         </Popover>
+                         {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                           <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                         )}
+                       </div>
+                     )}
+                   />
+                 )}
 
-                <form.Field
-                  name="postCode"
+                 <form.Field
+                   name="postCode"
                   validators={{
                     onBlur: ({ value }) => {
                       if (!value || value.trim() === '') {
@@ -757,17 +721,17 @@ function CheckoutPage() {
                         onChange={(e) => field.handleChange(e.target.value)}
                         autoComplete="postal-code"
                         required
-                        className={cn(
-                          "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
-                          field.state.meta.errors ? "border-red-500" : "border-border/60 hover:border-border/60"
-                        )}
-                      />
-                      {field.state.meta.errors && (
-                        <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
-                      )}
-                    </div>
-                  )}
-                />
+                       className={cn(
+                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                       )}
+                     />
+                     {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                     )}
+                   </div>
+                 )}
+               />
               </div>
 
               {form.state.values.country === 'BR' && (
@@ -879,7 +843,6 @@ function CheckoutPage() {
                 <Button
                   type="button"
                   onClick={() => {
-                    setHasCalculatedShipping(false);
                     handleCalculateShipping(form.state.values);
                   }}
                   disabled={isCalculatingShipping || quoteMutation.isPending}
@@ -989,13 +952,13 @@ function CheckoutPage() {
                     {isCalculatingShipping ? (
                       <span className="flex items-center gap-1.5">
                         <div className="animate-spin size-3 border-2 border-current border-t-transparent rounded-full" />
-                        Auto-calculating...
+                        Calculating...
                       </span>
                     ) : shippingQuote ? (
                       `$${shippingCost.toFixed(2)}`
                     ) : (
                       <span className="text-foreground/50 dark:text-muted-foreground">
-                        Enter shipping address
+                        Click "Calculate Shipping"
                       </span>
                     )}
                   </span>
@@ -1020,6 +983,20 @@ function CheckoutPage() {
                     )}
                   </span>
                 </div>
+                {vat > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground/70 dark:text-muted-foreground">VAT</span>
+                    <span className="text-foreground/90 dark:text-muted-foreground">
+                      {isCalculatingShipping ? (
+                        <span className="text-foreground/50 dark:text-muted-foreground">Calculating...</span>
+                      ) : shippingQuote ? (
+                        `$${vat.toFixed(2)}`
+                      ) : (
+                        <span className="text-foreground/50 dark:text-muted-foreground">Calculated with quote</span>
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="h-px bg-border/60 mb-3" />

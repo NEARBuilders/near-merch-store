@@ -297,6 +297,7 @@ export const CreateOrderInputSchema = z.object({
   subtotal: z.number().optional(),
   shippingCost: z.number().optional(),
   taxAmount: z.number().optional(),
+  vatAmount: z.number().optional(),
   taxRequired: z.boolean().optional(),
   taxRate: z.number().optional(),
   taxShippingTaxable: z.boolean().optional(),
@@ -357,6 +358,7 @@ export const OrderWithItemsSchema = z.object({
   subtotal: z.number().optional(),
   shippingCost: z.number().optional(),
   taxAmount: z.number().optional(),
+  vatAmount: z.number().optional(),
   taxRequired: z.boolean().optional(),
   taxRate: z.number().optional(),
   taxShippingTaxable: z.boolean().optional(),
@@ -415,12 +417,14 @@ export const TaxBreakdownSchema = z.object({
   rate: z.number(),
   shippingTaxable: z.boolean(),
   exempt: z.boolean(),
+  vat: z.number().optional(),
 });
 
 export const QuoteOutputSchema = z.object({
   subtotal: z.number(),
   shippingCost: z.number(),
   tax: z.number(),
+  vat: z.number(),
   taxBreakdown: TaxBreakdownSchema.optional(),
   total: z.number(),
   currency: z.string(),

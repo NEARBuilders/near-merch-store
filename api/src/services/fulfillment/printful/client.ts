@@ -1,7 +1,7 @@
 import {
   PrintfulClient as PrintfulSDK,
+  CatalogItem,
   type Address,
-  type CatalogItem,
   type Order,
   type Shipment,
   type Variant
@@ -269,42 +269,104 @@ export class PrintfulClient {
     return this.sdk.storesV2;
   }
 
-  async calculateTaxRate(params: {
+  async estimateOrder(params: {
     recipient: {
       country_code: string;
+      zip: string;
       state_code?: string;
-      zip?: string;
-      city?: string;
-      tax_number?: string;
     };
     items: Array<{
       catalog_variant_id: number;
       quantity: number;
+      designFiles?: Array<{ placement: string; url: string }>;
     }>;
     currency?: string;
   }): Promise<{
-    required: boolean;
-    rate: number;
-    shipping_taxable: boolean;
+    subtotal: number;
+    shipping: number;
+    tax: number;
+    vat: number;
+    total: number;
+    currency: string;
   }> {
-    const result = await this.request<PrintfulResponse<{
-      required: boolean;
-      rate: number;
-      shipping_taxable: boolean;
-    }>>(
-      `${this.v1BaseUrl}/tax/rates`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          recipient: params.recipient,
-          items: params.items.map(item => ({
-            catalog_variant_id: item.catalog_variant_id,
-            quantity: item.quantity,
-          })),
-          currency: params.currency || 'USD',
-        }),
+    const orderItems = params.items.map(item => {
+      const placements = (item.designFiles || []).map(df => ({
+        placement: df.placement,
+        technique: 'dtg' as const,
+        layers: [{
+          type: 'file' as const,
+          url: df.url,
+        }],
+      }));
+      
+      return {
+        source: CatalogItem.source.CATALOG,
+        catalog_variant_id: item.catalog_variant_id,
+        quantity: item.quantity,
+        placements,
+      };
+    });
+    
+    const requestBody = {
+      recipient: {
+        country_code: params.recipient.country_code,
+        zip: params.recipient.zip,
+        state_code: params.recipient.state_code,
+      },
+      order_items: orderItems,
+      retail_costs: params.currency ? { currency: params.currency } : undefined,
+    };
+    
+    let result;
+    try {
+      result = await this.sdk.ordersV2.createOrderEstimationTask(this.storeId, requestBody);
+    } catch (error) {
+      console.error('[PrintfulClient] createOrderEstimationTask error:', error);
+      if (error && typeof error === 'object') {
+        console.error('[PrintfulClient] Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       }
-    );
-    return result.result;
+      throw error;
+    }
+
+    const task = result.data as { id: string; status: string };
+    
+    const startTime = Date.now();
+    const timeoutMs = 30000;
+    
+    while (Date.now() - startTime < timeoutMs) {
+      const pollResult = await this.sdk.ordersV2.getOrderEstimationTask(task.id, this.storeId);
+      const estimation = pollResult.data as {
+        id: string;
+        status: string;
+        costs?: {
+          subtotal: string;
+          shipping: string;
+          tax: string;
+          vat: string;
+          total: string;
+          currency: string;
+        };
+        failure_reasons?: Array<{ message: string }>;
+      };
+      
+      if (estimation.status === 'completed' && estimation.costs) {
+        return {
+          subtotal: parseFloat(estimation.costs.subtotal) || 0,
+          shipping: parseFloat(estimation.costs.shipping) || 0,
+          tax: parseFloat(estimation.costs.tax) || 0,
+          vat: parseFloat(estimation.costs.vat) || 0,
+          total: parseFloat(estimation.costs.total) || 0,
+          currency: estimation.costs.currency || 'USD',
+        };
+      }
+      
+      if (estimation.status === 'failed') {
+        throw new Error(`Order estimation failed: ${estimation.failure_reasons?.map(r => r.message).join(', ')}`);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    throw new Error('Order estimation timed out after 30 seconds');
   }
 }

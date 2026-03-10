@@ -284,53 +284,51 @@ export class PrintfulService {
     });
   }
 
-  calculateTax(params: {
+  estimateOrder(params: {
     recipient: {
       countryCode: string;
+      zip: string;
       stateCode?: string;
-      zip?: string;
-      city?: string;
-      taxId?: string;
     };
     items: Array<{
       catalogVariantId: number;
       quantity: number;
+      designFiles?: Array<{ placement: string; url: string }>;
     }>;
     currency?: string;
   }): Effect.Effect<{
-    required: boolean;
-    rate: number;
-    shippingTaxable: boolean;
-    exempt: boolean;
+    subtotal: number;
+    shipping: number;
+    tax: number;
+    vat: number;
+    total: number;
+    currency: string;
   }, Error> {
     return Effect.tryPromise({
       try: async () => {
-        const response = await this.client.calculateTaxRate({
+        const result = await this.client.estimateOrder({
           recipient: {
             country_code: params.recipient.countryCode,
-            state_code: params.recipient.stateCode || undefined,
             zip: params.recipient.zip,
-            city: params.recipient.city,
-            tax_number: params.recipient.taxId,
+            state_code: params.recipient.stateCode || undefined,
           },
           items: params.items.map(item => ({
             catalog_variant_id: item.catalogVariantId,
             quantity: item.quantity,
+            designFiles: item.designFiles,
           })),
           currency: params.currency || 'USD',
         });
 
-        const exempt = !response.required || response.rate === 0;
-
-        return {
-          required: response.required,
-          rate: response.rate,
-          shippingTaxable: response.shipping_taxable,
-          exempt,
-        };
+        return result;
       },
-      catch: (e) => new Error(`Failed to calculate tax: ${e instanceof Error ? e.message : String(e)}`),
-    });
+      catch: (e) => new Error(`Failed to estimate order: ${e instanceof Error ? e.message : String(e)}`),
+    }).pipe(
+      Effect.retry({
+        times: 3,
+        schedule: Schedule.exponential(100),
+      })
+    );
   }
 
   confirmOrder(orderId: string) {
