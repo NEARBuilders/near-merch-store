@@ -18,7 +18,13 @@ import {
   QuoteItemInputSchema,
   QuoteOutputSchema,
   ShippingAddressSchema,
-  WebhookResponseSchema
+  WebhookResponseSchema,
+  OrderAuditLogSchema,
+  UpdateOrderStatusInputSchema,
+  UpdateOrderStatusOutputSchema,
+  DeleteOrdersInputSchema,
+  DeleteOrdersOutputSchema,
+  GetOrderAuditLogOutputSchema,
 } from './schema';
 
 const ProviderProgressSchema = z.object({
@@ -348,6 +354,42 @@ export const contract = oc.router({
         total: z.number(),
       })
     )
+    .errors({ UNAUTHORIZED }),
+
+  getOrderAuditLog: oc
+    .route({
+      method: 'GET',
+      path: '/orders/{id}/audit-log',
+      summary: 'Get order audit log',
+      description: 'Returns the audit log for a specific order. Accessible by order owner or admin.',
+      tags: ['Orders'],
+    })
+    .input(z.object({ id: z.string() }))
+    .output(GetOrderAuditLogOutputSchema)
+    .errors({ NOT_FOUND, FORBIDDEN, UNAUTHORIZED }),
+
+  updateOrderStatus: oc
+    .route({
+      method: 'POST',
+      path: '/admin/orders/{id}/status',
+      summary: 'Update order status (Admin)',
+      description: 'Manually updates the status of an order. Logs the change in audit log.',
+      tags: ['Admin'],
+    })
+    .input(UpdateOrderStatusInputSchema)
+    .output(UpdateOrderStatusOutputSchema)
+    .errors({ NOT_FOUND, UNAUTHORIZED }),
+
+  deleteOrders: oc
+    .route({
+      method: 'POST',
+      path: '/admin/orders/delete',
+      summary: 'Delete orders (Admin)',
+      description: 'Soft-deletes multiple orders. Drafts are hard-deleted. Other statuses are soft-deleted and logged.',
+      tags: ['Admin'],
+    })
+    .input(DeleteOrdersInputSchema)
+    .output(DeleteOrdersOutputSchema)
     .errors({ UNAUTHORIZED }),
 
   stripeWebhook: oc

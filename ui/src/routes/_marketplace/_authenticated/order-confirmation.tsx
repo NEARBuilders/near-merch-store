@@ -12,6 +12,7 @@ import {
   XCircle,
   Clock,
   AlertTriangle,
+  History,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -241,6 +242,54 @@ function StatusMessage({ status }: { status?: OrderStatus }) {
 
 const TERMINAL_STATUSES: OrderStatus[] = ['shipped', 'delivered', 'cancelled', 'failed', 'returned', 'refunded', 'on_hold', 'partially_cancelled'];
 
+type AuditLog = Awaited<ReturnType<typeof apiClient.getOrderAuditLog>>['logs'][0];
+
+function OrderHistory({ logs }: { logs: AuditLog[] }) {
+  if (logs.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-lg font-bold tracking-tight mb-4 flex items-center gap-2">
+        <History className="h-5 w-5" />
+        Order History
+      </h3>
+      <div className="space-y-3">
+        {logs.map((log, index) => (
+          <div key={log.id} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <div className={cn(
+                "w-2 h-2 rounded-full",
+                index === 0 ? "bg-[#00EC97]" : "bg-border/60"
+              )} />
+              {index < logs.length - 1 && (
+                <div className="w-0.5 flex-1 bg-border/30 my-1" />
+              )}
+            </div>
+            <div className="flex-1 pb-4">
+              <p className="text-sm font-medium text-foreground">
+                {log.action === 'status_change' && 'Status changed'}
+                {log.action === 'tracking_update' && 'Tracking information added'}
+              </p>
+              {log.oldValue && log.newValue && (
+                <p className="text-xs text-foreground/70 mt-1">
+                  {statusLabels[log.oldValue as OrderStatus] || log.oldValue}
+                  {' → '}
+                  <span className="text-foreground font-medium">
+                    {statusLabels[log.newValue as OrderStatus] || log.newValue}
+                  </span>
+                </p>
+              )}
+              <p className="text-xs text-foreground/50 mt-1">
+                {new Date(log.createdAt).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function OrderConfirmationPage() {
   const { sessionId } = Route.useSearch();
   const { clearCart } = useCart();
@@ -248,6 +297,7 @@ function OrderConfirmationPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [, setError] = useState<Error | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -302,6 +352,14 @@ function OrderConfirmationPage() {
 
     return () => abortController.abort();
   }, [sessionId]);
+
+  useEffect(() => {
+    if (order?.id) {
+      apiClient.getOrderAuditLog({ id: order.id })
+        .then(result => setAuditLogs(result.logs))
+        .catch(error => console.error('Failed to fetch audit log:', error));
+    }
+  }, [order?.id]);
 
   useEffect(() => {
     if (order && ['paid', 'processing', 'shipped', 'delivered'].includes(order.status)) {
@@ -422,6 +480,13 @@ function OrderConfirmationPage() {
             </div>
 
             <div className="h-px bg-border/60" />
+
+            {auditLogs.length > 0 && (
+              <>
+                <OrderHistory logs={auditLogs} />
+                <div className="h-px bg-border/60" />
+              </>
+            )}
 
             {order?.trackingInfo && order.trackingInfo.length > 0 && (
               <>

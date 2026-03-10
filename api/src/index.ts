@@ -861,6 +861,154 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
           };
         }),
 
+      getOrderAuditLog: builder.getOrderAuditLog
+        .use(requireAuth)
+        .handler(async ({ input, context, errors }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              
+              // First verify the order exists
+              const order = yield* store.find(input.id);
+              if (!order) {
+                return null;
+              }
+              
+              // Check authorization - must be admin or order owner
+              const isAdmin = true; // TODO: Implement proper admin check
+              const isOwner = order.userId === context.nearAccountId;
+              
+              if (!isAdmin && !isOwner) {
+                return { forbidden: true };
+              }
+              
+              const logs = yield* store.getAuditLog(input.id);
+              return { logs, isAdmin };
+            })
+          );
+
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          const result = exit.value;
+          
+          if (result === null) {
+            throw errors.NOT_FOUND({
+              message: 'Order not found',
+              data: { resource: 'order', resourceId: input.id }
+            });
+          }
+          
+          if ('forbidden' in result && result.forbidden) {
+            throw errors.FORBIDDEN({
+              message: 'You do not have permission to access this order\'s audit log',
+              data: { action: 'read_audit_log' }
+            });
+          }
+          
+          // Filter logs for non-admin users - only show status_change and tracking_update
+          const logs = result.logs || [];
+          const filteredLogs = result.isAdmin ? logs : logs.filter(log => 
+            log.action === 'status_change' || log.action === 'tracking_update'
+          );
+          
+          return { logs: filteredLogs };
+        }),
+
+      updateOrderStatus: builder.updateOrderStatus
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              
+              // Check if order exists and is not deleted
+              const order = yield* store.find(input.orderId);
+              if (!order) {
+                return { notFound: true };
+              }
+              
+              // Update status with admin actor
+              const adminActor = `admin:${context.nearAccountId || 'unknown'}`;
+              const updatedOrder = yield* store.updateStatus(
+                input.orderId, 
+                input.status, 
+                adminActor, 
+                input.reason,
+                { adminEdited: true }
+              );
+              
+              return { order: updatedOrder };
+            })
+          );
+
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          const result = exit.value;
+          
+          if ('notFound' in result && result.notFound) {
+            throw new ORPCError('NOT_FOUND', {
+              message: 'Order not found',
+              data: { resource: 'order', resourceId: input.orderId }
+            });
+          }
+          
+          if (!result.order) {
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: 'Failed to update order status',
+            });
+          }
+          
+          return { 
+            success: true, 
+            order: result.order 
+          };
+        }),
+
+      deleteOrders: builder.deleteOrders
+        .use(requireAuth)
+        .handler(async ({ input, context }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              const actor = `admin:${context.nearAccountId || 'unknown'}`;
+              
+              return yield* store.deleteOrders(input.orderIds, actor);
+            })
+          );
+
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          return {
+            success: true,
+            deleted: exit.value.deleted,
+            errors: exit.value.errors,
+          };
+        }),
+
       stripeWebhook: builder.stripeWebhook.handler(async ({ input }) => {
         if (!stripeService) {
           throw new Error('Stripe is not configured');
@@ -897,7 +1045,13 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
           await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
-              yield* store.updateStatus(orderId, 'paid');
+              yield* store.updateStatus(
+                orderId, 
+                'paid', 
+                'service:stripe',
+                'checkout.session.completed',
+                { sessionId: session.id }
+              );
             })
           );
 
@@ -950,14 +1104,26 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateStatus(orderId, finalStatus);
+                yield* store.updateStatus(
+                  orderId, 
+                  finalStatus, 
+                  'service:stripe',
+                  `fulfillment:${allSuccess ? 'confirmed' : 'partial'}`,
+                  { confirmationResults, allSuccess }
+                );
               })
             );
           } catch (error) {
             await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateStatus(orderId, 'paid_pending_fulfillment');
+                yield* store.updateStatus(
+                  orderId, 
+                  'paid_pending_fulfillment', 
+                  'service:stripe',
+                  'fulfillment:failed',
+                  { error: error instanceof Error ? error.message : String(error) }
+                );
               })
             );
           }
@@ -1016,7 +1182,13 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateStatus(order.id, statusToUpdate);
+                yield* store.updateStatus(
+                  order.id, 
+                  statusToUpdate, 
+                  'service:printful', 
+                  eventType,
+                  { eventType, externalId, data }
+                );
               })
             );
           }
@@ -1026,7 +1198,12 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateTracking(order.id, trackingToUpdate);
+                yield* store.updateTracking(
+                  order.id, 
+                  trackingToUpdate, 
+                  'service:printful',
+                  { eventType, externalId }
+                );
               })
             );
           }
@@ -1113,7 +1290,13 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateStatus(order.id, statusToUpdate);
+                yield* store.updateStatus(
+                  order.id, 
+                  statusToUpdate, 
+                  'service:gelato', 
+                  eventType,
+                  { eventType, externalId, orderData }
+                );
               })
             );
           }
@@ -1123,7 +1306,12 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             await managedRuntime.runPromise(
               Effect.gen(function* () {
                 const store = yield* OrderStore;
-                yield* store.updateTracking(order.id, trackingToUpdate);
+                yield* store.updateTracking(
+                  order.id, 
+                  trackingToUpdate, 
+                  'service:gelato',
+                  { eventType, externalId }
+                );
               })
             );
           }

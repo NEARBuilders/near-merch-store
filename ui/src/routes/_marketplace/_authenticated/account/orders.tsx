@@ -1,12 +1,19 @@
 import { createFileRoute, useRouter, Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ExternalLink, Package } from 'lucide-react';
+import { ExternalLink, Package, History, Check } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { apiClient } from '@/utils/orpc';
 import { Badge } from '@/components/ui/badge';
 import { getStatusLabel, getStatusColor } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute('/_marketplace/_authenticated/account/orders')({
   loader: () => apiClient.getOrders({ limit: 100, offset: 0 }),
@@ -15,6 +22,7 @@ export const Route = createFileRoute('/_marketplace/_authenticated/account/order
 });
 
 type Order = Awaited<ReturnType<typeof apiClient.getOrders>>['orders'][0];
+type AuditLog = Awaited<ReturnType<typeof apiClient.getOrderAuditLog>>['logs'][0];
 
 function OrdersError({ error }: { error: Error }) {
   const router = useRouter();
@@ -34,8 +42,89 @@ function OrdersError({ error }: { error: Error }) {
   );
 }
 
+function OrderTimelineModal({ order, isOpen, onClose }: { order: Order; isOpen: boolean; onClose: () => void }) {
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useState(() => {
+    if (isOpen) {
+      setIsLoading(true);
+      apiClient.getOrderAuditLog({ id: order.id })
+        .then(result => setLogs(result.logs))
+        .catch(error => console.error('Failed to fetch audit log:', error))
+        .finally(() => setIsLoading(false));
+    }
+  });
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case 'status_change':
+        return <Check className="h-4 w-4 text-[#00EC97]" />;
+      case 'tracking_update':
+        return <ExternalLink className="h-4 w-4 text-blue-500" />;
+      default:
+        return <History className="h-4 w-4 text-foreground/50" />;
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-background border border-border/60">
+        <DialogHeader>
+          <DialogTitle>Order Timeline - {order.id.substring(0, 8)}...</DialogTitle>
+          <DialogDescription>
+            Track your order's journey
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#00EC97]"></div>
+            </div>
+          ) : logs.length === 0 ? (
+            <p className="text-center text-foreground/70 py-8">No timeline available</p>
+          ) : (
+            <div className="space-y-3">
+              {logs.map((log) => (
+                <div key={log.id} className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/60">
+                  <div className="flex-shrink-0 mt-0.5">
+                    {getActionIcon(log.action)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium text-foreground">
+                        {log.action === 'status_change' && 'Status changed'}
+                        {log.action === 'tracking_update' && 'Tracking updated'}
+                      </span>
+                    </div>
+                    
+                    {log.oldValue && log.newValue && (
+                      <div className="text-xs text-foreground/70 mb-1">
+                        <span className="line-through text-foreground/50">{getStatusLabel(log.oldValue as any)}</span>
+                        {' → '}
+                        <span className="text-foreground">{getStatusLabel(log.newValue as any)}</span>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-foreground/50 mt-1">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OrdersPage() {
   const loaderData = Route.useLoaderData();
+  const [auditLogOrder, setAuditLogOrder] = useState<Order | null>(null);
+  const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
 
   if (!loaderData) {
     return (
@@ -59,6 +148,11 @@ function OrdersPage() {
   }
 
   const { orders } = loaderData;
+
+  const handleViewTimeline = (order: Order) => {
+    setAuditLogOrder(order);
+    setIsTimelineModalOpen(true);
+  };
 
   const columns: ColumnDef<Order>[] = useMemo(
     () => [
@@ -135,6 +229,14 @@ function OrdersPage() {
                   Track <ExternalLink className="h-3 w-3 ml-1" />
                 </a>
               )}
+              <button
+                type="button"
+                onClick={() => handleViewTimeline(order)}
+                className="px-3 py-1.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
+              >
+                <History className="h-3 w-3 mr-1" />
+                Timeline
+              </button>
               <Link
                 to="/order-confirmation"
                 search={{ sessionId: order.checkoutSessionId || '' }}
@@ -218,6 +320,17 @@ function OrdersPage() {
                         Track <ExternalLink className="h-3 w-3 ml-1" />
                       </a>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleViewTimeline(order)}
+                      className={cn(
+                        "flex-1 px-3 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors",
+                        !hasTracking && !order.checkoutSessionId && "w-full"
+                      )}
+                    >
+                      <History className="h-3 w-3 mr-1" />
+                      Timeline
+                    </button>
                     {order.checkoutSessionId && (
                       <Link
                         to="/order-confirmation"
@@ -236,6 +349,18 @@ function OrdersPage() {
             })}
           </div>
         </>
+      )}
+
+      {/* Timeline Modal */}
+      {auditLogOrder && (
+        <OrderTimelineModal
+          order={auditLogOrder}
+          isOpen={isTimelineModalOpen}
+          onClose={() => {
+            setIsTimelineModalOpen(false);
+            setAuditLogOrder(null);
+          }}
+        />
       )}
     </div>
   );

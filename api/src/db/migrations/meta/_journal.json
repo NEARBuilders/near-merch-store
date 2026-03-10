@@ -29,6 +29,13 @@
       "when": 1773125077046,
       "tag": "0003_fair_edwin_jarvis",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773168079188,
+      "tag": "0004_known_guardsmen",
+      "breakpoints": true
     }
   ]
 }
