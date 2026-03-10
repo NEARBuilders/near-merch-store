@@ -19,7 +19,6 @@ import {
   QuoteOutputSchema,
   ShippingAddressSchema,
   WebhookResponseSchema,
-  OrderAuditLogSchema,
   UpdateOrderStatusInputSchema,
   UpdateOrderStatusOutputSchema,
   DeleteOrdersInputSchema,

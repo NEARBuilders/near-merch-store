@@ -171,6 +171,29 @@ export default createPlugin({
       });
     });
 
+    const requireAdmin = builder.middleware(async ({ context, next }) => {
+      if (!context.nearAccountId) {
+        throw new ORPCError('UNAUTHORIZED', {
+          message: 'Authentication required',
+          data: { authType: 'nearAccountId' }
+        });
+      }
+      
+      if (context.user?.role !== 'admin') {
+        throw new ORPCError('FORBIDDEN', {
+          message: 'Admin access required',
+          data: { requiredRole: 'admin' }
+        });
+      }
+      
+      return next({
+        context: {
+          nearAccountId: context.nearAccountId,
+          user: context.user,
+        }
+      });
+    });
+
     return {
       ping: builder.ping.handler(async () => {
         return {
@@ -836,7 +859,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       }),
 
       getAllOrders: builder.getAllOrders
-        .use(requireAuth)
+        .use(requireAdmin)
         .handler(async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -929,7 +952,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         }),
 
       updateOrderStatus: builder.updateOrderStatus
-        .use(requireAuth)
+        .use(requireAdmin)
         .handler(async ({ input, context }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -987,7 +1010,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         }),
 
       deleteOrders: builder.deleteOrders
-        .use(requireAuth)
+        .use(requireAdmin)
         .handler(async ({ input, context }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
