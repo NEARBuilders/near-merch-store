@@ -18,8 +18,36 @@ import {
   QuoteItemInputSchema,
   QuoteOutputSchema,
   ShippingAddressSchema,
-  WebhookResponseSchema
+  WebhookResponseSchema,
+  UpdateOrderStatusInputSchema,
+  UpdateOrderStatusOutputSchema,
+  DeleteOrdersInputSchema,
+  DeleteOrdersOutputSchema,
+  GetOrderAuditLogOutputSchema,
 } from './schema';
+
+const ProviderProgressSchema = z.object({
+  status: z.enum(['idle', 'fetching', 'syncing', 'completed', 'error']),
+  phase: z.enum(['init', 'fetch_products', 'fetch_details', 'sync_to_db', 'cleanup']),
+  total: z.number(),
+  synced: z.number(),
+  failed: z.number(),
+  currentProduct: z.string().nullable().optional(),
+  message: z.string().nullable().optional(),
+});
+
+const SyncProgressEventSchema = z.object({
+  status: z.enum(['idle', 'syncing', 'completed', 'error']),
+  providers: z.record(z.string(), ProviderProgressSchema),
+  totalSynced: z.number(),
+  totalFailed: z.number(),
+  totalRemoved: z.number(),
+  timestamp: z.number(),
+  message: z.string().nullable().optional(),
+});
+
+export type ProviderProgress = z.infer<typeof ProviderProgressSchema>;
+export type SyncProgress = z.infer<typeof SyncProgressEventSchema>;
 
 export const contract = oc.router({
   ping: oc
@@ -327,6 +355,42 @@ export const contract = oc.router({
     )
     .errors({ UNAUTHORIZED }),
 
+  getOrderAuditLog: oc
+    .route({
+      method: 'GET',
+      path: '/orders/{id}/audit-log',
+      summary: 'Get order audit log',
+      description: 'Returns the audit log for a specific order. Accessible by order owner or admin.',
+      tags: ['Orders'],
+    })
+    .input(z.object({ id: z.string() }))
+    .output(GetOrderAuditLogOutputSchema)
+    .errors({ NOT_FOUND, FORBIDDEN, UNAUTHORIZED }),
+
+  updateOrderStatus: oc
+    .route({
+      method: 'POST',
+      path: '/admin/orders/{id}/status',
+      summary: 'Update order status (Admin)',
+      description: 'Manually updates the status of an order. Logs the change in audit log.',
+      tags: ['Admin'],
+    })
+    .input(UpdateOrderStatusInputSchema)
+    .output(UpdateOrderStatusOutputSchema)
+    .errors({ NOT_FOUND, UNAUTHORIZED }),
+
+  deleteOrders: oc
+    .route({
+      method: 'POST',
+      path: '/admin/orders/delete',
+      summary: 'Delete orders (Admin)',
+      description: 'Soft-deletes multiple orders. Drafts are hard-deleted. Other statuses are soft-deleted and logged.',
+      tags: ['Admin'],
+    })
+    .input(DeleteOrdersInputSchema)
+    .output(DeleteOrdersOutputSchema)
+    .errors({ UNAUTHORIZED }),
+
   stripeWebhook: oc
     .route({
       method: 'POST',
@@ -391,6 +455,7 @@ export const contract = oc.router({
         status: z.enum(['idle', 'running', 'error', 'completed']),
         count: z.number().optional().describe('Products synced'),
         removed: z.number().optional().describe('Products removed'),
+        failed: z.number().optional().describe('Products that failed to sync'),
         syncStartedAt: z.string().datetime().optional().describe('ISO 8601 timestamp'),
         syncDuration: z.number().optional().describe('Duration in seconds'),
       })
@@ -428,11 +493,27 @@ export const contract = oc.router({
         data: z.object({
           stage: z.enum(['SET_STATUS', 'FETCH_PRODUCTS', 'UPSERT', 'FINALIZE', 'UNKNOWN']).describe('Where failure occurred'),
           errorMessage: z.string().describe('Detailed error message'),
-          provider: z.string().optional().describe('Provider if applicable'),
           syncDuration: z.number().optional().describe('Duration at failure'),
         }),
       },
     }),
+
+  cancelSync: oc
+    .route({
+      method: 'POST',
+      path: '/sync/cancel',
+      summary: 'Cancel active sync',
+      description: 
+        'Interrupts an in-progress sync and resets to idle state. ' +
+        'Useful for recovering from stuck or stale sync operations.',
+      tags: ['Sync'],
+    })
+    .output(
+      z.object({
+        success: z.boolean().describe('Whether a sync was cancelled'),
+        message: z.string().describe('Human-readable result'),
+      })
+    ),
 
   getSyncStatus: oc
     .route({
@@ -455,6 +536,17 @@ export const contract = oc.router({
         errorData: z.record(z.string(), z.any()).nullable().describe('Full error context'),
       })
     ),
+
+  subscribeSyncProgress: oc
+    .route({
+      method: 'GET',
+      path: '/sync/progress',
+      summary: 'Subscribe to sync progress',
+      description: 'SSE endpoint streaming real-time sync progress updates.',
+      tags: ['Sync'],
+    })
+    .output(eventIterator(SyncProgressEventSchema)),
+
   updateProductListing: oc
     .route({
       method: 'POST',

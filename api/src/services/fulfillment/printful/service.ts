@@ -29,11 +29,13 @@ import {
   type PrintfulSyncProduct,
   type PrintfulSyncVariant
 } from './types';
+import { printfulRateLimiter, type RateLimiter } from '../rate-limiter';
 
 export class PrintfulService {
   private client: PrintfulClient;
   private apiKey: string;
   private storeId: string;
+  private catalogVariantCache = new Map<number, Variant>();
 
   constructor(apiKey: string, storeId: string, baseUrl = 'https://api.printful.com') {
     this.client = new PrintfulClient(apiKey, storeId, baseUrl);
@@ -41,9 +43,13 @@ export class PrintfulService {
     this.storeId = storeId;
   }
 
-  getSyncProducts() {
+  clearCache() {
+    this.catalogVariantCache.clear();
+  }
+
+  getSyncProducts(limit = 20, offset = 0) {
     return Effect.tryPromise({
-      try: () => this.client.getSyncProducts(),
+      try: () => this.client.getSyncProducts(limit, offset),
       catch: (e) => new Error(`Failed to fetch Printful products: ${e instanceof Error ? e.message : String(e)}`),
     });
   }
@@ -57,19 +63,63 @@ export class PrintfulService {
 
   getProducts(options: { limit?: number; offset?: number } = {}) {
     return Effect.gen(this, function* () {
-      const syncProducts = yield* this.getSyncProducts();
-      const products: ProviderProduct[] = [];
-      const start = options.offset || 0;
-      const end = start + (options.limit || 50);
+      const PAGE_SIZE = 20;
+      const MAX_CONCURRENT = 5;
 
-      for (const syncProduct of syncProducts.slice(start, end)) {
-        const { sync_product, sync_variants } = yield* this.getSyncProduct(syncProduct.id);
-        const catalogVariantIds = sync_variants.map(v => v.variant_id).filter(Boolean);
-        const catalogVariants = yield* this.getCatalogVariants(catalogVariantIds);
-        products.push(this.transformProduct(sync_product, sync_variants, catalogVariants));
+      let allSyncProducts: PrintfulSyncProduct[] = [];
+      let offset = 0;
+      let totalProducts = 0;
+
+      while (true) {
+        const result = yield* this.getSyncProducts(PAGE_SIZE, offset);
+        allSyncProducts = [...allSyncProducts, ...result.sync_products];
+        totalProducts = result.paging.total;
+
+        if (allSyncProducts.length >= totalProducts) break;
+        offset += PAGE_SIZE;
       }
 
-      return { products, total: syncProducts.length };
+      const start = options.offset || 0;
+      const end = options.limit ? start + options.limit : allSyncProducts.length;
+      const paginatedProducts = allSyncProducts.slice(start, end);
+
+      const products: ProviderProduct[] = [];
+      const failed: Array<{ id: string; error: string }> = [];
+
+      const fetchProduct = (syncProduct: PrintfulSyncProduct) =>
+        Effect.gen(this, function* () {
+          const detail = yield* this.getSyncProduct(syncProduct.id).pipe(
+            Effect.retry({
+              times: 3,
+              schedule: Schedule.exponential('1 second'),
+            }),
+            Effect.catchAll((e) => Effect.succeed({ error: e, id: syncProduct.id }))
+          );
+
+          if ('error' in detail) {
+            return { error: detail.error, id: syncProduct.id };
+          }
+
+          const catalogVariantIds = detail.sync_variants.map((v) => v.variant_id).filter(Boolean);
+          const catalogVariants = yield* this.getCatalogVariants(catalogVariantIds);
+
+          return this.transformProduct(detail.sync_product, detail.sync_variants, catalogVariants);
+        });
+
+      const results = yield* Effect.all(
+        paginatedProducts.map((p) => fetchProduct(p)),
+        { concurrency: MAX_CONCURRENT }
+      );
+
+      for (const result of results) {
+        if ('error' in result) {
+          failed.push({ id: String(result.id), error: String(result.error) });
+        } else {
+          products.push(result as ProviderProduct);
+        }
+      }
+
+      return { products, total: totalProducts, failed };
     });
   }
 
@@ -84,9 +134,42 @@ export class PrintfulService {
   }
 
   getCatalogVariant(variantId: number) {
-    return Effect.tryPromise({
-      try: () => this.client.getCatalogVariant(variantId),
-      catch: () => null,
+    return Effect.gen(this, function* () {
+      if (this.catalogVariantCache.has(variantId)) {
+        return this.catalogVariantCache.get(variantId)!;
+      }
+
+      const rateLimiter = yield* printfulRateLimiter;
+
+      const variant = yield* rateLimiter.withRateLimit(
+        Effect.tryPromise({
+          try: () => this.client.getCatalogVariant(variantId),
+          catch: (error) => {
+            if (error instanceof FulfillmentError) {
+              return error;
+            }
+            return FulfillmentError.fromHttpStatus(
+              500,
+              'printful',
+              error instanceof Error ? error.message : String(error),
+              error
+            );
+          },
+        })
+      ).pipe(
+        Effect.retry({
+          times: 5,
+          schedule: Schedule.exponential('1 second'),
+          while: (error) => error instanceof FulfillmentError && error.code === 'RATE_LIMIT',
+        }),
+        Effect.catchAll(() => Effect.succeed(null))
+      );
+
+      if (variant) {
+        this.catalogVariantCache.set(variantId, variant);
+      }
+
+      return variant;
     });
   }
 

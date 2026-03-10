@@ -151,6 +151,8 @@ export const orders = pgTable('orders', {
   trackingInfo: jsonb('tracking_info').$type<TrackingInfo[]>(),
   deliveryEstimate: jsonb('delivery_estimate').$type<DeliveryEstimate>(),
 
+  isDeleted: boolean('is_deleted').notNull().default(false),
+
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => ([
@@ -158,6 +160,7 @@ export const orders = pgTable('orders', {
   index('orders_checkout_session_idx').on(table.checkoutSessionId),
   index('orders_fulfillment_ref_idx').on(table.fulfillmentReferenceId),
   index('orders_status_idx').on(table.status),
+  index('orders_deleted_idx').on(table.isDeleted),
 ]));
 
 export const orderItems = pgTable('order_items', {
@@ -181,6 +184,23 @@ export const orderItems = pgTable('order_items', {
   index('order_items_order_idx').on(table.orderId),
   index('order_items_product_idx').on(table.productId),
   index('order_items_variant_idx').on(table.variantId),
+]));
+
+export const orderAuditLogs = pgTable('order_audit_logs', {
+  id: text('id').primaryKey(),
+  orderId: text('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  actor: text('actor').notNull(), // e.g., 'service:printful', 'admin:efiz.near', 'user:efiz.near'
+  action: text('action').notNull(), // e.g., 'status_change', 'tracking_update', 'fulfillment_update', 'delete'
+  field: text('field'), // which field changed (nullable)
+  oldValue: text('old_value'), // previous value (nullable)
+  newValue: text('new_value'), // new value (nullable)
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(), // additional context (webhook payload, etc.)
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (table) => ([
+  index('audit_order_idx').on(table.orderId),
+  index('audit_actor_idx').on(table.actor),
+  index('audit_action_idx').on(table.action),
+  index('audit_created_idx').on(table.createdAt),
 ]));
 
 export interface ShippingAddress {

@@ -28,6 +28,10 @@ export const FulfillmentContract = oc.router({
     .output(z.object({
       products: z.array(ProviderProductSchema),
       total: z.number(),
+      failed: z.array(z.object({
+        id: z.string(),
+        error: z.string(),
+      })).optional(),
     })),
 
   getProduct: oc

@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -38,6 +37,8 @@ import {
   useProductTypes,
   useSyncStatus,
   useSyncProducts,
+  useSyncProgress,
+  useCancelSync,
   useUpdateProductCategories,
   useUpdateProductListing,
   useUpdateProductTags,
@@ -310,7 +311,9 @@ function InventoryManagement() {
   const products = productsData?.products || [];
 
   const { data: syncStatusData } = useSyncStatus();
+  const { data: syncProgressData } = useSyncProgress();
   const syncMutation = useSyncProducts();
+  const cancelSyncMutation = useCancelSync();
   const updateListingMutation = useUpdateProductListing();
   const updateCategoriesMutation = useUpdateProductCategories();
   const updateTagsMutation = useUpdateProductTags();
@@ -324,35 +327,51 @@ function InventoryManagement() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  
-  // Live sync duration counter
-  const [syncDuration, setSyncDuration] = useState(0);
-  
-  // Error details expansion state
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [showSuccessDetails, setShowSuccessDetails] = useState(false);
 
   const handleSync = () => {
     syncMutation.mutate(undefined);
+  };
+
+  const handleCancelSync = () => {
+    cancelSyncMutation.mutate();
   };
 
   const handleToggleListing = (productId: string, currentlyListed: boolean) => {
     updateListingMutation.mutate({ id: productId, listed: !currentlyListed });
   };
 
-  // Update sync duration when running
+  // Derived sync state from queries only
+  const isRunning = syncStatusData?.status === "running" || syncMutation.isPending;
+  const hasError = syncStatusData?.status === "error" || syncProgressData?.finalEvent?.status === 'error';
+  const hasTerminalProgress = syncProgressData?.finalEvent != null;
+  const showSyncStatus = isRunning || hasTerminalProgress || hasError || syncStatusData?.lastSuccessAt;
+  
+  // Live timer for sync duration
+  const [syncDuration, setSyncDuration] = useState(0);
+  
   useEffect(() => {
-    if (syncStatusData?.status === 'running' && syncStatusData.syncStartedAt) {
-      const interval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - (syncStatusData.syncStartedAt ?? 0)) / 1000);
-        setSyncDuration(elapsed);
-      }, 1000);
-      return () => clearInterval(interval);
-    } else {
+    if (!isRunning) {
       setSyncDuration(0);
+      return;
     }
-  }, [syncStatusData?.status, syncStatusData?.syncStartedAt]);
-
-  const isSyncing = syncStatusData?.status === "running" || syncMutation.isPending;
+    
+    const startedAt = syncStatusData?.syncStartedAt;
+    if (!startedAt) {
+      setSyncDuration(0);
+      return;
+    }
+    
+    const updateDuration = () => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      setSyncDuration(elapsed);
+    };
+    
+    updateDuration();
+    const interval = setInterval(updateDuration, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning, syncStatusData?.syncStartedAt]);
 
   const columns: ColumnDef<Product>[] = [
     {
@@ -669,20 +688,27 @@ function InventoryManagement() {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap shrink-0">
-          <button
-            type="button"
-            onClick={handleSync}
-            disabled={isSyncing}
-            className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={cn("size-4 mr-2", isSyncing && "animate-spin")} />
-            {isSyncing ? (
-              <>
-                Syncing...
-                {syncDuration > 0 && ` (${formatDuration(syncDuration)})`}
-              </>
-            ) : "Sync Products"}
-          </button>
+          {isRunning ? (
+            <button
+              type="button"
+              onClick={handleCancelSync}
+              disabled={cancelSyncMutation.isPending}
+              className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-red-500/60 text-red-500 flex items-center justify-center font-semibold text-sm hover:bg-red-500/10 transition-colors disabled:opacity-50"
+            >
+              <XCircle className="size-4 mr-2" />
+              Cancel Sync
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncMutation.isPending}
+              className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={cn("size-4 mr-2", syncMutation.isPending && "animate-spin")} />
+              {syncMutation.isPending ? "Starting..." : "Sync Products"}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => refetch()}
@@ -696,30 +722,35 @@ function InventoryManagement() {
       </div>
 
       {/* Sync Status Block */}
-      {syncStatusData && (
+      {showSyncStatus && (
         <Card className={cn(
           "rounded-2xl border p-4",
-          syncStatusData.status === "running" && "border-[#3d7fff]/60 bg-background/60",
-          syncStatusData.status === "error" && "border-red-500/60 bg-background/60",
-          syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && "border-[#00EC97]/60 bg-background/60"
+          isRunning && "border-[#3d7fff]/60 bg-background/60",
+          hasError && "border-red-500/60 bg-background/60",
+          !isRunning && !hasError && syncStatusData?.lastSuccessAt && "border-[#00EC97]/60 bg-background/60"
         )}>
-          {syncStatusData.status === "running" && (
+          {/* Running View */}
+          {isRunning && (
             <div className="flex items-center gap-2 text-sm">
               <RefreshCw className="size-4 animate-spin text-[#3d7fff]" />
-              <span className="text-[#3d7fff] font-medium">Syncing products from fulfillment providers...</span>
+              <span className="text-[#3d7fff] font-medium">Syncing products...</span>
               {syncDuration > 0 && <span className="text-[#3d7fff]/70">({formatDuration(syncDuration)})</span>}
             </div>
           )}
-          {syncStatusData.status === "error" && (
+          
+          {/* Error View */}
+          {hasError && (
             <div className="space-y-3">
               <div className="flex items-start gap-2">
                 <XCircle className="size-5 text-red-500 mt-0.5" />
                 <div className="flex-1 space-y-1">
                   <p className="text-sm font-medium text-red-500">Sync failed</p>
-                  <p className="text-sm text-red-500/80">{syncStatusData.errorMessage || "Unknown error"}</p>
+                  <p className="text-sm text-red-500/80">
+                    {syncStatusData?.errorMessage || syncProgressData?.finalEvent?.message || "Unknown error"}
+                  </p>
                 </div>
               </div>
-              {syncStatusData.errorData && (
+              {syncStatusData?.errorData && (
                 <>
                   <button
                     type="button"
@@ -740,10 +771,65 @@ function InventoryManagement() {
               )}
             </div>
           )}
-          {syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-[#00EC97] font-medium">Last synced:</span>
-              <span className="text-[#00EC97]/70">{formatDate(syncStatusData.lastSuccessAt)}</span>
+          
+          {/* Success View */}
+          {!isRunning && !hasError && syncStatusData?.lastSuccessAt && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-[#00EC97] font-medium">Last synced:</span>
+                  <span className="text-[#00EC97]/70">{formatDate(syncStatusData.lastSuccessAt)}</span>
+                </div>
+                {syncProgressData?.finalEvent?.status === 'completed' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSuccessDetails(!showSuccessDetails)}
+                    className="flex items-center gap-1.5 text-xs text-[#00EC97]/70 hover:text-[#00EC97] transition-colors"
+                  >
+                    <span>{showSuccessDetails ? "Hide" : "Show"} details</span>
+                    <ChevronDown className={cn("size-3.5 transition-transform", showSuccessDetails && "rotate-180")} />
+                  </button>
+                )}
+              </div>
+              
+              {showSuccessDetails && syncProgressData?.finalEvent?.status === 'completed' && (
+                <div className="bg-background/50 rounded-lg p-3 border border-[#00EC97]/20 space-y-2">
+                  <div className="text-xs text-foreground/70 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Products synced:</span>
+                      <span className="font-medium text-[#00EC97]">{syncProgressData.finalEvent.totalSynced}</span>
+                    </div>
+                    {syncProgressData.finalEvent.totalFailed > 0 && (
+                      <div className="flex justify-between">
+                        <span>Failed:</span>
+                        <span className="font-medium text-yellow-500">{syncProgressData.finalEvent.totalFailed}</span>
+                      </div>
+                    )}
+                    {syncProgressData.finalEvent.totalRemoved > 0 && (
+                      <div className="flex justify-between">
+                        <span>Removed:</span>
+                        <span className="font-medium text-foreground/50">{syncProgressData.finalEvent.totalRemoved}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {Object.keys(syncProgressData.finalEvent.providers).length > 0 && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-foreground/50 hover:text-foreground/70 transition-colors">
+                        Provider details
+                      </summary>
+                      <div className="mt-2 space-y-1 pl-2 border-l-2 border-border/40">
+                        {Object.entries(syncProgressData.finalEvent.providers).map(([name, p]) => (
+                          <div key={name} className="flex justify-between text-foreground/70">
+                            <span className="capitalize">{name}</span>
+                            <span>{p.synced} synced{p.failed > 0 && `, ${p.failed} failed`}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </Card>

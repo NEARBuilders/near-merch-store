@@ -1,18 +1,22 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { ExternalLink, RefreshCw, Search, ShoppingBag, ChevronDown, ChevronUp, CreditCard } from "lucide-react";
+import { toast } from "sonner";
+import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
+import { ExternalLink, RefreshCw, Search, ShoppingBag, ChevronDown, ChevronUp, CreditCard, Trash2, History, AlertTriangle } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/utils/orpc";
 import { getStatusLabel, getStatusColor } from "@/lib/order-status";
 import { cn } from "@/lib/utils";
+import { AuditLogViewer } from "@/components/orders/audit-log-viewer";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
 
@@ -124,10 +128,100 @@ function PaymentDetailsView({ paymentDetails }: { paymentDetails: Record<string,
   );
 }
 
+function AuditLogModal({ order, isOpen, onClose }: { order: Order; isOpen: boolean; onClose: () => void }) {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-background border border-border/60">
+        <DialogHeader>
+          <DialogTitle>Order History - {order.id.substring(0, 8)}...</DialogTitle>
+          <DialogDescription>
+            Complete audit log for this order
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="py-4">
+          <AuditLogViewer orderId={order.id} variant="admin" />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteConfirmationModal({ 
+  orders, 
+  isOpen, 
+  onClose, 
+  onConfirm 
+}: { 
+  orders: Order[]; 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onConfirm: () => void;
+}) {
+  const draftCount = orders.filter(o => o.status === 'draft_created' || o.status === 'pending').length;
+  const nonDraftCount = orders.length - draftCount;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md rounded-2xl bg-background border border-border/60">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-6 w-6 text-destructive" />
+            <DialogTitle>Confirm Delete</DialogTitle>
+          </div>
+          <DialogDescription className="pt-2">
+            You are about to delete {orders.length} order{orders.length !== 1 ? 's' : ''}.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="py-4 space-y-3">
+          {draftCount > 0 && (
+            <div className="p-3 rounded-lg bg-background/60 border border-border/60">
+              <p className="text-sm">
+                <span className="font-medium">{draftCount}</span> draft order{draftCount !== 1 ? 's' : ''} will be permanently deleted.
+              </p>
+            </div>
+          )}
+          
+          {nonDraftCount > 0 && (
+            <div className="p-3 rounded-lg bg-background/60 border border-border/60">
+              <p className="text-sm">
+                <span className="font-medium">{nonDraftCount}</span> non-draft order{nonDraftCount !== 1 ? 's' : ''} will be soft-deleted and logged.
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <DialogFooter className="gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground text-sm font-semibold hover:bg-background transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-lg bg-destructive text-white text-sm font-semibold hover:bg-destructive/90 transition-colors"
+          >
+            Delete {orders.length} Order{orders.length !== 1 ? 's' : ''}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AdminOrdersPage() {
   const router = useRouter();
   const loaderData = Route.useLoaderData();
   const [search, setSearch] = useState("");
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedOrdersForDelete, setSelectedOrdersForDelete] = useState<Order[]>([]);
+  const [auditLogOrder, setAuditLogOrder] = useState<Order | null>(null);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
   if (!loaderData) {
     return (
@@ -162,8 +256,72 @@ function AdminOrdersPage() {
     );
   }, [orders, search]);
 
+  const selectedOrders = useMemo(() => {
+    const selectedIndices = Object.keys(rowSelection).filter(key => rowSelection[key]);
+    return selectedIndices.map(index => filteredOrders[parseInt(index)]).filter(Boolean);
+  }, [rowSelection, filteredOrders]);
+
+  const handleDeleteClick = () => {
+    if (selectedOrders.length === 0) return;
+    setSelectedOrdersForDelete(selectedOrders);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      const orderIds = selectedOrdersForDelete.map(o => o.id);
+      const result = await apiClient.deleteOrders({ orderIds });
+      
+      // Show success toast
+      if (result.deleted > 0) {
+        toast.success(`Successfully deleted ${result.deleted} order(s)`);
+      }
+      
+      // Show warnings for any errors
+      if (result.errors.length > 0) {
+        result.errors.forEach(err => {
+          toast.error(`Failed to delete order ${err.orderId.substring(0, 8)}...: ${err.error}`);
+        });
+      }
+      
+      // Clear selection and refresh
+      setRowSelection({});
+      setIsDeleteModalOpen(false);
+      router.invalidate();
+    } catch (error) {
+      console.error('Failed to delete orders:', error);
+      toast.error('Failed to delete orders. Please try again.');
+    }
+  };
+
+  const handleViewAuditLog = (order: Order) => {
+    setAuditLogOrder(order);
+    setIsAuditModalOpen(true);
+  };
+
   const columns: ColumnDef<Order>[] = useMemo(
     () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            checked={table.getIsAllPageRowsSelected()}
+            onChange={table.getToggleAllPageRowsSelectedHandler()}
+            className="rounded border-border/60"
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            checked={row.getIsSelected()}
+            onChange={row.getToggleSelectedHandler()}
+            className="rounded border-border/60"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
       {
         accessorKey: "id",
         header: "Order ID",
@@ -266,6 +424,14 @@ function AdminOrdersPage() {
                   Track <ExternalLink className="h-3 w-3 ml-1" />
                 </a>
               )}
+              <button
+                type="button"
+                onClick={() => handleViewAuditLog(order)}
+                className="px-3 py-1.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
+              >
+                <History className="h-3 w-3 mr-1" />
+                History
+              </button>
             </div>
           );
         },
@@ -281,14 +447,26 @@ function AdminOrdersPage() {
           <h2 className="text-3xl font-bold tracking-tight mb-2">Orders Management</h2>
           <p className="text-sm text-foreground/90 dark:text-muted-foreground">View and manage all customer orders</p>
         </div>
-        <button
-          type="button"
-          onClick={() => router.invalidate()}
-          className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
-        >
-          <RefreshCw className="size-4 mr-2" />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {selectedOrders.length > 0 && (
+            <button
+              type="button"
+              onClick={handleDeleteClick}
+              className="px-4 py-2 rounded-lg bg-destructive/10 backdrop-blur-sm border border-destructive/30 text-destructive flex items-center justify-center text-sm font-semibold hover:bg-destructive hover:text-white transition-colors"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete ({selectedOrders.length})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => router.invalidate()}
+            className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
+          >
+            <RefreshCw className="size-4 mr-2" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="rounded-2xl bg-background border border-border/60 px-6 py-4">
@@ -315,7 +493,12 @@ function AdminOrdersPage() {
         <>
           {/* Desktop Table */}
           <div className="hidden md:block rounded-2xl bg-background border border-border/60 overflow-hidden">
-            <DataTable columns={columns} data={filteredOrders} />
+            <DataTable 
+              columns={columns} 
+              data={filteredOrders}
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
+            />
           </div>
 
           {/* Mobile Cards */}
@@ -362,47 +545,74 @@ function AdminOrdersPage() {
                     </p>
                   </div>
 
-                  {(hasPaymentDetails || hasTracking) && (
-                    <div className="flex items-center gap-2 pt-2">
-                      {hasPaymentDetails && (
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <button
-                              type="button"
-                              className="flex-1 px-3 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
-                            >
-                              <CreditCard className="h-3 w-3 mr-1" />
-                              Payment
-                            </button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-background border border-border/60">
-                            <DialogHeader>
-                              <DialogTitle>Payment Details</DialogTitle>
-                            </DialogHeader>
-                            <PaymentDetailsView paymentDetails={order.paymentDetails!} />
-                          </DialogContent>
-                        </Dialog>
-                      )}
-                      {hasTracking && (
-                        <a
-                          href={order.trackingInfo![0]!.trackingUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "flex-1 px-3 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors",
-                            !hasPaymentDetails && "w-full"
-                          )}
-                        >
-                          Track <ExternalLink className="h-3 w-3 ml-1" />
-                        </a>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 pt-2">
+                    {hasPaymentDetails && (
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <button
+                            type="button"
+                            className="flex-1 px-3 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
+                          >
+                            <CreditCard className="h-3 w-3 mr-1" />
+                            Payment
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-background border border-border/60">
+                          <DialogHeader>
+                            <DialogTitle>Payment Details</DialogTitle>
+                          </DialogHeader>
+                          <PaymentDetailsView paymentDetails={order.paymentDetails!} />
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                    {hasTracking && (
+                      <a
+                        href={order.trackingInfo![0]!.trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "flex-1 px-3 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors",
+                          !hasPaymentDetails && "w-full"
+                        )}
+                      >
+                        Track <ExternalLink className="h-3 w-3 ml-1" />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleViewAuditLog(order)}
+                      className="flex-1 px-3 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
+                    >
+                      <History className="h-3 w-3 mr-1" />
+                      History
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         </>
+      )}
+
+      {/* Modals */}
+      {selectedOrdersForDelete.length > 0 && (
+        <DeleteConfirmationModal
+          orders={selectedOrdersForDelete}
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
+
+      {auditLogOrder && (
+        <AuditLogModal
+          order={auditLogOrder}
+          isOpen={isAuditModalOpen}
+          onClose={() => {
+            setIsAuditModalOpen(false);
+            setAuditLogOrder(null);
+          }}
+        />
       )}
     </div>
   );

@@ -796,6 +796,149 @@ describe('Printful Webhook Integration', () => {
     });
   });
 
+  describe('order_updated', () => {
+    it('should update order to shipped when order_updated with fulfilled status received', async () => {
+      const client = await getPluginClient({ nearAccountId: TEST_USER });
+
+      const db = getTestDb();
+      const orderId = 'test-order-updated-fulfilled-123';
+      const now = new Date();
+
+      await db.insert(schema.orders).values({
+        id: orderId,
+        userId: TEST_USER,
+        status: 'processing',
+        totalAmount: 5000,
+        currency: 'USD',
+        fulfillmentReferenceId: `order_${Date.now()}_${TEST_USER}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const printfulWebhookPayload = {
+        type: 'order_updated',
+        created: Math.floor(Date.now() / 1000),
+        retries: 0,
+        store: 11229252,
+        data: {
+          order: {
+            id: 94188292,
+            external_id: orderId,
+            store: 11229252,
+            status: 'fulfilled',
+            shipping: 'STANDARD',
+            created: 1697638507,
+            updated: 1697638507,
+          },
+        },
+      };
+
+      const webhookBody = JSON.stringify(printfulWebhookPayload);
+
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
+
+      expect(result.received).toBe(true);
+
+      const updatedOrder = await client.getOrder({ id: orderId });
+      expect(updatedOrder.order.status).toBe('shipped');
+    });
+
+    it('should update order to processing when order_updated with pending status received', async () => {
+      const client = await getPluginClient({ nearAccountId: TEST_USER });
+
+      const db = getTestDb();
+      const orderId = 'test-order-updated-pending-123';
+      const now = new Date();
+
+      await db.insert(schema.orders).values({
+        id: orderId,
+        userId: TEST_USER,
+        status: 'paid',
+        totalAmount: 5000,
+        currency: 'USD',
+        fulfillmentReferenceId: `order_${Date.now()}_${TEST_USER}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const printfulWebhookPayload = {
+        type: 'order_updated',
+        created: Math.floor(Date.now() / 1000),
+        retries: 0,
+        store: 11229252,
+        data: {
+          order: {
+            id: 94188292,
+            external_id: orderId,
+            store: 11229252,
+            status: 'pending',
+            shipping: 'STANDARD',
+            created: 1697638507,
+            updated: 1697638507,
+          },
+        },
+      };
+
+      const webhookBody = JSON.stringify(printfulWebhookPayload);
+
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
+
+      expect(result.received).toBe(true);
+
+      const updatedOrder = await client.getOrder({ id: orderId });
+      expect(updatedOrder.order.status).toBe('processing');
+    });
+
+    it('should update order to on_hold when order_updated with onhold status received', async () => {
+      const client = await getPluginClient({ nearAccountId: TEST_USER });
+
+      const db = getTestDb();
+      const orderId = 'test-order-updated-onhold-123';
+      const now = new Date();
+
+      await db.insert(schema.orders).values({
+        id: orderId,
+        userId: TEST_USER,
+        status: 'processing',
+        totalAmount: 5000,
+        currency: 'USD',
+        fulfillmentReferenceId: `order_${Date.now()}_${TEST_USER}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const printfulWebhookPayload = {
+        type: 'order_updated',
+        created: Math.floor(Date.now() / 1000),
+        retries: 0,
+        store: 11229252,
+        data: {
+          order: {
+            id: 94188292,
+            external_id: orderId,
+            store: 11229252,
+            status: 'onhold',
+            shipping: 'STANDARD',
+            created: 1697638507,
+            updated: 1697638507,
+          },
+        },
+      };
+
+      const webhookBody = JSON.stringify(printfulWebhookPayload);
+
+      const webhookClient = await createSignedPrintfulWebhookClient(printfulWebhookPayload, webhookBody);
+      const result = await webhookClient.printfulWebhook(printfulWebhookPayload);
+
+      expect(result.received).toBe(true);
+
+      const updatedOrder = await client.getOrder({ id: orderId });
+      expect(updatedOrder.order.status).toBe('on_hold');
+    });
+  });
+
   describe('Signature Verification', () => {
     it('should accept webhooks with valid x-pf-webhook-signature', async () => {
       const payload = {

@@ -1,12 +1,20 @@
 import { createFileRoute, useRouter, Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ExternalLink, Package } from 'lucide-react';
+import { ExternalLink, Package, History } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { apiClient } from '@/utils/orpc';
 import { Badge } from '@/components/ui/badge';
 import { getStatusLabel, getStatusColor } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
+import { AuditLogViewer } from '@/components/orders/audit-log-viewer';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute('/_marketplace/_authenticated/account/orders')({
   loader: () => apiClient.getOrders({ limit: 100, offset: 0 }),
@@ -34,8 +42,29 @@ function OrdersError({ error }: { error: Error }) {
   );
 }
 
+function OrderTimelineModal({ order, isOpen, onClose }: { order: Order; isOpen: boolean; onClose: () => void }) {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-background border border-border/60">
+        <DialogHeader>
+          <DialogTitle>Order Timeline - {order.id.substring(0, 8)}...</DialogTitle>
+          <DialogDescription>
+            Track your order's journey
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="py-4">
+          <AuditLogViewer orderId={order.id} variant="customer" />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OrdersPage() {
   const loaderData = Route.useLoaderData();
+  const [auditLogOrder, setAuditLogOrder] = useState<Order | null>(null);
+  const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
 
   if (!loaderData) {
     return (
@@ -59,6 +88,11 @@ function OrdersPage() {
   }
 
   const { orders } = loaderData;
+
+  const handleViewTimeline = (order: Order) => {
+    setAuditLogOrder(order);
+    setIsTimelineModalOpen(true);
+  };
 
   const columns: ColumnDef<Order>[] = useMemo(
     () => [
@@ -135,6 +169,14 @@ function OrdersPage() {
                   Track <ExternalLink className="h-3 w-3 ml-1" />
                 </a>
               )}
+              <button
+                type="button"
+                onClick={() => handleViewTimeline(order)}
+                className="px-3 py-1.5 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors"
+              >
+                <History className="h-3 w-3 mr-1" />
+                Timeline
+              </button>
               <Link
                 to="/order-confirmation"
                 search={{ sessionId: order.checkoutSessionId || '' }}
@@ -218,6 +260,17 @@ function OrdersPage() {
                         Track <ExternalLink className="h-3 w-3 ml-1" />
                       </a>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleViewTimeline(order)}
+                      className={cn(
+                        "flex-1 px-3 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center text-xs font-semibold hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors",
+                        !hasTracking && !order.checkoutSessionId && "w-full"
+                      )}
+                    >
+                      <History className="h-3 w-3 mr-1" />
+                      Timeline
+                    </button>
                     {order.checkoutSessionId && (
                       <Link
                         to="/order-confirmation"
@@ -236,6 +289,18 @@ function OrdersPage() {
             })}
           </div>
         </>
+      )}
+
+      {/* Timeline Modal */}
+      {auditLogOrder && (
+        <OrderTimelineModal
+          order={auditLogOrder}
+          isOpen={isTimelineModalOpen}
+          onClose={() => {
+            setIsTimelineModalOpen(false);
+            setAuditLogOrder(null);
+          }}
+        />
       )}
     </div>
   );

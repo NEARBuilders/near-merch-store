@@ -5,7 +5,10 @@ import type { OrderStatus, TrackingInfo } from '../../../schema';
 type PrintfulWebhookPayload = {
   type?: string;
   data?: {
-    order?: { external_id?: string };
+    order?: { 
+      external_id?: string;
+      status?: string;
+    };
     shipment?: {
       tracking_number?: string;
       tracking_url?: string;
@@ -76,6 +79,30 @@ export function computePrintfulUpdate(options: {
     case 'order_created':
       if (currentStatus === 'paid' || currentStatus === 'paid_pending_fulfillment') {
         newStatus = 'processing';
+      }
+      break;
+
+    case 'order_updated':
+      const orderStatus = data?.order?.status?.toLowerCase();
+      switch (orderStatus) {
+        case 'fulfilled':
+          newStatus = 'shipped';
+          break;
+        case 'pending':
+          if (currentStatus === 'paid' || currentStatus === 'paid_pending_fulfillment') {
+            newStatus = 'processing';
+          }
+          break;
+        case 'canceled':
+        case 'cancelled':
+          newStatus = 'cancelled';
+          break;
+        case 'failed':
+          newStatus = 'failed';
+          break;
+        case 'onhold':
+          newStatus = 'on_hold';
+          break;
       }
       break;
 

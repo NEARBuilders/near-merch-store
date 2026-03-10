@@ -10,6 +10,10 @@ import {
 import { productKeys, productTypeKeys, collectionKeys, categoryKeys, type Category } from './keys';
 import { toast } from 'sonner';
 
+
+type SyncProgressStream = Awaited<ReturnType<typeof apiClient.subscribeSyncProgress>>;
+export type SyncProgressEvent = SyncProgressStream extends AsyncIterable<infer T> ? T : never;
+
 export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'];
 export type ProductImage = Product['images'][number];
 
@@ -233,10 +237,38 @@ export function useSyncStatus() {
   });
 }
 
+export function useSyncProgress() {
+  return useQuery({
+    queryKey: ['syncProgress'],
+    queryFn: async () => {
+      const events: SyncProgressEvent[] = [];
+      const stream = await apiClient.subscribeSyncProgress({});
+      
+      for await (const event of stream) {
+        events.push(event);
+        if (event.status === 'completed' || event.status === 'error') {
+          return { events, finalEvent: event };
+        }
+      }
+      
+      return { events, finalEvent: null };
+    },
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60,
+    enabled: false,
+  });
+}
+
 export function useSyncProducts() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => apiClient.sync(),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['syncProgress'] });
+      queryClient.removeQueries({ queryKey: ['syncProgress'] });
+      queryClient.setQueryData(['syncProgress'], { events: [], finalEvent: null });
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
       queryClient.invalidateQueries({ 
@@ -246,56 +278,35 @@ export function useSyncProducts() {
       queryClient.invalidateQueries({ queryKey: collectionKeys.all });
       queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
       
-      if (data.status === 'completed' && data.syncDuration) {
-        const minutes = Math.floor(data.syncDuration / 60);
-        const seconds = data.syncDuration % 60;
-        toast.success(`Sync completed in ${minutes}m ${seconds}s`);
-      } else if (data.status === 'completed') {
-        toast.success('Sync completed');
+      if (data.status === 'completed') {
+        const minutes = data.syncDuration ? Math.floor(data.syncDuration / 60) : 0;
+        const seconds = data.syncDuration ? data.syncDuration % 60 : 0;
+        const timeStr = data.syncDuration ? ` in ${minutes}m ${seconds}s` : '';
+        const failedStr = data.failed && data.failed > 0 ? ` (${data.failed} failed)` : '';
+        toast.success(`Synced ${data.count ?? 0} products${failedStr}${timeStr}`);
       }
     },
     onError: (error) => {
-      const errorCode = (error as any)?.response?.data?.code;
+      queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
+      
+      const errorCode = (error as any)?.code || (error as any)?.response?.data?.code;
       const errorMessage = (error as any)?.message || 'Sync failed';
       
       switch (errorCode) {
-        case 'SYNC_IN_PROGRESS': {
-          const retryAfter = ((error as any)?.response?.data?.retryAfter ?? (error as any)?.response?.data?.duration) || 0;
-          const timeLabel = retryAfter > 60
-            ? `${Math.ceil(retryAfter / 60)}m ${retryAfter % 60}s`
-            : `${retryAfter}s`;
-          toast.error(`Sync is already in progress${retryAfter ? `, will retry in ${timeLabel}` : ''}`);
+        case 'SYNC_IN_PROGRESS':
+          toast.error('Sync is already in progress');
           break;
-        }
 
-        case 'SYNC_TIMEOUT': {
+        case 'SYNC_TIMEOUT':
           toast.error('Sync timed out, please try again');
           break;
-        }
 
-        case 'SYNC_PROVIDER_ERROR': {
-          const provider = (error as any)?.response?.data?.provider || 'Fulfillment provider';
-          const retryAfter = (error as any)?.response?.data?.retryAfter;
-          toast.error(`${provider}暂时不可用${retryAfter ? `, retry in ${retryAfter}s` : ''}`, {
-            id: 'sync-provider-error',
-            action: retryAfter ? {
-              label: 'Retry',
-              onClick: () => {
-                if (retryAfter > 0 && retryAfter < 60) {
-                  toast.promise(apiClient.sync(), {
-                    loading: 'Retrying sync...',
-                    success: 'Sync complete',
-                    error: 'Sync failed',
-                  });
-                }
-              },
-            } : undefined,
-          });
+        case 'SYNC_PROVIDER_ERROR':
+          toast.error('Provider temporarily unavailable');
           break;
-        }
 
-        case 'SYNC_FAILED': {
-          toast.error(errorMessage || 'Sync operation failed', {
+        case 'SYNC_FAILED':
+          toast.error('Sync failed - check provider details', {
             id: 'sync-failed',
             action: {
               label: 'Retry',
@@ -307,12 +318,25 @@ export function useSyncProducts() {
             },
           });
           break;
-        }
 
-        default: {
-          toast.error(errorMessage || 'An error occurred while syncing');
-        }
+        default:
+          toast.error(errorMessage || 'Sync failed');
       }
+    },
+  });
+}
+
+export function useCancelSync() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.cancelSync(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
+      queryClient.removeQueries({ queryKey: ['syncProgress'] });
+      toast.success('Sync cancelled');
+    },
+    onError: () => {
+      toast.error('Failed to cancel sync');
     },
   });
 }

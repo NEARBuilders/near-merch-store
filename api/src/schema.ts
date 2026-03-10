@@ -511,3 +511,54 @@ export const OrderStatusEventSchema = z.object({
 });
 
 export type OrderStatusEvent = z.infer<typeof OrderStatusEventSchema>;
+
+export const OrderAuditLogActionSchema = z.enum([
+  'status_change',
+  'tracking_update',
+  'fulfillment_update',
+  'admin_edit',
+  'delete',
+]);
+
+export const OrderAuditLogSchema = z.object({
+  id: z.string(),
+  orderId: z.string(),
+  actor: z.string(), // e.g., 'service:printful', 'admin:efiz.near', 'user:efiz.near'
+  action: OrderAuditLogActionSchema,
+  field: z.string().optional(),
+  oldValue: z.string().optional(),
+  newValue: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  createdAt: z.string().datetime(),
+});
+
+export type OrderAuditLogAction = z.infer<typeof OrderAuditLogActionSchema>;
+export type OrderAuditLog = z.infer<typeof OrderAuditLogSchema>;
+
+export const UpdateOrderStatusInputSchema = z.object({
+  orderId: z.string(),
+  status: OrderStatusSchema,
+  reason: z.string().optional(),
+});
+
+export const UpdateOrderStatusOutputSchema = z.object({
+  success: z.boolean(),
+  order: OrderWithItemsSchema,
+});
+
+export const DeleteOrdersInputSchema = z.object({
+  orderIds: z.array(z.string()).min(1),
+});
+
+export const DeleteOrdersOutputSchema = z.object({
+  success: z.boolean(),
+  deleted: z.number(),
+  errors: z.array(z.object({
+    orderId: z.string(),
+    error: z.string(),
+  })),
+});
+
+export const GetOrderAuditLogOutputSchema = z.object({
+  logs: z.array(OrderAuditLogSchema),
+});

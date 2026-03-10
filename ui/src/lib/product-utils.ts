@@ -37,6 +37,14 @@ export const COLOR_MAP: Record<string, string> = {
   "Heather Brown": "#8B7355",
   "Heather Forest": "#4A5D4A",
   Sage: "#9CAF88",
+  // New colors from database
+  "Baby Blue": "#89CFF0",
+  "Carbon Grey": "#767873",
+  "Heather True Royal": "#24509A",
+  "Hemp": "#987D73",
+  "Navy Blazer": "#282D3C",
+  "Pepper": "#5D5951",
+  "True Navy": "#3F5277",
 };
 
 export function getOptionValue(

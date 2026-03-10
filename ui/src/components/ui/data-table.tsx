@@ -7,6 +7,7 @@ import {
   getSortedRowModel,
   type SortingState,
   useReactTable,
+  type RowSelectionState,
 } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
@@ -31,11 +32,15 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   searchKey?: string;
   searchValue?: string;
+  rowSelection?: RowSelectionState;
+  onRowSelectionChange?: (updaterOrValue: RowSelectionState | ((old: RowSelectionState) => RowSelectionState)) => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  rowSelection,
+  onRowSelectionChange,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
@@ -46,8 +51,10 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
+    onRowSelectionChange: onRowSelectionChange,
     state: {
       sorting,
+      rowSelection,
     },
   });
 

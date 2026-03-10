@@ -3,6 +3,25 @@ import type { apiClient } from '@/utils/orpc';
 type Order = Awaited<ReturnType<typeof apiClient.getAllOrders>>['orders'][0];
 export type OrderStatus = Order['status'];
 
+export const ORDER_STATUSES: OrderStatus[] = [
+  'pending',
+  'draft_created',
+  'payment_pending',
+  'paid',
+  'paid_pending_fulfillment',
+  'payment_failed',
+  'expired',
+  'processing',
+  'on_hold',
+  'shipped',
+  'delivered',
+  'returned',
+  'cancelled',
+  'partially_cancelled',
+  'failed',
+  'refunded',
+];
+
 export const statusLabels: Record<OrderStatus, string> = {
   pending: 'Pending',
   draft_created: 'Awaiting Payment',

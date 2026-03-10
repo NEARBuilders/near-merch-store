@@ -75,7 +75,13 @@ export function handlePingPayWebhookEffect(options: {
           return { received: true } as const;
         }
 
-        yield* store.updateStatus(resolvedOrderId, 'paid');
+        yield* store.updateStatus(
+          resolvedOrderId, 
+          'paid', 
+          'service:pingpay',
+          eventType,
+          { sessionId }
+        );
         console.log('[PingPay Webhook] Updated order status to paid', { orderId: resolvedOrderId });
 
         if (Object.keys(draftOrderIds).length === 0) {
@@ -137,14 +143,26 @@ export function handlePingPayWebhookEffect(options: {
 
         const allSuccess = Object.values(confirmationResults).every((r) => r.success);
         const finalStatus: OrderStatus = allSuccess ? 'processing' : 'paid_pending_fulfillment';
-        yield* store.updateStatus(resolvedOrderId, finalStatus);
+        yield* store.updateStatus(
+          resolvedOrderId, 
+          finalStatus, 
+          'service:pingpay',
+          `fulfillment:${allSuccess ? 'confirmed' : 'partial'}`,
+          { confirmationResults, allSuccess }
+        );
         console.log('[PingPay Webhook] Updated final status', { orderId: resolvedOrderId, finalStatus, allSuccess });
         break;
       }
 
       case 'payment.failed':
         console.log('[PingPay Webhook] Processing payment failed event', { orderId: resolvedOrderId });
-        yield* store.updateStatus(resolvedOrderId, 'payment_failed');
+        yield* store.updateStatus(
+          resolvedOrderId, 
+          'payment_failed', 
+          'service:pingpay',
+          eventType,
+          { sessionId }
+        );
         console.log('[PingPay Webhook] Updated order status to payment_failed', { orderId: resolvedOrderId });
         break;
 
