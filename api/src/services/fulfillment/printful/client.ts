@@ -14,6 +14,20 @@ import {
 interface PrintfulResponse<T> {
   code: number;
   result: T;
+  paging?: {
+    total: number;
+    offset: number;
+    limit: number;
+  };
+}
+
+interface PrintfulSyncProductsResult {
+  sync_products: PrintfulSyncProduct[];
+  paging: {
+    total: number;
+    offset: number;
+    limit: number;
+  };
 }
 
 export type { Address, CatalogItem, Order, Shipment, Variant } from 'printful-sdk-js-v2';
@@ -73,11 +87,14 @@ export class PrintfulClient {
     return response.json() as T;
   }
 
-  async getSyncProducts(): Promise<PrintfulSyncProduct[]> {
-    const result = await this.request<PrintfulResponse<PrintfulSyncProduct[]>>(
-      `${this.v1BaseUrl}/store/products`
+  async getSyncProducts(limit = 20, offset = 0): Promise<PrintfulSyncProductsResult> {
+    const result = await this.request<PrintfulResponse<PrintfulSyncProduct[]> & { result: PrintfulSyncProductsResult }>(
+      `${this.v1BaseUrl}/store/products?limit=${limit}&offset=${offset}`
     );
-    return result.result;
+    return {
+      sync_products: result.result.sync_products || result.result as unknown as PrintfulSyncProduct[],
+      paging: result.paging || { total: (result.result as any).length || 0, offset, limit },
+    };
   }
 
   async getSyncProduct(id: number | string): Promise<{

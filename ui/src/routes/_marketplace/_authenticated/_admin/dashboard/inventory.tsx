@@ -38,6 +38,7 @@ import {
   useProductTypes,
   useSyncStatus,
   useSyncProducts,
+  useSyncProgress,
   useUpdateProductCategories,
   useUpdateProductListing,
   useUpdateProductTags,
@@ -310,6 +311,7 @@ function InventoryManagement() {
   const products = productsData?.products || [];
 
   const { data: syncStatusData } = useSyncStatus();
+  const { progress: syncProgress } = useSyncProgress();
   const syncMutation = useSyncProducts();
   const updateListingMutation = useUpdateProductListing();
   const updateCategoriesMutation = useUpdateProductCategories();
@@ -352,7 +354,7 @@ function InventoryManagement() {
     }
   }, [syncStatusData?.status, syncStatusData?.syncStartedAt]);
 
-  const isSyncing = syncStatusData?.status === "running" || syncMutation.isPending;
+  const isSyncing = syncStatusData?.status === "running" || syncMutation.isPending || syncProgress?.status === 'syncing';
 
   const columns: ColumnDef<Product>[] = [
     {
@@ -699,18 +701,138 @@ function InventoryManagement() {
       {syncStatusData && (
         <Card className={cn(
           "rounded-2xl border p-4",
-          syncStatusData.status === "running" && "border-[#3d7fff]/60 bg-background/60",
+          (syncStatusData.status === "running" || syncProgress?.status === 'syncing') && "border-[#3d7fff]/60 bg-background/60",
           syncStatusData.status === "error" && "border-red-500/60 bg-background/60",
-          syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && "border-[#00EC97]/60 bg-background/60"
+          syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && !syncProgress && "border-[#00EC97]/60 bg-background/60"
         )}>
-          {syncStatusData.status === "running" && (
+          {/* Progress View - Syncing */}
+          {syncProgress && syncProgress.status === 'syncing' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <RefreshCw className="size-4 animate-spin text-[#3d7fff]" />
+                <span className="text-[#3d7fff] font-medium">
+                  Syncing {Object.keys(syncProgress.providers).length} provider(s)...
+                </span>
+                {syncDuration > 0 && <span className="text-[#3d7fff]/70">({formatDuration(syncDuration)})</span>}
+              </div>
+              
+              {/* Combined progress bar */}
+              {syncProgress.totalSynced + syncProgress.totalFailed > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs text-foreground/70">
+                    <span>Total</span>
+                    <span>{syncProgress.totalSynced} synced{syncProgress.totalFailed > 0 && `, ${syncProgress.totalFailed} failed`}</span>
+                  </div>
+                  <div className="h-2 bg-background/40 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-[#3d7fff] to-[#00EC97] transition-all duration-300 ease-out"
+                      style={{ width: `${syncProgress.totalSynced > 0 ? Math.min(100, (syncProgress.totalSynced / (syncProgress.totalSynced + syncProgress.totalFailed)) * 100) : 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* Expandable per-provider details */}
+              {Object.keys(syncProgress.providers).length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-foreground/50 hover:text-foreground/70 transition-colors">
+                    View per-provider progress
+                  </summary>
+                  <div className="mt-2 space-y-2 pl-2 border-l-2 border-border/40">
+                    {Object.entries(syncProgress.providers).map(([name, p]) => (
+                      <div key={name} className="space-y-1">
+                        <div className="flex justify-between text-foreground/70">
+                          <span className="capitalize font-medium">{name}</span>
+                          <span>
+                            {p.status === 'fetching' && 'Fetching...'}
+                            {p.status === 'syncing' && `${p.synced}/${p.total}`}
+                            {p.status === 'completed' && `Done (${p.synced})`}
+                            {p.status === 'error' && 'Error'}
+                            {p.status === 'idle' && 'Waiting...'}
+                          </span>
+                        </div>
+                        {p.total > 0 && (
+                          <div className="h-1.5 bg-background/40 rounded-full overflow-hidden">
+                            <div 
+                              className={cn(
+                                "h-full transition-all duration-300",
+                                p.status === 'error' && "bg-red-500",
+                                p.status === 'completed' && "bg-[#00EC97]",
+                                (p.status === 'syncing' || p.status === 'fetching') && "bg-[#3d7fff]"
+                              )}
+                              style={{ width: `${(p.synced / p.total) * 100}%` }}
+                            />
+                          </div>
+                        )}
+                        {p.currentProduct && (
+                          <p className="text-foreground/40 truncate">{p.currentProduct}</p>
+                        )}
+                        {p.failed > 0 && (
+                          <p className="text-yellow-500">{p.failed} failed</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+          
+          {/* Completed Progress View */}
+          {syncProgress?.status === 'completed' && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-[#00EC97] font-medium">Sync completed:</span>
+                <span className="text-[#00EC97]/70">
+                  {syncProgress.totalSynced} products synced
+                  {syncProgress.totalFailed > 0 && `, ${syncProgress.totalFailed} failed`}
+                  {syncProgress.totalRemoved > 0 && `, ${syncProgress.totalRemoved} removed`}
+                </span>
+              </div>
+              {Object.keys(syncProgress.providers).length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-foreground/50 hover:text-foreground/70 transition-colors">
+                    View details
+                  </summary>
+                  <div className="mt-2 space-y-1 pl-2 border-l-2 border-border/40">
+                    {Object.entries(syncProgress.providers).map(([name, p]) => (
+                      <div key={name} className="flex justify-between text-foreground/70">
+                        <span className="capitalize">{name}</span>
+                        <span>{p.synced} synced{p.failed > 0 && `, ${p.failed} failed`}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+          
+          {/* Error Progress View */}
+          {syncProgress?.status === 'error' && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2">
+                <XCircle className="size-5 text-red-500 mt-0.5" />
+                <div className="flex-1 space-y-1">
+                  <p className="text-sm font-medium text-red-500">Sync failed</p>
+                  <p className="text-sm text-red-500/80">
+                    {syncProgress.message || (syncProgress.totalSynced > 0 ? `${syncProgress.totalSynced} products synced before failure` : 'Unknown error')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Fallback: Running without progress */}
+          {syncStatusData.status === "running" && !syncProgress && (
             <div className="flex items-center gap-2 text-sm">
               <RefreshCw className="size-4 animate-spin text-[#3d7fff]" />
               <span className="text-[#3d7fff] font-medium">Syncing products from fulfillment providers...</span>
               {syncDuration > 0 && <span className="text-[#3d7fff]/70">({formatDuration(syncDuration)})</span>}
             </div>
           )}
-          {syncStatusData.status === "error" && (
+          
+          {/* Error View (from syncStatusData) */}
+          {syncStatusData.status === "error" && !syncProgress && (
             <div className="space-y-3">
               <div className="flex items-start gap-2">
                 <XCircle className="size-5 text-red-500 mt-0.5" />
@@ -740,7 +862,9 @@ function InventoryManagement() {
               )}
             </div>
           )}
-          {syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && (
+          
+          {/* Idle View */}
+          {syncStatusData.status === "idle" && syncStatusData.lastSuccessAt && !syncProgress && (
             <div className="flex items-center gap-2 text-sm">
               <span className="text-[#00EC97] font-medium">Last synced:</span>
               <span className="text-[#00EC97]/70">{formatDate(syncStatusData.lastSuccessAt)}</span>

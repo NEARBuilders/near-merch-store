@@ -13,6 +13,7 @@ import { CheckoutError } from './services/checkout/errors';
 import { ProductService, ProductServiceLive } from './services/products';
 import { StripeService } from './services/stripe';
 import { NewsletterService, NewsletterServiceLive } from './services/newsletter';
+import { syncProgressStore, type SyncProgress } from './services/sync-progress';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStore, ProductStoreLive, ProductTypeStore, ProductTypeStoreLive, CollectionStoreLive } from './store';
 import { NewsletterStoreLive } from './store/newsletter';
 import { ProviderConfigStore, ProviderConfigStoreLive } from './store/providers';
@@ -481,6 +482,53 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         }
 
         return exit.value;
+      }),
+
+      subscribeSyncProgress: builder.subscribeSyncProgress.handler(async function* ({ signal }) {
+        const queue: SyncProgress[] = [];
+        let resolve: ((value: SyncProgress) => void) | null = null;
+
+        const unsubscribe = syncProgressStore.subscribe((progress) => {
+          if (resolve) {
+            resolve(progress);
+            resolve = null;
+          } else {
+            queue.push(progress);
+          }
+        });
+
+        signal?.addEventListener('abort', () => {
+          unsubscribe();
+          if (resolve) resolve = null;
+        });
+
+        try {
+          // Yield initial state
+          yield syncProgressStore.get();
+
+          while (!signal?.aborted) {
+            if (queue.length > 0) {
+              const progress = queue.shift()!;
+              yield progress;
+              
+              if (progress.status === 'completed' || progress.status === 'error') {
+                return;
+              }
+            } else {
+              // Wait for next update
+              const progress = await new Promise<SyncProgress>((r) => {
+                resolve = r;
+              });
+              yield progress;
+              
+              if (progress.status === 'completed' || progress.status === 'error') {
+                return;
+              }
+            }
+          }
+        } finally {
+          unsubscribe();
+        }
       }),
 
       getNearPrice: builder.getNearPrice.handler(async () => {

@@ -31,6 +31,7 @@ export {
   useProductsByIds,
   productLoaders,
   useSyncStatus,
+  useSyncProgress,
   useSyncProducts,
   useUpdateProductListing,
   useUpdateProductCategories,
@@ -45,6 +46,7 @@ export {
   type Product,
   type ProductImage,
   type ProductTypeData,
+  type SyncProgressEvent,
 } from './products';
 
 export {

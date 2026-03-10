@@ -9,6 +9,10 @@ import {
 } from '@tanstack/react-query';
 import { productKeys, productTypeKeys, collectionKeys, categoryKeys, type Category } from './keys';
 import { toast } from 'sonner';
+import { useEffect, useState, useRef } from 'react';
+
+type SyncProgressStream = Awaited<ReturnType<typeof apiClient.subscribeSyncProgress>>;
+export type SyncProgressEvent = SyncProgressStream extends AsyncIterable<infer T> ? T : never;
 
 export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'];
 export type ProductImage = Product['images'][number];
@@ -233,6 +237,41 @@ export function useSyncStatus() {
   });
 }
 
+export function useSyncProgress() {
+  const [progress, setProgress] = useState<SyncProgressEvent | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    (async () => {
+      try {
+        const stream = await apiClient.subscribeSyncProgress({}, { signal: abortController.signal });
+        
+        for await (const event of stream) {
+          setProgress(event);
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        console.error('Sync progress stream error:', err);
+      }
+    })();
+
+    return () => abortController.abort();
+  }, []);
+
+  // Auto-clear 30 seconds after completion
+  useEffect(() => {
+    if (progress?.status === 'completed' || progress?.status === 'error') {
+      const timer = setTimeout(() => setProgress(null), 30_000);
+      return () => clearTimeout(timer);
+    }
+  }, [progress?.status]);
+
+  return { progress };
+}
+
 export function useSyncProducts() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -246,12 +285,12 @@ export function useSyncProducts() {
       queryClient.invalidateQueries({ queryKey: collectionKeys.all });
       queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
       
-      if (data.status === 'completed' && data.syncDuration) {
-        const minutes = Math.floor(data.syncDuration / 60);
-        const seconds = data.syncDuration % 60;
-        toast.success(`Sync completed in ${minutes}m ${seconds}s`);
-      } else if (data.status === 'completed') {
-        toast.success('Sync completed');
+      if (data.status === 'completed') {
+        const minutes = data.syncDuration ? Math.floor(data.syncDuration / 60) : 0;
+        const seconds = data.syncDuration ? data.syncDuration % 60 : 0;
+        const timeStr = data.syncDuration ? ` in ${minutes}m ${seconds}s` : '';
+        const failedStr = data.failed && data.failed > 0 ? ` (${data.failed} failed)` : '';
+        toast.success(`Synced ${data.count ?? 0} products${failedStr}${timeStr}`);
       }
     },
     onError: (error) => {

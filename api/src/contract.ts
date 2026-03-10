@@ -21,6 +21,29 @@ import {
   WebhookResponseSchema
 } from './schema';
 
+const ProviderProgressSchema = z.object({
+  status: z.enum(['idle', 'fetching', 'syncing', 'completed', 'error']),
+  phase: z.enum(['init', 'fetch_products', 'fetch_details', 'sync_to_db', 'cleanup']),
+  total: z.number(),
+  synced: z.number(),
+  failed: z.number(),
+  currentProduct: z.string().nullable().optional(),
+  message: z.string().nullable().optional(),
+});
+
+const SyncProgressEventSchema = z.object({
+  status: z.enum(['idle', 'syncing', 'completed', 'error']),
+  providers: z.record(z.string(), ProviderProgressSchema),
+  totalSynced: z.number(),
+  totalFailed: z.number(),
+  totalRemoved: z.number(),
+  timestamp: z.number(),
+  message: z.string().nullable().optional(),
+});
+
+export type ProviderProgress = z.infer<typeof ProviderProgressSchema>;
+export type SyncProgress = z.infer<typeof SyncProgressEventSchema>;
+
 export const contract = oc.router({
   ping: oc
     .route({
@@ -391,6 +414,7 @@ export const contract = oc.router({
         status: z.enum(['idle', 'running', 'error', 'completed']),
         count: z.number().optional().describe('Products synced'),
         removed: z.number().optional().describe('Products removed'),
+        failed: z.number().optional().describe('Products that failed to sync'),
         syncStartedAt: z.string().datetime().optional().describe('ISO 8601 timestamp'),
         syncDuration: z.number().optional().describe('Duration in seconds'),
       })
@@ -455,6 +479,17 @@ export const contract = oc.router({
         errorData: z.record(z.string(), z.any()).nullable().describe('Full error context'),
       })
     ),
+
+  subscribeSyncProgress: oc
+    .route({
+      method: 'GET',
+      path: '/sync/progress',
+      summary: 'Subscribe to sync progress',
+      description: 'SSE endpoint streaming real-time sync progress updates.',
+      tags: ['Sync'],
+    })
+    .output(eventIterator(SyncProgressEventSchema)),
+
   updateProductListing: oc
     .route({
       method: 'POST',
