@@ -1,13 +1,15 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { ExternalLink, RefreshCw, Search, ShoppingBag, ChevronDown, ChevronUp, CreditCard, Trash2, History, AlertTriangle, Check } from "lucide-react";
+import { ExternalLink, RefreshCw, Search, ShoppingBag, ChevronDown, ChevronUp, CreditCard, Trash2, History, AlertTriangle } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/utils/orpc";
 import { getStatusLabel, getStatusColor } from "@/lib/order-status";
 import { cn } from "@/lib/utils";
+import { AuditLogViewer } from "@/components/orders/audit-log-viewer";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +27,6 @@ export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashbo
 });
 
 type Order = Awaited<ReturnType<typeof apiClient.getAllOrders>>["orders"][0];
-type AuditLog = Awaited<ReturnType<typeof apiClient.getOrderAuditLog>>["logs"][0];
 
 function OrdersError({ error }: { error: Error }) {
   const router = useRouter();
@@ -128,51 +129,6 @@ function PaymentDetailsView({ paymentDetails }: { paymentDetails: Record<string,
 }
 
 function AuditLogModal({ order, isOpen, onClose }: { order: Order; isOpen: boolean; onClose: () => void }) {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const fetchAuditLog = async () => {
-    setIsLoading(true);
-    try {
-      const result = await apiClient.getOrderAuditLog({ id: order.id });
-      setLogs(result.logs);
-    } catch (error) {
-      console.error('Failed to fetch audit log:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch when modal opens
-  useState(() => {
-    if (isOpen) {
-      fetchAuditLog();
-    }
-  });
-
-  const formatActor = (actor: string) => {
-    if (actor.startsWith('service:')) {
-      return actor.replace('service:', '').charAt(0).toUpperCase() + actor.replace('service:', '').slice(1);
-    }
-    if (actor.startsWith('admin:')) {
-      return actor.replace('admin:', '');
-    }
-    return actor;
-  };
-
-  const getActionIcon = (action: string) => {
-    switch (action) {
-      case 'status_change':
-        return <Check className="h-4 w-4 text-[#00EC97]" />;
-      case 'tracking_update':
-        return <ExternalLink className="h-4 w-4 text-blue-500" />;
-      case 'delete':
-        return <Trash2 className="h-4 w-4 text-destructive" />;
-      default:
-        return <History className="h-4 w-4 text-foreground/50" />;
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-background border border-border/60">
@@ -183,56 +139,8 @@ function AuditLogModal({ order, isOpen, onClose }: { order: Order; isOpen: boole
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#00EC97]"></div>
-            </div>
-          ) : logs.length === 0 ? (
-            <p className="text-center text-foreground/70 py-8">No history available</p>
-          ) : (
-            <div className="space-y-3">
-              {logs.map((log) => (
-                <div key={log.id} className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/60">
-                  <div className="flex-shrink-0 mt-0.5">
-                    {getActionIcon(log.action)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium text-foreground">
-                        {log.action === 'status_change' && 'Status changed'}
-                        {log.action === 'tracking_update' && 'Tracking updated'}
-                        {log.action === 'fulfillment_update' && 'Fulfillment updated'}
-                        {log.action === 'admin_edit' && 'Admin edit'}
-                        {log.action === 'delete' && 'Order deleted'}
-                      </span>
-                      <span className="text-xs text-foreground/50">
-                        by {formatActor(log.actor)}
-                      </span>
-                    </div>
-                    
-                    {log.oldValue && log.newValue && (
-                      <div className="text-xs text-foreground/70 mb-1">
-                        <span className="line-through text-foreground/50">{log.oldValue}</span>
-                        {' → '}
-                        <span className="text-foreground">{log.newValue}</span>
-                      </div>
-                    )}
-                    
-                    {log.metadata && typeof log.metadata.reason === 'string' && (
-                      <p className="text-xs text-foreground/60 italic">
-                        Reason: {log.metadata.reason}
-                      </p>
-                    )}
-                    
-                    <p className="text-xs text-foreground/50 mt-1">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="py-4">
+          <AuditLogViewer orderId={order.id} variant="admin" />
         </div>
       </DialogContent>
     </Dialog>
@@ -362,7 +270,19 @@ function AdminOrdersPage() {
   const handleConfirmDelete = async () => {
     try {
       const orderIds = selectedOrdersForDelete.map(o => o.id);
-      await apiClient.deleteOrders({ orderIds });
+      const result = await apiClient.deleteOrders({ orderIds });
+      
+      // Show success toast
+      if (result.deleted > 0) {
+        toast.success(`Successfully deleted ${result.deleted} order(s)`);
+      }
+      
+      // Show warnings for any errors
+      if (result.errors.length > 0) {
+        result.errors.forEach(err => {
+          toast.error(`Failed to delete order ${err.orderId.substring(0, 8)}...: ${err.error}`);
+        });
+      }
       
       // Clear selection and refresh
       setRowSelection({});
@@ -370,7 +290,7 @@ function AdminOrdersPage() {
       router.invalidate();
     } catch (error) {
       console.error('Failed to delete orders:', error);
-      alert('Failed to delete orders. Please try again.');
+      toast.error('Failed to delete orders. Please try again.');
     }
   };
 

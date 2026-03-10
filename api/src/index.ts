@@ -48,6 +48,12 @@ export default createPlugin({
     nearAccountId: z.string().optional(),
     reqHeaders: z.custom<Headers>().optional(),
     getRawBody: z.custom<() => Promise<string>>().optional(),
+    user: z.object({
+      id: z.string(),
+      role: z.string().optional(),
+      email: z.string().optional(),
+      name: z.string().optional(),
+    }).optional(),
   }),
 
   contract,
@@ -875,7 +881,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
               }
               
               // Check authorization - must be admin or order owner
-              const isAdmin = true; // TODO: Implement proper admin check
+              const isAdmin = context.user?.role === 'admin';
               const isOwner = order.userId === context.nearAccountId;
               
               if (!isAdmin && !isOwner) {
@@ -1221,13 +1227,16 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       }),
 
       gelatoWebhook: builder.gelatoWebhook.handler(async ({ input, context }) => {
+        let eventType: string | undefined;
+        let externalId: string | undefined;
+        
         try {
           const rawBody = (await context.getRawBody?.()) ?? JSON.stringify(input as unknown);
           const payload = JSON.parse(rawBody);
-          const eventType = payload.event;
+          eventType = payload.event;
           const orderData = payload.order || payload;
 
-          const externalId = orderData.orderReferenceId || orderData.externalId;
+          externalId = orderData.orderReferenceId || orderData.externalId;
           if (!externalId) {
             return { received: true };
           }
@@ -1235,9 +1244,9 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
           const order = await managedRuntime.runPromise(
             Effect.gen(function* () {
               const store = yield* OrderStore;
-              let order = yield* store.findByFulfillmentRef(externalId);
+              let order = yield* store.findByFulfillmentRef(externalId!);
               if (!order) {
-                order = yield* store.find(externalId);
+                order = yield* store.find(externalId!);
               }
               return order;
             })
@@ -1316,6 +1325,13 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
             );
           }
         } catch (error) {
+          // Log error but return 200 to prevent webhook retries
+          console.error('[Gelato Webhook] Processing error:', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            eventType,
+            externalId,
+          });
         }
 
         return { received: true };

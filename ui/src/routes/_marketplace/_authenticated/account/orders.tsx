@@ -1,12 +1,13 @@
 import { createFileRoute, useRouter, Link } from '@tanstack/react-router';
 import { useState, useMemo } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ExternalLink, Package, History, Check } from 'lucide-react';
+import { ExternalLink, Package, History } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { apiClient } from '@/utils/orpc';
 import { Badge } from '@/components/ui/badge';
 import { getStatusLabel, getStatusColor } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
+import { AuditLogViewer } from '@/components/orders/audit-log-viewer';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +23,6 @@ export const Route = createFileRoute('/_marketplace/_authenticated/account/order
 });
 
 type Order = Awaited<ReturnType<typeof apiClient.getOrders>>['orders'][0];
-type AuditLog = Awaited<ReturnType<typeof apiClient.getOrderAuditLog>>['logs'][0];
 
 function OrdersError({ error }: { error: Error }) {
   const router = useRouter();
@@ -43,30 +43,6 @@ function OrdersError({ error }: { error: Error }) {
 }
 
 function OrderTimelineModal({ order, isOpen, onClose }: { order: Order; isOpen: boolean; onClose: () => void }) {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useState(() => {
-    if (isOpen) {
-      setIsLoading(true);
-      apiClient.getOrderAuditLog({ id: order.id })
-        .then(result => setLogs(result.logs))
-        .catch(error => console.error('Failed to fetch audit log:', error))
-        .finally(() => setIsLoading(false));
-    }
-  });
-
-  const getActionIcon = (action: string) => {
-    switch (action) {
-      case 'status_change':
-        return <Check className="h-4 w-4 text-[#00EC97]" />;
-      case 'tracking_update':
-        return <ExternalLink className="h-4 w-4 text-blue-500" />;
-      default:
-        return <History className="h-4 w-4 text-foreground/50" />;
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-background border border-border/60">
@@ -77,44 +53,8 @@ function OrderTimelineModal({ order, isOpen, onClose }: { order: Order; isOpen: 
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#00EC97]"></div>
-            </div>
-          ) : logs.length === 0 ? (
-            <p className="text-center text-foreground/70 py-8">No timeline available</p>
-          ) : (
-            <div className="space-y-3">
-              {logs.map((log) => (
-                <div key={log.id} className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/60">
-                  <div className="flex-shrink-0 mt-0.5">
-                    {getActionIcon(log.action)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium text-foreground">
-                        {log.action === 'status_change' && 'Status changed'}
-                        {log.action === 'tracking_update' && 'Tracking updated'}
-                      </span>
-                    </div>
-                    
-                    {log.oldValue && log.newValue && (
-                      <div className="text-xs text-foreground/70 mb-1">
-                        <span className="line-through text-foreground/50">{getStatusLabel(log.oldValue as any)}</span>
-                        {' → '}
-                        <span className="text-foreground">{getStatusLabel(log.newValue as any)}</span>
-                      </div>
-                    )}
-                    
-                    <p className="text-xs text-foreground/50 mt-1">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="py-4">
+          <AuditLogViewer orderId={order.id} variant="customer" />
         </div>
       </DialogContent>
     </Dialog>
