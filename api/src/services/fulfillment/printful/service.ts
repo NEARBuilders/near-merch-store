@@ -313,7 +313,10 @@ export class PrintfulService {
             city: params.recipient.city,
             tax_number: params.recipient.taxId,
           },
-          items: params.items,
+          items: params.items.map(item => ({
+            catalog_variant_id: item.catalogVariantId,
+            quantity: item.quantity,
+          })),
           currency: params.currency || 'USD',
         });
 

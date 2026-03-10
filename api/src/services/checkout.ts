@@ -78,10 +78,10 @@ export class CheckoutService extends Context.Tag('CheckoutService')<
     readonly getQuote: (
       items: QuoteItemInput[],
       address: ShippingAddress
-    ) => Effect.Effect<QuoteOutput, Error>;
+    ) => Effect.Effect<QuoteOutput, Error | CheckoutError>;
     readonly createCheckout: (
       params: CreateCheckoutParams
-    ) => Effect.Effect<CreateCheckoutOutput, Error>;
+    ) => Effect.Effect<CreateCheckoutOutput, Error | CheckoutError>;
   }
 >() {}
 
@@ -279,26 +279,29 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             if (taxCalculationItems.length > 0) {
               const printfulProvider = runtime.getProvider('printful');
               if (printfulProvider) {
-                const taxResult = yield* Effect.tryPromise({
-                  try: () =>
-                    printfulProvider.client.calculateTax({
-                      recipient: {
-                        countryCode: address.country,
-                        stateCode: address.state,
-                        zip: address.postCode,
-                        city: address.city,
-                        taxId: address.taxId,
-                      },
-                      items: taxCalculationItems,
-                      currency,
-                    }),
-                  catch: (error) => {
-                    console.error('[getQuote] Tax calculation failed:', error);
-                    return null;
-                  },
-                });
+                const taxResultOption = yield* Effect.option(
+                  Effect.tryPromise({
+                    try: () =>
+                      printfulProvider.client.calculateTax({
+                        recipient: {
+                          countryCode: address.country,
+                          stateCode: address.state,
+                          zip: address.postCode,
+                          city: address.city,
+                          taxId: address.taxId,
+                        },
+                        items: taxCalculationItems,
+                        currency,
+                      }),
+                    catch: (error) => {
+                      console.error('[getQuote] Tax calculation failed:', error);
+                      return new Error(`Tax calculation failed: ${error instanceof Error ? error.message : String(error)}`);
+                    },
+                  })
+                );
 
-                if (taxResult) {
+                if (taxResultOption._tag === 'Some') {
+                  const taxResult = taxResultOption.value;
                   taxBreakdown = {
                     required: taxResult.required,
                     rate: taxResult.rate,
@@ -390,20 +393,23 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
 
               const fulfillmentItems = mapToFulfillmentItems(providerItems);
 
-              const quoteResult = yield* Effect.tryPromise({
-                try: () =>
-                  provider.client.quoteOrder({
-                    recipient: buildRecipient(address),
-                    items: fulfillmentItems,
-                    currency,
-                  }),
-                catch: (error) => {
-                  console.error(`[createCheckout] Failed to get shipping rates for ${providerName}:`, error);
-                  return null;
-                },
-              });
+              const quoteResultOption = yield* Effect.option(
+                Effect.tryPromise({
+                  try: () =>
+                    provider.client.quoteOrder({
+                      recipient: buildRecipient(address),
+                      items: fulfillmentItems,
+                      currency,
+                    }),
+                  catch: (error) => {
+                    console.error(`[createCheckout] Failed to get shipping rates for ${providerName}:`, error);
+                    return new Error(`Failed to get shipping rates: ${error instanceof Error ? error.message : String(error)}`);
+                  },
+                })
+              );
 
-              if (quoteResult) {
+              if (quoteResultOption._tag === 'Some') {
+                const quoteResult = quoteResultOption.value;
                 const selectedRate = quoteResult.rates?.find(r => r.id === selectedRateId);
                 if (selectedRate) {
                   verifiedShippingCost += selectedRate.rate;
@@ -435,26 +441,29 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             if (taxCalculationItems.length > 0) {
               const printfulProvider = runtime.getProvider('printful');
               if (printfulProvider) {
-                const taxResult = yield* Effect.tryPromise({
-                  try: () =>
-                    printfulProvider.client.calculateTax({
-                      recipient: {
-                        countryCode: address.country,
-                        stateCode: address.state,
-                        zip: address.postCode,
-                        city: address.city,
-                        taxId: address.taxId,
-                      },
-                      items: taxCalculationItems,
-                      currency,
-                    }),
-                  catch: (error) => {
-                    console.error('[createCheckout] Tax calculation failed:', error);
-                    return null;
-                  },
-                });
+                const taxResultOption = yield* Effect.option(
+                  Effect.tryPromise({
+                    try: () =>
+                      printfulProvider.client.calculateTax({
+                        recipient: {
+                          countryCode: address.country,
+                          stateCode: address.state,
+                          zip: address.postCode,
+                          city: address.city,
+                          taxId: address.taxId,
+                        },
+                        items: taxCalculationItems,
+                        currency,
+                      }),
+                    catch: (error) => {
+                      console.error('[createCheckout] Tax calculation failed:', error);
+                      return new Error(`Tax calculation failed: ${error instanceof Error ? error.message : String(error)}`);
+                    },
+                  })
+                );
 
-                if (taxResult) {
+                if (taxResultOption._tag === 'Some') {
+                  const taxResult = taxResultOption.value;
                   taxRequired = taxResult.required;
                   taxRate = taxResult.rate;
                   taxShippingTaxable = taxResult.shippingTaxable;

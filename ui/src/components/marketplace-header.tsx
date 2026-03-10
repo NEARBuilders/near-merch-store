@@ -100,10 +100,7 @@ export function MarketplaceHeader() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [loginStep, setLoginStep] = useState<1 | 2>(1);
-  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const isCartSidebarOpen = useCartSidebarStore((state) => state.isOpen);
   const closeCartSidebar = useCartSidebarStore((state) => state.close);
   const openCartSidebar = useCartSidebarStore((state) => state.open);
@@ -118,8 +115,6 @@ export function MarketplaceHeader() {
   useEffect(() => {
     if (isLoggedIn && isLoginOpen) {
       setIsLoginOpen(false);
-      setLoginStep(1);
-      setConnectedAccountId(null);
     }
   }, [isLoggedIn, isLoginOpen]);
 
@@ -135,87 +130,36 @@ export function MarketplaceHeader() {
   const isExclusivesActive = !!matchRoute({ to: '/exclusives' });
   const isTrackOrderActive = !!matchRoute({ to: '/account/orders' });
 
-  const handleConnectWallet = async () => {
-    setIsConnectingWallet(true);
-    try {
-      setIsLoginOpen(false);
-      
-      await authClient.requestSignIn.near(
-        { recipient: window.__RUNTIME_CONFIG__?.account ?? "every.near" },
-        {
-          onSuccess: () => {
-            const walletAccountId = authClient.near.getAccountId();
-            setConnectedAccountId(walletAccountId);
-            setLoginStep(2);
-            setIsConnectingWallet(false);
-            toast.success("Wallet connected! Now sign the message to complete login.");
-            setIsLoginOpen(true);
-          },
-          onError: (error: any) => {
-            setIsConnectingWallet(false);
-            console.error("Wallet connection error:", error);
-            setIsLoginOpen(true);
-          },
-        }
-      );
-    } catch (error) {
-      setIsConnectingWallet(false);
-      console.error("Wallet connection error:", error);
-      setIsLoginOpen(true);
-    }
-  };
-
   const handleSignIn = async () => {
     setIsSigningIn(true);
     try {
-      await authClient.signIn.near(
-        { recipient: window.__RUNTIME_CONFIG__?.account ?? "every.near" },
-        {
-          onSuccess: async () => {
-            // Wait for session to be saved
-            await new Promise(resolve => setTimeout(resolve, 200));
-            // Refetch session to update UI state
-            await refetchSession();
-            // Invalidate all queries to refresh UI state
-            queryClient.invalidateQueries();
-            setIsSigningIn(false);
-            setIsLoginOpen(false);
-            setLoginStep(1);
-            setConnectedAccountId(null);
-            // Stay on the same page after signing in; just close the dialog.
-            // Route-guarded pages handle their own redirects via `redirect` search param.
-          },
-          onError: (error: any) => {
-            setIsSigningIn(false);
-            console.error("Sign in error:", error);
-            
-            if (error?.code === "NONCE_NOT_FOUND" || error?.message?.includes("nonce")) {
-              toast.error("Session expired. Please reconnect your wallet.");
-              handleDisconnect();
-            } else {
-              toast.error("Failed to sign in. Please try again.");
-            }
-          },
-        }
-      );
+      await authClient.signIn.near({
+        onSuccess: async () => {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          await refetchSession();
+          queryClient.invalidateQueries();
+          setIsSigningIn(false);
+          setIsLoginOpen(false);
+        },
+        onError: (error: any) => {
+          setIsSigningIn(false);
+          console.error("Sign in error:", error);
+          
+          if (error?.code === "UNAUTHORIZED_NONCE_REPLAY") {
+            toast.error("This sign-in request was already used. Please try again.");
+          } else if (error?.code === "UNAUTHORIZED_INVALID_SIGNATURE") {
+            toast.error("Signature verification failed. Please try again.");
+          } else {
+            toast.error("Failed to sign in. Please try again.");
+          }
+        },
+      });
     } catch (error) {
       setIsSigningIn(false);
       console.error("Sign in error:", error);
       toast.error("Failed to sign in. Please try again.");
     }
   };
-
-  const handleDisconnect = async () => {
-    try {
-      await authClient.near.disconnect();
-    } catch (error) {
-      console.error("Disconnect error:", error);
-    }
-    setConnectedAccountId(null);
-    setLoginStep(1);
-  };
-
-  const isWalletConnected = loginStep === 2;
 
   const handleCreateWallet = () => {
     const width = 500;
@@ -414,11 +358,9 @@ export function MarketplaceHeader() {
 
                     <div className="space-y-3 sm:space-y-4">
                       <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
-                        {!isWalletConnected 
-                          ? "Connect your NEAR wallet to continue"
-                          : "Sign the message to complete authentication"}
+                        Connect your NEAR wallet to continue
                       </p>
-                      {!isWalletConnected && (
+                      {!isSigningIn && (
                         <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
                           Don't have a NEAR wallet?{" "}
                           <button
@@ -432,68 +374,26 @@ export function MarketplaceHeader() {
                     </div>
 
                     <div className="space-y-3 sm:space-y-4">
-                      {!isWalletConnected ? (
-                        <button
-                          onClick={handleConnectWallet}
-                          disabled={isConnectingWallet}
-                          className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                        >
-                          <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                            <img
-                              src={nearLogo}
-                              alt="NEAR"
-                              loading="eager"
-                              decoding="async"
-                              className="w-full h-full object-contain invert dark:invert-0"
-                            />
-                          </div>
-                          <span>
-                            {isConnectingWallet ? "Connecting..." : "Connect NEAR Wallet"}
-                          </span>
-                        </button>
-                      ) : (
-                        <>
-                          <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
-                            <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
-                            <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
-                          </div>
-                          
-<button
-                          onClick={handleSignIn}
-                          disabled={isSigningIn}
-                          className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                        >
-                          <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                            <img
-                              src={nearLogo}
-                              alt="NEAR"
-                              loading="eager"
-                              decoding="async"
-                              className="w-full h-full object-contain invert dark:invert-0"
-                            />
-                            </div>
-                            <span>
-                              {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
-                            </span>
-                          </button>
-
-                          <button
-                            onClick={handleDisconnect}
-                            disabled={isSigningIn}
-                            className="w-full text-muted-foreground px-3 sm:px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <span className="text-[10px] sm:text-xs underline">Use a different wallet</span>
-                          </button>
-                        </>
-                      )}
+                      <button
+                        onClick={handleSignIn}
+                        disabled={isSigningIn}
+                        className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                      >
+                        <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                          <img
+                            src={nearLogo}
+                            alt="NEAR"
+                            loading="eager"
+                            decoding="async"
+                            className="w-full h-full object-contain invert dark:invert-0"
+                          />
+                        </div>
+                        <span>{isSigningIn ? "Signing in..." : "Sign in with NEAR"}</span>
+                      </button>
                     </div>
 
                     <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
-                      {!isWalletConnected ? (
-                        <p>Step 1 of 2</p>
-                      ) : (
-                        <p>Step 2 of 2 · Free, no transaction required</p>
-                      )}
+                      <p>Free, no transaction required</p>
                     </div>
                   </div>
                 </DialogContent>
@@ -542,11 +442,9 @@ export function MarketplaceHeader() {
 
                       <div className="space-y-3 sm:space-y-4">
                         <p className="text-xs sm:text-sm text-foreground/90 dark:text-muted-foreground">
-                          {!isWalletConnected 
-                            ? "Connect your NEAR wallet to continue"
-                            : "Sign the message to complete authentication"}
+                          Connect your NEAR wallet to continue
                         </p>
-                        {!isWalletConnected && (
+                        {!isSigningIn && (
                           <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground leading-relaxed">
                             Don't have a NEAR wallet?{" "}
                             <button
@@ -560,68 +458,26 @@ export function MarketplaceHeader() {
                       </div>
 
                       <div className="space-y-3 sm:space-y-4">
-                        {!isWalletConnected ? (
-                          <button
-                            onClick={handleConnectWallet}
-                            disabled={isConnectingWallet}
-                            className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                          >
-                            <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                              <img
-                                src={nearLogo}
-                                alt="NEAR"
-                                loading="eager"
-                                decoding="async"
-                                className="w-full h-full object-contain invert dark:invert-0"
-                              />
-                            </div>
-                            <span>
-                              {isConnectingWallet ? "Connecting..." : "Connect NEAR Wallet"}
-                            </span>
-                          </button>
-                        ) : (
-                          <>
-                            <div className="bg-muted/50 border border-border/60 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
-                              <p className="text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground mb-1">Connected wallet</p>
-                              <p className="text-xs sm:text-sm font-medium truncate">{connectedAccountId}</p>
-                            </div>
-
-                            <button
-                              onClick={handleSignIn}
-                              disabled={isSigningIn}
-                              className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-                            >
-<div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
-                              <img
-                                src={nearLogo}
-                                alt="NEAR"
-                                loading="eager"
-                                decoding="async"
-                                className="w-full h-full object-contain invert dark:invert-0"
-                              />
-                              </div>
-                              <span>
-                                {isSigningIn ? "Signing in..." : "Sign Message & Continue"}
-                              </span>
-                            </button>
-
-                            <button
-                              onClick={handleDisconnect}
-                              disabled={isSigningIn}
-                              className="w-full text-muted-foreground px-3 sm:px-4 py-2 flex items-center justify-center hover:text-[#00EC97] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <span className="text-[10px] sm:text-xs underline">Use a different wallet</span>
-                            </button>
-                          </>
-                        )}
+                        <button
+                          onClick={handleSignIn}
+                          disabled={isSigningIn}
+                          className="w-full bg-[#00EC97] text-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base"
+                        >
+                          <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
+                            <img
+                              src={nearLogo}
+                              alt="NEAR"
+                              loading="eager"
+                              decoding="async"
+                              className="w-full h-full object-contain invert dark:invert-0"
+                            />
+                          </div>
+                          <span>{isSigningIn ? "Signing in..." : "Sign in with NEAR"}</span>
+                        </button>
                       </div>
 
                       <div className="text-center text-[10px] sm:text-xs text-foreground/90 dark:text-muted-foreground">
-                        {!isWalletConnected ? (
-                          <p>Step 1 of 2</p>
-                        ) : (
-                          <p>Step 2 of 2 · Free, no transaction required</p>
-                        )}
+                        <p>Free, no transaction required</p>
                       </div>
                     </div>
                   </DialogContent>

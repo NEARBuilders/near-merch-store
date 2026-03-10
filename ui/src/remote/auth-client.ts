@@ -9,7 +9,7 @@ function createAuthClient() {
     fetchOptions: { credentials: "include" },
     plugins: [
       siwnClient({
-        domain: getAccount(),
+        recipient: getAccount(),
         networkId: "mainnet",
       }),
       adminClient(),

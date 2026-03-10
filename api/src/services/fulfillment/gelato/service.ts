@@ -554,6 +554,33 @@ export class GelatoService {
     });
   }
 
+  calculateTax(input: {
+    recipient: {
+      countryCode: string;
+      stateCode?: string;
+      zip?: string;
+      city?: string;
+      taxId?: string;
+    };
+    items: Array<{
+      catalogVariantId: number;
+      quantity: number;
+    }>;
+    currency?: string;
+  }): Effect.Effect<{
+    required: boolean;
+    rate: number;
+    shippingTaxable: boolean;
+    exempt: boolean;
+  }, Error> {
+    return Effect.succeed({
+      required: false,
+      rate: 0,
+      shippingTaxable: false,
+      exempt: true,
+    });
+  }
+
   mapStatus(status: string): FulfillmentOrderStatus {
     return GELATO_STATUS_MAP[status.toLowerCase()] || 'pending';
   }
