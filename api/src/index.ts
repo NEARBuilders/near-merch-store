@@ -449,17 +449,20 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
           if (errorMessage.includes('SYNC_FAILED')) {
             const errorData = status.errorData || {};
             throw new ORPCError('SYNC_FAILED', {
-              message: 'Sync operation failed',
+              message: 'Sync failed - check provider details for more info',
               data: {
                 stage: errorData.stage || 'UNKNOWN',
-                errorMessage: errorMessage,
+                errorMessage: errorData.providerErrors?.join('; ') || errorData.errorMessage || errorMessage,
                 provider: errorData.provider,
                 syncDuration: errorData.syncDuration || duration,
               },
             });
           }
           
-          throw error;
+          throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            message: 'Sync failed - an unexpected error occurred',
+            data: { originalMessage: errorMessage },
+          });
         }
       }),
 

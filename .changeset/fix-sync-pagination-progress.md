@@ -18,3 +18,8 @@ Fix product sync pagination and add real-time progress tracking
 - Simplify SSE handler from ~30 lines to ~15 lines using async generator
 - Consolidate types: SyncProgress now inferred from zod schema
 - Auto-clear progress 30 seconds after completion
+- Fix validation error: limit was 1000 but contract allowed max 100
+- Add continue-on-failure: failed providers show error, others continue
+- Update provider status to 'error' on failure with error message
+- Improve error messages: user-friendly instead of "Internal Server Error"
+- Fix frontend: invalidate syncStatus on error so UI updates correctly

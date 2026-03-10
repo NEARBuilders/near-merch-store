@@ -294,47 +294,26 @@ export function useSyncProducts() {
       }
     },
     onError: (error) => {
-      const errorCode = (error as any)?.response?.data?.code;
+      queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
+      
+      const errorCode = (error as any)?.code || (error as any)?.response?.data?.code;
       const errorMessage = (error as any)?.message || 'Sync failed';
       
       switch (errorCode) {
-        case 'SYNC_IN_PROGRESS': {
-          const retryAfter = ((error as any)?.response?.data?.retryAfter ?? (error as any)?.response?.data?.duration) || 0;
-          const timeLabel = retryAfter > 60
-            ? `${Math.ceil(retryAfter / 60)}m ${retryAfter % 60}s`
-            : `${retryAfter}s`;
-          toast.error(`Sync is already in progress${retryAfter ? `, will retry in ${timeLabel}` : ''}`);
+        case 'SYNC_IN_PROGRESS':
+          toast.error('Sync is already in progress');
           break;
-        }
 
-        case 'SYNC_TIMEOUT': {
+        case 'SYNC_TIMEOUT':
           toast.error('Sync timed out, please try again');
           break;
-        }
 
-        case 'SYNC_PROVIDER_ERROR': {
-          const provider = (error as any)?.response?.data?.provider || 'Fulfillment provider';
-          const retryAfter = (error as any)?.response?.data?.retryAfter;
-          toast.error(`${provider}暂时不可用${retryAfter ? `, retry in ${retryAfter}s` : ''}`, {
-            id: 'sync-provider-error',
-            action: retryAfter ? {
-              label: 'Retry',
-              onClick: () => {
-                if (retryAfter > 0 && retryAfter < 60) {
-                  toast.promise(apiClient.sync(), {
-                    loading: 'Retrying sync...',
-                    success: 'Sync complete',
-                    error: 'Sync failed',
-                  });
-                }
-              },
-            } : undefined,
-          });
+        case 'SYNC_PROVIDER_ERROR':
+          toast.error('Provider temporarily unavailable');
           break;
-        }
 
-        case 'SYNC_FAILED': {
-          toast.error(errorMessage || 'Sync operation failed', {
+        case 'SYNC_FAILED':
+          toast.error('Sync failed - check provider details', {
             id: 'sync-failed',
             action: {
               label: 'Retry',
@@ -346,11 +325,9 @@ export function useSyncProducts() {
             },
           });
           break;
-        }
 
-        default: {
-          toast.error(errorMessage || 'An error occurred while syncing');
-        }
+        default:
+          toast.error(errorMessage || 'Sync failed');
       }
     },
   });
