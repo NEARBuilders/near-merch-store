@@ -1,6 +1,6 @@
 ---
-"@vibes/api": minor
-"@vibes/ui": patch
+"api": minor
+"ui": patch
 ---
 
 ## Printful API V2 Migration & Sync Performance Improvements
