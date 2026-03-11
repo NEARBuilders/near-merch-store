@@ -29,7 +29,6 @@ import {
   type PrintfulSyncProduct,
   type PrintfulSyncVariant
 } from './types';
-import { printfulRateLimiter, type RateLimiter } from '../rate-limiter';
 
 export class PrintfulService {
   private client: PrintfulClient;
@@ -63,35 +62,52 @@ export class PrintfulService {
 
   getProducts(options: { limit?: number; offset?: number } = {}) {
     return Effect.gen(this, function* () {
-      const PAGE_SIZE = 20;
-      const MAX_CONCURRENT = 5;
+      const PAGE_SIZE = 100; // Larger page size for listing
+      const DETAIL_CONCURRENCY = 4; // Concurrent product detail fetches
+      const VARIANT_CONCURRENCY = 6; // Concurrent catalog variant fetches
 
+      // Phase 1: List all sync products
+      console.log('[PrintfulService] Phase 1: Listing sync products...');
       let allSyncProducts: PrintfulSyncProduct[] = [];
       let offset = 0;
       let totalProducts = 0;
+      let pageCount = 0;
 
       while (true) {
+        pageCount++;
         const result = yield* this.getSyncProducts(PAGE_SIZE, offset);
         allSyncProducts = [...allSyncProducts, ...result.sync_products];
         totalProducts = result.paging.total;
-
+        
         if (allSyncProducts.length >= totalProducts) break;
         offset += PAGE_SIZE;
+        
+        // Safety limit
+        if (pageCount >= 100) {
+          console.warn('[PrintfulService] Reached max page limit (100), stopping pagination');
+          break;
+        }
       }
+      console.log(`[PrintfulService] Phase 1 complete: Listed ${allSyncProducts.length} sync products`);
 
+      // Apply pagination options
       const start = options.offset || 0;
       const end = options.limit ? start + options.limit : allSyncProducts.length;
       const paginatedProducts = allSyncProducts.slice(start, end);
 
+      // Phase 2: Fetch product details with bounded concurrency
+      console.log(`[PrintfulService] Phase 2: Fetching details for ${paginatedProducts.length} products (concurrency: ${DETAIL_CONCURRENCY})...`);
+      
       const products: ProviderProduct[] = [];
       const failed: Array<{ id: string; error: string }> = [];
+      let processedCount = 0;
 
       const fetchProduct = (syncProduct: PrintfulSyncProduct) =>
         Effect.gen(this, function* () {
           const detail = yield* this.getSyncProduct(syncProduct.id).pipe(
             Effect.retry({
-              times: 3,
-              schedule: Schedule.exponential('1 second'),
+              times: 2,
+              schedule: Schedule.exponential('500 millis'),
             }),
             Effect.catchAll((e) => Effect.succeed({ error: e, id: syncProduct.id }))
           );
@@ -100,25 +116,37 @@ export class PrintfulService {
             return { error: detail.error, id: syncProduct.id };
           }
 
+          // Phase 3: Enrich with catalog variants using optimized V2 batch API
           const catalogVariantIds = detail.sync_variants.map((v) => v.variant_id).filter(Boolean);
-          const catalogVariants = yield* this.getCatalogVariants(catalogVariantIds);
+          
+          // Use batch V2 API for better performance
+          const catalogVariants = yield* this.getCatalogVariantsV2(catalogVariantIds, VARIANT_CONCURRENCY);
 
           return this.transformProduct(detail.sync_product, detail.sync_variants, catalogVariants);
         });
 
+      // Process products in batches with bounded concurrency
       const results = yield* Effect.all(
         paginatedProducts.map((p) => fetchProduct(p)),
-        { concurrency: MAX_CONCURRENT }
+        { concurrency: DETAIL_CONCURRENCY }
       );
 
       for (const result of results) {
+        processedCount++;
         if ('error' in result) {
           failed.push({ id: String(result.id), error: String(result.error) });
         } else {
           products.push(result as ProviderProduct);
         }
+        
+        // Log progress every 10 products
+        if (processedCount % 10 === 0 || processedCount === paginatedProducts.length) {
+          console.log(`[PrintfulService] Phase 2 progress: ${processedCount}/${paginatedProducts.length} products processed`);
+        }
       }
 
+      console.log(`[PrintfulService] Phase 2 complete: ${products.length} products ready, ${failed.length} failed`);
+      
       return { products, total: totalProducts, failed };
     });
   }
@@ -135,41 +163,61 @@ export class PrintfulService {
 
   getCatalogVariant(variantId: number) {
     return Effect.gen(this, function* () {
-      if (this.catalogVariantCache.has(variantId)) {
-        return this.catalogVariantCache.get(variantId)!;
-      }
-
-      const rateLimiter = yield* printfulRateLimiter;
-
-      const variant = yield* rateLimiter.withRateLimit(
-        Effect.tryPromise({
-          try: () => this.client.getCatalogVariant(variantId),
-          catch: (error) => {
-            if (error instanceof FulfillmentError) {
-              return error;
-            }
-            return FulfillmentError.fromHttpStatus(
-              500,
-              'printful',
-              error instanceof Error ? error.message : String(error),
-              error
-            );
-          },
-        })
-      ).pipe(
+      // Use new V2 method with standard strategy
+      const variant = yield* Effect.tryPromise({
+        try: () => this.client.getCatalogVariantV2(variantId, 'standard'),
+        catch: (error) => {
+          if (error instanceof FulfillmentError) {
+            return error;
+          }
+          return FulfillmentError.fromHttpStatus(
+            500,
+            'printful',
+            error instanceof Error ? error.message : String(error),
+            error
+          );
+        },
+      }).pipe(
         Effect.retry({
-          times: 5,
-          schedule: Schedule.exponential('1 second'),
+          times: 2, // Reduced from 5 to 2
+          schedule: Schedule.exponential('500 millis'), // Faster retry
           while: (error) => error instanceof FulfillmentError && error.code === 'RATE_LIMIT',
         }),
         Effect.catchAll(() => Effect.succeed(null))
       );
 
-      if (variant) {
-        this.catalogVariantCache.set(variantId, variant);
-      }
+      return variant;
+    });
+  }
+
+  /**
+   * Best-effort catalog variant fetch using V2 API - fast timeout, no retries
+   * Used for bulk enrichment during sync where partial data is acceptable
+   */
+  getCatalogVariantBestEffort(variantId: number) {
+    return Effect.gen(this, function* () {
+      // Use new V2 method with bestEffort strategy (no retries, 3s timeout)
+      const variant = yield* Effect.tryPromise({
+        try: () => this.client.getCatalogVariantV2(variantId, 'bestEffort'),
+        catch: () => null, // Fail soft - return null on any error
+      });
 
       return variant;
+    });
+  }
+
+  /**
+   * Batch fetch catalog variants using V2 API with optimized concurrency
+   * This is the preferred method for bulk operations
+   */
+  getCatalogVariantsV2(variantIds: number[], concurrency = 6) {
+    return Effect.gen(this, function* () {
+      const results = yield* Effect.tryPromise({
+        try: () => this.client.getCatalogVariantsV2(variantIds, concurrency),
+        catch: () => new Map<number, Variant>(),
+      });
+
+      return results;
     });
   }
 
@@ -236,60 +284,90 @@ export class PrintfulService {
     items: Array<{ variantId: number; quantity: number }>;
     currency?: string;
   }) {
-    return Effect.tryPromise({
-      try: async () => {
-        const response = await fetch('https://api.printful.com/v2/shipping-rates', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
-            'X-PF-Store-Id': this.storeId,
-          },
-          body: JSON.stringify({
-            recipient: {
-              country_code: params.recipient.countryCode,
-              state_code: params.recipient.stateCode === "" ? null : params.recipient.stateCode,
-              city: params.recipient.city,
-              zip: params.recipient.zip,
+    return Effect.gen(this, function* () {
+      const response = yield* Effect.tryPromise({
+        try: async () => {
+          const res = await fetch('https://api.printful.com/v2/shipping-rates', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${this.apiKey}`,
+              'X-PF-Store-Id': this.storeId,
             },
-            order_items: params.items.map(item => ({
-              source: 'catalog',
-              catalog_variant_id: item.variantId,
-              quantity: item.quantity,
-            })),
-            currency: params.currency || 'USD',
-          }),
+            body: JSON.stringify({
+              recipient: {
+                country_code: params.recipient.countryCode,
+                state_code: params.recipient.stateCode === "" ? null : params.recipient.stateCode,
+                city: params.recipient.city,
+                zip: params.recipient.zip,
+              },
+              order_items: params.items.map(item => ({
+                source: 'catalog',
+                catalog_variant_id: item.variantId,
+                quantity: item.quantity,
+              })),
+              currency: params.currency || 'USD',
+            }),
+          });
+
+          return res;
+        },
+        catch: (error) => {
+          if (error instanceof FulfillmentError) {
+            return error;
+          }
+          return new FulfillmentError({
+            message: `Failed to calculate shipping rates: ${error instanceof Error ? error.message : String(error)}`,
+            code: 'UNKNOWN',
+            provider: 'printful',
+            cause: error,
+          });
+        },
+      }).pipe(
+        Effect.retry({
+          times: 3,
+          schedule: Schedule.exponential('100 millis'),
+          while: (error) => error instanceof FulfillmentError && error.isRetryable,
+        })
+      );
+
+      if (response instanceof FulfillmentError) {
+        return yield* Effect.fail(response);
+      }
+
+      if (!response.ok) {
+        const errorResult = yield* Effect.tryPromise({
+          try: async () => {
+            let errorMessage = `Printful API returned ${response.status}`;
+            
+            try {
+              const errorData = await response.json() as { 
+                error?: { message?: string; code?: string }; 
+                message?: string;
+              };
+              
+              if (errorData.error?.message) {
+                errorMessage = errorData.error.message;
+              } else if (errorData.message) {
+                errorMessage = errorData.message;
+              }
+            } catch {
+              const errorText = await response.text();
+              if (errorText) {
+                errorMessage = `${errorMessage}: ${errorText.substring(0, 200)}`;
+              }
+            }
+            
+            return FulfillmentError.fromHttpStatus(response.status, 'printful', errorMessage);
+          },
+          catch: () => FulfillmentError.fromHttpStatus(response.status, 'printful', `Printful API returned ${response.status}`),
         });
 
-        if (!response.ok) {
-          let errorMessage = `Printful API returned ${response.status}`;
-          
-          try {
-            const errorData = await response.json() as { 
-              error?: { message?: string; code?: string }; 
-              message?: string;
-            };
-            
-            if (errorData.error?.message) {
-              errorMessage = errorData.error.message;
-            } else if (errorData.message) {
-              errorMessage = errorData.message;
-            }
-          } catch {
-            const errorText = await response.text();
-            if (errorText) {
-              errorMessage = `${errorMessage}: ${errorText.substring(0, 200)}`;
-            }
-          }
+        return yield* Effect.fail(errorResult);
+      }
 
-          throw FulfillmentError.fromHttpStatus(
-            response.status,
-            'printful',
-            errorMessage
-          );
-        }
-
-        const data = await response.json() as { data: Array<{
+      const data = yield* Effect.tryPromise({
+        try: () => response.json() as Promise<{ data: Array<{
           shipping: string;
           shipping_method_name: string;
           rate: string;
@@ -298,42 +376,31 @@ export class PrintfulService {
           max_delivery_days?: number;
           min_delivery_date?: string;
           max_delivery_date?: string;
-        }> };
-
-        const transformedResult = {
-          rates: (data.data || []).map(rate => ({
-            id: rate.shipping,
-            name: rate.shipping_method_name,
-            rate: parseFloat(rate.rate),
-            currency: rate.currency,
-            minDeliveryDays: rate.min_delivery_days,
-            maxDeliveryDays: rate.max_delivery_days,
-            minDeliveryDate: rate.min_delivery_date,
-            maxDeliveryDate: rate.max_delivery_date,
-          })),
-          currency: params.currency || 'USD',
-        };
-
-        return transformedResult;
-      },
-      catch: (error) => {
-        if (error instanceof FulfillmentError) {
-          return error;
-        }
-        return new FulfillmentError({
-          message: `Failed to calculate shipping rates: ${error instanceof Error ? error.message : String(error)}`,
+        }> }>,
+        catch: (error) => new FulfillmentError({
+          message: `Failed to parse shipping rates response: ${error instanceof Error ? error.message : String(error)}`,
           code: 'UNKNOWN',
           provider: 'printful',
           cause: error,
-        });
-      },
-    }).pipe(
-      Effect.retry({
-        times: 3,
-        schedule: Schedule.exponential('100 millis'),
-        while: (error) => error instanceof FulfillmentError && error.isRetryable,
-      })
-    );
+        }),
+      });
+
+      const transformedResult = {
+        rates: (data.data || []).map(rate => ({
+          id: rate.shipping,
+          name: rate.shipping_method_name,
+          rate: parseFloat(rate.rate),
+          currency: rate.currency,
+          minDeliveryDays: rate.min_delivery_days,
+          maxDeliveryDays: rate.max_delivery_days,
+          minDeliveryDate: rate.min_delivery_date,
+          maxDeliveryDate: rate.max_delivery_date,
+        })),
+        currency: params.currency || 'USD',
+      };
+
+      return transformedResult;
+    });
   }
 
   quoteOrder(input: ShippingQuoteInput): Effect.Effect<ShippingQuoteOutput, Error> {

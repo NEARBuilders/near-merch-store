@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 import { createPlugin } from 'every-plugin';
-import { Effect, Layer, Schedule, Cause, Exit } from 'every-plugin/effect';
+import { Effect, Layer, Schedule, Cause, Exit, Fiber } from 'every-plugin/effect';
 import { ManagedRuntime } from 'every-plugin/effect';
 import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
@@ -429,71 +429,51 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       }),
 
       sync: builder.sync.handler(async () => {
-        try {
-          return await managedRuntime.runPromise(
-            Effect.gen(function* () {
-              const service = yield* ProductService;
-              return yield* service.sync();
-            })
-          );
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          
-          const getSyncStatusWithLayer = async () => {
-            return await managedRuntime.runPromise(
-              Effect.gen(function* () {
-                const service = yield* ProductService;
-                return yield* service.getSyncStatus();
-              })
+        return await managedRuntime.runPromise(
+          Effect.gen(function* () {
+            const service = yield* ProductService;
+            const store = yield* ProductStore;
+            const syncStartedAt = new Date();
+            
+            // Check if sync already in progress
+            const isInProgress = yield* store.isSyncInProgress('products');
+            if (isInProgress) {
+              const existingStatus = yield* store.getSyncStatus('products');
+              return {
+                status: 'already_running' as const,
+                syncStartedAt: new Date(existingStatus.syncStartedAt || Date.now()).toISOString(),
+                message: 'Sync is already in progress',
+              };
+            }
+            
+            // Set running status
+            yield* store.setSyncStatus(
+              'products',
+              'running',
+              null,
+              null,
+              null,
+              null,
+              syncStartedAt
             );
-          };
-          
-          const status = await getSyncStatusWithLayer();
-          const now = Date.now();
-          const syncStartedAt = status.syncStartedAt;
-          const duration = syncStartedAt ? Math.floor((now - syncStartedAt) / 1000) : 0;
-          
-          if (errorMessage.includes('SYNC_IN_PROGRESS')) {
-            throw new ORPCError('SYNC_IN_PROGRESS', {
-              message: 'Sync is already in progress',
-              data: {
-                syncStartedAt: syncStartedAt ? new Date(syncStartedAt).toISOString() : new Date().toISOString(),
-                duration,
-              },
-            });
-          }
-          
-          if (errorMessage.includes('SYNC_PROVIDER_ERROR')) {
-            const errorData = status.errorData || {};
-            throw new ORPCError('SYNC_PROVIDER_ERROR', {
-              message: 'Fulfillment provider temporarily unavailable',
-              data: {
-                provider: errorData.provider || 'unknown',
-                errorType: errorData.errorType || 'API_ERROR',
-                retryAfter: errorData.retryAfter,
-                originalMessage: errorData.originalMessage || errorMessage,
-              },
-            });
-          }
-          
-          if (errorMessage.includes('SYNC_FAILED')) {
-            const errorData = status.errorData || {};
-            throw new ORPCError('SYNC_FAILED', {
-              message: 'Sync failed - check provider details for more info',
-              data: {
-                stage: errorData.stage || 'UNKNOWN',
-                errorMessage: errorData.providerErrors?.join('; ') || errorData.errorMessage || errorMessage,
-                provider: errorData.provider,
-                syncDuration: errorData.syncDuration || duration,
-              },
-            });
-          }
-          
-          throw new ORPCError('INTERNAL_SERVER_ERROR', {
-            message: 'Sync failed - an unexpected error occurred',
-            data: { originalMessage: errorMessage },
-          });
-        }
+            
+            // Reset progress store
+            syncProgressStore.reset();
+            
+            // Create the sync effect
+            const syncEffect = service.sync();
+            
+            // Fork sync as background fiber - do NOT wait for completion
+            yield* syncManager.startSync(syncEffect);
+            
+            // Return immediately - sync runs in background
+            return {
+              status: 'started' as const,
+              syncStartedAt: syncStartedAt.toISOString(),
+              message: 'Sync started in background',
+            };
+          })
+        );
       }),
 
       getSyncStatus: builder.getSyncStatus.handler(async () => {

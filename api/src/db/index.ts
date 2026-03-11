@@ -17,8 +17,8 @@ export const DatabaseLive = (url: string) =>
       Effect.tryPromise({
         try: async () => {
           const client = pg(url, {
-            max: 2,
-            idle_timeout: 20 * 1000,
+            max: 10, // Increased from 2 to handle concurrent sync operations
+            idle_timeout: 60 * 1000, // Increased from 20s to keep connections alive longer
             connect_timeout: 10 * 1000,
           }) as SqlClient;
           const db = drizzle({ client, schema });
@@ -40,8 +40,8 @@ export const DatabaseLive = (url: string) =>
 
 export const createDatabase = (url: string): DrizzleDatabase => {
   const client = pg(url, {
-    max: 2,
-    idle_timeout: 20 * 1000,
+    max: 10, // Increased from 2 to handle concurrent sync operations
+    idle_timeout: 60 * 1000, // Increased from 20s to keep connections alive longer
     connect_timeout: 10 * 1000,
   }) as SqlClient;
   return drizzle({ client, schema });

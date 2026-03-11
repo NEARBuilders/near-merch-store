@@ -37,7 +37,7 @@ import {
   useProductTypes,
   useSyncStatus,
   useSyncProducts,
-  useSyncProgress,
+  useSyncProgressSubscription,
   useCancelSync,
   useUpdateProductCategories,
   useUpdateProductListing,
@@ -307,11 +307,24 @@ function formatDuration(seconds: number): string {
 }
 
 function InventoryManagement() {
-  const { data: productsData, isLoading, refetch, isRefetching } = useProducts({ limit: 100, includeUnlisted: true });
+  const [syncCancelledAt, setSyncCancelledAt] = useState<number | null>(null);
+  
+  // Derived sync state - use server status only (not mutation pending)
+  const wasCancelledRecently = syncCancelledAt && (Date.now() - syncCancelledAt < 3000);
+
+  // Get sync status first to determine if we should poll
+  const { data: syncStatusData } = useSyncStatus();
+  const isRunning = syncStatusData?.status === "running" && !wasCancelledRecently;
+  
+  // Main products query with dynamic polling based on sync status
+  const { data: productsData, isLoading, refetch, isRefetching } = useProducts({ 
+    limit: 100, 
+    includeUnlisted: true,
+    refetchInterval: isRunning ? 3000 : false, // Poll every 3s during sync
+    refetchOnWindowFocus: isRunning, // Refetch when window regains focus during sync
+  });
   const products = productsData?.products || [];
 
-  const { data: syncStatusData } = useSyncStatus();
-  const { data: syncProgressData } = useSyncProgress();
   const syncMutation = useSyncProducts();
   const cancelSyncMutation = useCancelSync();
   const updateListingMutation = useUpdateProductListing();
@@ -329,25 +342,64 @@ function InventoryManagement() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [showSuccessDetails, setShowSuccessDetails] = useState(false);
+  // Track current sync progress for display
+  const [syncProgress, setSyncProgress] = useState<{ synced: number; failed: number; total: number } | null>(null);
+  
+  // Subscribe to real-time progress updates
+  const { events: progressEvents, finalEvent: progressFinalEvent } = useSyncProgressSubscription(isRunning);
+  
+  // Update progress display from events
+  useEffect(() => {
+    if (progressEvents.length > 0) {
+      const lastEvent = progressEvents[progressEvents.length - 1];
+      const totalSynced = lastEvent.totalSynced ?? 0;
+      const totalFailed = lastEvent.totalFailed ?? 0;
+      // Estimate total from providers or use a reasonable guess
+      let estimatedTotal = 0;
+      Object.values(lastEvent.providers || {}).forEach((p: any) => {
+        estimatedTotal += (p.total || 0);
+      });
+      // If we don't have a total yet, use synced + failed + buffer
+      if (estimatedTotal === 0) {
+        estimatedTotal = Math.max(totalSynced + totalFailed + 10, products.length);
+      }
+      setSyncProgress({
+        synced: totalSynced,
+        failed: totalFailed,
+        total: estimatedTotal,
+      });
+    }
+  }, [progressEvents, products.length]);
+  
+  const hasError = syncStatusData?.status === "error" || progressFinalEvent?.status === 'error';
+  const hasTerminalProgress = progressFinalEvent != null;
+  const showSyncStatus = isRunning || hasTerminalProgress || hasError || syncStatusData?.lastSuccessAt;
+  
+  // Build progress data from subscription
+  const syncProgressData = {
+    events: progressEvents,
+    finalEvent: progressFinalEvent,
+  };
 
   const handleSync = () => {
+    setSyncCancelledAt(null); // Reset cancel state on new sync
     syncMutation.mutate(undefined);
   };
 
   const handleCancelSync = () => {
-    cancelSyncMutation.mutate();
+    setSyncCancelledAt(Date.now());
+    cancelSyncMutation.mutate(undefined, {
+      onSettled: () => {
+        // Clear cancel state after 2 seconds to allow state to settle
+        setTimeout(() => setSyncCancelledAt(null), 2000);
+      }
+    });
   };
 
   const handleToggleListing = (productId: string, currentlyListed: boolean) => {
     updateListingMutation.mutate({ id: productId, listed: !currentlyListed });
   };
 
-  // Derived sync state from queries only
-  const isRunning = syncStatusData?.status === "running" || syncMutation.isPending;
-  const hasError = syncStatusData?.status === "error" || syncProgressData?.finalEvent?.status === 'error';
-  const hasTerminalProgress = syncProgressData?.finalEvent != null;
-  const showSyncStatus = isRunning || hasTerminalProgress || hasError || syncStatusData?.lastSuccessAt;
-  
   // Live timer for sync duration
   const [syncDuration, setSyncDuration] = useState(0);
   
@@ -731,10 +783,51 @@ function InventoryManagement() {
         )}>
           {/* Running View */}
           {isRunning && (
-            <div className="flex items-center gap-2 text-sm">
-              <RefreshCw className="size-4 animate-spin text-[#3d7fff]" />
-              <span className="text-[#3d7fff] font-medium">Syncing products...</span>
-              {syncDuration > 0 && <span className="text-[#3d7fff]/70">({formatDuration(syncDuration)})</span>}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <RefreshCw className="size-4 animate-spin text-[#3d7fff]" />
+                <span className="text-[#3d7fff] font-medium">
+                  {syncProgress 
+                    ? `Synced ${syncProgress.synced} of ~${syncProgress.total} products...`
+                    : "Syncing products..."}
+                </span>
+                {syncDuration > 0 && <span className="text-[#3d7fff]/70">({formatDuration(syncDuration)})</span>}
+              </div>
+              
+              {/* Progress bar */}
+              {syncProgress && syncProgress.total > 0 && (
+                <div className="space-y-1">
+                  <div className="h-2 bg-background/60 rounded-full overflow-hidden border border-border/40">
+                    <div 
+                      className="h-full bg-[#3d7fff] transition-all duration-500 ease-out"
+                      style={{ 
+                        width: `${Math.min((syncProgress.synced / syncProgress.total) * 100, 100)}%` 
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-[#3d7fff]/70">
+                    <span>{syncProgress.synced} synced</span>
+                    {syncProgress.failed > 0 && (
+                      <span className="text-yellow-500">{syncProgress.failed} failed</span>
+                    )}
+                    <span>{products.length} in inventory</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Provider status */}
+              {progressEvents.length > 0 && (
+                <div className="text-xs text-[#3d7fff]/60 space-y-1">
+                  {Object.entries(progressEvents[progressEvents.length - 1]?.providers || {}).map(([name, provider]: [string, any]) => (
+                    <div key={name} className="flex items-center gap-2">
+                      <span className="capitalize">{name}:</span>
+                      <span>{provider.synced} synced</span>
+                      {provider.failed > 0 && <span className="text-yellow-500/80">({provider.failed} failed)</span>}
+                      {provider.phase && <span className="text-[#3d7fff]/40">- {provider.phase.replace(/_/g, ' ')}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           
