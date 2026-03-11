@@ -5,6 +5,7 @@ import { ProductStore, CollectionStore, type ProductVariantInput, type ProductWi
 import type { ProviderProduct } from './fulfillment/schema';
 import { generateProductId, generatePublicKey, generateSlug } from '../utils/product-ids';
 import { syncProgressStore } from './sync-progress';
+import { createSyncLogger, SyncLogger } from './fulfillment/printful/logger';
 
 export class ProductService extends Context.Tag('ProductService')<
   ProductService,
@@ -253,7 +254,9 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
         syncStartedAt: Date
       ): Effect.Effect<{ synced: number; removed: number; failed: number; error?: string }, Error> =>
         Effect.gen(function* () {
-          console.log(`[ProductSync] Starting sync from ${provider.name}...`);
+          // Create structured logger for this sync
+          const logger = createSyncLogger(`${provider.name}-${Date.now()}`);
+          logger.logPhase('init', `Starting sync from ${provider.name}`);
 
           syncProgressStore.updateProvider(provider.name, {
             status: 'fetching',
@@ -263,39 +266,77 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
             failed: 0,
           });
 
-          const result = yield* Effect.tryPromise({
-            try: () => provider.client.getProducts({ limit: 100, offset: 0 }),
-            catch: (e) => {
-              const issues = extractValidationIssues(e);
-              if (issues) {
-                console.error(`[ProductSync] Validation error from ${provider.name}:`);
-                console.error(issues);
-                return new Error(`Validation failed for ${provider.name}:\n${issues}`);
-              }
+          // Pagination: Fetch all products across multiple pages
+          const PAGE_SIZE = 100;
+          let allProducts: ProviderProduct[] = [];
+          let totalFetchFailed: Array<{ id: string; error: string }> = [];
+          let offset = 0;
+          let hasMore = true;
+          let pageCount = 0;
 
-              const errorMessage = e instanceof Error ? e.message : String(e);
-              return new Error(`Failed to fetch products from ${provider.name}: ${errorMessage}`);
-            },
-          });
+          logger.logPhase('fetch_products', 'Fetching product pages');
 
-          const { products, failed: fetchFailed = [] } = result;
+          while (hasMore) {
+            pageCount++;
 
-          console.log(`[ProductSync] Found ${products.length} products from ${provider.name}${fetchFailed.length > 0 ? `, ${fetchFailed.length} failed to fetch` : ''}`);
+            const pageResult = yield* Effect.tryPromise({
+              try: () => provider.client.getProducts({ limit: PAGE_SIZE, offset }),
+              catch: (e) => {
+                const issues = extractValidationIssues(e);
+                if (issues) {
+                  logger.logFailure(`Page ${pageCount}`, `Validation error: ${issues}`);
+                  return new Error(`Validation failed for ${provider.name} page ${pageCount}:\n${issues}`);
+                }
+
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                return new Error(`Failed to fetch products from ${provider.name} page ${pageCount}: ${errorMessage}`);
+              },
+            });
+            const { products, failed: pageFailed = [], total = 0 } = pageResult;
+            
+            allProducts = [...allProducts, ...products];
+            totalFetchFailed = [...totalFetchFailed, ...pageFailed];
+
+            // Log progress every few pages
+            if (pageCount === 1 || pageCount % 5 === 0 || !hasMore) {
+              logger.logProgress({
+                phase: 'fetch_products',
+                current: allProducts.length,
+                total: total || allProducts.length + 10, // Estimate if no total
+                failed: totalFetchFailed.length,
+              });
+            }
+
+            // Check if there are more pages
+            if (products.length < PAGE_SIZE || allProducts.length >= total) {
+              hasMore = false;
+            } else {
+              offset += PAGE_SIZE;
+            }
+
+            // Safety limit: don't fetch more than 1000 pages (100k products)
+            if (pageCount >= 1000) {
+              logger.logPhase('fetch_products', 'Reached maximum page limit (1000), stopping pagination');
+              hasMore = false;
+            }
+          }
+
+          logger.logPhase('sync_to_db', `Fetched ${allProducts.length} products, syncing to database`);
 
           syncProgressStore.updateProvider(provider.name, {
             status: 'syncing',
             phase: 'sync_to_db',
-            total: products.length,
+            total: allProducts.length,
             synced: 0,
-            failed: fetchFailed.length,
+            failed: totalFetchFailed.length,
           });
 
           let syncedCount = 0;
-          let failedCount = fetchFailed.length;
+          let failedCount = totalFetchFailed.length;
           const PROGRESS_UPDATE_INTERVAL = 10;
 
-          for (let i = 0; i < products.length; i++) {
-            const product = products[i];
+          for (let i = 0; i < allProducts.length; i++) {
+            const product = allProducts[i];
             if (!product) continue;
             
             try {
@@ -303,13 +344,17 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
               yield* store.upsert(localProduct);
               syncedCount++;
-              console.log(`[ProductSync] Synced product: ${localProduct.name} with ${localProduct.variants.length} variants`);
 
-              if (syncedCount % PROGRESS_UPDATE_INTERVAL === 0 || i === products.length - 1) {
+              // Log individual product success only occasionally to avoid spam
+              if (syncedCount <= 5 || syncedCount % 20 === 0) {
+                logger.logSuccess(localProduct.name, `${localProduct.variants.length} variants`);
+              }
+
+              if (syncedCount % PROGRESS_UPDATE_INTERVAL === 0 || i === allProducts.length - 1) {
                 syncProgressStore.updateProvider(provider.name, {
                   status: 'syncing',
                   phase: 'sync_to_db',
-                  total: products.length,
+                  total: allProducts.length,
                   synced: syncedCount,
                   failed: failedCount,
                   currentProduct: localProduct.name,
@@ -317,12 +362,13 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
               }
             } catch (error) {
               failedCount++;
-              console.error(`[ProductSync] Failed to sync product ${product.id}:`, error);
+              const productName = typeof product.name === 'string' ? product.name : String(product.id);
+              logger.logFailure(productName, error);
 
               syncProgressStore.updateProvider(provider.name, {
                 status: 'syncing',
                 phase: 'sync_to_db',
-                total: products.length,
+                total: allProducts.length,
                 synced: syncedCount,
                 failed: failedCount,
                 currentProduct: product.name,
@@ -331,25 +377,27 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
             }
           }
 
+          logger.logPhase('cleanup', 'Pruning stale products');
+
           syncProgressStore.updateProvider(provider.name, {
             status: 'syncing',
             phase: 'cleanup',
-            total: products.length,
+            total: allProducts.length,
             synced: syncedCount,
             failed: failedCount,
           });
 
           const removedCount = yield* store.prune(provider.name, syncStartedAt);
           if (removedCount > 0) {
-            console.log(`[ProductSync] Pruned ${removedCount} stale products from ${provider.name}`);
+            logger.logPhase('cleanup', `Pruned ${removedCount} stale products`);
           }
 
-          console.log(`[ProductSync] Completed ${provider.name} sync: ${syncedCount} synced, ${failedCount} failed, ${removedCount} removed`);
+          logger.complete();
 
           syncProgressStore.updateProvider(provider.name, {
             status: 'completed',
             phase: 'cleanup',
-            total: products.length,
+            total: allProducts.length,
             synced: syncedCount,
             failed: failedCount,
           });
@@ -358,6 +406,7 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
         }).pipe(
           Effect.catchAll((e) => {
             const errorMessage = e instanceof Error ? e.message : String(e);
+            // Note: logger not available in catchAll, error was already logged in gen context
             console.error(`[ProductSync] Provider ${provider.name} failed:`, errorMessage);
 
             syncProgressStore.updateProvider(provider.name, {
@@ -455,56 +504,14 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
 
         sync: () =>
           Effect.gen(function* () {
-            const SYNC_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
-            
             const syncStartedAt = new Date();
-            
-            // CHECK 1: Is sync already in progress (and not stale)?
-            const isInProgress = yield* store.isSyncInProgress('products');
-            if (isInProgress) {
-              const existingStatus = yield* store.getSyncStatus('products');
-              const duration = existingStatus.syncStartedAt
-                ? Math.floor((Date.now() - existingStatus.syncStartedAt) / 1000)
-                : 0;
-              
-              // If sync has been running longer than timeout, it's stale - allow retry
-              const isStale = existingStatus.syncStartedAt && 
-                (Date.now() - new Date(existingStatus.syncStartedAt).getTime()) > SYNC_TIMEOUT_MS;
-              
-              if (isStale) {
-                console.warn('[ProductSync] Detected stale sync, cleaning up and retrying:', {
-                  syncStartedAt: existingStatus.syncStartedAt
-                    ? new Date(existingStatus.syncStartedAt).toISOString()
-                    : null,
-                  duration,
-                });
-                yield* store.setSyncStatus(
-                  'products',
-                  'idle',
-                  null,
-                  new Date(),
-                  'Sync timed out',
-                  { errorType: 'SYNC_TIMEOUT', duration },
-                  null
-                );
-              } else {
-                console.error('[ProductSync] Sync attempt rejected - already in progress:', {
-                  syncStartedAt: existingStatus.syncStartedAt
-                    ? new Date(existingStatus.syncStartedAt).toISOString()
-                    : null,
-                  currentAttemptAt: syncStartedAt.toISOString(),
-                  duration,
-                  providersCount: providers.length,
-                });
-                
-                throw new Error('SYNC_IN_PROGRESS');
-              }
-            }
             
             if (providers.length === 0) {
               console.log('[ProductSync] No providers configured, skipping sync');
+              syncProgressStore.complete({ synced: 0, failed: 0, removed: 0 });
+              yield* store.setSyncStatus('products', 'idle', new Date(), null, null, null, new Date());
               return {
-                status: 'completed',
+                status: 'completed' as const,
                 count: 0,
                 removed: 0,
                 failed: 0,
@@ -513,81 +520,97 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
               };
             }
             
-            // Reset progress store at sync start
-            syncProgressStore.reset();
-            
-            // CHECK 2: Stale sync detection (clean up if needed)
-            const existingStatus = yield* store.getSyncStatus('products');
-            if (existingStatus.status === 'error' && 
-                existingStatus.errorMessage?.includes('timed out')) {
-              yield* store.setSyncStatus('products', 'idle', null, null, null, null, new Date());
-            }
-            
-            // Set running status (transactional)
-            yield* store.setSyncStatus(
-              'products',
-              'running',
-              null,
-              null,
-              null,
-              null, // errorData
-              syncStartedAt
-            );
-
             console.log('[ProductSync] Starting sync:', {
               syncStartedAt: syncStartedAt.toISOString(),
               providersCount: providers.length,
             });
 
-            const results = yield* Effect.all(
-              providers.map((p) => syncFromProvider(p, syncStartedAt)),
-              { concurrency: 2 }
-            );
+            try {
+              const results = yield* Effect.all(
+                providers.map((p) => syncFromProvider(p, syncStartedAt)),
+                { concurrency: 2 }
+              );
 
-            const totalSynced = results.reduce((sum, r) => sum + r.synced, 0);
-            const totalRemoved = results.reduce((sum, r) => sum + r.removed, 0);
-            const totalFailed = results.reduce((sum, r) => sum + (r.failed || 0), 0);
-            const providerErrors = results.filter(r => r.error).map(r => r.error);
-            const syncDuration = Math.floor((Date.now() - syncStartedAt.getTime()) / 1000);
+              const totalSynced = results.reduce((sum, r) => sum + r.synced, 0);
+              const totalRemoved = results.reduce((sum, r) => sum + r.removed, 0);
+              const totalFailed = results.reduce((sum, r) => sum + (r.failed || 0), 0);
+              const providerErrors = results.filter(r => r.error).map(r => r.error);
+              const syncDuration = Math.floor((Date.now() - syncStartedAt.getTime()) / 1000);
 
-            // All providers failed
-            if (providerErrors.length === providers.length) {
-              const allErrors = providerErrors.join('; ');
-              console.error(`[ProductSync] All providers failed:`, allErrors);
+              // All providers failed
+              if (providerErrors.length === providers.length) {
+                const allErrors = providerErrors.join('; ');
+                console.error(`[ProductSync] All providers failed:`, allErrors);
+                
+                syncProgressStore.error(allErrors);
+                
+                yield* store.setSyncStatus(
+                  'products',
+                  'error',
+                  null,
+                  new Date(),
+                  allErrors,
+                  { providerErrors, syncDuration },
+                  null
+                );
+                
+                // Don't throw - let the fiber complete normally so cleanup happens
+                return {
+                  status: 'error' as const,
+                  count: 0,
+                  removed: 0,
+                  failed: totalFailed,
+                  syncStartedAt: syncStartedAt.toISOString(),
+                  syncDuration,
+                };
+              }
+
+              // Some providers succeeded (or partial success)
+              if (providerErrors.length > 0) {
+                console.warn(`[ProductSync] ${providerErrors.length} provider(s) failed, but sync completed with partial results`);
+              }
+
+              syncProgressStore.complete({ synced: totalSynced, failed: totalFailed, removed: totalRemoved });
+
+              yield* store.setSyncStatus('products', 'idle', new Date(), null, null, null, new Date());
+              console.log(`[ProductSync] Completed: ${totalSynced} synced, ${totalFailed} failed, ${totalRemoved} removed (${syncDuration}s)`);
+
+              return { 
+                status: 'completed' as const, 
+                count: totalSynced, 
+                removed: totalRemoved,
+                failed: totalFailed,
+                syncStartedAt: syncStartedAt.toISOString(),
+                syncDuration,
+              };
+            } catch (error) {
+              // Handle unexpected errors
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              const syncDuration = Math.floor((Date.now() - syncStartedAt.getTime()) / 1000);
               
-              syncProgressStore.error(allErrors);
+              console.error('[ProductSync] Unexpected error:', errorMessage);
+              syncProgressStore.error(errorMessage);
               
               yield* store.setSyncStatus(
                 'products',
                 'error',
                 null,
                 new Date(),
-                allErrors,
-                { providerErrors, syncDuration },
+                errorMessage,
+                { errorType: 'UNEXPECTED_ERROR', syncDuration },
                 null
               );
               
-              throw new Error(`SYNC_FAILED: ${allErrors}`);
+              // Return error state instead of throwing
+              return {
+                status: 'error' as const,
+                count: 0,
+                removed: 0,
+                failed: 0,
+                syncStartedAt: syncStartedAt.toISOString(),
+                syncDuration,
+              };
             }
-
-            // Some providers succeeded (or partial success)
-            if (providerErrors.length > 0) {
-              console.warn(`[ProductSync] ${providerErrors.length} provider(s) failed, but sync completed with partial results`);
-            }
-
-            syncProgressStore.complete({ synced: totalSynced, failed: totalFailed, removed: totalRemoved });
-
-            yield* store.setSyncStatus('products', 'idle', new Date(), null, null, null, new Date());
-            console.log(`[ProductSync] Completed: ${totalSynced} synced, ${totalFailed} failed, ${totalRemoved} removed (${syncDuration}s)`);
-
-            return { 
-              status: 'completed', 
-              count: totalSynced, 
-              removed: totalRemoved,
-              failed: totalFailed,
-              syncStartedAt: syncStartedAt.toISOString(),
-              syncDuration,
-            };
           }),
 
         getSyncStatus: () =>

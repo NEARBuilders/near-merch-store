@@ -446,18 +446,16 @@ export const contract = oc.router({
       path: '/sync',
       summary: 'Sync products from fulfillment providers',
       description: 
-        'Triggers sync from configured providers. Returns sync status including duration. ' +
-        'Enforces single sync at a time (mutual exclusion). Auto-detects and cleans up stale syncs >5min.',
+        'Triggers background sync from configured providers. Returns immediately with sync status. ' +
+        'Use subscribeSyncProgress SSE endpoint to track progress in real-time. ' +
+        'Enforces single sync at a time (mutual exclusion).',
       tags: ['Sync'],
     })
     .output(
       z.object({
-        status: z.enum(['idle', 'running', 'error', 'completed']),
-        count: z.number().optional().describe('Products synced'),
-        removed: z.number().optional().describe('Products removed'),
-        failed: z.number().optional().describe('Products that failed to sync'),
-        syncStartedAt: z.string().datetime().optional().describe('ISO 8601 timestamp'),
-        syncDuration: z.number().optional().describe('Duration in seconds'),
+        status: z.enum(['started', 'already_running']),
+        syncStartedAt: z.string().datetime().describe('ISO 8601 timestamp'),
+        message: z.string().describe('Human-readable status'),
       })
     )
     .errors({
@@ -467,33 +465,6 @@ export const contract = oc.router({
         data: z.object({
           syncStartedAt: z.string().datetime().describe('When previous sync started'),
           duration: z.number().describe('How long it has been running (seconds)'),
-        }),
-      },
-      SYNC_TIMEOUT: {
-        status: 408,
-        message: 'Sync operation timed out',
-        data: z.object({
-          syncStartedAt: z.string().datetime().describe('When synced started'),
-          duration: z.number().describe('How long before timeout'),
-        }),
-      },
-      SYNC_PROVIDER_ERROR: {
-        status: 503,
-        message: 'Fulfillment provider temporarily unavailable',
-        data: z.object({
-          provider: z.string().describe('Provider name: printful, gelato, etc.'),
-          errorType: z.enum(['RATE_LIMIT', 'TIMEOUT', 'API_ERROR', 'AUTH', 'SERVICE_UNAVAILABLE']).describe('Error classification'),
-          retryAfter: z.number().optional().describe('Suggested retry time (seconds)'),
-          originalMessage: z.string().describe('Debug message'),
-        }),
-      },
-      SYNC_FAILED: {
-        status: 500,
-        message: 'Sync operation failed',
-        data: z.object({
-          stage: z.enum(['SET_STATUS', 'FETCH_PRODUCTS', 'UPSERT', 'FINALIZE', 'UNKNOWN']).describe('Where failure occurred'),
-          errorMessage: z.string().describe('Detailed error message'),
-          syncDuration: z.number().optional().describe('Duration at failure'),
         }),
       },
     }),

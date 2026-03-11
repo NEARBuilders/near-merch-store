@@ -19,7 +19,7 @@ describe('Sync Error Handling', () => {
   });
 
   describe('SYNC_IN_PROGRESS Error (Test T2)', () => {
-    it('should throw SYNC_IN_PROGRESS when sync is already running', async () => {
+    it('should return already_running status when sync is already running', async () => {
       const client = await getPluginClient({ nearAccountId: TEST_USER });
       
       const syncStartedAt = new Date();
@@ -29,11 +29,15 @@ describe('Sync Error Handling', () => {
         updatedAt: new Date(),
       });
 
-      await expect(client.sync()).rejects.toThrow();
+      const result = await client.sync();
       
-      const result = await client.getSyncStatus();
-      expect(result.status).toBe('running');
-      expect(result.syncStartedAt).toBe(syncStartedAt.getTime());
+      expect(result.status).toBe('already_running');
+      expect(result.syncStartedAt).toBe(syncStartedAt.toISOString());
+      expect(result.message).toBe('Sync is already in progress');
+      
+      const statusResult = await client.getSyncStatus();
+      expect(statusResult.status).toBe('running');
+      expect(statusResult.syncStartedAt).toBe(syncStartedAt.getTime());
     });
   });
 

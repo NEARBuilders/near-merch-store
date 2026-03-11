@@ -32,6 +32,7 @@ export {
   productLoaders,
   useSyncStatus,
   useSyncProgress,
+  useSyncProgressSubscription,
   useSyncProducts,
   useCancelSync,
   useUpdateProductListing,

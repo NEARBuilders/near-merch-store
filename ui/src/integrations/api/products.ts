@@ -7,6 +7,7 @@ import {
   useSuspenseQuery,
   type QueryClient,
 } from '@tanstack/react-query';
+import { useState, useEffect, useCallback } from 'react';
 import { productKeys, productTypeKeys, collectionKeys, categoryKeys, type Category } from './keys';
 import { toast } from 'sonner';
 
@@ -29,6 +30,8 @@ export function useProducts(options?: {
   limit?: number;
   offset?: number;
   includeUnlisted?: boolean;
+  refetchInterval?: number | false;
+  refetchOnWindowFocus?: boolean;
 }) {
   return useQuery({
     queryKey: productKeys.list({
@@ -54,6 +57,8 @@ export function useProducts(options?: {
       return data;
     },
     placeholderData: (prev) => prev,
+    refetchInterval: options?.refetchInterval,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus,
   });
 }
 
@@ -237,6 +242,88 @@ export function useSyncStatus() {
   });
 }
 
+/**
+ * Real-time sync progress subscription using SSE
+ * This hook subscribes to sync progress updates while sync is running
+ */
+export function useSyncProgressSubscription(isRunning: boolean) {
+  const [events, setEvents] = useState<SyncProgressEvent[]>([]);
+  const [finalEvent, setFinalEvent] = useState<SyncProgressEvent | null>(null);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  useEffect(() => {
+    // Reset state when sync stops
+    if (!isRunning) {
+      setIsSubscribed(false);
+      return;
+    }
+
+    // Already subscribed, don't restart
+    if (isSubscribed) return;
+
+    const abortController = new AbortController();
+    let active = true;
+
+    setIsSubscribed(true);
+    setEvents([]);
+    setFinalEvent(null);
+
+    const subscribe = async () => {
+      try {
+        const stream = await apiClient.subscribeSyncProgress({}, { signal: abortController.signal });
+        
+        for await (const event of stream) {
+          if (!active) break;
+          
+          setEvents((prev) => [...prev, event]);
+          
+          if (event.status === 'completed' || event.status === 'error') {
+            setFinalEvent(event);
+            setIsSubscribed(false);
+            
+            // Show completion toast
+            if (event.status === 'completed') {
+              const synced = event.totalSynced ?? 0;
+              const failed = event.totalFailed ?? 0;
+              const failedStr = failed > 0 ? ` (${failed} failed)` : '';
+              toast.success(`Synced ${synced} products${failedStr}`);
+            } else if (event.status === 'error') {
+              toast.error(event.message || 'Sync failed');
+            }
+            break;
+          }
+        }
+      } catch (error) {
+        // Ignore abort errors (cleanup)
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+        console.error('Sync progress subscription error:', error);
+        setIsSubscribed(false);
+      }
+    };
+
+    subscribe();
+
+    return () => {
+      active = false;
+      abortController.abort();
+    };
+  }, [isRunning]); // Only depend on isRunning, not isSubscribed
+
+  const reset = useCallback(() => {
+    setEvents([]);
+    setFinalEvent(null);
+    setIsSubscribed(false);
+  }, []);
+
+  return { events, finalEvent, isSubscribed, reset };
+}
+
+/**
+ * Legacy hook - kept for backward compatibility
+ * Use useSyncProgressSubscription for real-time updates
+ */
 export function useSyncProgress() {
   return useQuery({
     queryKey: ['syncProgress'],
@@ -264,63 +351,26 @@ export function useSyncProducts() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => apiClient.sync(),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['syncProgress'] });
-      queryClient.removeQueries({ queryKey: ['syncProgress'] });
-      queryClient.setQueryData(['syncProgress'], { events: [], finalEvent: null });
-    },
     onSuccess: (data) => {
+      // Sync started in background - just invalidate status
       queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
-      queryClient.invalidateQueries({ 
-        queryKey: productKeys.all,
-        refetchType: 'all'
-      });
-      queryClient.invalidateQueries({ queryKey: collectionKeys.all });
-      queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
       
-      if (data.status === 'completed') {
-        const minutes = data.syncDuration ? Math.floor(data.syncDuration / 60) : 0;
-        const seconds = data.syncDuration ? data.syncDuration % 60 : 0;
-        const timeStr = data.syncDuration ? ` in ${minutes}m ${seconds}s` : '';
-        const failedStr = data.failed && data.failed > 0 ? ` (${data.failed} failed)` : '';
-        toast.success(`Synced ${data.count ?? 0} products${failedStr}${timeStr}`);
+      if (data.status === 'started') {
+        toast.success('Sync started - progress will update automatically');
+      } else if (data.status === 'already_running') {
+        toast.info('Sync is already in progress');
       }
     },
     onError: (error) => {
       queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
       
       const errorCode = (error as any)?.code || (error as any)?.response?.data?.code;
-      const errorMessage = (error as any)?.message || 'Sync failed';
+      const errorMessage = (error as any)?.message || 'Sync failed to start';
       
-      switch (errorCode) {
-        case 'SYNC_IN_PROGRESS':
-          toast.error('Sync is already in progress');
-          break;
-
-        case 'SYNC_TIMEOUT':
-          toast.error('Sync timed out, please try again');
-          break;
-
-        case 'SYNC_PROVIDER_ERROR':
-          toast.error('Provider temporarily unavailable');
-          break;
-
-        case 'SYNC_FAILED':
-          toast.error('Sync failed - check provider details', {
-            id: 'sync-failed',
-            action: {
-              label: 'Retry',
-              onClick: () => toast.promise(apiClient.sync(), {
-                loading: 'Retrying sync...',
-                success: 'Sync complete',
-                error: 'Sync failed',
-              }),
-            },
-          });
-          break;
-
-        default:
-          toast.error(errorMessage || 'Sync failed');
+      if (errorCode === 'SYNC_IN_PROGRESS') {
+        toast.info('Sync is already in progress');
+      } else {
+        toast.error(errorMessage || 'Failed to start sync');
       }
     },
   });
