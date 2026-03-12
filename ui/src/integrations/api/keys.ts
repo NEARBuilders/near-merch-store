@@ -23,6 +23,7 @@ export const productKeys = {
     collectionSlugs?: string[]; 
     tags?: string[];
     featured?: boolean;
+    exclusive?: boolean;
     limit?: number; 
     offset?: number; 
     includeUnlisted?: boolean;

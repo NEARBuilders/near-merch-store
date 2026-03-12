@@ -430,8 +430,8 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
       return {
         getProducts: (options) =>
           Effect.gen(function* () {
-            const { productTypeSlug, collectionSlugs, tags, featured, limit = 50, offset = 0, includeUnlisted = false } = options;
-            return yield* store.findMany({ productTypeSlug, collectionSlugs, tags, featured, limit, offset, includeUnlisted });
+            const { productTypeSlug, collectionSlugs, tags, featured, exclusive, limit = 50, offset = 0, includeUnlisted = false } = options;
+            return yield* store.findMany({ productTypeSlug, collectionSlugs, tags, featured, exclusive, limit, offset, includeUnlisted });
           }),
 
         getProduct: (identifier) =>
