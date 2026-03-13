@@ -85,7 +85,7 @@ export async function runMigrations() {
   }
 }
 
-export async function getPluginClient(context?: { nearAccountId?: string; reqHeaders?: Headers; getRawBody?: () => Promise<string> }) {
+export async function getPluginClient(context?: { nearAccountId?: string; reqHeaders?: Headers; getRawBody?: () => Promise<string>; user?: { id: string; role?: string; email?: string; name?: string } | null }) {
   await runMigrations();
 
   const runtime = getRuntime();
@@ -93,7 +93,7 @@ export async function getPluginClient(context?: { nearAccountId?: string; reqHea
     pluginDevConfig.pluginId,
     TEST_CONFIG
   );
-  return createClient(context);
+  return createClient({ ...context, user: context?.user ?? null });
 }
 
 export async function teardown() {

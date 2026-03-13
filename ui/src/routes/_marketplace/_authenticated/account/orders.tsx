@@ -87,7 +87,7 @@ function OrdersPage() {
     );
   }
 
-  const { orders } = loaderData;
+  const { orders } = loaderData ?? { orders: [] };
 
   const handleViewTimeline = (order: Order) => {
     setAuditLogOrder(order);
@@ -118,7 +118,7 @@ function OrdersPage() {
         accessorKey: 'items',
         header: 'Items',
         cell: ({ row }) => {
-          const items = row.original.items;
+          const items = row.original.items || [];
           const totalQty = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
           const productNames = items.map((item: any) => item.productName).join(', ');
 
@@ -155,7 +155,7 @@ function OrdersPage() {
         header: 'Actions',
         cell: ({ row }) => {
           const order = row.original;
-          const hasTracking = order.trackingInfo && order.trackingInfo.length > 0;
+          const hasTracking = order.trackingInfo?.[0]?.trackingUrl;
 
           return (
             <div className="flex items-center gap-2">
@@ -215,8 +215,8 @@ function OrdersPage() {
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
             {orders.map((order) => {
-              const hasTracking = order.trackingInfo && order.trackingInfo.length > 0;
-              const items = order.items;
+              const hasTracking = order.trackingInfo?.[0]?.trackingUrl;
+              const items = order.items || [];
               const totalQty = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
               const productNames = items.map((item: any) => item.productName).join(', ');
 

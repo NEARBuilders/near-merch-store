@@ -1,8 +1,6 @@
 import { getAssetsUrl, getRuntimeConfig } from "./remote/runtime";
 
 export async function hydrate() {
-  console.log("[Hydrate] Starting...");
-
   const runtimeConfig = getRuntimeConfig();
   if (!runtimeConfig) {
     console.error("[Hydrate] No runtime config found");
@@ -31,15 +29,12 @@ export async function hydrate() {
     },
   });
 
-  console.log("[Hydrate] Calling hydrateRoot...");
   hydrateRoot(
     document,
     <QueryClientProvider client={queryClient}>
       <RouterClient router={router} />
     </QueryClientProvider>,
   );
-
-  console.log("[Hydrate] Complete!");
 }
 
 export default hydrate;

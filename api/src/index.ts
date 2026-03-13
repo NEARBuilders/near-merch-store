@@ -53,7 +53,7 @@ export default createPlugin({
       role: z.string().optional(),
       email: z.string().optional(),
       name: z.string().optional(),
-    }).optional(),
+    }).nullable(),
   }),
 
   contract,
