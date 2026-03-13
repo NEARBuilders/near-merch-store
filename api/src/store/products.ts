@@ -52,10 +52,6 @@ export class ProductStore extends Context.Tag("ProductStore")<
       id: string,
       productTypeSlug: string | null,
     ) => Effect.Effect<Product | null, Error>;
-    readonly updateExclusive: (
-      id: string,
-      exclusive: boolean,
-    ) => Effect.Effect<Product | null, Error>;
     readonly updateMetadata: (
       id: string,
       metadata: ProductMetadata,
@@ -142,6 +138,9 @@ export const ProductStoreLive = Layer.effect(
           image: schema.collections.image,
           showInCarousel: schema.collections.showInCarousel,
           carouselOrder: schema.collections.carouselOrder,
+          isExclusive: schema.collections.isExclusive,
+          exclusiveCheckPluginId: schema.collections.exclusiveCheckPluginId,
+          exclusiveCheckConfig: schema.collections.exclusiveCheckConfig,
         })
         .from(schema.productCollections)
         .innerJoin(
@@ -157,6 +156,9 @@ export const ProductStoreLive = Layer.effect(
         image: row.image || undefined,
         showInCarousel: row.showInCarousel,
         carouselOrder: row.carouselOrder,
+        isExclusive: row.isExclusive ?? false,
+        exclusiveCheckPluginId: row.exclusiveCheckPluginId || undefined,
+        exclusiveCheckConfig: row.exclusiveCheckConfig || undefined,
       }));
     };
 
@@ -227,7 +229,6 @@ export const ProductStoreLive = Layer.effect(
         productType,
         tags,
         featured: row.featured ?? false,
-        exclusive: row.exclusive ?? false,
         collections,
         options,
         images,
@@ -307,7 +308,6 @@ export const ProductStoreLive = Layer.effect(
               collectionSlugs,
               tags,
               featured,
-              exclusive,
               limit = 50,
               offset = 0,
               includeUnlisted = false,
@@ -382,14 +382,6 @@ export const ProductStoreLive = Layer.effect(
             if (tags && tags.length > 0) {
               products = products.filter((product) =>
                 tags.some((tag) => product.tags.includes(tag)),
-              );
-            }
-
-            if (exclusive !== undefined) {
-              products = products.filter((product) =>
-                exclusive
-                  ? product.exclusive === true
-                  : product.exclusive !== true,
               );
             }
 
@@ -669,31 +661,6 @@ export const ProductStoreLive = Layer.effect(
           },
           catch: (error) =>
             new Error(`Failed to update product type: ${error}`),
-        }),
-
-      updateExclusive: (id, exclusive) =>
-        Effect.tryPromise({
-          try: async () => {
-            const now = new Date();
-            await db
-              .update(schema.products)
-              .set({ exclusive, updatedAt: now })
-              .where(eq(schema.products.id, id));
-
-            const results = await db
-              .select()
-              .from(schema.products)
-              .where(eq(schema.products.id, id))
-              .limit(1);
-
-            if (results.length === 0) {
-              return null;
-            }
-
-            return await rowToProduct(results[0]!);
-          },
-          catch: (error) =>
-            new Error(`Failed to update product exclusive status: ${error}`),
         }),
 
       updateMetadata: (id, metadata) =>

@@ -1,7 +1,7 @@
 import { FavoriteButton } from "@/components/marketplace/favorite-button";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useCart } from "@/hooks/use-cart";
-import { type Product, useSuspenseProduct, requiresSize } from "@/integrations/api";
+import { type Product, useSuspenseProduct, requiresSize, type ProductMetadata } from "@/integrations/api";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { ShoppingCart } from "lucide-react";
@@ -13,6 +13,12 @@ import {
   getOptionValue,
   getVariantImageUrl,
 } from "@/lib/product-utils";
+
+function getTotalFeePercentage(metadata: ProductMetadata | undefined): number {
+  if (!metadata?.fees?.length) return 0;
+  const totalBps = metadata.fees.reduce((sum, f) => sum + f.bps, 0);
+  return totalBps / 100;
+}
 
 interface ProductCardProps {
   product?: Product;
@@ -285,10 +291,21 @@ function VerticalProductLayout({
 
         {/* Price badge - top left corner */}
         {!hidePrice && (
-          <div className="absolute top-3 left-3 p-2 bg-background/60 backdrop-blur-sm border border-border/60 rounded-lg z-20 flex items-center">
+          <div className="absolute top-3 left-3 p-2 bg-background/60 backdrop-blur-sm border border-border/60 rounded-lg z-20 flex items-center gap-2">
             <div className={cn("font-medium text-[#00EC97]", priceSize)}>
               ${product.price ? product.price.toFixed(2) : "0.00"}
             </div>
+            {(() => {
+              const feePct = getTotalFeePercentage(product.metadata as ProductMetadata | undefined);
+              if (feePct > 0) {
+                return (
+                  <div className="text-xs text-foreground/60">
+                    ({feePct}% fees)
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         )}
 

@@ -43,7 +43,8 @@ export {
   useUpdateProductFeatured,
   useUpdateProductType,
   useUpdateProductMetadata,
-  useUpdateProductExclusive,
+  useCheckExclusiveAccess,
+  useUpdateCollectionExclusive,
   useProductTypes,
   useCreateProductType,
   useUpdateProductTypeItem,
@@ -55,6 +56,8 @@ export {
   type SyncProgressEvent,
   type FeeConfig,
   type ProductMetadata,
+  type PrintfulProviderDetails,
+  type ProviderDetails,
 } from "./products";
 
 export {

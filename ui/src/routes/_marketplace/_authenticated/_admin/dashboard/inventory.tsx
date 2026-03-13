@@ -46,7 +46,6 @@ import {
   useUpdateProductType,
   useCreateProductType,
   useUpdateProductMetadata,
-  useUpdateProductExclusive,
   type Product,
   type FeeConfig,
   type ProductMetadata,
@@ -317,38 +316,6 @@ function ProductTypeEditor({
   );
 }
 
-function ExclusiveToggle({
-  exclusive,
-  onUpdate,
-  isPending,
-}: {
-  exclusive: boolean;
-  onUpdate: (exclusive: boolean) => void;
-  isPending: boolean;
-}) {
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => onUpdate(!exclusive)}
-      disabled={isPending}
-      className={cn(
-        "h-8 px-2",
-        exclusive
-          ? "text-[#00EC97] hover:text-[#00EC97] hover:bg-[#00EC97]/10"
-          : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40",
-      )}
-      title={
-        exclusive
-          ? "Exclusive - Click to remove"
-          : "Not exclusive - Click to mark as exclusive"
-      }
-    >
-      <Star className={cn("size-4", exclusive && "fill-[#00EC97]")} />
-    </Button>
-  );
-}
-
 function MetadataEditor({
   metadata,
   productId: _productId,
@@ -363,24 +330,28 @@ function MetadataEditor({
   const [localMetadata, setLocalMetadata] = useState<ProductMetadata>(
     metadata || { fees: [] },
   );
-  const [newFee, setNewFee] = useState<Partial<FeeConfig>>({
+  const [newFee, setNewFee] = useState<Partial<FeeConfig> & { percentage?: string }>({
     type: "royalty",
     label: "",
     recipient: "",
     bps: 0,
+    percentage: "",
   });
 
   const handleAddFee = () => {
-    if (!newFee.label || !newFee.recipient || !newFee.bps) return;
+    if (!newFee.label || !newFee.recipient || !newFee.percentage) return;
+    const percentage = parseFloat(newFee.percentage);
+    if (isNaN(percentage) || percentage < 0 || percentage > 100) return;
+    const bps = Math.round(percentage * 100);
     const fee: FeeConfig = {
       type: newFee.type as FeeConfig["type"],
       label: newFee.label,
       recipient: newFee.recipient,
-      bps: Number(newFee.bps),
+      bps,
     };
     const updated = { ...localMetadata, fees: [...localMetadata.fees, fee] };
     setLocalMetadata(updated);
-    setNewFee({ type: "royalty", label: "", recipient: "", bps: 0 });
+    setNewFee({ type: "royalty", label: "", recipient: "", bps: 0, percentage: "" });
   };
 
   const handleRemoveFee = (index: number) => {
@@ -399,6 +370,7 @@ function MetadataEditor({
     (sum: number, f: FeeConfig) => sum + f.bps,
     0,
   );
+  const totalPercentage = totalBps / 100;
 
   return (
     <Popover>
@@ -407,7 +379,7 @@ function MetadataEditor({
           type="button"
           className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8 max-w-48"
           disabled={isPending}
-          title="Edit project metadata"
+          title="Edit product metadata"
         >
           {localMetadata.fees.length === 0 &&
           !localMetadata.creatorAccountId ? (
@@ -423,7 +395,7 @@ function MetadataEditor({
               )}
               {localMetadata.fees.length > 0 && (
                 <span className="text-xs text-foreground/60">
-                  {totalBps / 100}%
+                  {totalPercentage}%
                 </span>
               )}
             </>
@@ -431,7 +403,7 @@ function MetadataEditor({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-3" align="start">
-        <div className="text-sm font-medium mb-3">Project Metadata</div>
+        <div className="text-sm font-medium mb-3">Product Metadata</div>
 
         <div className="space-y-3">
           <div className="space-y-2">
@@ -452,9 +424,9 @@ function MetadataEditor({
           </div>
 
           <div className="space-y-2">
-            <div className="text-xs text-foreground/70">Fee Splits (BPS)</div>
+            <div className="text-xs text-foreground/70">Fee Splits</div>
             <div className="text-xs text-foreground/50 mb-1">
-              Total: {totalBps / 100}% ({totalBps} bps)
+              Total: {totalPercentage}% ({totalBps} bps)
             </div>
 
             {localMetadata.fees.map((fee: FeeConfig, index: number) => (
@@ -511,18 +483,21 @@ function MetadataEditor({
               />
               <Input
                 type="number"
-                placeholder="BPS"
-                value={newFee.bps || ""}
+                placeholder="%"
+                min="0"
+                max="100"
+                step="0.01"
+                value={newFee.percentage || ""}
                 onChange={(e) =>
-                  setNewFee({ ...newFee, bps: Number(e.target.value) })
+                  setNewFee({ ...newFee, percentage: e.target.value })
                 }
-                className="h-8 text-xs bg-background/60 border border-border/60 rounded-lg w-20"
+                className="h-8 text-xs bg-background/60 border border-border/60 rounded-lg w-16"
               />
               <Button
                 type="button"
                 size="sm"
                 onClick={handleAddFee}
-                disabled={!newFee.label || !newFee.recipient || !newFee.bps}
+                disabled={!newFee.label || !newFee.recipient || !newFee.percentage}
                 className="h-8 px-2 bg-[#00EC97] text-black hover:bg-[#00d97f]"
               >
                 <Plus className="size-4" />
@@ -598,7 +573,6 @@ function InventoryManagement() {
   const updateFeaturedMutation = useUpdateProductFeatured();
   const updateProductTypeMutation = useUpdateProductType();
   const updateMetadataMutation = useUpdateProductMetadata();
-  const updateExclusiveMutation = useUpdateProductExclusive();
   const { data: categoriesData } = useCategories();
   const categories = categoriesData?.categories ?? [];
   const { data: productTypesData } = useProductTypes();
@@ -966,20 +940,6 @@ function InventoryManagement() {
         />
       ),
       size: 180,
-    },
-    {
-      accessorKey: "exclusive",
-      header: "Exclusive",
-      cell: ({ row }) => (
-        <ExclusiveToggle
-          exclusive={row.original.exclusive ?? false}
-          onUpdate={(exclusive) =>
-            updateExclusiveMutation.mutate({ id: row.original.id, exclusive })
-          }
-          isPending={updateExclusiveMutation.isPending}
-        />
-      ),
-      size: 80,
     },
     {
       accessorKey: "metadata",

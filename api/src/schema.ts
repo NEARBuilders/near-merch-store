@@ -86,6 +86,9 @@ export const CollectionSchema = z.object({
   carouselDescription: z.string().optional(),
   showInCarousel: z.boolean().default(true),
   carouselOrder: z.number().default(0),
+  isExclusive: z.boolean().default(false),
+  exclusiveCheckPluginId: z.string().optional(),
+  exclusiveCheckConfig: z.record(z.string(), z.any()).optional(),
 });
 
 export const ProductTypeSchema = z.object({
@@ -106,9 +109,28 @@ export const FeeConfigSchema = z.object({
 
 export type FeeConfig = z.infer<typeof FeeConfigSchema>;
 
+export const PrintfulProviderDetailsSchema = z.object({
+  brand: z.string().optional(),
+  model: z.string().optional(),
+  description: z.string().optional(),
+  techniques: z.array(z.string()).optional(),
+  placements: z.array(z.string()).optional(),
+  gsm: z.number().optional(),
+  material: z.string().optional(),
+});
+
+export type PrintfulProviderDetails = z.infer<typeof PrintfulProviderDetailsSchema>;
+
+export const ProviderDetailsSchema = z.object({
+  printful: PrintfulProviderDetailsSchema.optional(),
+});
+
+export type ProviderDetails = z.infer<typeof ProviderDetailsSchema>;
+
 export const ProductMetadataSchema = z.object({
   creatorAccountId: z.string().optional(),
   fees: z.array(FeeConfigSchema).default([]),
+  providerDetails: ProviderDetailsSchema.optional(),
 });
 
 export type ProductMetadata = z.infer<typeof ProductMetadataSchema>;
@@ -125,7 +147,6 @@ export const ProductSchema = z.object({
   productType: ProductTypeSchema.optional(),
   tags: z.array(z.string()).default([]),
   featured: z.boolean().default(false),
-  exclusive: z.boolean().default(false),
   collections: z.array(CollectionSchema).default([]),
   options: z.array(ProductOptionSchema).default([]),
   images: z.array(ProductImageSchema).default([]),
@@ -383,7 +404,6 @@ export const ProductCriteriaSchema = z.object({
   collectionSlugs: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   featured: z.boolean().optional(),
-  exclusive: z.boolean().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
   includeUnlisted: z.boolean().optional(),

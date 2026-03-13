@@ -6,6 +6,7 @@ import PrintfulPlugin from './services/fulfillment/printful';
 import { PaymentContract } from './services/payment';
 import PingPayPlugin from './services/payment/pingpay';
 import StripePlugin from './services/payment/stripe';
+import { ExclusiveCheckContract, WhitelistPlugin } from './services/exclusive';
 import { ReturnAddress } from './schema';
 
 export interface FulfillmentConfig {
@@ -44,6 +45,12 @@ export interface PaymentProvider {
   router: any;
 }
 
+export interface ExclusiveCheckProvider {
+  name: string;
+  client: ContractRouterClient<typeof ExclusiveCheckContract>;
+  router: any;
+}
+
 export async function createMarketplaceRuntime(
   fulfillmentConfig: FulfillmentConfig,
   paymentConfig?: PaymentConfig
@@ -54,12 +61,14 @@ export async function createMarketplaceRuntime(
       gelato: { module: GelatoPlugin },
       stripe: { module: StripePlugin },
       pingpay: { module: PingPayPlugin },
+      whitelist: { module: WhitelistPlugin },
     },
     secrets: {},
   });
 
   const providers: FulfillmentProvider[] = [];
   const paymentProviders: PaymentProvider[] = [];
+  const exclusiveCheckProviders: ExclusiveCheckProvider[] = [];
 
   if (fulfillmentConfig.printful?.apiKey && fulfillmentConfig.printful?.storeId) {
     try {
@@ -151,11 +160,30 @@ export async function createMarketplaceRuntime(
   console.log(`[MarketplaceRuntime] Enabled fulfillment providers: ${providers.map((p) => p.name).join(', ') || 'none'}`);
   console.log(`[MarketplaceRuntime] Enabled payment providers: ${paymentProviders.map((p) => p.name).join(', ') || 'none'}`);
 
+  try {
+    const whitelist = await runtime.usePlugin('whitelist', {
+      variables: {},
+      secrets: {},
+    });
+    exclusiveCheckProviders.push({
+      name: 'whitelist',
+      client: whitelist.createClient(),
+      router: whitelist.router,
+    });
+    console.log('[MarketplaceRuntime] Whitelist exclusive check provider initialized');
+  } catch (error) {
+    console.error('[MarketplaceRuntime] Failed to initialize Whitelist:', error);
+  }
+
+  console.log(`[MarketplaceRuntime] Enabled exclusive check providers: ${exclusiveCheckProviders.map((p) => p.name).join(', ') || 'none'}`);
+
   return {
     providers,
     paymentProviders,
+    exclusiveCheckProviders,
     getProvider: (name: string) => providers.find((p) => p.name === name) ?? null,
     getPaymentProvider: (name: string) => paymentProviders.find((p) => p.name === name) ?? null,
+    getExclusiveCheckProvider: (name: string) => exclusiveCheckProviders.find((p) => p.name === name) ?? null,
     shutdown: () => runtime.shutdown(),
   } as const;
 }

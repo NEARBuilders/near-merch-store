@@ -36,6 +36,24 @@ export const ProviderVariantSchema = z.object({
   })).optional(),
 });
 
+export const PrintfulProviderDetailsSchema = z.object({
+  brand: z.string().optional(),
+  model: z.string().optional(),
+  description: z.string().optional(),
+  techniques: z.array(z.string()).optional(),
+  placements: z.array(z.string()).optional(),
+  gsm: z.number().optional(),
+  material: z.string().optional(),
+});
+
+export type PrintfulProviderDetails = z.infer<typeof PrintfulProviderDetailsSchema>;
+
+export const ProviderDetailsSchema = z.object({
+  printful: PrintfulProviderDetailsSchema.optional(),
+});
+
+export type ProviderDetails = z.infer<typeof ProviderDetailsSchema>;
+
 export const ProviderProductSchema = z.object({
   id: z.union([z.string(), z.number()]),
   sourceId: z.number().or(z.string()),
@@ -43,6 +61,7 @@ export const ProviderProductSchema = z.object({
   description: z.string().optional(),
   thumbnailUrl: z.string().optional(),
   variants: z.array(ProviderVariantSchema),
+  providerDetails: ProviderDetailsSchema.optional(),
 });
 
 export const FulfillmentOrderItemSchema = z.object({

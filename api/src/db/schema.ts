@@ -48,7 +48,6 @@ export const products = pgTable(
     options: jsonb("options").$type<ProductOption[]>(),
     thumbnailImage: text("thumbnail_image"),
     featured: boolean("featured").notNull().default(false),
-    exclusive: boolean("exclusive").notNull().default(false),
     metadata: jsonb("metadata").$type<ProductMetadata>(),
 
     fulfillmentProvider: text("fulfillment_provider").notNull(),
@@ -80,7 +79,6 @@ export const products = pgTable(
     ),
     index("products_type_slug_idx").on(table.productTypeSlug),
     index("featured_idx").on(table.featured),
-    index("exclusive_idx").on(table.exclusive),
   ],
 );
 
@@ -151,6 +149,9 @@ export const collections = pgTable(
     carouselDescription: text("carousel_description"),
     showInCarousel: boolean("show_in_carousel").notNull().default(true),
     carouselOrder: integer("carousel_order").notNull().default(0),
+    isExclusive: boolean("is_exclusive").notNull().default(false),
+    exclusiveCheckPluginId: text("exclusive_check_plugin_id"),
+    exclusiveCheckConfig: jsonb("exclusive_check_config").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -163,6 +164,7 @@ export const collections = pgTable(
       table.showInCarousel,
       table.carouselOrder,
     ),
+    index("collections_exclusive_idx").on(table.isExclusive),
   ],
 );
 

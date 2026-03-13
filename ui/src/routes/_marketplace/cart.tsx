@@ -5,17 +5,34 @@ import {
   COLOR_MAP,
   getAttributeHex
 } from "@/lib/product-utils";
+import { type ProductMetadata } from "@/integrations/api";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Minus, Plus, X } from "lucide-react";
+import { ArrowLeft, Minus, Plus, X, Info } from "lucide-react";
 
 export const Route = createFileRoute("/_marketplace/cart")({
   component: CartPage,
 });
 
+function getTotalFeePercentage(metadata: ProductMetadata | undefined): number {
+  if (!metadata?.fees?.length) return 0;
+  const totalBps = metadata.fees.reduce((sum, f) => sum + f.bps, 0);
+  return totalBps / 100;
+}
+
+function getTotalFeesFromCart(cartItems: ReturnType<typeof useCart>['cartItems']): number {
+  let totalFees = 0;
+  for (const item of cartItems) {
+    const feePct = getTotalFeePercentage(item.product.metadata as ProductMetadata | undefined);
+    totalFees += (item.product.price * item.quantity * feePct) / 100;
+  }
+  return totalFees;
+}
+
 function CartPage() {
   const { cartItems, subtotal, updateQuantity, removeItem } = useCart();
   const { nearPrice, isLoading: isLoadingNearPrice } = useNearPrice();
   const nearAmount = (subtotal / nearPrice).toFixed(2);
+  const totalFees = getTotalFeesFromCart(cartItems);
 
   return (
     <div className="bg-background min-h-screen pt-32">
@@ -158,6 +175,15 @@ function CartPage() {
                     <span className="text-foreground/90 dark:text-muted-foreground">Subtotal</span>
                     <span className="text-foreground font-medium">${subtotal.toFixed(2)}</span>
                   </div>
+                  {totalFees > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-foreground/90 dark:text-muted-foreground flex items-center gap-1">
+                        <Info className="size-3" />
+                        Creator Fees
+                      </span>
+                      <span className="text-foreground font-medium">${totalFees.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-foreground/90 dark:text-muted-foreground">Shipping</span>
                     <span className="text-foreground/90 dark:text-muted-foreground">Calculated at checkout</span>

@@ -37,6 +37,7 @@ import {
   ProductStoreLive,
   ProductTypeStore,
   ProductTypeStoreLive,
+  CollectionStore,
   CollectionStoreLive,
 } from "./store";
 import { NewsletterStoreLive } from "./store/newsletter";
@@ -1953,19 +1954,72 @@ export default createPlugin({
         },
       ),
 
-      updateProductExclusive: builder.updateProductExclusive.handler(
+      checkExclusiveAccess: builder.checkExclusiveAccess.handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
-              const productStore = yield* ProductStore;
-              const product = yield* productStore.updateExclusive(
-                input.id,
-                input.exclusive,
-              );
-              if (!product) {
-                return { success: false };
+              const collectionStore = yield* CollectionStore;
+              const collection = yield* collectionStore.find(input.collectionSlug);
+
+              if (!collection) {
+                throw new ORPCError("NOT_FOUND", {
+                  message: "Collection not found",
+                  data: { resource: "collection", resourceId: input.collectionSlug },
+                });
               }
-              return { success: true, product };
+
+              if (!collection.isExclusive) {
+                return { hasAccess: true };
+              }
+
+              if (!collection.exclusiveCheckPluginId) {
+                return { hasAccess: false };
+              }
+
+              const provider = runtime.getExclusiveCheckProvider(collection.exclusiveCheckPluginId);
+              if (!provider) {
+                console.error(`[checkExclusiveAccess] Provider not found: ${collection.exclusiveCheckPluginId}`);
+                return { hasAccess: false };
+              }
+
+              const config = collection.exclusiveCheckConfig || {};
+              const result = yield* Effect.tryPromise({
+                try: () => provider.client.checkAccess({
+                  nearAccountId: input.nearAccountId,
+                  config,
+                }),
+                catch: (error) => new Error(`Exclusive check failed: ${error}`),
+              });
+
+              return { hasAccess: result.hasAccess };
+            }),
+          );
+
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError("INTERNAL_SERVER_ERROR", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          return exit.value;
+        },
+      ),
+
+      updateCollectionExclusive: builder.updateCollectionExclusive.handler(
+        async ({ input }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const collectionStore = yield* CollectionStore;
+              const collection = yield* collectionStore.update(input.slug, {
+                isExclusive: input.isExclusive,
+                exclusiveCheckPluginId: input.exclusiveCheckPluginId ?? null,
+                exclusiveCheckConfig: input.exclusiveCheckConfig ?? undefined,
+              });
+              return { success: true, collection };
             }),
           );
 

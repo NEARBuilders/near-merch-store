@@ -104,7 +104,6 @@ export const contract = oc.router({
         collectionSlugs: z.array(z.string()).optional(),
         tags: z.array(z.string()).optional(),
         featured: z.boolean().optional(),
-        exclusive: z.boolean().optional(),
         limit: z.number().int().positive().max(100).default(50),
         offset: z.number().int().min(0).default(0),
         includeUnlisted: z.boolean().optional(),
@@ -831,24 +830,46 @@ export const contract = oc.router({
       }),
     ),
 
-  updateProductExclusive: oc
+  checkExclusiveAccess: oc
     .route({
       method: "POST",
-      path: "/products/{id}/exclusive",
-      summary: "Update product exclusive status",
-      description: "Updates whether a product is marked as exclusive.",
-      tags: ["Products"],
+      path: "/exclusive/check-access",
+      summary: "Check exclusive access",
+      description: "Checks if a NEAR account has access to an exclusive collection.",
+      tags: ["Exclusive"],
     })
     .input(
       z.object({
-        id: z.string(),
-        exclusive: z.boolean(),
+        collectionSlug: z.string(),
+        nearAccountId: z.string(),
+      }),
+    )
+    .output(
+      z.object({
+        hasAccess: z.boolean(),
+      }),
+    ),
+
+  updateCollectionExclusive: oc
+    .route({
+      method: "POST",
+      path: "/collections/{slug}/exclusive",
+      summary: "Update collection exclusive settings",
+      description: "Updates the exclusive settings for a collection.",
+      tags: ["Collections"],
+    })
+    .input(
+      z.object({
+        slug: z.string(),
+        isExclusive: z.boolean(),
+        exclusiveCheckPluginId: z.string().nullable().optional(),
+        exclusiveCheckConfig: z.record(z.string(), z.any()).nullable().optional(),
       }),
     )
     .output(
       z.object({
         success: z.boolean(),
-        product: ProductSchema.optional(),
+        collection: CollectionSchema.nullable(),
       }),
     ),
 

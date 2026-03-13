@@ -37,7 +37,6 @@ export function useProducts(options?: {
   collectionSlugs?: string[];
   tags?: string[];
   featured?: boolean;
-  exclusive?: boolean;
   limit?: number;
   offset?: number;
   includeUnlisted?: boolean;
@@ -50,7 +49,6 @@ export function useProducts(options?: {
       collectionSlugs: options?.collectionSlugs,
       tags: options?.tags,
       featured: options?.featured,
-      exclusive: options?.exclusive,
       limit: options?.limit,
       offset: options?.offset,
       includeUnlisted: options?.includeUnlisted,
@@ -61,7 +59,6 @@ export function useProducts(options?: {
         collectionSlugs: options?.collectionSlugs,
         tags: options?.tags,
         featured: options?.featured,
-        exclusive: options?.exclusive,
         limit: options?.limit ?? 50,
         offset: options?.offset ?? 0,
         includeUnlisted: options?.includeUnlisted,
@@ -840,9 +837,24 @@ export type FeeConfig = {
   bps: number;
 };
 
+export type PrintfulProviderDetails = {
+  brand?: string;
+  model?: string;
+  description?: string;
+  techniques?: string[];
+  placements?: string[];
+  gsm?: number;
+  material?: string;
+};
+
+export type ProviderDetails = {
+  printful?: PrintfulProviderDetails;
+};
+
 export type ProductMetadata = {
   creatorAccountId?: string;
   fees: FeeConfig[];
+  providerDetails?: ProviderDetails;
 };
 
 export function useUpdateProductMetadata() {
@@ -906,65 +918,48 @@ export function useUpdateProductMetadata() {
   });
 }
 
-export function useUpdateProductExclusive() {
+export function useCheckExclusiveAccess() {
+  return useMutation({
+    mutationFn: ({
+      collectionSlug,
+      nearAccountId,
+    }: {
+      collectionSlug: string;
+      nearAccountId: string;
+    }) =>
+      apiClient.checkExclusiveAccess({
+        collectionSlug,
+        nearAccountId,
+      }),
+  });
+}
+
+export function useUpdateCollectionExclusive() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, exclusive }: { id: string; exclusive: boolean }) =>
-      apiClient.updateProductExclusive({ id, exclusive }),
-    onMutate: async ({ id, exclusive }) => {
-      await queryClient.cancelQueries({ queryKey: productKeys.all });
-      const previousProducts = queryClient.getQueriesData({
-        queryKey: productKeys.all,
-      });
-
-      queryClient.setQueriesData(
-        {
-          predicate: (query) =>
-            query.queryKey[0] === "products" &&
-            query.state.status === "success",
-        },
-        (old: any) => {
-          if (!old) return old;
-          if (old.products) {
-            return {
-              ...old,
-              products: old.products.map((p: Product) =>
-                p.id === id ? { ...p, exclusive } : p,
-              ),
-            };
-          }
-          if (old.product && old.product.id === id) {
-            return {
-              ...old,
-              product: {
-                ...old.product,
-                exclusive,
-              },
-            };
-          }
-          return old;
-        },
-      );
-
-      return { previousProducts };
+    mutationFn: ({
+      slug,
+      isExclusive,
+      exclusiveCheckPluginId,
+      exclusiveCheckConfig,
+    }: {
+      slug: string;
+      isExclusive: boolean;
+      exclusiveCheckPluginId?: string | null;
+      exclusiveCheckConfig?: Record<string, unknown> | null;
+    }) =>
+      apiClient.updateCollectionExclusive({
+        slug,
+        isExclusive,
+        exclusiveCheckPluginId,
+        exclusiveCheckConfig,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: collectionKeys.all });
+      toast.success("Collection exclusive settings updated");
     },
-    onError: (_err, _variables, context) => {
-      if (context?.previousProducts) {
-        context.previousProducts.forEach(([queryKey, data]) => {
-          queryClient.setQueryData(queryKey, data);
-        });
-      }
-      toast.error("Failed to update exclusive status", {
-        description: "An unknown error occurred",
-      });
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.all });
-    },
-    onSuccess: (_, { exclusive }) => {
-      toast.success(
-        `Product ${exclusive ? "marked" : "unmarked"} as exclusive`,
-      );
+    onError: () => {
+      toast.error("Failed to update collection exclusive settings");
     },
   });
 }

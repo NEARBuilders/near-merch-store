@@ -66,21 +66,24 @@ function ExclusivesPage() {
   };
 
   const { data: allProductsData, isLoading, isError } = useProducts({
-    exclusive: true,
     limit: 100
   });
 
   const { data: collectionsData } = useCollections();
   const collections = collectionsData?.collections ?? [];
+  const exclusiveCollections = collections.filter((c) => c.isExclusive);
 
   const { availableSizes, availableColors, availableBrands } = useMemo(() => {
     const allProducts = allProductsData?.products ?? [];
+    const exclusiveProducts = allProducts.filter((p) =>
+      (p.collections ?? []).some((c) => c.isExclusive)
+    );
     
     const sizes = new Set<string>();
     const colors = new Set<string>();
     const brands = new Set<string>();
     
-    allProducts.forEach((product) => {
+    exclusiveProducts.forEach((product) => {
       product.variants?.forEach((variant) => {
         variant.attributes?.forEach((attr) => {
           if (attr.name === 'Size') {
@@ -131,7 +134,9 @@ function ExclusivesPage() {
   };
 
   const products = useMemo(() => {
-    let filteredProducts = allProductsData?.products ?? [];
+    let filteredProducts = (allProductsData?.products ?? []).filter((p) =>
+      (p.collections ?? []).some((c) => c.isExclusive)
+    );
     
     if (searchQuery.trim()) {
       filteredProducts = filteredProducts.filter(product => matchesSearchQuery(product, searchQuery));
@@ -433,12 +438,12 @@ function ExclusivesPage() {
                           />
                           <span className="text-sm">All collections</span>
                         </label>
-                        {collections.length === 0 ? (
+                        {exclusiveCollections.length === 0 ? (
                           <p className="text-xs text-foreground/60 dark:text-muted-foreground px-1">
-                            No collections yet.
+                            No exclusive collections yet.
                           </p>
                         ) : (
-                          collections.map((collection: Collection) => (
+                          exclusiveCollections.map((collection: Collection) => (
                             <label
                               key={collection.slug}
                               className="flex items-center gap-3 cursor-pointer"
