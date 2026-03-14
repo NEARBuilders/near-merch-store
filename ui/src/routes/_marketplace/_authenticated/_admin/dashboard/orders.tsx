@@ -2,14 +2,16 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { ExternalLink, RefreshCw, Search, ShoppingBag, ChevronDown, ChevronUp, CreditCard, Trash2, History, AlertTriangle } from "lucide-react";
+import { ExternalLink, RefreshCw, Search, ShoppingBag, ChevronDown, ChevronUp, CreditCard, Trash2, History, AlertTriangle, Loader2 } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/utils/orpc";
-import { getStatusLabel, getStatusColor } from "@/lib/order-status";
+import { ORDER_STATUSES, getAdminStatusLabel, getStatusLabel, getStatusColor, type OrderStatus } from "@/lib/order-status";
 import { cn } from "@/lib/utils";
 import { AuditLogViewer } from "@/components/orders/audit-log-viewer";
+import { OrderStatusNoteButton } from "@/components/orders/order-status-badge";
+import { useUpdateOrderStatus } from "@/integrations/api/orders";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +21,13 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/orders")({
   loader: () => apiClient.getAllOrders({ limit: 100, offset: 0 }),
@@ -147,6 +156,52 @@ function AuditLogModal({ order, isOpen, onClose }: { order: Order; isOpen: boole
   );
 }
 
+function OrderStatusControl({
+  order,
+  isSaving,
+  onSelectStatus,
+}: {
+  order: Order;
+  isSaving: boolean;
+  onSelectStatus: (order: Order, status: OrderStatus) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Select
+        value={order.status}
+        onValueChange={(value) => onSelectStatus(order, value as OrderStatus)}
+        disabled={isSaving}
+      >
+        <SelectTrigger
+          className={cn(
+            "h-9 min-w-[180px] rounded-full border-transparent px-3 font-semibold shadow-none transition-all hover:-translate-y-0.5 focus-visible:ring-0 focus-visible:ring-offset-0",
+            getStatusColor(order.status),
+            order.currentStatusNote && "ring-1 ring-[#00EC97]/45 ring-offset-1 ring-offset-background",
+            isSaving && "opacity-70"
+          )}
+          aria-label={`Update order ${order.id} status`}
+        >
+          {isSaving ? <Loader2 className="size-3.5 animate-spin" /> : null}
+          <SelectValue>{getAdminStatusLabel(order.status)}</SelectValue>
+        </SelectTrigger>
+        <SelectContent align="start" className="rounded-2xl border-border/60 bg-background/95">
+          {ORDER_STATUSES.map((status) => (
+            <SelectItem key={status} value={status}>
+              {getAdminStatusLabel(status)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <OrderStatusNoteButton
+        status={order.status}
+        note={order.currentStatusNote}
+        noteCreatedAt={order.currentStatusNoteCreatedAt}
+        noteActor={order.currentStatusNoteActor}
+      />
+    </div>
+  );
+}
+
 function DeleteConfirmationModal({ 
   orders, 
   isOpen, 
@@ -216,12 +271,16 @@ function DeleteConfirmationModal({
 function AdminOrdersPage() {
   const router = useRouter();
   const loaderData = Route.useLoaderData();
+  const updateOrderStatus = useUpdateOrderStatus();
   const [search, setSearch] = useState("");
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedOrdersForDelete, setSelectedOrdersForDelete] = useState<Order[]>([]);
   const [auditLogOrder, setAuditLogOrder] = useState<Order | null>(null);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [statusChangeDraft, setStatusChangeDraft] = useState<{ order: Order; status: OrderStatus } | null>(null);
+  const [statusReason, setStatusReason] = useState("");
+  const [savingStatusOrderId, setSavingStatusOrderId] = useState<string | null>(null);
 
   if (!loaderData) {
     return (
@@ -299,6 +358,55 @@ function AdminOrdersPage() {
     setIsAuditModalOpen(true);
   };
 
+  const getErrorMessage = (error: unknown) => {
+    if (error && typeof error === "object") {
+      const candidate = error as { message?: string; json?: { message?: string } };
+      if (candidate.json?.message) return candidate.json.message;
+      if (candidate.message) return candidate.message;
+    }
+
+    return "Please try again.";
+  };
+
+  const handleSelectStatus = (order: Order, status: OrderStatus) => {
+    if (status === order.status || savingStatusOrderId === order.id) {
+      return;
+    }
+
+    setStatusReason("");
+    setStatusChangeDraft({ order, status });
+  };
+
+  const handleSaveStatus = async () => {
+    if (!statusChangeDraft) {
+      return;
+    }
+
+    const trimmedReason = statusReason.trim();
+    const { order, status } = statusChangeDraft;
+
+    setSavingStatusOrderId(order.id);
+
+    try {
+      await updateOrderStatus.mutateAsync({
+        orderId: order.id,
+        status,
+        reason: trimmedReason || undefined,
+      });
+      toast.success(`Order marked ${getAdminStatusLabel(status).toLowerCase()}`);
+      setStatusChangeDraft(null);
+      setStatusReason("");
+      router.invalidate();
+    } catch (error) {
+      toast.error("Failed to update order status", {
+        description: getErrorMessage(error),
+      });
+      console.error("Failed to update order status:", error);
+    } finally {
+      setSavingStatusOrderId(null);
+    }
+  };
+
   const columns: ColumnDef<Order>[] = useMemo(
     () => [
       {
@@ -371,9 +479,11 @@ function AdminOrdersPage() {
         accessorKey: "status",
         header: "Status",
         cell: ({ row }) => (
-          <Badge className={getStatusColor(row.original.status)}>
-            {getStatusLabel(row.original.status)}
-          </Badge>
+          <OrderStatusControl
+            order={row.original}
+            isSaving={savingStatusOrderId === row.original.id}
+            onSelectStatus={handleSelectStatus}
+          />
         ),
       },
       {
@@ -437,7 +547,7 @@ function AdminOrdersPage() {
         },
       },
     ],
-    []
+    [savingStatusOrderId]
   );
 
   return (
@@ -518,9 +628,11 @@ function AdminOrdersPage() {
                         <span className="font-mono text-sm font-semibold text-foreground">
                           {order.id.substring(0, 8)}...
                         </span>
-                        <Badge className={getStatusColor(order.status)}>
-                          {getStatusLabel(order.status)}
-                        </Badge>
+                        <OrderStatusControl
+                          order={order}
+                          isSaving={savingStatusOrderId === order.id}
+                          onSelectStatus={handleSelectStatus}
+                        />
                       </div>
                       <p className="text-xs text-foreground/70 dark:text-muted-foreground truncate mb-1" title={order.userId}>
                         {order.userId}
@@ -613,6 +725,79 @@ function AdminOrdersPage() {
             setAuditLogOrder(null);
           }}
         />
+      )}
+
+      {statusChangeDraft && (
+        <Dialog
+          open={!!statusChangeDraft}
+          onOpenChange={(open) => {
+            if (!open && !updateOrderStatus.isPending) {
+              setStatusChangeDraft(null);
+              setStatusReason("");
+            }
+          }}
+        >
+          <DialogContent className="max-w-lg rounded-2xl border border-border/60 bg-background">
+            <DialogHeader>
+              <DialogTitle>Update Order Status</DialogTitle>
+              <DialogDescription>
+                Move order {statusChangeDraft.order.id.substring(0, 8)}... from {getStatusLabel(statusChangeDraft.order.status)} to {getAdminStatusLabel(statusChangeDraft.status)}.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={getStatusColor(statusChangeDraft.order.status)}>
+                  {getStatusLabel(statusChangeDraft.order.status)}
+                </Badge>
+                <span className="text-foreground/50">to</span>
+                <Badge className={getStatusColor(statusChangeDraft.status)}>
+                  {getAdminStatusLabel(statusChangeDraft.status)}
+                </Badge>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="status-note" className="text-sm font-medium text-foreground">
+                  Add note
+                </label>
+                <textarea
+                  id="status-note"
+                  value={statusReason}
+                  onChange={(event) => setStatusReason(event.target.value)}
+                  placeholder="Optional note for this status change"
+                  rows={4}
+                  className="flex min-h-[110px] w-full rounded-xl border border-border/60 bg-background/60 px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-foreground/40 focus:border-[#00EC97]"
+                />
+                <p className="text-xs text-foreground/60">
+                  This note is saved in the order history and can be viewed from the status chip.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusChangeDraft(null);
+                  setStatusReason("");
+                }}
+                disabled={updateOrderStatus.isPending}
+                className="px-4 py-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground text-sm font-semibold hover:bg-background transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveStatus}
+                disabled={updateOrderStatus.isPending}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#00EC97] text-black text-sm font-semibold hover:bg-[#00EC97]/90 transition-colors disabled:opacity-50"
+              >
+                {updateOrderStatus.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                {statusReason.trim() ? "Save Status and Note" : "Save Status"}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

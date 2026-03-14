@@ -41,6 +41,12 @@ export const statusLabels: Record<OrderStatus, string> = {
   refunded: 'Refunded',
 };
 
+export const adminStatusLabels: Record<OrderStatus, string> = {
+  ...statusLabels,
+  processing: 'Processed',
+  on_hold: 'Blocked',
+};
+
 export const statusColors: Record<OrderStatus, string> = {
   pending: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
   draft_created: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
@@ -66,4 +72,8 @@ export function getStatusLabel(status: OrderStatus): string {
 
 export function getStatusColor(status: OrderStatus): string {
   return statusColors[status];
+}
+
+export function getAdminStatusLabel(status: OrderStatus): string {
+  return adminStatusLabels[status];
 }
