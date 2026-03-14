@@ -4,10 +4,9 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { ExternalLink, Package, History } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { apiClient } from '@/utils/orpc';
-import { Badge } from '@/components/ui/badge';
-import { getStatusLabel, getStatusColor } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
 import { AuditLogViewer } from '@/components/orders/audit-log-viewer';
+import { OrderStatusBadge } from '@/components/orders/order-status-badge';
 import {
   Dialog,
   DialogContent,
@@ -137,9 +136,11 @@ function OrdersPage() {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <Badge className={getStatusColor(row.original.status)}>
-            {getStatusLabel(row.original.status)}
-          </Badge>
+          <OrderStatusBadge
+            status={row.original.status}
+            note={row.original.currentStatusNote}
+            noteCreatedAt={row.original.currentStatusNoteCreatedAt}
+          />
         ),
       },
       {
@@ -229,9 +230,11 @@ function OrdersPage() {
                         <span className="font-mono text-xs font-semibold text-foreground">
                           {order.id.substring(0, 8)}...
                         </span>
-                        <Badge className={getStatusColor(order.status)}>
-                          {getStatusLabel(order.status)}
-                        </Badge>
+                        <OrderStatusBadge
+                          status={order.status}
+                          note={order.currentStatusNote}
+                          noteCreatedAt={order.currentStatusNoteCreatedAt}
+                        />
                       </div>
                       <p className="text-xs text-foreground/70 dark:text-muted-foreground mb-1">
                         {new Date(order.createdAt).toLocaleDateString()}

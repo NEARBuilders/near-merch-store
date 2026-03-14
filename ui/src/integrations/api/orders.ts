@@ -1,8 +1,9 @@
-import { useQuery, useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/utils/orpc';
 import { orderKeys } from './keys';
 
 export type Order = Awaited<ReturnType<typeof apiClient.getOrder>>['order'];
+export type OrderAuditLog = Awaited<ReturnType<typeof apiClient.getOrderAuditLog>>['logs'][0];
 
 type OrderBySessionResult = Awaited<ReturnType<typeof apiClient.getOrderByCheckoutSession>>;
 
@@ -54,6 +55,29 @@ export function useSuspenseOrder(id: string) {
   return useSuspenseQuery({
     queryKey: orderKeys.detail(id),
     queryFn: () => apiClient.getOrder({ id }),
+  });
+}
+
+export function useOrderAuditLog(id: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: orderKeys.auditLog(id),
+    queryFn: () => apiClient.getOrderAuditLog({ id }),
+    enabled: !!id && (options?.enabled ?? true),
+  });
+}
+
+export function useUpdateOrderStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (variables: { orderId: string; status: Awaited<ReturnType<typeof apiClient.getAllOrders>>['orders'][0]['status']; reason?: string }) =>
+      apiClient.updateOrderStatus(variables),
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: orderKeys.all }),
+        queryClient.invalidateQueries({ queryKey: orderKeys.auditLog(variables.orderId) }),
+      ]);
+    },
   });
 }
 
