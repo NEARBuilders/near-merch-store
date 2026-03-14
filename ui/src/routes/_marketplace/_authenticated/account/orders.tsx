@@ -87,7 +87,8 @@ function OrdersPage() {
     );
   }
 
-  const { orders } = loaderData ?? { orders: [] };
+  const { orders: rawOrders } = loaderData ?? { orders: [] };
+  const orders = rawOrders?.filter(Boolean) ?? [];
 
   const handleViewTimeline = (order: Order) => {
     setAuditLogOrder(order);
