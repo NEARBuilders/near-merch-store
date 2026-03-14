@@ -43,6 +43,13 @@
       "when": 1773353349946,
       "tag": "0005_sparkling_the_initiative",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773453259386,
+      "tag": "0006_unique_bullseye",
+      "breakpoints": true
     }
   ]
 }
