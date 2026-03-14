@@ -7,6 +7,13 @@ export interface PingAsset {
   symbol: string;
 }
 
+export interface PingFee {
+  type: string;
+  label: string;
+  recipient: string;
+  bps: number;
+}
+
 export interface CreateCheckoutSessionInput {
   amount: string;
   recipient: PingRecipient;
@@ -14,6 +21,7 @@ export interface CreateCheckoutSessionInput {
   successUrl?: string;
   cancelUrl?: string;
   metadata?: Record<string, unknown>;
+  fees?: PingFee[];
 }
 
 export interface CheckoutSessionResponse {

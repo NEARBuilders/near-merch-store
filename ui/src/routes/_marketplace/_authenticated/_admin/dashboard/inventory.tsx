@@ -45,23 +45,37 @@ import {
   useUpdateProductFeatured,
   useUpdateProductType,
   useCreateProductType,
+  useUpdateProductMetadata,
   type Product,
+  type FeeConfig,
+  type ProductMetadata,
 } from "@/integrations/api";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/inventory")({
+export const Route = createFileRoute(
+  "/_marketplace/_authenticated/_admin/dashboard/inventory",
+)({
   component: InventoryManagement,
 });
-
-
 
 function TagsEditor({
   tags,
   productId: _productId,
   onUpdate,
-  isPending
+  isPending,
 }: {
   tags: string[];
   productId: string;
@@ -99,10 +113,16 @@ function TagsEditor({
           title="Edit tags"
         >
           {tags.length === 0 ? (
-            <span className="text-xs text-foreground/60 dark:text-muted-foreground">No tags</span>
+            <span className="text-xs text-foreground/60 dark:text-muted-foreground">
+              No tags
+            </span>
           ) : (
             tags.slice(0, 2).map((tag) => (
-              <Badge key={tag} variant="outline" className="font-normal text-xs">
+              <Badge
+                key={tag}
+                variant="outline"
+                className="font-normal text-xs"
+              >
                 {tag}
               </Badge>
             ))
@@ -160,14 +180,14 @@ function TagsEditor({
         </div>
       </PopoverContent>
     </Popover>
-);
+  );
 }
 
 function ProductTypeEditor({
   currentType,
   availableTypes,
   onUpdate,
-  isPending
+  isPending,
 }: {
   currentType: string | null;
   availableTypes: Array<{ slug: string; label: string }>;
@@ -182,8 +202,8 @@ function ProductTypeEditor({
   const generateSlug = (label: string): string => {
     return label
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
   };
 
   const handleCreateType = () => {
@@ -203,8 +223,8 @@ function ProductTypeEditor({
         },
         onError: () => {
           setIsCreating(false);
-        }
-      }
+        },
+      },
     );
   };
 
@@ -225,10 +245,13 @@ function ProductTypeEditor({
           title="Edit product type"
         >
           {!currentType ? (
-            <span className="text-xs text-foreground/60 dark:text-muted-foreground">No type</span>
+            <span className="text-xs text-foreground/60 dark:text-muted-foreground">
+              No type
+            </span>
           ) : (
             <Badge variant="outline" className="font-normal text-xs">
-              {availableTypes.find(pt => pt.slug === currentType)?.label || currentType}
+              {availableTypes.find((pt) => pt.slug === currentType)?.label ||
+                currentType}
             </Badge>
           )}
         </button>
@@ -243,12 +266,17 @@ function ProductTypeEditor({
                 if (next) onUpdate(null);
               }}
             />
-            <span className="text-foreground/60 dark:text-muted-foreground">None</span>
+            <span className="text-foreground/60 dark:text-muted-foreground">
+              None
+            </span>
           </label>
           {availableTypes.map((pt) => {
             const checked = currentType === pt.slug;
             return (
-              <label key={pt.slug} className="flex items-center gap-2 text-sm cursor-pointer">
+              <label
+                key={pt.slug}
+                className="flex items-center gap-2 text-sm cursor-pointer"
+              >
                 <Checkbox
                   checked={checked}
                   onCheckedChange={(next) => {
@@ -274,7 +302,9 @@ function ProductTypeEditor({
               type="button"
               size="sm"
               onClick={handleCreateType}
-              disabled={!newTypeLabel.trim() || isCreating || createMutation.isPending}
+              disabled={
+                !newTypeLabel.trim() || isCreating || createMutation.isPending
+              }
               className="h-8 px-2 bg-[#00EC97] text-black hover:bg-[#00d97f]"
             >
               <Plus className="size-4" />
@@ -286,39 +316,249 @@ function ProductTypeEditor({
   );
 }
 
+function MetadataEditor({
+  metadata,
+  productId: _productId,
+  onUpdate,
+  isPending,
+}: {
+  metadata?: ProductMetadata;
+  productId: string;
+  onUpdate: (metadata: ProductMetadata) => void;
+  isPending: boolean;
+}) {
+  const [localMetadata, setLocalMetadata] = useState<ProductMetadata>(
+    metadata || { fees: [] },
+  );
+  const [newFee, setNewFee] = useState<Partial<FeeConfig> & { percentage?: string }>({
+    type: "royalty",
+    label: "",
+    recipient: "",
+    bps: 0,
+    percentage: "",
+  });
+
+  const handleAddFee = () => {
+    if (!newFee.label || !newFee.recipient || !newFee.percentage) return;
+    const percentage = parseFloat(newFee.percentage);
+    if (isNaN(percentage) || percentage < 0 || percentage > 100) return;
+    const bps = Math.round(percentage * 100);
+    const fee: FeeConfig = {
+      type: newFee.type as FeeConfig["type"],
+      label: newFee.label,
+      recipient: newFee.recipient,
+      bps,
+    };
+    const updated = { ...localMetadata, fees: [...localMetadata.fees, fee] };
+    setLocalMetadata(updated);
+    setNewFee({ type: "royalty", label: "", recipient: "", bps: 0, percentage: "" });
+  };
+
+  const handleRemoveFee = (index: number) => {
+    const updated = {
+      ...localMetadata,
+      fees: localMetadata.fees.filter((_: FeeConfig, i: number) => i !== index),
+    };
+    setLocalMetadata(updated);
+  };
+
+  const handleSave = () => {
+    onUpdate(localMetadata);
+  };
+
+  const totalBps = localMetadata.fees.reduce(
+    (sum: number, f: FeeConfig) => sum + f.bps,
+    0,
+  );
+  const totalPercentage = totalBps / 100;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8 max-w-48"
+          disabled={isPending}
+          title="Edit product metadata"
+        >
+          {localMetadata.fees.length === 0 &&
+          !localMetadata.creatorAccountId ? (
+            <span className="text-xs text-foreground/60 dark:text-muted-foreground">
+              No metadata
+            </span>
+          ) : (
+            <>
+              {localMetadata.creatorAccountId && (
+                <Badge variant="outline" className="font-normal text-xs">
+                  {localMetadata.creatorAccountId}
+                </Badge>
+              )}
+              {localMetadata.fees.length > 0 && (
+                <span className="text-xs text-foreground/60">
+                  {totalPercentage}%
+                </span>
+              )}
+            </>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-3" align="start">
+        <div className="text-sm font-medium mb-3">Product Metadata</div>
+
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <label className="text-xs text-foreground/70">
+              Creator Account ID
+            </label>
+            <Input
+              placeholder="creator.near"
+              value={localMetadata.creatorAccountId || ""}
+              onChange={(e) =>
+                setLocalMetadata({
+                  ...localMetadata,
+                  creatorAccountId: e.target.value || undefined,
+                })
+              }
+              className="h-8 text-sm bg-background/60 border border-border/60 rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs text-foreground/70">Fee Splits</div>
+            <div className="text-xs text-foreground/50 mb-1">
+              Total: {totalPercentage}% ({totalBps} bps)
+            </div>
+
+            {localMetadata.fees.map((fee: FeeConfig, index: number) => (
+              <div
+                key={index}
+                className="flex items-center gap-2 text-xs bg-background/40 rounded px-2 py-1"
+              >
+                <span className="flex-1 truncate">{fee.label}</span>
+                <span className="text-foreground/60">{fee.bps / 100}%</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveFee(index)}
+                  className="hover:text-red-500 transition-colors"
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            ))}
+
+            <div className="flex gap-2">
+              <Select
+                value={newFee.type}
+                onValueChange={(v) =>
+                  setNewFee({ ...newFee, type: v as FeeConfig["type"] })
+                }
+              >
+                <SelectTrigger className="h-8 text-xs w-20 bg-background/60 border border-border/60">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="royalty">Royalty</SelectItem>
+                  <SelectItem value="affiliate">Affiliate</SelectItem>
+                  <SelectItem value="platform">Platform</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Label"
+                value={newFee.label || ""}
+                onChange={(e) =>
+                  setNewFee({ ...newFee, label: e.target.value })
+                }
+                className="h-8 text-xs bg-background/60 border border-border/60 rounded-lg flex-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="recipient.near"
+                value={newFee.recipient || ""}
+                onChange={(e) =>
+                  setNewFee({ ...newFee, recipient: e.target.value })
+                }
+                className="h-8 text-xs bg-background/60 border border-border/60 rounded-lg flex-1"
+              />
+              <Input
+                type="number"
+                placeholder="%"
+                min="0"
+                max="100"
+                step="0.01"
+                value={newFee.percentage || ""}
+                onChange={(e) =>
+                  setNewFee({ ...newFee, percentage: e.target.value })
+                }
+                className="h-8 text-xs bg-background/60 border border-border/60 rounded-lg w-16"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleAddFee}
+                disabled={!newFee.label || !newFee.recipient || !newFee.percentage}
+                className="h-8 px-2 bg-[#00EC97] text-black hover:bg-[#00d97f]"
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-border/60">
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSave}
+            disabled={isPending}
+            className="w-full h-8 bg-[#00EC97] text-black hover:bg-[#00d97f]"
+          >
+            Save Changes
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // Helper functions for time and date formatting
 function formatDate(timestamp: number | null): string {
-  if (!timestamp) return 'N/A';
-  return new Intl.DateTimeFormat(
-    'en-US',
-    { 
-      dateStyle: 'medium', 
-      timeStyle: 'short',
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    }
-  ).format(new Date(timestamp));
+  if (!timestamp) return "N/A";
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  }).format(new Date(timestamp));
 }
 
 function formatDuration(seconds: number): string {
-  if (seconds < 0) return '0:00';
+  if (seconds < 0) return "0:00";
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
 function InventoryManagement() {
   const [syncCancelledAt, setSyncCancelledAt] = useState<number | null>(null);
-  
+
   // Derived sync state - use server status only (not mutation pending)
-  const wasCancelledRecently = syncCancelledAt && (Date.now() - syncCancelledAt < 3000);
+  const wasCancelledRecently =
+    syncCancelledAt && Date.now() - syncCancelledAt < 3000;
 
   // Get sync status first to determine if we should poll
   const { data: syncStatusData } = useSyncStatus();
-  const isRunning = syncStatusData?.status === "running" && !wasCancelledRecently;
-  
+  const isRunning =
+    syncStatusData?.status === "running" && !wasCancelledRecently;
+
   // Main products query with dynamic polling based on sync status
-  const { data: productsData, isLoading, refetch, isRefetching } = useProducts({ 
-    limit: 100, 
+  const {
+    data: productsData,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useProducts({
+    limit: 100,
     includeUnlisted: true,
     refetchInterval: isRunning ? 3000 : false, // Poll every 3s during sync
     refetchOnWindowFocus: isRunning, // Refetch when window regains focus during sync
@@ -332,6 +572,7 @@ function InventoryManagement() {
   const updateTagsMutation = useUpdateProductTags();
   const updateFeaturedMutation = useUpdateProductFeatured();
   const updateProductTypeMutation = useUpdateProductType();
+  const updateMetadataMutation = useUpdateProductMetadata();
   const { data: categoriesData } = useCategories();
   const categories = categoriesData?.categories ?? [];
   const { data: productTypesData } = useProductTypes();
@@ -343,11 +584,16 @@ function InventoryManagement() {
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const [showSuccessDetails, setShowSuccessDetails] = useState(false);
   // Track current sync progress for display
-  const [syncProgress, setSyncProgress] = useState<{ synced: number; failed: number; total: number } | null>(null);
-  
+  const [syncProgress, setSyncProgress] = useState<{
+    synced: number;
+    failed: number;
+    total: number;
+  } | null>(null);
+
   // Subscribe to real-time progress updates
-  const { events: progressEvents, finalEvent: progressFinalEvent } = useSyncProgressSubscription(isRunning);
-  
+  const { events: progressEvents, finalEvent: progressFinalEvent } =
+    useSyncProgressSubscription(isRunning);
+
   // Update progress display from events
   useEffect(() => {
     if (progressEvents.length > 0) {
@@ -357,11 +603,14 @@ function InventoryManagement() {
       // Estimate total from providers or use a reasonable guess
       let estimatedTotal = 0;
       Object.values(lastEvent.providers || {}).forEach((p: any) => {
-        estimatedTotal += (p.total || 0);
+        estimatedTotal += p.total || 0;
       });
       // If we don't have a total yet, use synced + failed + buffer
       if (estimatedTotal === 0) {
-        estimatedTotal = Math.max(totalSynced + totalFailed + 10, products.length);
+        estimatedTotal = Math.max(
+          totalSynced + totalFailed + 10,
+          products.length,
+        );
       }
       setSyncProgress({
         synced: totalSynced,
@@ -370,11 +619,17 @@ function InventoryManagement() {
       });
     }
   }, [progressEvents, products.length]);
-  
-  const hasError = syncStatusData?.status === "error" || progressFinalEvent?.status === 'error';
+
+  const hasError =
+    syncStatusData?.status === "error" ||
+    progressFinalEvent?.status === "error";
   const hasTerminalProgress = progressFinalEvent != null;
-  const showSyncStatus = isRunning || hasTerminalProgress || hasError || syncStatusData?.lastSuccessAt;
-  
+  const showSyncStatus =
+    isRunning ||
+    hasTerminalProgress ||
+    hasError ||
+    syncStatusData?.lastSuccessAt;
+
   // Build progress data from subscription
   const syncProgressData = {
     events: progressEvents,
@@ -392,7 +647,7 @@ function InventoryManagement() {
       onSettled: () => {
         // Clear cancel state after 2 seconds to allow state to settle
         setTimeout(() => setSyncCancelledAt(null), 2000);
-      }
+      },
     });
   };
 
@@ -402,24 +657,24 @@ function InventoryManagement() {
 
   // Live timer for sync duration
   const [syncDuration, setSyncDuration] = useState(0);
-  
+
   useEffect(() => {
     if (!isRunning) {
       setSyncDuration(0);
       return;
     }
-    
+
     const startedAt = syncStatusData?.syncStartedAt;
     if (!startedAt) {
       setSyncDuration(0);
       return;
     }
-    
+
     const updateDuration = () => {
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       setSyncDuration(elapsed);
     };
-    
+
     updateDuration();
     const interval = setInterval(updateDuration, 1000);
     return () => clearInterval(interval);
@@ -466,9 +721,7 @@ function InventoryManagement() {
         </Button>
       ),
       cell: ({ row }) => {
-        return (
-          <ProductTitleCell product={row.original} />
-        );
+        return <ProductTitleCell product={row.original} />;
       },
       size: 200,
     },
@@ -489,13 +742,23 @@ function InventoryManagement() {
                 "h-8 px-2",
                 isListed
                   ? "text-[#00EC97] hover:text-[#00EC97] hover:bg-[#00EC97]/10"
-                  : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40"
+                  : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40",
               )}
-              title={isListed ? "Listed - Click to delist" : "Delisted - Click to list"}
+              title={
+                isListed
+                  ? "Listed - Click to delist"
+                  : "Delisted - Click to list"
+              }
             >
-              {isListed ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+              {isListed ? (
+                <Eye className="size-4" />
+              ) : (
+                <EyeOff className="size-4" />
+              )}
             </Button>
-            <span className="text-xs text-foreground/70 dark:text-muted-foreground">{isListed ? "Listed" : "Delisted"}</span>
+            <span className="text-xs text-foreground/70 dark:text-muted-foreground">
+              {isListed ? "Listed" : "Delisted"}
+            </span>
           </div>
         );
       },
@@ -510,18 +773,24 @@ function InventoryManagement() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => updateFeaturedMutation.mutate({
-              id: row.original.id,
-              featured: !isFeatured
-            })}
+            onClick={() =>
+              updateFeaturedMutation.mutate({
+                id: row.original.id,
+                featured: !isFeatured,
+              })
+            }
             disabled={updateFeaturedMutation.isPending}
             className={cn(
               "h-8 px-2",
               isFeatured
                 ? "text-[#00EC97] hover:text-[#00EC97] hover:bg-[#00EC97]/10"
-                : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40"
+                : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40",
             )}
-            title={isFeatured ? "Featured - Click to unfeature" : "Not featured - Click to feature"}
+            title={
+              isFeatured
+                ? "Featured - Click to unfeature"
+                : "Not featured - Click to feature"
+            }
           >
             <Star className={cn("size-4", isFeatured && "fill-[#00EC97]")} />
           </Button>
@@ -574,10 +843,16 @@ function InventoryManagement() {
                 title="Edit collections"
               >
                 {selected.length === 0 ? (
-                  <span className="text-xs text-foreground/60 dark:text-muted-foreground">No collections</span>
+                  <span className="text-xs text-foreground/60 dark:text-muted-foreground">
+                    No collections
+                  </span>
                 ) : (
                   selected.slice(0, 2).map((c) => (
-                    <Badge key={c.slug} variant="outline" className="font-normal text-xs">
+                    <Badge
+                      key={c.slug}
+                      variant="outline"
+                      className="font-normal text-xs"
+                    >
                       {c.name}
                     </Badge>
                   ))
@@ -600,15 +875,25 @@ function InventoryManagement() {
                   categories.map((cat) => {
                     const checked = selectedSlugs.includes(cat.slug);
                     return (
-                      <label key={cat.slug} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <label
+                        key={cat.slug}
+                        className="flex items-center gap-2 text-sm cursor-pointer"
+                      >
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(next) => {
                             const nextChecked = Boolean(next);
                             const nextSlugs = nextChecked
-                              ? Array.from(new Set([...selectedSlugs, cat.slug]))
-                              : selectedSlugs.filter((slug) => slug !== cat.slug);
-                            updateCategoriesMutation.mutate({ id: row.original.id, categoryIds: nextSlugs });
+                              ? Array.from(
+                                  new Set([...selectedSlugs, cat.slug]),
+                                )
+                              : selectedSlugs.filter(
+                                  (slug) => slug !== cat.slug,
+                                );
+                            updateCategoriesMutation.mutate({
+                              id: row.original.id,
+                              categoryIds: nextSlugs,
+                            });
                           }}
                         />
                         <span className="truncate">{cat.name}</span>
@@ -630,7 +915,12 @@ function InventoryManagement() {
         <ProductTypeEditor
           currentType={row.original.productType?.slug ?? null}
           availableTypes={productTypes}
-          onUpdate={(slug) => updateProductTypeMutation.mutate({ id: row.original.id, productTypeSlug: slug })}
+          onUpdate={(slug) =>
+            updateProductTypeMutation.mutate({
+              id: row.original.id,
+              productTypeSlug: slug,
+            })
+          }
           isPending={updateProductTypeMutation.isPending}
         />
       ),
@@ -643,17 +933,39 @@ function InventoryManagement() {
         <TagsEditor
           tags={row.original.tags ?? []}
           productId={row.original.id}
-          onUpdate={(tags) => updateTagsMutation.mutate({ id: row.original.id, tags })}
+          onUpdate={(tags) =>
+            updateTagsMutation.mutate({ id: row.original.id, tags })
+          }
           isPending={updateTagsMutation.isPending}
         />
       ),
       size: 180,
     },
     {
+      accessorKey: "metadata",
+      header: "Metadata",
+      cell: ({ row }) => (
+        <MetadataEditor
+          metadata={row.original.metadata as ProductMetadata | undefined}
+          productId={row.original.id}
+          onUpdate={(metadata) =>
+            updateMetadataMutation.mutate({
+              id: row.original.id,
+              metadata: metadata,
+            })
+          }
+          isPending={updateMetadataMutation.isPending}
+        />
+      ),
+      size: 140,
+    },
+    {
       accessorKey: "variants",
       header: "Variants",
       cell: ({ row }) => (
-        <span className="text-sm text-foreground/70 dark:text-muted-foreground">{row.original.variants?.length || 0}</span>
+        <span className="text-sm text-foreground/70 dark:text-muted-foreground">
+          {row.original.variants?.length || 0}
+        </span>
       ),
       size: 80,
       meta: {
@@ -668,8 +980,10 @@ function InventoryManagement() {
           variant="outline"
           className={cn(
             "font-normal capitalize",
-            row.original.fulfillmentProvider === "printful" && "bg-[#3d7fff]/10 text-[#3d7fff] border-[#3d7fff]",
-            row.original.fulfillmentProvider === "gelato" && "bg-[#635bff]/10 text-[#635bff] border-[#635bff]"
+            row.original.fulfillmentProvider === "printful" &&
+              "bg-[#3d7fff]/10 text-[#3d7fff] border-[#3d7fff]",
+            row.original.fulfillmentProvider === "gelato" &&
+              "bg-[#635bff]/10 text-[#635bff] border-[#635bff]",
           )}
         >
           {row.original.fulfillmentProvider}
@@ -711,7 +1025,9 @@ function InventoryManagement() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h2 className="text-3xl font-bold tracking-tight mb-2">Inventory Management</h2>
+            <h2 className="text-3xl font-bold tracking-tight mb-2">
+              Inventory Management
+            </h2>
             <p className="text-sm text-foreground/90 dark:text-muted-foreground">
               Manage your product inventory and listings
             </p>
@@ -721,7 +1037,9 @@ function InventoryManagement() {
           <div className="flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00EC97] mx-auto mb-2"></div>
-              <p className="text-sm text-foreground/90 dark:text-muted-foreground">Loading inventory...</p>
+              <p className="text-sm text-foreground/90 dark:text-muted-foreground">
+                Loading inventory...
+              </p>
             </div>
           </div>
         </div>
@@ -734,7 +1052,9 @@ function InventoryManagement() {
       {/* Header Block */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h2 className="text-3xl font-bold tracking-tight mb-2">Inventory Management</h2>
+          <h2 className="text-3xl font-bold tracking-tight mb-2">
+            Inventory Management
+          </h2>
           <p className="text-sm text-foreground/90 dark:text-muted-foreground">
             Manage your product inventory and listings
           </p>
@@ -757,7 +1077,12 @@ function InventoryManagement() {
               disabled={syncMutation.isPending}
               className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={cn("size-4 mr-2", syncMutation.isPending && "animate-spin")} />
+              <RefreshCw
+                className={cn(
+                  "size-4 mr-2",
+                  syncMutation.isPending && "animate-spin",
+                )}
+              />
               {syncMutation.isPending ? "Starting..." : "Sync Products"}
             </button>
           )}
@@ -767,7 +1092,9 @@ function InventoryManagement() {
             disabled={isRefetching}
             className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={cn("size-4 mr-2", isRefetching && "animate-spin")} />
+            <RefreshCw
+              className={cn("size-4 mr-2", isRefetching && "animate-spin")}
+            />
             Refresh
           </button>
         </div>
@@ -775,40 +1102,51 @@ function InventoryManagement() {
 
       {/* Sync Status Block */}
       {showSyncStatus && (
-        <Card className={cn(
-          "rounded-2xl border p-4",
-          isRunning && "border-[#3d7fff]/60 bg-background/60",
-          hasError && "border-red-500/60 bg-background/60",
-          !isRunning && !hasError && syncStatusData?.lastSuccessAt && "border-[#00EC97]/60 bg-background/60"
-        )}>
+        <Card
+          className={cn(
+            "rounded-2xl border p-4",
+            isRunning && "border-[#3d7fff]/60 bg-background/60",
+            hasError && "border-red-500/60 bg-background/60",
+            !isRunning &&
+              !hasError &&
+              syncStatusData?.lastSuccessAt &&
+              "border-[#00EC97]/60 bg-background/60",
+          )}
+        >
           {/* Running View */}
           {isRunning && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm">
                 <RefreshCw className="size-4 animate-spin text-[#3d7fff]" />
                 <span className="text-[#3d7fff] font-medium">
-                  {syncProgress 
+                  {syncProgress
                     ? `Synced ${syncProgress.synced} of ~${syncProgress.total} products...`
                     : "Syncing products..."}
                 </span>
-                {syncDuration > 0 && <span className="text-[#3d7fff]/70">({formatDuration(syncDuration)})</span>}
+                {syncDuration > 0 && (
+                  <span className="text-[#3d7fff]/70">
+                    ({formatDuration(syncDuration)})
+                  </span>
+                )}
               </div>
-              
+
               {/* Progress bar */}
               {syncProgress && syncProgress.total > 0 && (
                 <div className="space-y-1">
                   <div className="h-2 bg-background/60 rounded-full overflow-hidden border border-border/40">
-                    <div 
+                    <div
                       className="h-full bg-[#3d7fff] transition-all duration-500 ease-out"
-                      style={{ 
-                        width: `${Math.min((syncProgress.synced / syncProgress.total) * 100, 100)}%` 
+                      style={{
+                        width: `${Math.min((syncProgress.synced / syncProgress.total) * 100, 100)}%`,
                       }}
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs text-[#3d7fff]/70">
                     <span>{syncProgress.synced} synced</span>
                     {syncProgress.failed > 0 && (
-                      <span className="text-yellow-500">{syncProgress.failed} failed</span>
+                      <span className="text-yellow-500">
+                        {syncProgress.failed} failed
+                      </span>
                     )}
                     <span>{products.length} in inventory</span>
                   </div>
@@ -818,28 +1156,42 @@ function InventoryManagement() {
               {/* Provider status */}
               {progressEvents.length > 0 && (
                 <div className="text-xs text-[#3d7fff]/60 space-y-1">
-                  {Object.entries(progressEvents[progressEvents.length - 1]?.providers || {}).map(([name, provider]: [string, any]) => (
+                  {Object.entries(
+                    progressEvents[progressEvents.length - 1]?.providers || {},
+                  ).map(([name, provider]: [string, any]) => (
                     <div key={name} className="flex items-center gap-2">
                       <span className="capitalize">{name}:</span>
                       <span>{provider.synced} synced</span>
-                      {provider.failed > 0 && <span className="text-yellow-500/80">({provider.failed} failed)</span>}
-                      {provider.phase && <span className="text-[#3d7fff]/40">- {provider.phase.replace(/_/g, ' ')}</span>}
+                      {provider.failed > 0 && (
+                        <span className="text-yellow-500/80">
+                          ({provider.failed} failed)
+                        </span>
+                      )}
+                      {provider.phase && (
+                        <span className="text-[#3d7fff]/40">
+                          - {provider.phase.replace(/_/g, " ")}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
           )}
-          
+
           {/* Error View */}
           {hasError && (
             <div className="space-y-3">
               <div className="flex items-start gap-2">
                 <XCircle className="size-5 text-red-500 mt-0.5" />
                 <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium text-red-500">Sync failed</p>
+                  <p className="text-sm font-medium text-red-500">
+                    Sync failed
+                  </p>
                   <p className="text-sm text-red-500/80">
-                    {syncStatusData?.errorMessage || syncProgressData?.finalEvent?.message || "Unknown error"}
+                    {syncStatusData?.errorMessage ||
+                      syncProgressData?.finalEvent?.message ||
+                      "Unknown error"}
                   </p>
                 </div>
               </div>
@@ -851,7 +1203,12 @@ function InventoryManagement() {
                     className="flex items-center gap-1.5 text-xs text-red-500/70 hover:text-red-500 transition-colors"
                   >
                     <span>{showErrorDetails ? "Hide" : "Show"} details</span>
-                    <ChevronDown className={cn("size-3.5 transition-transform", showErrorDetails && "rotate-180")} />
+                    <ChevronDown
+                      className={cn(
+                        "size-3.5 transition-transform",
+                        showErrorDetails && "rotate-180",
+                      )}
+                    />
                   </button>
                   {showErrorDetails && (
                     <div className="bg-background/50 rounded-lg p-3 border border-red-500/20">
@@ -864,65 +1221,90 @@ function InventoryManagement() {
               )}
             </div>
           )}
-          
+
           {/* Success View */}
           {!isRunning && !hasError && syncStatusData?.lastSuccessAt && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-[#00EC97] font-medium">Last synced:</span>
-                  <span className="text-[#00EC97]/70">{formatDate(syncStatusData.lastSuccessAt)}</span>
+                  <span className="text-[#00EC97] font-medium">
+                    Last synced:
+                  </span>
+                  <span className="text-[#00EC97]/70">
+                    {formatDate(syncStatusData.lastSuccessAt)}
+                  </span>
                 </div>
-                {syncProgressData?.finalEvent?.status === 'completed' && (
+                {syncProgressData?.finalEvent?.status === "completed" && (
                   <button
                     type="button"
                     onClick={() => setShowSuccessDetails(!showSuccessDetails)}
                     className="flex items-center gap-1.5 text-xs text-[#00EC97]/70 hover:text-[#00EC97] transition-colors"
                   >
                     <span>{showSuccessDetails ? "Hide" : "Show"} details</span>
-                    <ChevronDown className={cn("size-3.5 transition-transform", showSuccessDetails && "rotate-180")} />
+                    <ChevronDown
+                      className={cn(
+                        "size-3.5 transition-transform",
+                        showSuccessDetails && "rotate-180",
+                      )}
+                    />
                   </button>
                 )}
               </div>
-              
-              {showSuccessDetails && syncProgressData?.finalEvent?.status === 'completed' && (
-                <div className="bg-background/50 rounded-lg p-3 border border-[#00EC97]/20 space-y-2">
-                  <div className="text-xs text-foreground/70 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Products synced:</span>
-                      <span className="font-medium text-[#00EC97]">{syncProgressData.finalEvent.totalSynced}</span>
+
+              {showSuccessDetails &&
+                syncProgressData?.finalEvent?.status === "completed" && (
+                  <div className="bg-background/50 rounded-lg p-3 border border-[#00EC97]/20 space-y-2">
+                    <div className="text-xs text-foreground/70 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Products synced:</span>
+                        <span className="font-medium text-[#00EC97]">
+                          {syncProgressData.finalEvent.totalSynced}
+                        </span>
+                      </div>
+                      {syncProgressData.finalEvent.totalFailed > 0 && (
+                        <div className="flex justify-between">
+                          <span>Failed:</span>
+                          <span className="font-medium text-yellow-500">
+                            {syncProgressData.finalEvent.totalFailed}
+                          </span>
+                        </div>
+                      )}
+                      {syncProgressData.finalEvent.totalRemoved > 0 && (
+                        <div className="flex justify-between">
+                          <span>Removed:</span>
+                          <span className="font-medium text-foreground/50">
+                            {syncProgressData.finalEvent.totalRemoved}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    {syncProgressData.finalEvent.totalFailed > 0 && (
-                      <div className="flex justify-between">
-                        <span>Failed:</span>
-                        <span className="font-medium text-yellow-500">{syncProgressData.finalEvent.totalFailed}</span>
-                      </div>
-                    )}
-                    {syncProgressData.finalEvent.totalRemoved > 0 && (
-                      <div className="flex justify-between">
-                        <span>Removed:</span>
-                        <span className="font-medium text-foreground/50">{syncProgressData.finalEvent.totalRemoved}</span>
-                      </div>
+
+                    {Object.keys(syncProgressData.finalEvent.providers).length >
+                      0 && (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-foreground/50 hover:text-foreground/70 transition-colors">
+                          Provider details
+                        </summary>
+                        <div className="mt-2 space-y-1 pl-2 border-l-2 border-border/40">
+                          {Object.entries(
+                            syncProgressData.finalEvent.providers,
+                          ).map(([name, p]) => (
+                            <div
+                              key={name}
+                              className="flex justify-between text-foreground/70"
+                            >
+                              <span className="capitalize">{name}</span>
+                              <span>
+                                {p.synced} synced
+                                {p.failed > 0 && `, ${p.failed} failed`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
                     )}
                   </div>
-                  
-                  {Object.keys(syncProgressData.finalEvent.providers).length > 0 && (
-                    <details className="text-xs">
-                      <summary className="cursor-pointer text-foreground/50 hover:text-foreground/70 transition-colors">
-                        Provider details
-                      </summary>
-                      <div className="mt-2 space-y-1 pl-2 border-l-2 border-border/40">
-                        {Object.entries(syncProgressData.finalEvent.providers).map(([name, p]) => (
-                          <div key={name} className="flex justify-between text-foreground/70">
-                            <span className="capitalize">{name}</span>
-                            <span>{p.synced} synced{p.failed > 0 && `, ${p.failed} failed`}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                </div>
-              )}
+                )}
             </div>
           )}
         </Card>
@@ -956,7 +1338,10 @@ function InventoryManagement() {
                     >
                       {header.isPlaceholder
                         ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
                     </th>
                   ))}
                 </tr>
@@ -965,16 +1350,25 @@ function InventoryManagement() {
             <tbody className="divide-y divide-border/60">
               {table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="px-4 py-8 text-center text-foreground/70 dark:text-muted-foreground">
+                  <td
+                    colSpan={columns.length}
+                    className="px-4 py-8 text-center text-foreground/70 dark:text-muted-foreground"
+                  >
                     No products found
                   </td>
                 </tr>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="group hover:bg-background/40 transition-colors">
+                  <tr
+                    key={row.id}
+                    className="group hover:bg-background/40 transition-colors"
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="px-4 py-3">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -995,7 +1389,10 @@ function InventoryManagement() {
               const product = row.original;
               const isListed = product.listed !== false;
               return (
-                <div key={row.id} className="p-4 space-y-3 hover:bg-background/40 transition-colors max-w-full overflow-x-hidden">
+                <div
+                  key={row.id}
+                  className="p-4 space-y-3 hover:bg-background/40 transition-colors max-w-full overflow-x-hidden"
+                >
                   <div className="flex items-start gap-3">
                     <Link
                       to="/products/$productId"
@@ -1022,14 +1419,20 @@ function InventoryManagement() {
                         params={{ productId: product.id }}
                         className="block w-full"
                       >
-                        <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground truncate hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors">{product.title}</p>
+                        <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground truncate hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors">
+                          {product.title}
+                        </p>
                       </Link>
                       <div className="flex items-center gap-2 mt-2">
-                        {product.collections && product.collections.length > 0 && (
-                          <Badge variant="outline" className="font-normal text-xs">
-                            {product.collections[0]?.name}
-                          </Badge>
-                        )}
+                        {product.collections &&
+                          product.collections.length > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="font-normal text-xs"
+                            >
+                              {product.collections[0]?.name}
+                            </Badge>
+                          )}
                       </div>
                     </div>
                   </div>
@@ -1043,19 +1446,31 @@ function InventoryManagement() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleToggleListing(product.id, isListed)}
+                        onClick={() =>
+                          handleToggleListing(product.id, isListed)
+                        }
                         disabled={updateListingMutation.isPending}
                         className={cn(
                           "h-8 px-2",
                           isListed
                             ? "text-[#00EC97] hover:text-[#00EC97] hover:bg-[#00EC97]/10"
-                            : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40"
+                            : "text-foreground/50 dark:text-muted-foreground hover:text-foreground/70 dark:hover:text-muted-foreground hover:bg-background/40",
                         )}
-                        title={isListed ? "Listed - Click to delist" : "Delisted - Click to list"}
+                        title={
+                          isListed
+                            ? "Listed - Click to delist"
+                            : "Delisted - Click to list"
+                        }
                       >
-                        {isListed ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                        {isListed ? (
+                          <Eye className="size-4" />
+                        ) : (
+                          <EyeOff className="size-4" />
+                        )}
                       </Button>
-                      <span className="text-xs text-foreground/70 dark:text-muted-foreground">{isListed ? "Listed" : "Delisted"}</span>
+                      <span className="text-xs text-foreground/70 dark:text-muted-foreground">
+                        {isListed ? "Listed" : "Delisted"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1069,10 +1484,15 @@ function InventoryManagement() {
       <div className="rounded-2xl bg-background border border-border/60 px-6 py-4 overflow-x-hidden max-w-full">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 min-w-0">
           <p className="text-sm text-foreground/90 dark:text-muted-foreground text-center md:text-left min-w-0 flex-1">
-            Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{" "}
+            Showing{" "}
+            {table.getState().pagination.pageIndex *
+              table.getState().pagination.pageSize +
+              1}{" "}
+            to{" "}
             {Math.min(
-              (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-              table.getFilteredRowModel().rows.length
+              (table.getState().pagination.pageIndex + 1) *
+                table.getState().pagination.pageSize,
+              table.getFilteredRowModel().rows.length,
             )}{" "}
             of {table.getFilteredRowModel().rows.length} products
           </p>
@@ -1086,7 +1506,8 @@ function InventoryManagement() {
               <ChevronLeft className="size-4" />
             </button>
             <span className="text-sm text-foreground font-medium">
-              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+              Page {table.getState().pagination.pageIndex + 1} of{" "}
+              {table.getPageCount()}
             </span>
             <button
               type="button"

@@ -1,5 +1,12 @@
 import { z } from 'every-plugin/zod';
 
+export const FeeConfigSchema = z.object({
+  type: z.string(),
+  label: z.string(),
+  recipient: z.string(),
+  bps: z.number(),
+});
+
 export const PaymentLineItemSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
@@ -17,6 +24,7 @@ export const CheckoutSessionInputSchema = z.object({
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
   metadata: z.record(z.string(), z.string()).optional(),
+  fees: z.array(FeeConfigSchema).optional(),
 });
 
 export const CheckoutSessionOutputSchema = z.object({
