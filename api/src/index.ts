@@ -38,6 +38,9 @@ export default createPlugin({
     PRINTFUL_API_KEY: z.string().optional(),
     PRINTFUL_STORE_ID: z.string().optional(),
     PRINTFUL_WEBHOOK_SECRET: z.string().optional(),
+    LULU_CLIENT_KEY: z.string().optional(),
+    LULU_CLIENT_SECRET: z.string().optional(),
+    LULU_WEBHOOK_SECRET: z.string().optional(),
     PING_API_KEY: z.string().optional(),
     PING_WEBHOOK_SECRET: z.string().optional(),
     API_DATABASE_URL: z.string().default('file:./marketplace.db'),
@@ -81,6 +84,14 @@ export default createPlugin({
                   apiKey: config.secrets.GELATO_API_KEY,
                   webhookSecret: config.secrets.GELATO_WEBHOOK_SECRET,
                   returnAddress: config.variables.returnAddress,
+                }
+                : undefined,
+            lulu:
+              config.secrets.LULU_CLIENT_KEY && config.secrets.LULU_CLIENT_SECRET
+                ? {
+                  clientKey: config.secrets.LULU_CLIENT_KEY,
+                  clientSecret: config.secrets.LULU_CLIENT_SECRET,
+                  webhookSecret: config.secrets.LULU_WEBHOOK_SECRET,
                 }
                 : undefined,
           },
@@ -1330,6 +1341,143 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
         } catch (error) {
           // Log error but return 200 to prevent webhook retries
           console.error('[Gelato Webhook] Processing error:', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            eventType,
+            externalId,
+          });
+        }
+
+        return { received: true };
+      }),
+
+      luluWebhook: builder.luluWebhook.handler(async ({ input, context }) => {
+        const signature = context.reqHeaders?.get('x-lulu-signature') || '';
+        const rawBody = (await context.getRawBody?.()) ?? JSON.stringify(input as unknown);
+        
+        let eventType: string | undefined;
+        let externalId: string | undefined;
+        
+        try {
+          const luluProvider = runtime.getProvider('lulu');
+          if (!luluProvider) {
+            console.error('[Lulu Webhook] Lulu provider not configured');
+            return { received: true };
+          }
+
+          // Import LuluService for webhook handling
+          const { LuluService } = await import('./services/fulfillment/lulu/service');
+          const luluService = new LuluService({
+            clientKey: secrets.LULU_CLIENT_KEY || '',
+            clientSecret: secrets.LULU_CLIENT_SECRET || '',
+            webhookSecret: secrets.LULU_WEBHOOK_SECRET,
+          });
+
+          // Verify signature if webhook secret is configured
+          if (secrets.LULU_WEBHOOK_SECRET) {
+            const isValid = await managedRuntime.runPromise(
+              luluService.verifyWebhookSignature(rawBody, signature)
+            );
+            if (!isValid) {
+              console.error('[Lulu Webhook] Invalid signature');
+              throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
+            }
+          }
+
+          const { eventType: parsedEventType, data } = luluService.parseWebhookPayload(rawBody);
+          eventType = parsedEventType;
+          externalId = data.data.external_id;
+
+          if (!externalId) {
+            return { received: true };
+          }
+
+          console.log(`[Lulu Webhook] Processing event: ${eventType}, external_id: ${externalId}`);
+
+          // Find the order by fulfillment reference
+          const order = await managedRuntime.runPromise(
+            Effect.gen(function* () {
+              const store = yield* OrderStore;
+              let order = yield* store.findByFulfillmentRef(externalId!);
+              if (!order) {
+                order = yield* store.find(externalId!);
+              }
+              return order;
+            })
+          );
+
+          if (!order) {
+            return { received: true };
+          }
+
+          // Map Lulu status to internal status
+          let newStatus: OrderStatus | undefined = undefined;
+          let newTracking: TrackingInfo[] | undefined = undefined;
+
+          switch (eventType) {
+            case 'printjob.status.updated':
+              const luluStatus = data.data.status;
+              newStatus = luluService.mapStatus(luluStatus) as OrderStatus;
+              
+              // Check for tracking information in line items
+              if (data.data.line_items && data.data.line_items.length > 0) {
+                const shippedItems = data.data.line_items.filter(item => item.tracking_number);
+                if (shippedItems.length > 0) {
+                  newTracking = shippedItems.map(item => ({
+                    trackingCode: item.tracking_number || '',
+                    trackingUrl: item.tracking_urls?.[0] || '',
+                    shipmentMethodName: item.shipping_level || 'Standard',
+                    shipmentMethodUid: item.shipping_level,
+                    fulfillmentCountry: data.data.shipping_address?.country,
+                  }));
+                  newStatus = 'shipped';
+                }
+              }
+              break;
+
+            case 'printjob.created':
+              newStatus = 'processing';
+              break;
+
+            case 'printjob.cancelled':
+              newStatus = 'cancelled';
+              break;
+
+            default:
+              break;
+          }
+
+          if (newStatus) {
+            await managedRuntime.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateStatus(
+                  order.id,
+                  newStatus!,
+                  'service:lulu',
+                  eventType,
+                  { eventType, externalId, data: data.data }
+                );
+              })
+            );
+          }
+
+          if (newTracking) {
+            await managedRuntime.runPromise(
+              Effect.gen(function* () {
+                const store = yield* OrderStore;
+                yield* store.updateTracking(
+                  order.id,
+                  newTracking!,
+                  'service:lulu',
+                  { eventType, externalId }
+                );
+              })
+            );
+          }
+        } catch (error) {
+          // Log error but return 200 to prevent webhook retries
+          console.error('[Lulu Webhook] Processing error:', {
             error: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,
             eventType,

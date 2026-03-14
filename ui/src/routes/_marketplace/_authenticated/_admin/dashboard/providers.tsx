@@ -419,12 +419,108 @@ function ProvidersPage() {
         </div>
       </div>
 
+      {/* Lulu Provider Section */}
+      <div className="rounded-2xl bg-background border border-border/60 p-6">
+        <div className="mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-orange-500/10 flex items-center justify-center">
+                <span className="text-lg font-bold text-orange-500">L</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Lulu</h3>
+                <p className="text-sm text-foreground/90 dark:text-muted-foreground">Print-on-demand book fulfillment</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1 rounded-2xl bg-background/60 border border-border/60 text-foreground/90 dark:text-muted-foreground flex items-center gap-1.5 text-sm font-semibold">
+                <Settings2 className="size-3" />
+                API Keys Required
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-6">
+          <div className="rounded-2xl bg-background/40 border border-border/60 p-4">
+            <h4 className="font-semibold text-base flex items-center gap-2 mb-3">
+              <Settings2 className="size-4" />
+              Configuration
+            </h4>
+            <p className="text-sm text-foreground/90 dark:text-muted-foreground mb-3">
+              Lulu requires OAuth2 authentication with a Client Key and Client Secret. 
+              Set these in your environment variables:
+            </p>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
+                <code className="text-xs font-mono">LULU_CLIENT_KEY</code>
+                <span className="text-xs text-foreground/60">From Lulu Developer Dashboard</span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
+                <code className="text-xs font-mono">LULU_CLIENT_SECRET</code>
+                <span className="text-xs text-foreground/60">From Lulu Developer Dashboard</span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
+                <code className="text-xs font-mono">LULU_WEBHOOK_SECRET</code>
+                <span className="text-xs text-foreground/60">Optional, for webhook verification</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-background/40 border border-border/60 p-4">
+            <h4 className="font-semibold text-base flex items-center gap-2 mb-3">
+              <Webhook className="size-4" />
+              Webhook Setup
+            </h4>
+            <p className="text-sm text-foreground/90 dark:text-muted-foreground mb-3">
+              Configure webhooks in your Lulu Developer Dashboard to receive order status updates:
+            </p>
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
+              <span className="text-foreground/90 dark:text-muted-foreground text-sm">Webhook URL:</span>
+              <code className="text-xs bg-background px-2 py-1 rounded border border-border/60">
+                {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/lulu` : 'https://your-domain.com/api/webhooks/lulu'}
+              </code>
+            </div>
+            <p className="text-xs text-foreground/60 mt-2">
+              Supported events: printjob.status.updated, printjob.created, printjob.cancelled
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-background/40 border border-border/60 p-4">
+            <h4 className="font-semibold text-base flex items-center gap-2 mb-3">
+              <Settings2 className="size-4" />
+              Product Configuration
+            </h4>
+            <p className="text-sm text-foreground/90 dark:text-muted-foreground mb-3">
+              For Lulu products, you need to store additional provider data in your product configuration:
+            </p>
+            <div className="space-y-2 text-sm">
+              <div className="p-3 rounded-2xl bg-background/60 border border-border/60">
+                <code className="text-xs font-mono block mb-1">podPackageId</code>
+                <span className="text-xs text-foreground/60">The Lulu print specification (e.g., &quot;0600X0900_BW_STA_40ULS_M12&quot;)</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-background/60 border border-border/60">
+                <code className="text-xs font-mono block mb-1">pageCount</code>
+                <span className="text-xs text-foreground/60">Number of pages in the book</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-background/60 border border-border/60">
+                <code className="text-xs font-mono block mb-1">coverPdfUrl</code>
+                <span className="text-xs text-foreground/60">URL to the cover PDF file</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-background/60 border border-border/60">
+                <code className="text-xs font-mono block mb-1">interiorPdfUrl</code>
+                <span className="text-xs text-foreground/60">URL to the interior PDF file</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="rounded-2xl bg-background border border-border/60 p-4">
         <h4 className="font-semibold text-foreground mb-2">
           About Webhooks
         </h4>
         <p className="text-sm text-foreground/90 dark:text-muted-foreground">
-          Webhooks allow Printful to send real-time notifications to your store when 
+          Webhooks allow fulfillment providers to send real-time notifications to your store when 
           order events occur (shipments, cancellations, etc.). The secret key is stored 
           securely and used to verify webhook signatures.
         </p>

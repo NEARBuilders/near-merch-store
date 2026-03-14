@@ -429,6 +429,17 @@ export const contract = oc.router({
     .input(z.unknown())
     .output(WebhookResponseSchema),
 
+  luluWebhook: oc
+    .route({
+      method: 'POST',
+      path: '/webhooks/lulu',
+      summary: 'Lulu webhook',
+      description: 'Handles Lulu webhook events for order status updates.',
+      tags: ['Webhooks'],
+    })
+    .input(z.unknown())
+    .output(WebhookResponseSchema),
+
   pingWebhook: oc
     .route({
       method: 'POST',

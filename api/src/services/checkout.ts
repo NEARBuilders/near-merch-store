@@ -68,6 +68,7 @@ function mapToFulfillmentItems(providerItems: ProviderItemGroup[]): FulfillmentO
         type: 'default' as const,
         placement: df.placement,
       })),
+      providerData: providerData,
     };
   });
 }
