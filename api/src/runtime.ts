@@ -3,6 +3,7 @@ import { ContractRouterClient } from 'every-plugin/orpc';
 import { FulfillmentContract } from './services/fulfillment';
 import GelatoPlugin from './services/fulfillment/gelato';
 import PrintfulPlugin from './services/fulfillment/printful';
+import LuluPlugin from './services/fulfillment/lulu';
 import { PaymentContract } from './services/payment';
 import PingPayPlugin from './services/payment/pingpay';
 import StripePlugin from './services/payment/stripe';
@@ -18,6 +19,12 @@ export interface FulfillmentConfig {
     apiKey: string;
     webhookSecret: string;
     returnAddress?: ReturnAddress;
+  };
+  lulu?: {
+    clientKey: string;
+    clientSecret: string;
+    webhookSecret?: string;
+    environment?: 'sandbox' | 'production';
   };
 }
 
@@ -52,6 +59,7 @@ export async function createMarketplaceRuntime(
     registry: {
       printful: { module: PrintfulPlugin },
       gelato: { module: GelatoPlugin },
+      lulu: { module: LuluPlugin },
       stripe: { module: StripePlugin },
       pingpay: { module: PingPayPlugin },
     },
@@ -104,6 +112,30 @@ export async function createMarketplaceRuntime(
       console.log('[MarketplaceRuntime] Gelato provider initialized');
     } catch (error) {
       console.error('[MarketplaceRuntime] Failed to initialize Gelato:', error);
+    }
+  }
+
+  if (fulfillmentConfig.lulu?.clientKey && fulfillmentConfig.lulu?.clientSecret) {
+    try {
+      const lulu = await runtime.usePlugin('lulu', {
+        variables: {
+          baseUrl: fulfillmentConfig.lulu.environment === 'production' ? 'https://api.lulu.com' : 'https://api.sandbox.lulu.com',
+          environment: fulfillmentConfig.lulu.environment || 'sandbox',
+        },
+        secrets: {
+          LULU_CLIENT_KEY: fulfillmentConfig.lulu.clientKey,
+          LULU_CLIENT_SECRET: fulfillmentConfig.lulu.clientSecret,
+          LULU_WEBHOOK_SECRET: fulfillmentConfig.lulu.webhookSecret,
+        },
+      });
+      providers.push({
+        name: 'lulu',
+        client: lulu.createClient(),
+        router: lulu.router,
+      });
+      console.log('[MarketplaceRuntime] Lulu provider initialized');
+    } catch (error) {
+      console.error('[MarketplaceRuntime] Failed to initialize Lulu:', error);
     }
   }
 

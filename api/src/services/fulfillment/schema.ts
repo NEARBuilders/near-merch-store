@@ -1,7 +1,7 @@
 import { z } from 'every-plugin/zod';
 import { DesignFileSchema } from '../../schema';
 
-export const FulfillmentProviderSchema = z.enum(['printful', 'gelato', 'manual']);
+export const FulfillmentProviderSchema = z.enum(['printful', 'gelato', 'lulu', 'manual']);
 
 export const FulfillmentOrderStatusSchema = z.enum([
   'draft',
@@ -55,6 +55,7 @@ export const FulfillmentOrderItemSchema = z.object({
     type: z.string().default('default'),
     placement: z.string().optional(),
   })).optional(),
+  providerData: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const FulfillmentAddressSchema = z.object({
