@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.2
+
+### Patch Changes
+
+- 273343b: Fix marketplace variant selection so single-color products auto-select correctly on product pages and quick add flows.
+- 273343b: Add a mint link to the Legion SBT required label on gated product cards.
+- 273343b: Remove creator fee rows from cart and checkout so those summaries only show amounts included before PingPay adds any extra fees.
+
 ## 1.4.1
 
 ### Patch Changes
