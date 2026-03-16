@@ -65,11 +65,12 @@ export async function getRouteHead(
   const router = createTanStackRouter({
     routeTree,
     history,
-    context: {
-      queryClient: undefined as never,
-      assetsUrl: context?.assetsUrl ?? "",
-      runtimeConfig: context?.runtimeConfig,
-    },
+      context: {
+        queryClient: undefined as never,
+        assetsUrl: context?.assetsUrl ?? "",
+        runtimeConfig: context?.runtimeConfig,
+        nearAccountId: context?.nearAccountId ?? null,
+      },
   });
 
   const matches = router.matchRoutes(pathname);
@@ -159,6 +160,7 @@ export async function renderToStream(
           assetsUrl: options.assetsUrl,
           runtimeConfig: options.runtimeConfig,
           session: options.session,
+          nearAccountId: options.nearAccountId,
         },
       });
       queryClientRef = queryClient;

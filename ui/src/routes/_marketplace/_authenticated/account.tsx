@@ -1,4 +1,5 @@
 import { authClient } from "@/lib/auth-client";
+import { useNearAccountId } from "@/hooks/use-near-account-id";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -40,7 +41,7 @@ function MyAccountPage() {
     }
   };
 
-  const accountId = authClient.near.getAccountId();
+  const accountId = useNearAccountId();
   const userEmail = session?.user?.email;
   const displayName = accountId || (userEmail && !userEmail.includes("http") ? userEmail : null) || "Account";
   const isOrdersActive = !!matchRoute({ to: "/account/orders" });

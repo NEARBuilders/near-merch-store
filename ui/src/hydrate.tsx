@@ -21,11 +21,14 @@ export async function hydrate() {
     session = null;
   }
 
+  const nearAccountId = authClient.near.getAccountId() ?? null;
+
   const { router, queryClient } = createRouter({
     context: {
       assetsUrl: getAssetsUrl(runtimeConfig),
       runtimeConfig,
       session,
+      nearAccountId,
     },
   });
 

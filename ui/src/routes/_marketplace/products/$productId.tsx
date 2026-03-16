@@ -23,7 +23,7 @@ import {
 } from "@/lib/product-utils";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/utils/orpc";
-import { authClient } from "@/lib/auth-client";
+import { useNearAccountId } from "@/hooks/use-near-account-id";
 import { createFileRoute, Link, useRouter, useCanGoBack } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -157,7 +157,7 @@ function ProductDetailPage() {
 
   const { product } = loaderData.data;
 
-  const nearAccountId = authClient.near.getAccountId();
+  const nearAccountId = useNearAccountId();
 
   const purchaseGatePluginId = getPurchaseGatePluginId(
     product.metadata as ProductMetadata | undefined,

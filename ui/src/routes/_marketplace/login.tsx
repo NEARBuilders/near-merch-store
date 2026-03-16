@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { useResolvedAssetUrl } from "@/lib/asset-url";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import nearLogo from "@/assets/images/pngs/logo_sq.png";
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/_marketplace/login")({
 });
 
 function LoginPage() {
+  const nearLogoSrc = useResolvedAssetUrl(nearLogo);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { redirect: redirectPath } = useSearch({ from: "/_marketplace/login" });
@@ -121,7 +123,7 @@ function LoginPage() {
             >
               <div className="size-4 sm:size-5 overflow-hidden flex items-center justify-center">
                 <img
-                  src={nearLogo}
+                  src={nearLogoSrc}
                   alt="NEAR"
                   className="w-full h-full object-contain invert dark:invert-0"
                 />

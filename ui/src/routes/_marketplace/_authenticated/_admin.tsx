@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
+import { useNearAccountId } from "@/hooks/use-near-account-id";
 import { cn } from "@/lib/utils";
 import { collectionLoaders } from "@/integrations/api";
 
@@ -68,7 +69,7 @@ export const Route = createFileRoute("/_marketplace/_authenticated/_admin")({
 function AdminLayout() {
   const matchRoute = useMatchRoute();
   const { data: session } = authClient.useSession();
-  const accountId = authClient.near.getAccountId();
+  const accountId = useNearAccountId();
   const userEmail = session?.user?.email;
   const displayName = accountId || (userEmail && !userEmail.includes("http") ? userEmail : null) || "Admin User";
 
