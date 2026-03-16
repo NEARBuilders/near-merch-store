@@ -67,7 +67,9 @@ export function SizeSelectionModal({
     return availableVariants.some((v) => {
       const vSize = getOptionValue(v.attributes, "Size");
       const vColor = getOptionValue(v.attributes, "Color");
-      return vSize === size && vColor === selectedColor && v.availableForSale;
+      const colorMatches = orderedColors.length === 0 || vColor === selectedColor;
+
+      return vSize === size && colorMatches && v.availableForSale;
     });
   });
 

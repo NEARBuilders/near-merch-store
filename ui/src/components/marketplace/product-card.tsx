@@ -188,7 +188,9 @@ function VerticalProductLayout({
     return availableVariants.some((v) => {
       const vSize = getOptionValue(v.attributes, "Size");
       const vColor = getOptionValue(v.attributes, "Color");
-      return vSize === size && vColor === selectedColor && v.availableForSale;
+      const colorMatches = orderedColors.length === 0 || vColor === selectedColor;
+
+      return vSize === size && colorMatches && v.availableForSale;
     });
   });
 
@@ -229,8 +231,12 @@ function VerticalProductLayout({
         const variant = availableVariants.find((v) => {
           const vColor = getOptionValue(v.attributes, "Color");
           const vSize = getOptionValue(v.attributes, "Size");
-          const colorMatch = orderedColors.length === 0 || vColor === selectedColor;
-          const sizeMatch = orderedSizes.length === 0 || vSize === selectedSize;
+
+          const colorMatch =
+            orderedColors.length === 0 || vColor === selectedColor;
+          const sizeMatch =
+            orderedSizes.length === 0 || vSize === selectedSize;
+
           return colorMatch && sizeMatch;
         });
         selectedVariantId = variant?.id;
@@ -325,9 +331,14 @@ function VerticalProductLayout({
                 decoding="async"
                 className="w-32 max-w-[42%] object-contain opacity-95 drop-shadow-[0_12px_30px_rgba(0,0,0,0.45)]"
               />
-              <div className="rounded-xl bg-background/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-foreground/85 backdrop-blur-sm">
+              <a
+                href="https://nearlegion.com/mint"
+                target="_blank"
+                rel="noreferrer"
+                className="pointer-events-auto rounded-xl bg-background/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-foreground/85 backdrop-blur-sm transition-colors hover:text-[#00EC97]"
+              >
                 Legion SBT required
-              </div>
+              </a>
             </div>
           </div>
         )}

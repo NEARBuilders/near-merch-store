@@ -186,7 +186,10 @@ function ProductDetailPage() {
   const selectedVariant = availableVariants.find((v) => {
     const vSize = getOptionValue(v.attributes, "Size");
     const vColor = getOptionValue(v.attributes, "Color");
-    return vSize === selectedSize && vColor === selectedColor;
+    const sizeMatches = orderedSizes.length === 0 || vSize === selectedSize;
+    const colorMatches = orderedColors.length === 0 || vColor === selectedColor;
+
+    return sizeMatches && colorMatches;
   });
 
   const displayPrice = selectedVariant?.price || product.price;
@@ -196,7 +199,9 @@ function ProductDetailPage() {
     return availableVariants.some((v) => {
       const vSize = getOptionValue(v.attributes, "Size");
       const vColor = getOptionValue(v.attributes, "Color");
-      return vSize === size && vColor === selectedColor && v.availableForSale;
+      const colorMatches = orderedColors.length === 0 || vColor === selectedColor;
+
+      return vSize === size && colorMatches && v.availableForSale;
     });
   });
 
@@ -249,11 +254,13 @@ function ProductDetailPage() {
 
   // Reset image index when product changes
   useEffect(() => {
+    setSelectedColor(defaultColor);
+    setSelectedSize(defaultSize);
     setCurrentImageIndex(0);
     setIsManualImageSelection(false);
     isInitialMountRef.current = true;
     prevColorSizeRef.current = null;
-  }, [product.id]);
+  }, [defaultColor, defaultSize, product.id]);
 
   // When color/variant changes via color picker (not thumbnail click), update main image
   useEffect(() => {
