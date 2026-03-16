@@ -188,7 +188,9 @@ function VerticalProductLayout({
     return availableVariants.some((v) => {
       const vSize = getOptionValue(v.attributes, "Size");
       const vColor = getOptionValue(v.attributes, "Color");
-      return vSize === size && vColor === selectedColor && v.availableForSale;
+      const colorMatches = orderedColors.length === 0 || vColor === selectedColor;
+
+      return vSize === size && colorMatches && v.availableForSale;
     });
   });
 
@@ -229,8 +231,12 @@ function VerticalProductLayout({
         const variant = availableVariants.find((v) => {
           const vColor = getOptionValue(v.attributes, "Color");
           const vSize = getOptionValue(v.attributes, "Size");
-          const colorMatch = orderedColors.length === 0 || vColor === selectedColor;
-          const sizeMatch = orderedSizes.length === 0 || vSize === selectedSize;
+
+          const colorMatch =
+            orderedColors.length === 0 || vColor === selectedColor;
+          const sizeMatch =
+            orderedSizes.length === 0 || vSize === selectedSize;
+
           return colorMatch && sizeMatch;
         });
         selectedVariantId = variant?.id;
