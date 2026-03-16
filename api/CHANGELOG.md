@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.2.0
+
+### Minor Changes
+
+- b7807ab: Add exclusive products with fee splits and product metadata
+
+  - Add `exclusive` boolean field to products for storefront filtering
+  - Add `metadata` JSON field to products for creator account and fee splits
+  - Add `/exclusives` route showing exclusive products
+  - Add admin inventory editors for exclusive toggle and metadata configuration
+  - Add PingPay fee support for checkout with creator royalties
+  - Add database index on `exclusive` for query performance
+
+- b7807ab: Move Legion purchase gating to product metadata and remove the legacy collection-exclusive flow
+
+  - Add a `legion-holder` purchase gate plugin with NEAR holder checks and checkout enforcement
+  - Add product metadata controls and storefront gating states for locked Legion products
+  - Remove old collection-exclusive API, schema, and database support
+
+- b7807ab: Add product metadata enrichment with Printful provider details and fee display on storefront
+
+  - Extend ProductMetadataSchema with providerDetails.printful for brand/model/description/techniques/placements/GSM
+  - Fetch catalog product details from Printful API during sync to enrich product metadata
+  - Fix admin inventory metadata editor to use "Product Metadata" label and percentage inputs (converts to BPS)
+  - Display fee percentage on product cards next to price
+  - Show fee breakdown and provider facts on product detail page
+  - Add creator fees line item to cart and checkout order summaries
+
+### Patch Changes
+
+- b7807ab: Add missing database migration for collections exclusive columns
+
 ## 1.1.1
 
 ### Patch Changes
