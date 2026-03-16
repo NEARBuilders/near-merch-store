@@ -54,7 +54,7 @@ export function DataTable<TData, TValue>({
     onRowSelectionChange: onRowSelectionChange,
     state: {
       sorting,
-      rowSelection,
+      rowSelection: rowSelection ?? {},
     },
   });
 

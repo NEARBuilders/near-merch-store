@@ -80,14 +80,12 @@ export default createPlugin({
     nearAccountId: z.string().optional(),
     reqHeaders: z.custom<Headers>().optional(),
     getRawBody: z.custom<() => Promise<string>>().optional(),
-    user: z
-      .object({
-        id: z.string(),
-        role: z.string().optional(),
-        email: z.string().optional(),
-        name: z.string().optional(),
-      })
-      .optional(),
+    user: z.object({
+      id: z.string(),
+      role: z.string().optional(),
+      email: z.string().optional(),
+      name: z.string().optional(),
+    }).nullable(),
   }),
 
   contract,
