@@ -2,6 +2,7 @@ import { useCart } from "@/hooks/use-cart";
 import { apiClient } from "@/utils/orpc";
 import type { Order } from "@/integrations/api/orders";
 import { type OrderStatus, statusLabels } from "@/lib/order-status";
+import { OrderStatusBadge } from "@/components/orders/order-status-badge";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   CheckCircle,
@@ -279,6 +280,11 @@ function OrderHistory({ logs }: { logs: AuditLog[] }) {
                   </span>
                 </p>
               )}
+              {typeof log.metadata?.reason === 'string' && log.metadata.reason.trim().length > 0 && (
+                <p className="mt-2 rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs text-foreground/80 whitespace-pre-wrap break-words">
+                  {log.metadata.reason}
+                </p>
+              )}
               <p className="text-xs text-foreground/50 mt-1">
                 {new Date(log.createdAt).toLocaleString()}
               </p>
@@ -442,17 +448,11 @@ function OrderConfirmationPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-foreground/90 dark:text-muted-foreground">Status</span>
-                  <span
-                    className={cn(
-                      "font-semibold",
-                      (order.status === "shipped" || order.status === "delivered") && "text-[#00EC97]",
-                      order.status === "cancelled" && "text-destructive",
-                      order.status === "payment_failed" && "text-destructive",
-                      order.status === "payment_pending" && "text-yellow-600"
-                    )}
-                  >
-                    {statusLabels[order.status] || order.status}
-                  </span>
+                  <OrderStatusBadge
+                    status={order.status}
+                    note={order.currentStatusNote}
+                    noteCreatedAt={order.currentStatusNoteCreatedAt}
+                  />
                 </div>
                 <div className="flex justify-between">
                   <span className="text-foreground/90 dark:text-muted-foreground">Items</span>

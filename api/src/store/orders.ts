@@ -60,13 +60,44 @@ export const OrderStoreLive = Layer.effect(
       }));
     };
 
+    const getCurrentStatusNote = async (orderId: string, status: OrderStatus) => {
+      const logs = await db
+        .select()
+        .from(schema.orderAuditLogs)
+        .where(and(
+          eq(schema.orderAuditLogs.orderId, orderId),
+          eq(schema.orderAuditLogs.action, 'status_change'),
+          eq(schema.orderAuditLogs.newValue, status),
+        ))
+        .orderBy(desc(schema.orderAuditLogs.createdAt));
+
+      const noteLog = logs.find((log) => {
+        const reason = log.metadata?.reason;
+        return typeof reason === 'string' && reason.trim().length > 0;
+      });
+
+      if (!noteLog) {
+        return undefined;
+      }
+
+      return {
+        currentStatusNote: String(noteLog.metadata?.reason),
+        currentStatusNoteActor: noteLog.actor,
+        currentStatusNoteCreatedAt: noteLog.createdAt.toISOString(),
+      };
+    };
+
     const rowToOrder = async (row: typeof schema.orders.$inferSelect): Promise<OrderWithItems> => {
       const items = await getOrderItems(row.id);
+      const currentStatusNote = await getCurrentStatusNote(row.id, row.status as OrderStatus);
 
       return {
         id: row.id,
         userId: row.userId,
         status: row.status as OrderStatus,
+        currentStatusNote: currentStatusNote?.currentStatusNote,
+        currentStatusNoteActor: currentStatusNote?.currentStatusNoteActor,
+        currentStatusNoteCreatedAt: currentStatusNote?.currentStatusNoteCreatedAt,
         subtotal: row.subtotal !== null ? row.subtotal / 100 : undefined,
         shippingCost: row.shippingCost !== null ? row.shippingCost / 100 : undefined,
         taxAmount: row.taxAmount !== null ? row.taxAmount / 100 : undefined,
