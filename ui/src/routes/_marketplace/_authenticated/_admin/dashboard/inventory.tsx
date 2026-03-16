@@ -708,6 +708,7 @@ function InventoryManagement() {
   const [newlySyncedProductIds, setNewlySyncedProductIds] = useState<string[]>(
     [],
   );
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [isTrackingSyncNewItems, setIsTrackingSyncNewItems] = useState(false);
   const previousProductIdsRef = useRef<Set<string> | null>(null);
 
@@ -876,6 +877,34 @@ function InventoryManagement() {
 
   const columns: ColumnDef<Product>[] = [
     {
+      id: "expander",
+      header: "",
+      cell: ({ row }) => {
+        const isExpanded = expandedProductId === row.original.id;
+
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() =>
+              setExpandedProductId((current) =>
+                current === row.original.id ? null : row.original.id,
+              )
+            }
+          >
+            {isExpanded ? (
+              <ChevronDown className="size-4" />
+            ) : (
+              <ChevronRight className="size-4" />
+            )}
+          </Button>
+        );
+      },
+      enableSorting: false,
+      size: 48,
+    },
+    {
       accessorKey: "thumbnailImage",
       header: "",
       cell: ({ row }) => (
@@ -1036,79 +1065,30 @@ function InventoryManagement() {
       ),
       cell: ({ row }) => {
         const selected = row.original.collections ?? [];
-        const selectedSlugs = selected.map((c) => c.slug);
 
         return (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8"
-                disabled={updateCategoriesMutation.isPending}
-                title="Edit collections"
-              >
-                {selected.length === 0 ? (
-                  <span className="text-xs text-foreground/60 dark:text-muted-foreground">
-                    No collections
-                  </span>
-                ) : (
-                  selected.slice(0, 2).map((c) => (
-                    <Badge
-                      key={c.slug}
-                      variant="outline"
-                      className="font-normal text-xs"
-                    >
-                      {c.name}
-                    </Badge>
-                  ))
-                )}
-                {selected.length > 2 && (
-                  <Badge variant="outline" className="font-normal text-xs">
-                    +{selected.length - 2}
-                  </Badge>
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-3" align="start">
-              <div className="text-sm font-medium mb-2">Collections</div>
-              <div className="space-y-2 max-h-64 overflow-auto pr-1">
-                {categories.length === 0 ? (
-                  <div className="text-xs text-foreground/60 dark:text-muted-foreground">
-                    No collections yet. Create some in Dashboard → Collections.
-                  </div>
-                ) : (
-                  categories.map((cat) => {
-                    const checked = selectedSlugs.includes(cat.slug);
-                    return (
-                      <label
-                        key={cat.slug}
-                        className="flex items-center gap-2 text-sm cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(next) => {
-                            const nextChecked = Boolean(next);
-                            const nextSlugs = nextChecked
-                              ? Array.from(
-                                  new Set([...selectedSlugs, cat.slug]),
-                                )
-                              : selectedSlugs.filter(
-                                  (slug) => slug !== cat.slug,
-                                );
-                            updateCategoriesMutation.mutate({
-                              id: row.original.id,
-                              categoryIds: nextSlugs,
-                            });
-                          }}
-                        />
-                        <span className="truncate">{cat.name}</span>
-                      </label>
-                    );
-                  })
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <div className="flex max-w-48 flex-wrap items-center gap-1.5">
+            {selected.length === 0 ? (
+              <span className="text-xs text-foreground/60 dark:text-muted-foreground">
+                No collections
+              </span>
+            ) : (
+              selected.slice(0, 2).map((collection) => (
+                <Badge
+                  key={collection.slug}
+                  variant="outline"
+                  className="font-normal text-xs"
+                >
+                  {collection.name}
+                </Badge>
+              ))
+            )}
+            {selected.length > 2 && (
+              <Badge variant="outline" className="font-normal text-xs">
+                +{selected.length - 2}
+              </Badge>
+            )}
+          </div>
         );
       },
       size: 220,
@@ -1116,50 +1096,60 @@ function InventoryManagement() {
     {
       accessorKey: "productType",
       header: "Type",
-      cell: ({ row }) => (
-        <ProductTypeEditor
-          currentType={row.original.productType?.slug ?? null}
-          availableTypes={productTypes}
-          onUpdate={(slug) =>
-            updateProductTypeMutation.mutate({
-              id: row.original.id,
-              productTypeSlug: slug,
-            })
-          }
-          isPending={updateProductTypeMutation.isPending}
-        />
-      ),
+      cell: ({ row }) => {
+        const currentType = row.original.productType;
+
+        if (!currentType) {
+          return (
+            <span className="text-xs text-foreground/60 dark:text-muted-foreground">
+              No type
+            </span>
+          );
+        }
+
+        return (
+          <Badge variant="outline" className="font-normal text-xs">
+            {currentType.label}
+          </Badge>
+        );
+      },
       size: 140,
     },
     {
       accessorKey: "tags",
       header: "Tags",
-      cell: ({ row }) => (
-        <TagsEditor
-          tags={row.original.tags ?? []}
-          productId={row.original.id}
-          onUpdate={(tags) =>
-            updateTagsMutation.mutate({ id: row.original.id, tags })
-          }
-          isPending={updateTagsMutation.isPending}
-        />
-      ),
+      cell: ({ row }) => {
+        const tags = row.original.tags ?? [];
+
+        return (
+          <div className="flex max-w-48 flex-wrap items-center gap-1.5">
+            {tags.length === 0 ? (
+              <span className="text-xs text-foreground/60 dark:text-muted-foreground">
+                No tags
+              </span>
+            ) : (
+              tags.slice(0, 2).map((tag) => (
+                <Badge key={tag} variant="outline" className="font-normal text-xs">
+                  {tag}
+                </Badge>
+              ))
+            )}
+            {tags.length > 2 && (
+              <Badge variant="outline" className="font-normal text-xs">
+                +{tags.length - 2}
+              </Badge>
+            )}
+          </div>
+        );
+      },
       size: 180,
     },
     {
       accessorKey: "metadata",
       header: "Metadata",
       cell: ({ row }) => (
-        <MetadataEditor
+        <MetadataSummary
           metadata={row.original.metadata as ProductMetadata | undefined}
-          productId={row.original.id}
-          onUpdate={(metadata) =>
-            updateMetadataMutation.mutate({
-              id: row.original.id,
-              metadata: metadata,
-            })
-          }
-          isPending={updateMetadataMutation.isPending}
         />
       ),
       size: 140,
@@ -1596,26 +1586,73 @@ function InventoryManagement() {
                   </td>
                 </tr>
               ) : (
-                table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className={cn(
-                      "group transition-colors",
-                      newlySyncedProductIdSet.has(row.original.id)
-                        ? "bg-[#00EC97]/5 hover:bg-[#00EC97]/10"
-                        : "hover:bg-background/40",
-                    )}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
+                table.getRowModel().rows.map((row) => {
+                  const isExpanded = expandedProductId === row.original.id;
+
+                  return (
+                    <Fragment key={row.id}>
+                      <tr
+                        className={cn(
+                          "group transition-colors",
+                          newlySyncedProductIdSet.has(row.original.id)
+                            ? "bg-[#00EC97]/5 hover:bg-[#00EC97]/10"
+                            : "hover:bg-background/40",
                         )}
-                      </td>
-                    ))}
-                  </tr>
-                ))
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="px-4 py-3 align-top">
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td
+                            colSpan={row.getVisibleCells().length}
+                            className="bg-background/30 p-4"
+                          >
+                            <ExpandedProductPanel
+                              product={row.original}
+                              categories={categories}
+                              productTypes={productTypes}
+                              onUpdateCollections={(categoryIds) =>
+                                updateCategoriesMutation.mutate({
+                                  id: row.original.id,
+                                  categoryIds,
+                                })
+                              }
+                              onUpdateType={(slug) =>
+                                updateProductTypeMutation.mutate({
+                                  id: row.original.id,
+                                  productTypeSlug: slug,
+                                })
+                              }
+                              onUpdateTags={(tags) =>
+                                updateTagsMutation.mutate({
+                                  id: row.original.id,
+                                  tags,
+                                })
+                              }
+                              onUpdateMetadata={(metadata) =>
+                                updateMetadataMutation.mutate({
+                                  id: row.original.id,
+                                  metadata,
+                                })
+                              }
+                              isUpdatingCollections={updateCategoriesMutation.isPending}
+                              isUpdatingType={updateProductTypeMutation.isPending}
+                              isUpdatingTags={updateTagsMutation.isPending}
+                              isUpdatingMetadata={updateMetadataMutation.isPending}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -1632,6 +1669,8 @@ function InventoryManagement() {
               const product = row.original;
               const isListed = product.listed !== false;
               const isNewProduct = newlySyncedProductIdSet.has(product.id);
+              const isExpanded = expandedProductId === product.id;
+
               return (
                 <div
                   key={row.id}
@@ -1663,15 +1702,33 @@ function InventoryManagement() {
                       </div>
                     </Link>
                     <div className="flex-1 min-w-0">
-                      <Link
-                        to="/products/$productId"
-                        params={{ productId: product.id }}
-                        className="block w-full"
-                      >
-                        <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground truncate hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors">
-                          {product.title}
-                        </p>
-                      </Link>
+                      <div className="flex items-start justify-between gap-2">
+                        <Link
+                          to="/products/$productId"
+                          params={{ productId: product.id }}
+                          className="block min-w-0 flex-1"
+                        >
+                          <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground truncate hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors">
+                            {product.title}
+                          </p>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 shrink-0 p-0"
+                          onClick={() =>
+                            setExpandedProductId((current) =>
+                              current === product.id ? null : product.id,
+                            )
+                          }
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="size-4" />
+                          ) : (
+                            <ChevronRight className="size-4" />
+                          )}
+                        </Button>
+                      </div>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {isNewProduct && (
                           <Badge className="border-[#00EC97]/40 bg-[#00EC97]/10 text-[#00EC97] hover:bg-[#00EC97]/10">
@@ -1687,6 +1744,7 @@ function InventoryManagement() {
                               {product.collections[0]?.name}
                             </Badge>
                           )}
+                        {product.metadata && <MetadataSummary metadata={product.metadata} />}
                       </div>
                     </div>
                   </div>
@@ -1727,6 +1785,43 @@ function InventoryManagement() {
                       </span>
                     </div>
                   </div>
+                  {isExpanded && (
+                    <div className="border-t border-border/60 pt-4">
+                      <ExpandedProductPanel
+                        product={product}
+                        categories={categories}
+                        productTypes={productTypes}
+                        onUpdateCollections={(categoryIds) =>
+                          updateCategoriesMutation.mutate({
+                            id: product.id,
+                            categoryIds,
+                          })
+                        }
+                        onUpdateType={(slug) =>
+                          updateProductTypeMutation.mutate({
+                            id: product.id,
+                            productTypeSlug: slug,
+                          })
+                        }
+                        onUpdateTags={(tags) =>
+                          updateTagsMutation.mutate({
+                            id: product.id,
+                            tags,
+                          })
+                        }
+                        onUpdateMetadata={(metadata) =>
+                          updateMetadataMutation.mutate({
+                            id: product.id,
+                            metadata,
+                          })
+                        }
+                        isUpdatingCollections={updateCategoriesMutation.isPending}
+                        isUpdatingType={updateProductTypeMutation.isPending}
+                        isUpdatingTags={updateTagsMutation.isPending}
+                        isUpdatingMetadata={updateMetadataMutation.isPending}
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })
