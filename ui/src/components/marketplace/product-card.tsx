@@ -1,6 +1,7 @@
 import { FavoriteButton } from "@/components/marketplace/favorite-button";
 import legionExclusiveLock from "@/assets/images/pngs/legion-exclusive.png";
 import { useFavorites } from "@/hooks/use-favorites";
+import { useNearAccountId } from "@/hooks/use-near-account-id";
 import { useCart } from "@/hooks/use-cart";
 import {
   getPurchaseGatePluginId,
@@ -10,7 +11,7 @@ import {
   requiresSize,
   type ProductMetadata,
 } from "@/integrations/api";
-import { authClient } from "@/lib/auth-client";
+import { useResolvedAssetUrl } from "@/lib/asset-url";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { ShoppingCart } from "lucide-react";
@@ -158,7 +159,7 @@ function VerticalProductLayout({
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<string>("");
-  const nearAccountId = authClient.near.getAccountId();
+  const nearAccountId = useNearAccountId();
   const purchaseGatePluginId = getPurchaseGatePluginId(
     product.metadata as ProductMetadata | undefined,
   );
@@ -282,6 +283,7 @@ function VerticalProductLayout({
   const priceSize = "text-sm";
   const useCompactPriceBadge = variant === "sm";
   const shouldDimProduct = isPurchaseGated && !canPurchase && !isPurchaseGateLoading;
+  const exclusiveLockImageSrc = useResolvedAssetUrl(legionExclusiveLock);
 
   return (
     <div
@@ -325,10 +327,13 @@ function VerticalProductLayout({
           <div className="pointer-events-none absolute inset-0 z-[18] flex items-center justify-center">
             <div className="relative flex h-full w-full flex-col items-center justify-center gap-3 bg-black/10 px-6 text-center">
               <img
-                src={legionExclusiveLock}
+                src={exclusiveLockImageSrc}
                 alt="Legion SBT required"
-                loading="lazy"
+                loading="eager"
                 decoding="async"
+                fetchPriority="high"
+                width={500}
+                height={500}
                 className="w-32 max-w-[42%] object-contain opacity-95 drop-shadow-[0_12px_30px_rgba(0,0,0,0.45)]"
               />
               <a

@@ -74,6 +74,7 @@ export function createRouter(opts: CreateRouterOptions = {}) {
       assetsUrl: opts.context?.assetsUrl ?? "",
       runtimeConfig: opts.context?.runtimeConfig,
       session: opts.context?.session,
+      nearAccountId: opts.context?.nearAccountId ?? null,
     },
     defaultPreload: "intent",
     scrollRestoration: true,

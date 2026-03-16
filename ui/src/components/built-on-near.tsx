@@ -1,5 +1,6 @@
 import builtOnLight from "@/assets/images/pngs/built_on.png";
 import builtOnDark from "@/assets/images/pngs/built_on_rev.png";
+import { useResolvedAssetUrl } from "@/lib/asset-url";
 import { cn } from "@/lib/utils";
 
 interface BuiltOnNearProps {
@@ -7,6 +8,9 @@ interface BuiltOnNearProps {
 }
 
 export function BuiltOnNear({ className }: BuiltOnNearProps) {
+  const builtOnLightSrc = useResolvedAssetUrl(builtOnLight);
+  const builtOnDarkSrc = useResolvedAssetUrl(builtOnDark);
+
   return (
     <a
       href="https://near.org"
@@ -16,12 +20,12 @@ export function BuiltOnNear({ className }: BuiltOnNearProps) {
       aria-label="Built on NEAR"
     >
       <img
-        src={builtOnLight}
+        src={builtOnLightSrc}
         alt="Built on NEAR"
         className="h-8 w-auto dark:hidden"
       />
       <img
-        src={builtOnDark}
+        src={builtOnDarkSrc}
         alt="Built on NEAR"
         className="h-8 w-auto hidden dark:block"
       />
