@@ -3,6 +3,7 @@ import { Effect } from 'every-plugin/effect';
 import { z } from 'every-plugin/zod';
 import { PaymentContract } from '../contract';
 import { PingPayService, PingPayServiceLive } from './service';
+import type { FeeConfig } from '../../../schema';
 
 export default createPlugin({
   variables: z.object({
@@ -57,7 +58,8 @@ export default createPlugin({
         Effect.runPromise(
           Effect.gen(function* () {
             const service = yield* PingPayService;
-            return yield* service.createCheckout(input);
+            const fees = input.fees as FeeConfig[] | undefined;
+            return yield* service.createCheckout(input, fees);
           }).pipe(Effect.provide(serviceLayer))
         )
       ),

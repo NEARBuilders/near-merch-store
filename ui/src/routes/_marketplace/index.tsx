@@ -139,7 +139,7 @@ function MarketplaceHome() {
       badge: collection.badge || "COLLECTION",
       title: (collection.carouselTitle || collection.name).split(' ').slice(0, 3).join(' ').toUpperCase(),
       subtitle: (collection.carouselTitle || collection.name).split(' ').slice(3).join(' ').toUpperCase() || "COLLECTION",
-      description: collection.carouselDescription || collection.description || `Discover ${collection.name} - exclusive NEAR merch collection`,
+      description: collection.carouselDescription || collection.description || `Discover ${collection.name} in the NEAR merch store`,
       buttonText: "View Collection",
       image: collection.featuredProduct?.thumbnailImage || null,
       gradientFrom: "#012216",
@@ -561,7 +561,7 @@ function MarketplaceHome() {
                     Stay Updated
                   </h3>
                   <p className="text-xs md:text-sm lg:text-base text-foreground/90 dark:text-muted-foreground">
-                    Subscribe to receive the latest NEAR merch updates and exclusive offers
+                    Subscribe to receive the latest NEAR merch updates and new product drops
                   </p>
                 </div>
                 <form

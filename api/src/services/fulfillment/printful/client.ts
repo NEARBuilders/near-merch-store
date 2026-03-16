@@ -486,6 +486,55 @@ export class PrintfulClient {
     return results;
   }
 
+  async getCatalogProduct(productId: number): Promise<{
+    id: number;
+    name: string;
+    brand?: string;
+    model?: string;
+    description?: string;
+    techniques?: string[];
+    placements?: string[];
+  } | null> {
+    try {
+      const result = await this.executeWithRateLimit(
+        () => this.sdk.catalogV2.getProductById(productId),
+        `getCatalogProduct(${productId})`
+      );
+      
+      const data = result as { data?: any };
+      if (!data?.data) return null;
+      
+      const product = data.data;
+      const techniques = new Set<string>();
+      const placements = new Set<string>();
+      
+      if (product.variants && Array.isArray(product.variants)) {
+        for (const variant of product.variants) {
+          if (variant.techniques && Array.isArray(variant.techniques)) {
+            variant.techniques.forEach((t: string) => techniques.add(t));
+          }
+          if (variant.placements && Array.isArray(variant.placements)) {
+            variant.placements.forEach((p: string) => placements.add(p));
+          }
+        }
+      }
+      
+      return {
+        id: product.id ?? productId,
+        name: product.name ?? '',
+        brand: product.brand ?? undefined,
+        model: product.model ?? undefined,
+        description: product.description ?? undefined,
+        techniques: techniques.size > 0 ? Array.from(techniques) : undefined,
+        placements: placements.size > 0 ? Array.from(placements) : undefined,
+      };
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      console.log(`[PrintfulClient] Catalog product ${productId} not available: ${errorMessage}`);
+      return null;
+    }
+  }
+
   async createOrder(orderInput: {
     external_id?: string;
     shipping?: string;

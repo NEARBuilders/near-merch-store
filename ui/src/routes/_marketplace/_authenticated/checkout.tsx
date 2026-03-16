@@ -2,7 +2,7 @@ import { useCart } from '@/hooks/use-cart';
 import { useNearPrice } from '@/hooks/use-near-price';
 import { useFormPersistence } from '@/hooks/use-form-persistence';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsUpDown, Info } from 'lucide-react';
 import pingpayLogoDark from '@/assets/pingpay/pingpay-logo-dark.png';
 import { useState, useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -31,6 +31,27 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Country, State } from 'country-state-city';
 import type { IState } from 'country-state-city';
 import { cn } from '@/lib/utils';
+import {
+  getPurchaseGatePluginId,
+  usePurchaseGateAccessMap,
+  type ProductMetadata,
+  type PurchaseGatePluginId,
+} from '@/integrations/api';
+
+function getTotalFeePercentage(metadata: ProductMetadata | undefined): number {
+  if (!metadata?.fees?.length) return 0;
+  const totalBps = metadata.fees.reduce((sum, f) => sum + f.bps, 0);
+  return totalBps / 100;
+}
+
+function getTotalFeesFromCart(cartItems: ReturnType<typeof useCart>['cartItems']): number {
+  let totalFees = 0;
+  for (const item of cartItems) {
+    const feePct = getTotalFeePercentage(item.product.metadata as ProductMetadata | undefined);
+    totalFees += (item.product.price * item.quantity * feePct) / 100;
+  }
+  return totalFees;
+}
 
 export const Route = createFileRoute("/_marketplace/_authenticated/checkout")({
   component: CheckoutPage,
@@ -42,6 +63,7 @@ type ShippingAddress = Parameters<typeof apiClient.quote>[0]['shippingAddress'];
 function CheckoutPage() {
   const { cartItems, subtotal } = useCart();
   const { nearPrice, isLoading: isLoadingNearPrice } = useNearPrice();
+  const nearAccountId = authClient.near.getAccountId();
   const [discountCode, setDiscountCode] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
@@ -51,6 +73,25 @@ function CheckoutPage() {
   const [countryOpen, setCountryOpen] = useState(false);
   const [stateOpen, setStateOpen] = useState(false);
   const navigate = useNavigate();
+  const totalFees = getTotalFeesFromCart(cartItems);
+  const gatedPluginIds = Array.from(
+    new Set(
+      cartItems
+        .map((item) =>
+          getPurchaseGatePluginId(item.product.metadata as ProductMetadata | undefined),
+        )
+        .filter((pluginId): pluginId is PurchaseGatePluginId => Boolean(pluginId)),
+    ),
+  );
+  const { accessByPlugin, isLoading: isPurchaseGateLoading } =
+    usePurchaseGateAccessMap(gatedPluginIds, nearAccountId);
+  const hasBlockedItems = cartItems.some((item) => {
+    const pluginId = getPurchaseGatePluginId(
+      item.product.metadata as ProductMetadata | undefined,
+    );
+
+    return pluginId ? !accessByPlugin.get(pluginId) : false;
+  });
 
   const fieldRefs = useRef<Map<string, HTMLElement>>(new Map());
   const countries = useMemo(() => Country.getAllCountries(), []);
@@ -946,6 +987,15 @@ function CheckoutPage() {
                   <span className="text-foreground/70 dark:text-muted-foreground">Subtotal</span>
                   <span className="text-foreground/90 dark:text-muted-foreground">${subtotal.toFixed(2)}</span>
                 </div>
+                {totalFees > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground/70 dark:text-muted-foreground flex items-center gap-1">
+                      <Info className="size-3" />
+                      Creator Fees
+                    </span>
+                    <span className="text-foreground/90 dark:text-muted-foreground">${totalFees.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-foreground/70 dark:text-muted-foreground">Shipping</span>
                   <span className="text-foreground/90 dark:text-muted-foreground">
@@ -1086,6 +1136,14 @@ function CheckoutPage() {
                       }
                       if (!hasAcceptedTerms) {
                         return { disabled: true, reason: 'Please accept the Terms of Service' };
+                      }
+                      if (hasBlockedItems) {
+                        return {
+                          disabled: true,
+                          reason: isPurchaseGateLoading
+                            ? 'Checking Legion holder access'
+                            : 'Your account cannot purchase one or more Legion-gated items',
+                        };
                       }
                       return { disabled: false, reason: '' };
                     };

@@ -1,10 +1,19 @@
 import { FavoriteButton } from "@/components/marketplace/favorite-button";
+import legionExclusiveLock from "@/assets/images/pngs/legion-exclusive.png";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useCart } from "@/hooks/use-cart";
-import { type Product, useSuspenseProduct, requiresSize } from "@/integrations/api";
+import {
+  getPurchaseGatePluginId,
+  type Product,
+  usePurchaseGateAccess,
+  useSuspenseProduct,
+  requiresSize,
+  type ProductMetadata,
+} from "@/integrations/api";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { ShoppingCart } from "lucide-react";
+import { Lock, ShoppingCart } from "lucide-react";
 import React, { useCallback, useState, useEffect } from "react";
 import { useCartSidebarStore } from "@/stores/cart-sidebar-store";
 import {
@@ -13,6 +22,12 @@ import {
   getOptionValue,
   getVariantImageUrl,
 } from "@/lib/product-utils";
+
+function getTotalFeePercentage(metadata: ProductMetadata | undefined): number {
+  if (!metadata?.fees?.length) return 0;
+  const totalBps = metadata.fees.reduce((sum, f) => sum + f.bps, 0);
+  return totalBps / 100;
+}
 
 interface ProductCardProps {
   product?: Product;
@@ -143,6 +158,15 @@ function VerticalProductLayout({
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<string>("");
+  const nearAccountId = authClient.near.getAccountId();
+  const purchaseGatePluginId = getPurchaseGatePluginId(
+    product.metadata as ProductMetadata | undefined,
+  );
+  const {
+    hasAccess: canPurchase,
+    isGated: isPurchaseGated,
+    isLoading: isPurchaseGateLoading,
+  } = usePurchaseGateAccess(purchaseGatePluginId, nearAccountId);
 
   const colorOption = product?.options?.find((opt) => opt.name === "Color");
   const sizeOption = product?.options?.find((opt) => opt.name === "Size");
@@ -177,19 +201,25 @@ function VerticalProductLayout({
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (!canPurchase) {
+        return;
+      }
       if (orderedColors.length > 0 || orderedSizes.length > 0) {
         setIsExpanded(!isExpanded);
       } else if (onQuickAdd) {
         onQuickAdd(product);
       }
     },
-    [product, onQuickAdd, isExpanded, orderedColors.length, orderedSizes.length]
+    [canPurchase, product, onQuickAdd, isExpanded, orderedColors.length, orderedSizes.length]
   );
 
   const handleAddToCart = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (!canPurchase) {
+        return;
+      }
       
       let selectedVariantId: string | undefined;
       let finalColor = selectedColor || "N/A";
@@ -226,7 +256,7 @@ function VerticalProductLayout({
         openCartSidebar();
       }
     },
-    [product, addToCart, selectedColor, selectedSize, orderedColors, orderedSizes, availableVariants, needsSize, openCartSidebar]
+    [canPurchase, product, addToCart, selectedColor, selectedSize, orderedColors, orderedSizes, availableVariants, needsSize, openCartSidebar]
   );
 
   const isFavorite = favoriteIds.includes(product.id);
@@ -244,6 +274,7 @@ function VerticalProductLayout({
   const titleSize =
     variant === "sm" ? "text-sm" : variant === "lg" ? "text-xl" : "text-lg";
   const priceSize = "text-sm";
+  const shouldDimProduct = isPurchaseGated && !canPurchase && !isPurchaseGateLoading;
 
   return (
     <div
@@ -271,7 +302,10 @@ function VerticalProductLayout({
               decoding="async"
               width={400}
               height={400}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10"
+              className={cn(
+                "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 relative z-10",
+                shouldDimProduct && "grayscale brightness-75"
+              )}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-foreground/90 dark:text-muted-foreground bg-muted relative z-10">
@@ -280,15 +314,55 @@ function VerticalProductLayout({
           )}
         </Link>
 
+        {shouldDimProduct && (
+          <div className="pointer-events-none absolute inset-0 z-[18] flex items-center justify-center">
+            <div className="relative flex h-full w-full items-center justify-center bg-black/10">
+              <img
+                src={legionExclusiveLock}
+                alt="Product unavailable"
+                loading="lazy"
+                decoding="async"
+                className="w-32 max-w-[42%] object-contain opacity-95 drop-shadow-[0_12px_30px_rgba(0,0,0,0.45)] transition-transform duration-300 group-hover:scale-105"
+              />
+              <div className="absolute inset-x-4 bottom-4 rounded-xl bg-background/85 px-3 py-2 text-center text-xs font-semibold text-foreground opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
+                This product is not available
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Gradient overlay for text readability - only at bottom to help title stand out */}
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background via-background/60 to-transparent z-[15] pointer-events-none"></div>
 
         {/* Price badge - top left corner */}
         {!hidePrice && (
-          <div className="absolute top-3 left-3 p-2 bg-background/60 backdrop-blur-sm border border-border/60 rounded-lg z-20 flex items-center">
+          <div className="absolute top-3 left-3 p-2 bg-background/60 backdrop-blur-sm border border-border/60 rounded-lg z-20 flex items-center gap-2">
             <div className={cn("font-medium text-[#00EC97]", priceSize)}>
               ${product.price ? product.price.toFixed(2) : "0.00"}
             </div>
+            {(() => {
+              const feePct = getTotalFeePercentage(product.metadata as ProductMetadata | undefined);
+              if (feePct > 0) {
+                return (
+                  <div className="text-xs text-foreground/60">
+                    ({feePct}% fees)
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
+        )}
+
+        {isPurchaseGated && (
+          <div
+            className={cn(
+              "absolute top-3 px-2 py-1 bg-background/80 backdrop-blur-sm border border-border/60 rounded-lg z-20 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/80",
+              hideFavorite ? "right-3" : "right-14"
+            )}
+          >
+            <Lock className="size-3" />
+            Legion
           </div>
         )}
 
@@ -304,6 +378,7 @@ function VerticalProductLayout({
               <h3
                 className={cn(
                   "font-medium text-foreground truncate leading-tight transition-colors hover:text-[#00EC97] drop-shadow-lg",
+                  shouldDimProduct && "text-foreground/70",
                   titleSize
                 )}
               >
@@ -326,7 +401,7 @@ function VerticalProductLayout({
           />
         )}
 
-        {!hideActions && !isExpanded && (
+        {!hideActions && !isExpanded && canPurchase && (
           <button
             type="button"
             onClick={handleQuickAddClick}
@@ -339,6 +414,13 @@ function VerticalProductLayout({
               +ADD
             </span>
           </button>
+        )}
+
+        {!hideActions && !isExpanded && isPurchaseGated && !canPurchase && (
+          <div className="absolute bottom-3 right-3 px-3 py-2 bg-background/80 backdrop-blur-sm border border-border/60 rounded-lg z-30 flex items-center gap-2 text-xs font-semibold text-foreground/80">
+            <Lock className="size-3.5" />
+            {nearAccountId ? "Holder Only" : "Login to Unlock"}
+          </div>
         )}
 
         {/* Expanded Quick Add Section - appears at bottom of image */}
@@ -439,7 +521,8 @@ function VerticalProductLayout({
               <button
                 type="button"
                 onClick={handleAddToCart}
-                className="flex-1 bg-[#00EC97] text-black h-9 flex items-center justify-center rounded-lg text-sm font-medium hover:bg-[#00d97f] transition-colors"
+                className="flex-1 bg-[#00EC97] text-black h-9 flex items-center justify-center rounded-lg text-sm font-medium hover:bg-[#00d97f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!canPurchase}
               >
                 Add to Cart
               </button>

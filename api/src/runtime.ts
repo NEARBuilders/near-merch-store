@@ -6,6 +6,11 @@ import PrintfulPlugin from './services/fulfillment/printful';
 import { PaymentContract } from './services/payment';
 import PingPayPlugin from './services/payment/pingpay';
 import StripePlugin from './services/payment/stripe';
+import {
+  ExclusiveCheckContract,
+  LegionHolderPlugin,
+  WhitelistPlugin,
+} from './services/exclusive';
 import { ReturnAddress } from './schema';
 
 export interface FulfillmentConfig {
@@ -32,6 +37,10 @@ export interface PaymentConfig {
   };
 }
 
+export interface ExclusiveCheckConfig {
+  nodeUrl: string;
+}
+
 export interface FulfillmentProvider {
   name: string;
   client: ContractRouterClient<typeof FulfillmentContract>
@@ -44,9 +53,16 @@ export interface PaymentProvider {
   router: any;
 }
 
+export interface ExclusiveCheckProvider {
+  name: string;
+  client: ContractRouterClient<typeof ExclusiveCheckContract>;
+  router: any;
+}
+
 export async function createMarketplaceRuntime(
   fulfillmentConfig: FulfillmentConfig,
-  paymentConfig?: PaymentConfig
+  paymentConfig?: PaymentConfig,
+  exclusiveCheckConfig?: ExclusiveCheckConfig,
 ) {
   const runtime = createPluginRuntime({
     registry: {
@@ -54,12 +70,15 @@ export async function createMarketplaceRuntime(
       gelato: { module: GelatoPlugin },
       stripe: { module: StripePlugin },
       pingpay: { module: PingPayPlugin },
+      'legion-holder': { module: LegionHolderPlugin },
+      whitelist: { module: WhitelistPlugin },
     },
     secrets: {},
   });
 
   const providers: FulfillmentProvider[] = [];
   const paymentProviders: PaymentProvider[] = [];
+  const exclusiveCheckProviders: ExclusiveCheckProvider[] = [];
 
   if (fulfillmentConfig.printful?.apiKey && fulfillmentConfig.printful?.storeId) {
     try {
@@ -151,11 +170,47 @@ export async function createMarketplaceRuntime(
   console.log(`[MarketplaceRuntime] Enabled fulfillment providers: ${providers.map((p) => p.name).join(', ') || 'none'}`);
   console.log(`[MarketplaceRuntime] Enabled payment providers: ${paymentProviders.map((p) => p.name).join(', ') || 'none'}`);
 
+  try {
+    const legionHolder = await runtime.usePlugin('legion-holder', {
+      variables: {
+        nodeUrl: exclusiveCheckConfig?.nodeUrl || 'https://rpc.mainnet.near.org',
+      },
+      secrets: {},
+    });
+    exclusiveCheckProviders.push({
+      name: 'legion-holder',
+      client: legionHolder.createClient(),
+      router: legionHolder.router,
+    });
+    console.log('[MarketplaceRuntime] Legion holder exclusive check provider initialized');
+  } catch (error) {
+    console.error('[MarketplaceRuntime] Failed to initialize Legion holder provider:', error);
+  }
+
+  try {
+    const whitelist = await runtime.usePlugin('whitelist', {
+      variables: {},
+      secrets: {},
+    });
+    exclusiveCheckProviders.push({
+      name: 'whitelist',
+      client: whitelist.createClient(),
+      router: whitelist.router,
+    });
+    console.log('[MarketplaceRuntime] Whitelist exclusive check provider initialized');
+  } catch (error) {
+    console.error('[MarketplaceRuntime] Failed to initialize Whitelist:', error);
+  }
+
+  console.log(`[MarketplaceRuntime] Enabled exclusive check providers: ${exclusiveCheckProviders.map((p) => p.name).join(', ') || 'none'}`);
+
   return {
     providers,
     paymentProviders,
+    exclusiveCheckProviders,
     getProvider: (name: string) => providers.find((p) => p.name === name) ?? null,
     getPaymentProvider: (name: string) => paymentProviders.find((p) => p.name === name) ?? null,
+    getExclusiveCheckProvider: (name: string) => exclusiveCheckProviders.find((p) => p.name === name) ?? null,
     shutdown: () => runtime.shutdown(),
   } as const;
 }

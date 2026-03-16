@@ -1,4 +1,4 @@
-import { z } from 'every-plugin/zod';
+import { z } from "every-plugin/zod";
 
 export const AttributeSchema = z.object({
   name: z.string(),
@@ -24,12 +24,18 @@ export const FulfillmentConfigSchema = z.object({
   providerData: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const ProductImageTypeSchema = z.enum(['primary', 'mockup', 'preview', 'detail', 'catalog']);
+export const ProductImageTypeSchema = z.enum([
+  "primary",
+  "mockup",
+  "preview",
+  "detail",
+  "catalog",
+]);
 
 export const MockupConfigSchema = z.object({
   styles: z.array(z.string()).optional(),
   placements: z.array(z.string()).optional(),
-  format: z.enum(['jpg', 'png']).optional(),
+  format: z.enum(["jpg", "png"]).optional(),
   generateOnSync: z.boolean().optional(),
 });
 
@@ -50,7 +56,7 @@ export const ProductVariantSchema = z.object({
   sku: z.string().optional(),
   price: z.number(),
   compareAtPrice: z.number().optional(),
-  currency: z.string().default('USD'),
+  currency: z.string().default("USD"),
   attributes: z.array(AttributeSchema),
   imageIds: z.array(z.string()).optional(),
   externalVariantId: z.string().optional(),
@@ -91,14 +97,61 @@ export const ProductTypeSchema = z.object({
 
 export type ProductType = z.infer<typeof ProductTypeSchema>;
 
+export const FeeConfigSchema = z.object({
+  type: z.enum(["royalty", "affiliate", "platform", "custom"]),
+  label: z.string(),
+  recipient: z.string(),
+  bps: z.number().int().min(0).max(10000),
+});
+
+export type FeeConfig = z.infer<typeof FeeConfigSchema>;
+
+export const PrintfulProviderDetailsSchema = z.object({
+  brand: z.string().optional(),
+  model: z.string().optional(),
+  description: z.string().optional(),
+  techniques: z.array(z.string()).optional(),
+  placements: z.array(z.string()).optional(),
+  gsm: z.number().optional(),
+  material: z.string().optional(),
+});
+
+export type PrintfulProviderDetails = z.infer<typeof PrintfulProviderDetailsSchema>;
+
+export const ProviderDetailsSchema = z.object({
+  printful: PrintfulProviderDetailsSchema.optional(),
+});
+
+export type ProviderDetails = z.infer<typeof ProviderDetailsSchema>;
+
+export const PurchaseGatePluginIdSchema = z.enum(["legion-holder"]);
+
+export const PurchaseGateSchema = z.object({
+  pluginId: PurchaseGatePluginIdSchema.optional(),
+});
+
+export type PurchaseGatePluginId = z.infer<typeof PurchaseGatePluginIdSchema>;
+export type PurchaseGate = z.infer<typeof PurchaseGateSchema>;
+
+export const ProductMetadataSchema = z.object({
+  creatorAccountId: z.string().optional(),
+  fees: z.array(FeeConfigSchema).default([]),
+  providerDetails: ProviderDetailsSchema.optional(),
+  purchaseGate: PurchaseGateSchema.optional(),
+});
+
+export type ProductMetadata = z.infer<typeof ProductMetadataSchema>;
+
 export const ProductSchema = z.object({
   id: z.string(),
   slug: z.string(),
   title: z.string(),
+  createdAt: z.string().datetime(),
+  lastSyncedAt: z.string().datetime().optional(),
   handle: z.string().optional(),
   description: z.string().optional(),
   price: z.number(),
-  currency: z.string().default('USD'),
+  currency: z.string().default("USD"),
   brand: z.string().optional(),
   productType: ProductTypeSchema.optional(),
   tags: z.array(z.string()).default([]),
@@ -109,11 +162,12 @@ export const ProductSchema = z.object({
   variants: z.array(ProductVariantSchema).default([]),
   designFiles: z.array(DesignFileSchema).default([]),
   thumbnailImage: z.string().optional(),
-  fulfillmentProvider: z.string().default('manual'),
+  fulfillmentProvider: z.string().default("manual"),
   externalProductId: z.string().optional(),
   source: z.string().optional(),
   vendor: z.string().optional(),
   listed: z.boolean().default(true),
+  metadata: ProductMetadataSchema.optional(),
 });
 
 export type Product = z.infer<typeof ProductSchema>;
@@ -124,12 +178,14 @@ export type ProductImage = z.infer<typeof ProductImageSchema>;
 export type ProductImageType = z.infer<typeof ProductImageTypeSchema>;
 export type MockupConfig = z.infer<typeof MockupConfigSchema>;
 export type Collection = z.infer<typeof CollectionSchema>;
-export type CollectionFeaturedProduct = z.infer<typeof CollectionFeaturedProductSchema>;
+export type CollectionFeaturedProduct = z.infer<
+  typeof CollectionFeaturedProductSchema
+>;
 export type FulfillmentConfig = z.infer<typeof FulfillmentConfigSchema>;
 
 const emptyStringToUndefined = (value: unknown) => {
   if (value === null || value === undefined) return undefined;
-  if (typeof value !== 'string') return value;
+  if (typeof value !== "string") return value;
   const trimmed = value.trim();
   return trimmed.length === 0 ? undefined : trimmed;
 };
@@ -161,22 +217,22 @@ export const DeliveryEstimateSchema = z.object({
 });
 
 export const OrderStatusSchema = z.enum([
-  'pending',
-  'draft_created',
-  'payment_pending',
-  'paid',
-  'paid_pending_fulfillment',
-  'payment_failed',
-  'expired',
-  'processing',
-  'on_hold',
-  'shipped',
-  'delivered',
-  'returned',
-  'cancelled',
-  'partially_cancelled',
-  'failed',
-  'refunded'
+  "pending",
+  "draft_created",
+  "payment_pending",
+  "paid",
+  "paid_pending_fulfillment",
+  "payment_failed",
+  "expired",
+  "processing",
+  "on_hold",
+  "shipped",
+  "delivered",
+  "returned",
+  "cancelled",
+  "partially_cancelled",
+  "failed",
+  "refunded",
 ]);
 
 export const TrackingInfoSchema = z.object({
@@ -210,7 +266,7 @@ export const OrderSchema = z.object({
   totalAmount: z.number(),
   currency: z.string(),
   checkoutSessionId: z.string().optional(),
-  checkoutProvider: z.enum(['stripe', 'near', 'pingpay']).optional(),
+  checkoutProvider: z.enum(["stripe", "near", "pingpay"]).optional(),
   draftOrderIds: z.record(z.string(), z.string()).optional(),
   paymentDetails: z.record(z.string(), z.unknown()).optional(),
   shippingMethod: z.string().optional(),
@@ -232,17 +288,19 @@ export type OrderItem = z.infer<typeof OrderItemSchema>;
 export type Order = z.infer<typeof OrderSchema>;
 
 export const CreateCheckoutInputSchema = z.object({
-  items: z.array(z.object({
-    productId: z.string(),
-    variantId: z.string().optional(),
-    quantity: z.number().int().positive().default(1),
-  })),
+  items: z.array(
+    z.object({
+      productId: z.string(),
+      variantId: z.string().optional(),
+      quantity: z.number().int().positive().default(1),
+    }),
+  ),
   shippingAddress: ShippingAddressSchema,
   selectedRates: z.record(z.string(), z.string()),
   shippingCost: z.number(),
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
-  paymentProvider: z.enum(['stripe', 'pingpay']).default('stripe'),
+  paymentProvider: z.enum(["stripe", "pingpay"]).default("stripe"),
 });
 
 export const CreateCheckoutOutputSchema = z.object({
@@ -264,16 +322,25 @@ export const SubscribeNewsletterInputSchema = z.object({
   email: z.string().trim().email().max(320),
 });
 
-export const NewsletterSubscribeStatusSchema = z.enum(['subscribed', 'already_subscribed']);
+export const NewsletterSubscribeStatusSchema = z.enum([
+  "subscribed",
+  "already_subscribed",
+]);
 
 export const SubscribeNewsletterOutputSchema = z.object({
   success: z.boolean(),
   status: NewsletterSubscribeStatusSchema,
 });
 
-export type SubscribeNewsletterInput = z.infer<typeof SubscribeNewsletterInputSchema>;
-export type NewsletterSubscribeStatus = z.infer<typeof NewsletterSubscribeStatusSchema>;
-export type SubscribeNewsletterOutput = z.infer<typeof SubscribeNewsletterOutputSchema>;
+export type SubscribeNewsletterInput = z.infer<
+  typeof SubscribeNewsletterInputSchema
+>;
+export type NewsletterSubscribeStatus = z.infer<
+  typeof NewsletterSubscribeStatusSchema
+>;
+export type SubscribeNewsletterOutput = z.infer<
+  typeof SubscribeNewsletterOutputSchema
+>;
 
 export const ReturnAddressSchema = ShippingAddressSchema;
 
@@ -367,7 +434,7 @@ export const OrderWithItemsSchema = z.object({
   totalAmount: z.number(),
   currency: z.string(),
   checkoutSessionId: z.string().optional(),
-  checkoutProvider: z.enum(['stripe', 'near', 'pingpay']).optional(),
+  checkoutProvider: z.enum(["stripe", "near", "pingpay"]).optional(),
   draftOrderIds: z.record(z.string(), z.string()).optional(),
   paymentDetails: z.record(z.string(), z.unknown()).optional(),
   shippingMethod: z.string().optional(),
@@ -429,38 +496,42 @@ export const QuoteOutputSchema = z.object({
   total: z.number(),
   currency: z.string(),
   providerBreakdown: z.array(ProviderBreakdownSchema),
-  estimatedDelivery: z.object({
-    minDays: z.number().optional(),
-    maxDays: z.number().optional(),
-  }).optional(),
+  estimatedDelivery: z
+    .object({
+      minDays: z.number().optional(),
+      maxDays: z.number().optional(),
+    })
+    .optional(),
 });
 
 export type QuoteItemInput = z.infer<typeof QuoteItemInputSchema>;
-export type ProviderShippingOption = z.infer<typeof ProviderShippingOptionSchema>;
+export type ProviderShippingOption = z.infer<
+  typeof ProviderShippingOptionSchema
+>;
 export type ProviderBreakdown = z.infer<typeof ProviderBreakdownSchema>;
 export type TaxBreakdown = z.infer<typeof TaxBreakdownSchema>;
 export type QuoteOutput = z.infer<typeof QuoteOutputSchema>;
 
 export const PrintfulWebhookEventTypeSchema = z.enum([
-  'shipment_sent',
-  'shipment_delivered',
-  'shipment_returned',
-  'shipment_canceled',
-  'shipment_out_of_stock',
-  'shipment_put_hold',
-  'shipment_put_hold_approval',
-  'shipment_remove_hold',
-  'order_created',
-  'order_updated',
-  'order_failed',
-  'order_canceled',
-  'order_put_hold',
-  'order_put_hold_approval',
-  'order_remove_hold',
-  'order_refunded',
-  'catalog_stock_updated',
-  'catalog_price_changed',
-  'mockup_task_finished',
+  "shipment_sent",
+  "shipment_delivered",
+  "shipment_returned",
+  "shipment_canceled",
+  "shipment_out_of_stock",
+  "shipment_put_hold",
+  "shipment_put_hold_approval",
+  "shipment_remove_hold",
+  "order_created",
+  "order_updated",
+  "order_failed",
+  "order_canceled",
+  "order_put_hold",
+  "order_put_hold_approval",
+  "order_remove_hold",
+  "order_refunded",
+  "catalog_stock_updated",
+  "catalog_price_changed",
+  "mockup_task_finished",
 ]);
 
 export const PrintfulEventConfigSchema = z.object({
@@ -470,7 +541,7 @@ export const PrintfulEventConfigSchema = z.object({
 });
 
 export const ProviderConfigSchema = z.object({
-  provider: z.literal('printful'),
+  provider: z.literal("printful"),
   enabled: z.boolean(),
   webhookUrl: z.string().nullable(),
   webhookUrlOverride: z.string().nullable(),
@@ -484,7 +555,7 @@ export const ProviderConfigSchema = z.object({
 });
 
 export const ConfigureWebhookInputSchema = z.object({
-  provider: z.literal('printful'),
+  provider: z.literal("printful"),
   webhookUrlOverride: z.string().url().nullable().optional(),
   events: z.array(PrintfulWebhookEventTypeSchema).min(1),
   expiresAt: z.string().datetime().nullable().optional(),
@@ -498,11 +569,15 @@ export const ConfigureWebhookOutputSchema = z.object({
   expiresAt: z.number().nullable(),
 });
 
-export type PrintfulWebhookEventType = z.infer<typeof PrintfulWebhookEventTypeSchema>;
+export type PrintfulWebhookEventType = z.infer<
+  typeof PrintfulWebhookEventTypeSchema
+>;
 export type PrintfulEventConfig = z.infer<typeof PrintfulEventConfigSchema>;
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 export type ConfigureWebhookInput = z.infer<typeof ConfigureWebhookInputSchema>;
-export type ConfigureWebhookOutput = z.infer<typeof ConfigureWebhookOutputSchema>;
+export type ConfigureWebhookOutput = z.infer<
+  typeof ConfigureWebhookOutputSchema
+>;
 
 export const OrderStatusEventSchema = z.object({
   status: OrderStatusSchema,
@@ -513,11 +588,11 @@ export const OrderStatusEventSchema = z.object({
 export type OrderStatusEvent = z.infer<typeof OrderStatusEventSchema>;
 
 export const OrderAuditLogActionSchema = z.enum([
-  'status_change',
-  'tracking_update',
-  'fulfillment_update',
-  'admin_edit',
-  'delete',
+  "status_change",
+  "tracking_update",
+  "fulfillment_update",
+  "admin_edit",
+  "delete",
 ]);
 
 export const OrderAuditLogSchema = z.object({
@@ -553,10 +628,12 @@ export const DeleteOrdersInputSchema = z.object({
 export const DeleteOrdersOutputSchema = z.object({
   success: z.boolean(),
   deleted: z.number(),
-  errors: z.array(z.object({
-    orderId: z.string(),
-    error: z.string(),
-  })),
+  errors: z.array(
+    z.object({
+      orderId: z.string(),
+      error: z.string(),
+    }),
+  ),
 });
 
 export const GetOrderAuditLogOutputSchema = z.object({
