@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.1
+
+### Patch Changes
+
+- ea92005: Fix marketplace variant selection so single-color products auto-select correctly on product pages and quick add flows.
+- ea92005: Add a mint link to the Legion SBT required label on gated product cards.
+
 ## 1.4.0
 
 ### Minor Changes
