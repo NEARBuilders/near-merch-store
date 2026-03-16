@@ -167,7 +167,6 @@ function ProductDetailPage() {
     hasAccess: canPurchase,
     isLoading: isAccessLoading,
   } = usePurchaseGateAccess(purchaseGatePluginId, nearAccountId);
-  const shouldDimProduct = isGatedProduct && !canPurchase && !isAccessLoading;
 
   const availableVariants = product.variants || [];
   const hasVariants = availableVariants.length > 0;
@@ -388,10 +387,7 @@ function ProductDetailPage() {
                     alt={`${product.title} - Image ${index + 1}`}
                     loading={index === currentImageIndex ? "eager" : "lazy"}
                     decoding="async"
-                    className={cn(
-                      "w-full h-full object-cover relative z-10",
-                      shouldDimProduct && "grayscale brightness-75"
-                    )}
+                    className="w-full h-full object-cover relative z-10"
                   />
                 </div>
               ))}

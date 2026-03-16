@@ -274,6 +274,7 @@ function VerticalProductLayout({
   const titleSize =
     variant === "sm" ? "text-sm" : variant === "lg" ? "text-xl" : "text-lg";
   const priceSize = "text-sm";
+  const useCompactPriceBadge = variant === "sm";
   const shouldDimProduct = isPurchaseGated && !canPurchase && !isPurchaseGateLoading;
 
   return (
@@ -336,7 +337,12 @@ function VerticalProductLayout({
 
         {/* Price badge - top left corner */}
         {!hidePrice && (
-          <div className="absolute top-3 left-3 p-2 bg-background/60 backdrop-blur-sm border border-border/60 rounded-lg z-20 flex items-center gap-2">
+          <div
+            className={cn(
+              "absolute top-3 left-3 rounded-lg border border-border/60 bg-background/60 p-2 backdrop-blur-sm z-20",
+              useCompactPriceBadge ? "flex flex-col items-start gap-0.5" : "flex items-center gap-2"
+            )}
+          >
             <div className={cn("font-medium text-[#00EC97]", priceSize)}>
               ${product.price ? product.price.toFixed(2) : "0.00"}
             </div>
@@ -344,8 +350,8 @@ function VerticalProductLayout({
               const feePct = getTotalFeePercentage(product.metadata as ProductMetadata | undefined);
               if (feePct > 0) {
                 return (
-                  <div className="text-xs text-foreground/60">
-                    ({feePct}% fees)
+                  <div className="text-xs leading-none text-foreground/60">
+                    {useCompactPriceBadge ? `${feePct}% fees` : `(${feePct}% fees)`}
                   </div>
                 );
               }
