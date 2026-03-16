@@ -13,7 +13,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { Lock, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import React, { useCallback, useState, useEffect } from "react";
 import { useCartSidebarStore } from "@/stores/cart-sidebar-store";
 import {
@@ -316,16 +316,16 @@ function VerticalProductLayout({
 
         {shouldDimProduct && (
           <div className="pointer-events-none absolute inset-0 z-[18] flex items-center justify-center">
-            <div className="relative flex h-full w-full items-center justify-center bg-black/10">
+            <div className="relative flex h-full w-full flex-col items-center justify-center gap-3 bg-black/10 px-6 text-center">
               <img
                 src={legionExclusiveLock}
-                alt="Product unavailable"
+                alt="Legion SBT required"
                 loading="lazy"
                 decoding="async"
-                className="w-32 max-w-[42%] object-contain opacity-95 drop-shadow-[0_12px_30px_rgba(0,0,0,0.45)] transition-transform duration-300 group-hover:scale-105"
+                className="w-32 max-w-[42%] object-contain opacity-95 drop-shadow-[0_12px_30px_rgba(0,0,0,0.45)]"
               />
-              <div className="absolute inset-x-4 bottom-4 rounded-xl bg-background/85 px-3 py-2 text-center text-xs font-semibold text-foreground opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
-                This product is not available
+              <div className="rounded-xl bg-background/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-foreground/85 backdrop-blur-sm">
+                Legion SBT required
               </div>
             </div>
           </div>
@@ -351,18 +351,6 @@ function VerticalProductLayout({
               }
               return null;
             })()}
-          </div>
-        )}
-
-        {isPurchaseGated && (
-          <div
-            className={cn(
-              "absolute top-3 px-2 py-1 bg-background/80 backdrop-blur-sm border border-border/60 rounded-lg z-20 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/80",
-              hideFavorite ? "right-3" : "right-14"
-            )}
-          >
-            <Lock className="size-3" />
-            Legion
           </div>
         )}
 
@@ -414,13 +402,6 @@ function VerticalProductLayout({
               +ADD
             </span>
           </button>
-        )}
-
-        {!hideActions && !isExpanded && isPurchaseGated && !canPurchase && (
-          <div className="absolute bottom-3 right-3 px-3 py-2 bg-background/80 backdrop-blur-sm border border-border/60 rounded-lg z-30 flex items-center gap-2 text-xs font-semibold text-foreground/80">
-            <Lock className="size-3.5" />
-            {nearAccountId ? "Holder Only" : "Login to Unlock"}
-          </div>
         )}
 
         {/* Expanded Quick Add Section - appears at bottom of image */}
