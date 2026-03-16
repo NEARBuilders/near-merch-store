@@ -17,6 +17,7 @@ import { createMarketplaceRuntime } from "./runtime";
 import {
   ReturnAddressSchema,
   type OrderStatus,
+  type ProductMetadata,
   type TrackingInfo,
 } from "./schema";
 import { CheckoutService, CheckoutServiceLive } from "./services/checkout";
@@ -93,6 +94,12 @@ export default createPlugin({
 
   initialize: (config) =>
     Effect.gen(function* () {
+      const nearNodeUrl =
+        config.variables.nodeUrl ||
+        (config.variables.network === "testnet"
+          ? "https://rpc.testnet.near.org"
+          : "https://rpc.mainnet.near.org");
+
       const stripeService =
         config.secrets.STRIPE_SECRET_KEY && config.secrets.STRIPE_WEBHOOK_SECRET
           ? new StripeService(
@@ -136,6 +143,9 @@ export default createPlugin({
               apiKey: config.secrets.PING_API_KEY,
               webhookSecret: config.secrets.PING_WEBHOOK_SECRET,
             },
+          },
+          {
+            nodeUrl: nearNodeUrl,
           },
         ),
       );
@@ -242,6 +252,33 @@ export default createPlugin({
         },
       });
     });
+
+    const getPurchaseGatePluginId = (
+      metadata: ProductMetadata | undefined,
+    ): string | undefined => metadata?.purchaseGate?.pluginId;
+
+    const checkPurchaseGateAccess = async (
+      pluginId: string,
+      nearAccountId: string,
+    ): Promise<boolean> => {
+      const provider = runtime.getExclusiveCheckProvider(pluginId);
+
+      if (!provider) {
+        console.error(`[checkPurchaseGateAccess] Provider not found: ${pluginId}`);
+        return false;
+      }
+
+      try {
+        const result = await provider.client.checkAccess({
+          nearAccountId,
+          config: {},
+        });
+        return result.hasAccess;
+      } catch (error) {
+        console.error(`[checkPurchaseGateAccess] Provider check failed for ${pluginId}:`, error);
+        return false;
+      }
+    };
 
     return {
       ping: builder.ping.handler(async () => {
@@ -728,7 +765,56 @@ export default createPlugin({
       ),
       createCheckout: builder.createCheckout
         .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
+        .handler(async ({ input, context }) => {
+          const gatedPluginsExit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const productStore = yield* ProductStore;
+              const pluginIds = new Set<string>();
+
+              for (const item of input.items) {
+                const product = yield* productStore.find(item.productId);
+
+                if (!product) {
+                  throw new ORPCError("NOT_FOUND", {
+                    message: `Product not found: ${item.productId}`,
+                    data: { resource: "product", resourceId: item.productId },
+                  });
+                }
+
+                const pluginId = getPurchaseGatePluginId(product.metadata);
+                if (pluginId) {
+                  pluginIds.add(pluginId);
+                }
+              }
+
+              return Array.from(pluginIds);
+            }),
+          );
+
+          if (Exit.isFailure(gatedPluginsExit)) {
+            const error = Cause.squash(gatedPluginsExit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError("INTERNAL_SERVER_ERROR", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          for (const pluginId of gatedPluginsExit.value) {
+            const hasAccess = await checkPurchaseGateAccess(
+              pluginId,
+              context.nearAccountId,
+            );
+
+            if (!hasAccess) {
+              throw new ORPCError("FORBIDDEN", {
+                message: "Your account does not have access to purchase one or more gated items",
+                data: { pluginId },
+              });
+            }
+          }
+
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const service = yield* CheckoutService;
@@ -1954,86 +2040,14 @@ export default createPlugin({
         },
       ),
 
-      checkExclusiveAccess: builder.checkExclusiveAccess.handler(
+      checkPurchaseGateAccess: builder.checkPurchaseGateAccess.handler(
         async ({ input }) => {
-          const exit = await managedRuntime.runPromiseExit(
-            Effect.gen(function* () {
-              const collectionStore = yield* CollectionStore;
-              const collection = yield* collectionStore.find(input.collectionSlug);
-
-              if (!collection) {
-                throw new ORPCError("NOT_FOUND", {
-                  message: "Collection not found",
-                  data: { resource: "collection", resourceId: input.collectionSlug },
-                });
-              }
-
-              if (!collection.isExclusive) {
-                return { hasAccess: true };
-              }
-
-              if (!collection.exclusiveCheckPluginId) {
-                return { hasAccess: false };
-              }
-
-              const provider = runtime.getExclusiveCheckProvider(collection.exclusiveCheckPluginId);
-              if (!provider) {
-                console.error(`[checkExclusiveAccess] Provider not found: ${collection.exclusiveCheckPluginId}`);
-                return { hasAccess: false };
-              }
-
-              const config = collection.exclusiveCheckConfig || {};
-              const result = yield* Effect.tryPromise({
-                try: () => provider.client.checkAccess({
-                  nearAccountId: input.nearAccountId,
-                  config,
-                }),
-                catch: (error) => new Error(`Exclusive check failed: ${error}`),
-              });
-
-              return { hasAccess: result.hasAccess };
-            }),
+          const hasAccess = await checkPurchaseGateAccess(
+            input.pluginId,
+            input.nearAccountId,
           );
 
-          if (Exit.isFailure(exit)) {
-            const error = Cause.squash(exit.cause);
-            if (error instanceof ORPCError) {
-              throw error;
-            }
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: error instanceof Error ? error.message : String(error),
-            });
-          }
-
-          return exit.value;
-        },
-      ),
-
-      updateCollectionExclusive: builder.updateCollectionExclusive.handler(
-        async ({ input }) => {
-          const exit = await managedRuntime.runPromiseExit(
-            Effect.gen(function* () {
-              const collectionStore = yield* CollectionStore;
-              const collection = yield* collectionStore.update(input.slug, {
-                isExclusive: input.isExclusive,
-                exclusiveCheckPluginId: input.exclusiveCheckPluginId ?? null,
-                exclusiveCheckConfig: input.exclusiveCheckConfig ?? undefined,
-              });
-              return { success: true, collection };
-            }),
-          );
-
-          if (Exit.isFailure(exit)) {
-            const error = Cause.squash(exit.cause);
-            if (error instanceof ORPCError) {
-              throw error;
-            }
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: error instanceof Error ? error.message : String(error),
-            });
-          }
-
-          return exit.value;
+          return { hasAccess };
         },
       ),
 

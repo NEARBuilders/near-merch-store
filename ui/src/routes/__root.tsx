@@ -24,7 +24,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const runtimeConfig = loaderData?.runtimeConfig;
     const siteUrl = runtimeConfig?.hostUrl || "";
     const title = "NEAR Merch Store";
-    const description = "Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles for the NEAR ecosystem";
+    const description = "Shop official NEAR Protocol merchandise, apparel, accessories, and collectibles for the ecosystem.";
     const ogImage = `${assetsUrl}/metadata.png`;
 
     return {

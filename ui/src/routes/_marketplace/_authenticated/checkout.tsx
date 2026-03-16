@@ -31,7 +31,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Country, State } from 'country-state-city';
 import type { IState } from 'country-state-city';
 import { cn } from '@/lib/utils';
-import { type ProductMetadata } from '@/integrations/api';
+import {
+  getPurchaseGatePluginId,
+  usePurchaseGateAccessMap,
+  type ProductMetadata,
+  type PurchaseGatePluginId,
+} from '@/integrations/api';
 
 function getTotalFeePercentage(metadata: ProductMetadata | undefined): number {
   if (!metadata?.fees?.length) return 0;
@@ -58,6 +63,7 @@ type ShippingAddress = Parameters<typeof apiClient.quote>[0]['shippingAddress'];
 function CheckoutPage() {
   const { cartItems, subtotal } = useCart();
   const { nearPrice, isLoading: isLoadingNearPrice } = useNearPrice();
+  const nearAccountId = authClient.near.getAccountId();
   const [discountCode, setDiscountCode] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
@@ -68,6 +74,24 @@ function CheckoutPage() {
   const [stateOpen, setStateOpen] = useState(false);
   const navigate = useNavigate();
   const totalFees = getTotalFeesFromCart(cartItems);
+  const gatedPluginIds = Array.from(
+    new Set(
+      cartItems
+        .map((item) =>
+          getPurchaseGatePluginId(item.product.metadata as ProductMetadata | undefined),
+        )
+        .filter((pluginId): pluginId is PurchaseGatePluginId => Boolean(pluginId)),
+    ),
+  );
+  const { accessByPlugin, isLoading: isPurchaseGateLoading } =
+    usePurchaseGateAccessMap(gatedPluginIds, nearAccountId);
+  const hasBlockedItems = cartItems.some((item) => {
+    const pluginId = getPurchaseGatePluginId(
+      item.product.metadata as ProductMetadata | undefined,
+    );
+
+    return pluginId ? !accessByPlugin.get(pluginId) : false;
+  });
 
   const fieldRefs = useRef<Map<string, HTMLElement>>(new Map());
   const countries = useMemo(() => Country.getAllCountries(), []);
@@ -1112,6 +1136,14 @@ function CheckoutPage() {
                       }
                       if (!hasAcceptedTerms) {
                         return { disabled: true, reason: 'Please accept the Terms of Service' };
+                      }
+                      if (hasBlockedItems) {
+                        return {
+                          disabled: true,
+                          reason: isPurchaseGateLoading
+                            ? 'Checking Legion holder access'
+                            : 'Your account cannot purchase one or more Legion-gated items',
+                        };
                       }
                       return { disabled: false, reason: '' };
                     };

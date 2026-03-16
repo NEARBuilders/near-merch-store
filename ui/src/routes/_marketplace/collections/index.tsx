@@ -82,7 +82,7 @@ function CollectionsPage() {
             const glowColor = glowColors[index % glowColors.length];
             const title = (collection.carouselTitle || collection.name).split(' ').slice(0, 3).join(' ').toUpperCase();
             const subtitle = (collection.carouselTitle || collection.name).split(' ').slice(3).join(' ').toUpperCase() || "COLLECTION";
-            const description = collection.carouselDescription || collection.description || `Discover ${collection.name} - exclusive NEAR merch collection`;
+            const description = collection.carouselDescription || collection.description || `Discover ${collection.name} in the NEAR merch store`;
 
             return (
               <Link

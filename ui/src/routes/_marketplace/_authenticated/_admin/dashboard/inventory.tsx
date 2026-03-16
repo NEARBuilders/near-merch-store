@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
   useProducts,
   useCategories,
@@ -51,11 +52,6 @@ import {
   type ProductMetadata,
 } from "@/integrations/api";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -73,12 +69,10 @@ export const Route = createFileRoute(
 
 function TagsEditor({
   tags,
-  productId: _productId,
   onUpdate,
   isPending,
 }: {
   tags: string[];
-  productId: string;
   onUpdate: (tags: string[]) => void;
   isPending: boolean;
 }) {
@@ -104,82 +98,51 @@ function TagsEditor({
   };
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <Input
+          placeholder="Add tag..."
+          value={newTag}
+          onChange={(e) => setNewTag(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="h-9 text-sm bg-background/60 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]"
+        />
+        <Button
           type="button"
-          className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8 max-w-48"
-          disabled={isPending}
-          title="Edit tags"
+          size="sm"
+          onClick={handleAddTag}
+          disabled={!newTag.trim() || isPending}
+          className="h-9 px-3 bg-[#00EC97] text-black hover:bg-[#00d97f]"
         >
-          {tags.length === 0 ? (
-            <span className="text-xs text-foreground/60 dark:text-muted-foreground">
-              No tags
-            </span>
-          ) : (
-            tags.slice(0, 2).map((tag) => (
-              <Badge
-                key={tag}
-                variant="outline"
-                className="font-normal text-xs"
+          <Plus className="size-4" />
+        </Button>
+      </div>
+      <div className="flex min-h-10 flex-wrap gap-1.5 rounded-lg border border-border/60 bg-background/40 p-3">
+        {tags.length === 0 ? (
+          <span className="text-xs text-foreground/60 dark:text-muted-foreground">
+            No tags yet. Type above and press Enter to add.
+          </span>
+        ) : (
+          tags.map((tag) => (
+            <Badge
+              key={tag}
+              variant="outline"
+              className="flex items-center gap-1 pr-1 font-normal text-xs"
+            >
+              {tag}
+              <button
+                type="button"
+                onClick={() => handleRemoveTag(tag)}
+                disabled={isPending}
+                className="ml-1 transition-colors hover:text-red-500 disabled:opacity-50"
               >
-                {tag}
-              </Badge>
-            ))
-          )}
-          {tags.length > 2 && (
-            <Badge variant="outline" className="font-normal text-xs">
-              +{tags.length - 2}
+                <X className="size-3" />
+              </button>
             </Badge>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-72 p-3" align="start">
-        <div className="text-sm font-medium mb-2">Tags</div>
-        <div className="flex gap-2 mb-3">
-          <Input
-            placeholder="Add tag..."
-            value={newTag}
-            onChange={(e) => setNewTag(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="h-8 text-sm bg-background/60 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]"
-          />
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleAddTag}
-            disabled={!newTag.trim()}
-            className="h-8 px-2 bg-[#00EC97] text-black hover:bg-[#00d97f]"
-          >
-            <Plus className="size-4" />
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-1.5 max-h-40 overflow-auto">
-          {tags.length === 0 ? (
-            <span className="text-xs text-foreground/60 dark:text-muted-foreground">
-              No tags yet. Type above and press Enter to add.
-            </span>
-          ) : (
-            tags.map((tag) => (
-              <Badge
-                key={tag}
-                variant="outline"
-                className="font-normal text-xs pr-1 flex items-center gap-1"
-              >
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveTag(tag)}
-                  className="ml-1 hover:text-red-500 transition-colors"
-                >
-                  <X className="size-3" />
-                </button>
-              </Badge>
-            ))
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -236,94 +199,73 @@ function ProductTypeEditor({
   };
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8 max-w-48"
-          disabled={isPending}
-          title="Edit product type"
-        >
-          {!currentType ? (
-            <span className="text-xs text-foreground/60 dark:text-muted-foreground">
-              No type
-            </span>
-          ) : (
-            <Badge variant="outline" className="font-normal text-xs">
-              {availableTypes.find((pt) => pt.slug === currentType)?.label ||
-                currentType}
-            </Badge>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-3" align="start">
-        <div className="text-sm font-medium mb-2">Product Type</div>
-        <div className="space-y-2 max-h-48 overflow-auto pr-1 mb-3">
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <Checkbox
-              checked={!currentType}
-              onCheckedChange={(next) => {
-                if (next) onUpdate(null);
-              }}
-            />
-            <span className="text-foreground/60 dark:text-muted-foreground">
-              None
-            </span>
-          </label>
-          {availableTypes.map((pt) => {
-            const checked = currentType === pt.slug;
-            return (
-              <label
-                key={pt.slug}
-                className="flex items-center gap-2 text-sm cursor-pointer"
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(next) => {
-                    if (next) onUpdate(pt.slug);
-                  }}
-                />
-                <span className="truncate">{pt.label}</span>
-              </label>
-            );
-          })}
-        </div>
-        <div className="pt-2 border-t border-border/60">
-          <div className="flex gap-2">
-            <Input
-              placeholder="New type..."
-              value={newTypeLabel}
-              onChange={(e) => setNewTypeLabel(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="h-8 text-sm bg-background/60 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]"
-              disabled={isCreating || createMutation.isPending}
-            />
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleCreateType}
-              disabled={
-                !newTypeLabel.trim() || isCreating || createMutation.isPending
-              }
-              className="h-8 px-2 bg-[#00EC97] text-black hover:bg-[#00d97f]"
+    <div className="space-y-3">
+      <div className="space-y-2 max-h-48 overflow-auto pr-1">
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <Checkbox
+            checked={!currentType}
+            onCheckedChange={(next) => {
+              if (next) onUpdate(null);
+            }}
+          />
+          <span className="text-foreground/60 dark:text-muted-foreground">
+            None
+          </span>
+        </label>
+        {availableTypes.map((pt) => {
+          const checked = currentType === pt.slug;
+          return (
+            <label
+              key={pt.slug}
+              className="flex items-center gap-2 text-sm cursor-pointer"
             >
-              <Plus className="size-4" />
-            </Button>
-          </div>
+              <Checkbox
+                checked={checked}
+                onCheckedChange={(next) => {
+                  if (next) onUpdate(pt.slug);
+                }}
+              />
+              <span className="truncate">{pt.label}</span>
+            </label>
+          );
+        })}
+      </div>
+      <div className="border-t border-border/60 pt-3">
+        <div className="flex gap-2">
+          <Input
+            placeholder="New type..."
+            value={newTypeLabel}
+            onChange={(e) => setNewTypeLabel(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="h-9 text-sm bg-background/60 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]"
+            disabled={isCreating || createMutation.isPending || isPending}
+          />
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleCreateType}
+            disabled={
+              !newTypeLabel.trim() ||
+              isCreating ||
+              createMutation.isPending ||
+              isPending
+            }
+            className="h-9 px-3 bg-[#00EC97] text-black hover:bg-[#00d97f]"
+          >
+            <Plus className="size-4" />
+          </Button>
         </div>
-      </PopoverContent>
-    </Popover>
+      </div>
+    </div>
   );
 }
 
 function MetadataEditor({
   metadata,
-  productId: _productId,
   onUpdate,
   isPending,
 }: {
   metadata?: ProductMetadata;
-  productId: string;
   onUpdate: (metadata: ProductMetadata) => void;
   isPending: boolean;
 }) {
@@ -337,6 +279,10 @@ function MetadataEditor({
     bps: 0,
     percentage: "",
   });
+
+  useEffect(() => {
+    setLocalMetadata(metadata || { fees: [] });
+  }, [metadata]);
 
   const handleAddFee = () => {
     if (!newFee.label || !newFee.recipient || !newFee.percentage) return;
@@ -373,152 +319,316 @@ function MetadataEditor({
   const totalPercentage = totalBps / 100;
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex flex-wrap gap-1.5 items-center rounded-md border border-border/60 px-2 py-1.5 hover:border-[#00EC97] transition-colors min-h-8 max-w-48"
-          disabled={isPending}
-          title="Edit product metadata"
-        >
-          {localMetadata.fees.length === 0 &&
-          !localMetadata.creatorAccountId ? (
-            <span className="text-xs text-foreground/60 dark:text-muted-foreground">
-              No metadata
-            </span>
-          ) : (
-            <>
-              {localMetadata.creatorAccountId && (
-                <Badge variant="outline" className="font-normal text-xs">
-                  {localMetadata.creatorAccountId}
-                </Badge>
-              )}
-              {localMetadata.fees.length > 0 && (
-                <span className="text-xs text-foreground/60">
-                  {totalPercentage}%
-                </span>
-              )}
-            </>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-3" align="start">
-        <div className="text-sm font-medium mb-3">Product Metadata</div>
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Creator Account ID</Label>
+          <Input
+            placeholder="creator.near"
+            value={localMetadata.creatorAccountId || ""}
+            onChange={(e) =>
+              setLocalMetadata({
+                ...localMetadata,
+                creatorAccountId: e.target.value || undefined,
+              })
+            }
+            className="h-9 text-sm bg-background/60 border border-border/60 rounded-lg"
+          />
+        </div>
 
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <label className="text-xs text-foreground/70">
-              Creator Account ID
-            </label>
-            <Input
-              placeholder="creator.near"
-              value={localMetadata.creatorAccountId || ""}
-              onChange={(e) =>
-                setLocalMetadata({
-                  ...localMetadata,
-                  creatorAccountId: e.target.value || undefined,
-                })
-              }
-              className="h-8 text-sm bg-background/60 border border-border/60 rounded-lg"
-            />
-          </div>
+        <div className="space-y-2">
+          <Label>Purchase Gate</Label>
+          <Select
+            value={localMetadata.purchaseGate?.pluginId ?? "none"}
+            onValueChange={(value) =>
+              setLocalMetadata((current) => ({
+                ...current,
+                purchaseGate:
+                  value === "none"
+                    ? undefined
+                    : { pluginId: value as "legion-holder" },
+              }))
+            }
+          >
+            <SelectTrigger className="h-9 text-sm bg-background/60 border border-border/60 rounded-lg">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="legion-holder">Legion Holder</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-foreground/50">
+            Gated products stay visible but require the selected plugin to purchase.
+          </p>
+        </div>
+      </div>
 
-          <div className="space-y-2">
-            <div className="text-xs text-foreground/70">Fee Splits</div>
-            <div className="text-xs text-foreground/50 mb-1">
+      <div className="space-y-3 rounded-xl border border-border/60 bg-background/40 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <Label>Fee Splits</Label>
+            <p className="text-xs text-foreground/50">
               Total: {totalPercentage}% ({totalBps} bps)
-            </div>
+            </p>
+          </div>
+        </div>
 
-            {localMetadata.fees.map((fee: FeeConfig, index: number) => (
+        <div className="space-y-2">
+          {localMetadata.fees.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-xs text-foreground/60 dark:text-muted-foreground">
+              No fee splits configured yet.
+            </div>
+          ) : (
+            localMetadata.fees.map((fee: FeeConfig, index: number) => (
               <div
                 key={index}
-                className="flex items-center gap-2 text-xs bg-background/40 rounded px-2 py-1"
+                className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/50 px-3 py-2 text-xs"
               >
                 <span className="flex-1 truncate">{fee.label}</span>
+                <span className="text-foreground/60">{fee.recipient}</span>
                 <span className="text-foreground/60">{fee.bps / 100}%</span>
                 <button
                   type="button"
                   onClick={() => handleRemoveFee(index)}
-                  className="hover:text-red-500 transition-colors"
+                  disabled={isPending}
+                  className="transition-colors hover:text-red-500 disabled:opacity-50"
                 >
                   <X className="size-3" />
                 </button>
               </div>
-            ))}
-
-            <div className="flex gap-2">
-              <Select
-                value={newFee.type}
-                onValueChange={(v) =>
-                  setNewFee({ ...newFee, type: v as FeeConfig["type"] })
-                }
-              >
-                <SelectTrigger className="h-8 text-xs w-20 bg-background/60 border border-border/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="royalty">Royalty</SelectItem>
-                  <SelectItem value="affiliate">Affiliate</SelectItem>
-                  <SelectItem value="platform">Platform</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Label"
-                value={newFee.label || ""}
-                onChange={(e) =>
-                  setNewFee({ ...newFee, label: e.target.value })
-                }
-                className="h-8 text-xs bg-background/60 border border-border/60 rounded-lg flex-1"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="recipient.near"
-                value={newFee.recipient || ""}
-                onChange={(e) =>
-                  setNewFee({ ...newFee, recipient: e.target.value })
-                }
-                className="h-8 text-xs bg-background/60 border border-border/60 rounded-lg flex-1"
-              />
-              <Input
-                type="number"
-                placeholder="%"
-                min="0"
-                max="100"
-                step="0.01"
-                value={newFee.percentage || ""}
-                onChange={(e) =>
-                  setNewFee({ ...newFee, percentage: e.target.value })
-                }
-                className="h-8 text-xs bg-background/60 border border-border/60 rounded-lg w-16"
-              />
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleAddFee}
-                disabled={!newFee.label || !newFee.recipient || !newFee.percentage}
-                className="h-8 px-2 bg-[#00EC97] text-black hover:bg-[#00d97f]"
-              >
-                <Plus className="size-4" />
-              </Button>
-            </div>
-          </div>
+            ))
+          )}
         </div>
 
-        <div className="mt-3 pt-3 border-t border-border/60">
+        <div className="grid gap-2 md:grid-cols-[120px_minmax(0,1fr)]">
+          <Select
+            value={newFee.type}
+            onValueChange={(v) =>
+              setNewFee({ ...newFee, type: v as FeeConfig["type"] })
+            }
+          >
+            <SelectTrigger className="h-9 text-xs bg-background/60 border border-border/60">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="royalty">Royalty</SelectItem>
+              <SelectItem value="affiliate">Affiliate</SelectItem>
+              <SelectItem value="platform">Platform</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            placeholder="Label"
+            value={newFee.label || ""}
+            onChange={(e) => setNewFee({ ...newFee, label: e.target.value })}
+            className="h-9 text-sm bg-background/60 border border-border/60 rounded-lg"
+          />
+        </div>
+        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_96px_auto]">
+          <Input
+            placeholder="recipient.near"
+            value={newFee.recipient || ""}
+            onChange={(e) => setNewFee({ ...newFee, recipient: e.target.value })}
+            className="h-9 text-sm bg-background/60 border border-border/60 rounded-lg"
+          />
+          <Input
+            type="number"
+            placeholder="%"
+            min="0"
+            max="100"
+            step="0.01"
+            value={newFee.percentage || ""}
+            onChange={(e) => setNewFee({ ...newFee, percentage: e.target.value })}
+            className="h-9 text-sm bg-background/60 border border-border/60 rounded-lg"
+          />
           <Button
             type="button"
             size="sm"
-            onClick={handleSave}
-            disabled={isPending}
-            className="w-full h-8 bg-[#00EC97] text-black hover:bg-[#00d97f]"
+            onClick={handleAddFee}
+            disabled={
+              !newFee.label || !newFee.recipient || !newFee.percentage || isPending
+            }
+            className="h-9 px-3 bg-[#00EC97] text-black hover:bg-[#00d97f]"
           >
-            Save Changes
+            <Plus className="mr-1 size-4" />
+            Add Fee
           </Button>
         </div>
-      </PopoverContent>
-    </Popover>
+      </div>
+
+      <div className="flex justify-end border-t border-border/60 pt-3">
+        <Button
+          type="button"
+          size="sm"
+          onClick={handleSave}
+          disabled={isPending}
+          className="h-9 bg-[#00EC97] text-black hover:bg-[#00d97f]"
+        >
+          Save Metadata
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function MetadataSummary({ metadata }: { metadata?: ProductMetadata }) {
+  const resolvedMetadata = metadata ?? { fees: [] };
+  const totalBps = resolvedMetadata.fees.reduce(
+    (sum: number, fee: FeeConfig) => sum + fee.bps,
+    0,
+  );
+  const totalPercentage = totalBps / 100;
+
+  if (
+    resolvedMetadata.fees.length === 0 &&
+    !resolvedMetadata.creatorAccountId &&
+    !resolvedMetadata.purchaseGate?.pluginId
+  ) {
+    return (
+      <span className="text-xs text-foreground/60 dark:text-muted-foreground">
+        No metadata
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex max-w-48 flex-wrap items-center gap-1.5">
+      {resolvedMetadata.creatorAccountId && (
+        <Badge variant="outline" className="max-w-40 truncate font-normal text-xs">
+          {resolvedMetadata.creatorAccountId}
+        </Badge>
+      )}
+      {resolvedMetadata.fees.length > 0 && (
+        <span className="text-xs text-foreground/60">{totalPercentage}%</span>
+      )}
+      {resolvedMetadata.purchaseGate?.pluginId && (
+        <Badge variant="outline" className="font-normal text-xs">
+          {resolvedMetadata.purchaseGate.pluginId}
+        </Badge>
+      )}
+    </div>
+  );
+}
+
+function ExpandedProductPanel({
+  product,
+  categories,
+  productTypes,
+  onUpdateCollections,
+  onUpdateType,
+  onUpdateTags,
+  onUpdateMetadata,
+  isUpdatingCollections,
+  isUpdatingType,
+  isUpdatingTags,
+  isUpdatingMetadata,
+}: {
+  product: Product;
+  categories: Array<{ slug: string; name: string }>;
+  productTypes: Array<{ slug: string; label: string }>;
+  onUpdateCollections: (categoryIds: string[]) => void;
+  onUpdateType: (slug: string | null) => void;
+  onUpdateTags: (tags: string[]) => void;
+  onUpdateMetadata: (metadata: ProductMetadata) => void;
+  isUpdatingCollections: boolean;
+  isUpdatingType: boolean;
+  isUpdatingTags: boolean;
+  isUpdatingMetadata: boolean;
+}) {
+  const selectedCollections = product.collections ?? [];
+  const selectedSlugs = selectedCollections.map((collection) => collection.slug);
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div>
+              <h4 className="text-sm font-medium">Collections</h4>
+              <p className="text-xs text-foreground/60 dark:text-muted-foreground">
+                Assign this product to one or more collections.
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2 max-h-56 overflow-auto pr-1">
+            {categories.length === 0 ? (
+              <div className="text-xs text-foreground/60 dark:text-muted-foreground">
+                No collections yet. Create some in Dashboard -&gt; Collections.
+              </div>
+            ) : (
+              categories.map((category) => {
+                const checked = selectedSlugs.includes(category.slug);
+
+                return (
+                  <label
+                    key={category.slug}
+                    className="flex items-center gap-2 text-sm cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(next) => {
+                        const nextChecked = Boolean(next);
+                        const nextSlugs = nextChecked
+                          ? Array.from(new Set([...selectedSlugs, category.slug]))
+                          : selectedSlugs.filter((slug) => slug !== category.slug);
+
+                        onUpdateCollections(nextSlugs);
+                      }}
+                      disabled={isUpdatingCollections}
+                    />
+                    <span className="truncate">{category.name}</span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+          <div className="mb-3">
+            <h4 className="text-sm font-medium">Product Type</h4>
+            <p className="text-xs text-foreground/60 dark:text-muted-foreground">
+              Pick an existing type or create a new one.
+            </p>
+          </div>
+          <ProductTypeEditor
+            currentType={product.productType?.slug ?? null}
+            availableTypes={productTypes}
+            onUpdate={onUpdateType}
+            isPending={isUpdatingType}
+          />
+        </div>
+
+        <div className="rounded-xl border border-border/60 bg-background/40 p-4 md:col-span-2">
+          <div className="mb-3">
+            <h4 className="text-sm font-medium">Tags</h4>
+            <p className="text-xs text-foreground/60 dark:text-muted-foreground">
+              Tags help organize and surface products across the admin tools.
+            </p>
+          </div>
+          <TagsEditor
+            tags={product.tags ?? []}
+            onUpdate={onUpdateTags}
+            isPending={isUpdatingTags}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+        <div className="mb-3">
+          <h4 className="text-sm font-medium">Metadata</h4>
+          <p className="text-xs text-foreground/60 dark:text-muted-foreground">
+            Manage creator attribution, purchase gates, and fee splits without the popover.
+          </p>
+        </div>
+        <MetadataEditor
+          metadata={product.metadata as ProductMetadata | undefined}
+          onUpdate={onUpdateMetadata}
+          isPending={isUpdatingMetadata}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -537,6 +647,12 @@ function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function getProductRecencyTime(product: Product): number {
+  const timestamp = product.lastSyncedAt ?? product.createdAt;
+  const parsed = timestamp ? new Date(timestamp).getTime() : 0;
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 function InventoryManagement() {
@@ -558,7 +674,7 @@ function InventoryManagement() {
     refetch,
     isRefetching,
   } = useProducts({
-    limit: 100,
+    limit: 500,
     includeUnlisted: true,
     refetchInterval: isRunning ? 3000 : false, // Poll every 3s during sync
     refetchOnWindowFocus: isRunning, // Refetch when window regains focus during sync
@@ -589,6 +705,11 @@ function InventoryManagement() {
     failed: number;
     total: number;
   } | null>(null);
+  const [newlySyncedProductIds, setNewlySyncedProductIds] = useState<string[]>(
+    [],
+  );
+  const [isTrackingSyncNewItems, setIsTrackingSyncNewItems] = useState(false);
+  const previousProductIdsRef = useRef<Set<string> | null>(null);
 
   // Subscribe to real-time progress updates
   const { events: progressEvents, finalEvent: progressFinalEvent } =
@@ -620,6 +741,29 @@ function InventoryManagement() {
     }
   }, [progressEvents, products.length]);
 
+  useEffect(() => {
+    const currentProductIds = new Set(products.map((product) => product.id));
+
+    if (previousProductIdsRef.current == null) {
+      previousProductIdsRef.current = currentProductIds;
+      return;
+    }
+
+    if (isTrackingSyncNewItems) {
+      const nextNewIds = products
+        .filter((product) => !previousProductIdsRef.current?.has(product.id))
+        .map((product) => product.id);
+
+      if (nextNewIds.length > 0) {
+        setNewlySyncedProductIds((currentIds) =>
+          Array.from(new Set([...nextNewIds, ...currentIds])),
+        );
+      }
+    }
+
+    previousProductIdsRef.current = currentProductIds;
+  }, [products, isTrackingSyncNewItems]);
+
   const hasError =
     syncStatusData?.status === "error" ||
     progressFinalEvent?.status === "error";
@@ -636,13 +780,63 @@ function InventoryManagement() {
     finalEvent: progressFinalEvent,
   };
 
+  useEffect(() => {
+    if (isTrackingSyncNewItems && !isRunning && !syncMutation.isPending) {
+      setIsTrackingSyncNewItems(false);
+    }
+  }, [isTrackingSyncNewItems, isRunning, syncMutation.isPending]);
+
+  const newlySyncedProductIdSet = useMemo(
+    () => new Set(newlySyncedProductIds),
+    [newlySyncedProductIds],
+  );
+
+  const tableData = useMemo(() => {
+    if (sorting.length > 0 || newlySyncedProductIdSet.size === 0) {
+      if (sorting.length > 0) {
+        return products;
+      }
+
+      return [...products].sort((a, b) => {
+        const recencyDiff = getProductRecencyTime(b) - getProductRecencyTime(a);
+
+        if (recencyDiff !== 0) {
+          return recencyDiff;
+        }
+
+        return a.title.localeCompare(b.title);
+      });
+    }
+
+    return [...products].sort((a, b) => {
+      const aIsNew = newlySyncedProductIdSet.has(a.id);
+      const bIsNew = newlySyncedProductIdSet.has(b.id);
+
+      if (aIsNew !== bIsNew) {
+        return aIsNew ? -1 : 1;
+      }
+
+      const recencyDiff = getProductRecencyTime(b) - getProductRecencyTime(a);
+
+      if (recencyDiff !== 0) {
+        return recencyDiff;
+      }
+
+      return a.title.localeCompare(b.title);
+    });
+  }, [products, sorting.length, newlySyncedProductIdSet]);
+
   const handleSync = () => {
     setSyncCancelledAt(null); // Reset cancel state on new sync
+    previousProductIdsRef.current = new Set(products.map((product) => product.id));
+    setNewlySyncedProductIds([]);
+    setIsTrackingSyncNewItems(true);
     syncMutation.mutate(undefined);
   };
 
   const handleCancelSync = () => {
     setSyncCancelledAt(Date.now());
+    setIsTrackingSyncNewItems(false);
     cancelSyncMutation.mutate(undefined, {
       onSettled: () => {
         // Clear cancel state after 2 seconds to allow state to settle
@@ -721,7 +915,18 @@ function InventoryManagement() {
         </Button>
       ),
       cell: ({ row }) => {
-        return <ProductTitleCell product={row.original} />;
+        const isNewProduct = newlySyncedProductIdSet.has(row.original.id);
+
+        return (
+          <div className="space-y-1.5">
+            <ProductTitleCell product={row.original} />
+            {isNewProduct && (
+              <Badge className="w-fit border-[#00EC97]/40 bg-[#00EC97]/10 text-[#00EC97] hover:bg-[#00EC97]/10">
+                New
+              </Badge>
+            )}
+          </div>
+        );
       },
       size: 200,
     },
@@ -997,7 +1202,7 @@ function InventoryManagement() {
   ];
 
   const table = useReactTable({
-    data: products,
+    data: tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -1019,6 +1224,19 @@ function InventoryManagement() {
       },
     },
   });
+
+  const filteredRowCount = table.getFilteredRowModel().rows.length;
+  const currentPageStart =
+    filteredRowCount === 0
+      ? 0
+      : table.getState().pagination.pageIndex *
+          table.getState().pagination.pageSize +
+        1;
+  const currentPageEnd = Math.min(
+    (table.getState().pagination.pageIndex + 1) *
+      table.getState().pagination.pageSize,
+    filteredRowCount,
+  );
 
   if (isLoading) {
     return (
@@ -1321,6 +1539,26 @@ function InventoryManagement() {
             className="pl-10 bg-background/60 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60 text-sm"
           />
         </div>
+        {sorting.length === 0 && (
+          <p className="mt-3 text-xs text-foreground/60 dark:text-muted-foreground">
+            Default order shows the most recently synced or added products first.
+          </p>
+        )}
+        {newlySyncedProductIds.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <Badge className="border-[#00EC97]/40 bg-[#00EC97]/10 text-[#00EC97] hover:bg-[#00EC97]/10">
+              {newlySyncedProductIds.length} new item
+              {newlySyncedProductIds.length === 1 ? "" : "s"} pinned to top
+            </Badge>
+            <button
+              type="button"
+              onClick={() => setNewlySyncedProductIds([])}
+              className="text-foreground/60 transition-colors hover:text-foreground"
+            >
+              Clear highlights
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Desktop Table / Mobile Cards */}
@@ -1361,7 +1599,12 @@ function InventoryManagement() {
                 table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="group hover:bg-background/40 transition-colors"
+                    className={cn(
+                      "group transition-colors",
+                      newlySyncedProductIdSet.has(row.original.id)
+                        ? "bg-[#00EC97]/5 hover:bg-[#00EC97]/10"
+                        : "hover:bg-background/40",
+                    )}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="px-4 py-3">
@@ -1388,10 +1631,16 @@ function InventoryManagement() {
             table.getRowModel().rows.map((row) => {
               const product = row.original;
               const isListed = product.listed !== false;
+              const isNewProduct = newlySyncedProductIdSet.has(product.id);
               return (
                 <div
                   key={row.id}
-                  className="p-4 space-y-3 hover:bg-background/40 transition-colors max-w-full overflow-x-hidden"
+                  className={cn(
+                    "p-4 space-y-3 transition-colors max-w-full overflow-x-hidden",
+                    isNewProduct
+                      ? "bg-[#00EC97]/5 hover:bg-[#00EC97]/10"
+                      : "hover:bg-background/40",
+                  )}
                 >
                   <div className="flex items-start gap-3">
                     <Link
@@ -1423,7 +1672,12 @@ function InventoryManagement() {
                           {product.title}
                         </p>
                       </Link>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {isNewProduct && (
+                          <Badge className="border-[#00EC97]/40 bg-[#00EC97]/10 text-[#00EC97] hover:bg-[#00EC97]/10">
+                            New
+                          </Badge>
+                        )}
                         {product.collections &&
                           product.collections.length > 0 && (
                             <Badge
@@ -1484,19 +1738,30 @@ function InventoryManagement() {
       <div className="rounded-2xl bg-background border border-border/60 px-6 py-4 overflow-x-hidden max-w-full">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 min-w-0">
           <p className="text-sm text-foreground/90 dark:text-muted-foreground text-center md:text-left min-w-0 flex-1">
-            Showing{" "}
-            {table.getState().pagination.pageIndex *
-              table.getState().pagination.pageSize +
-              1}{" "}
-            to{" "}
-            {Math.min(
-              (table.getState().pagination.pageIndex + 1) *
-                table.getState().pagination.pageSize,
-              table.getFilteredRowModel().rows.length,
-            )}{" "}
-            of {table.getFilteredRowModel().rows.length} products
+            Showing {currentPageStart} to {currentPageEnd} of {filteredRowCount} products
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-foreground/90 dark:text-muted-foreground">
+                Rows per page
+              </span>
+              <Select
+                value={`${table.getState().pagination.pageSize}`}
+                onValueChange={(value) => table.setPageSize(Number(value))}
+              >
+                <SelectTrigger className="h-9 w-[84px] border-border/60 bg-background/60">
+                  <SelectValue placeholder={table.getState().pagination.pageSize} />
+                </SelectTrigger>
+                <SelectContent className="border-border/60">
+                  {[10, 20, 50, 100].map((pageSize) => (
+                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                      {pageSize}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => table.previousPage()}
@@ -1517,6 +1782,7 @@ function InventoryManagement() {
             >
               <ChevronRight className="size-4" />
             </button>
+            </div>
           </div>
         </div>
       </div>

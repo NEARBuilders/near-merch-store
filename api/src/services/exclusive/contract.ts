@@ -6,8 +6,8 @@ export const ExclusiveCheckContract = oc.router({
     .route({
       method: 'POST',
       path: '/check-access',
-      summary: 'Check exclusive access',
-      description: 'Checks if a NEAR account has access to an exclusive collection.',
+      summary: 'Check gated purchase access',
+      description: 'Checks if a NEAR account can access a purchase gate plugin.',
     })
     .input(z.object({
       nearAccountId: z.string(),

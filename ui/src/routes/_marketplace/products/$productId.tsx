@@ -8,9 +8,10 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { useNearPrice } from "@/hooks/use-near-price";
 import { useCartSidebarStore } from "@/stores/cart-sidebar-store";
 import {
+  getPurchaseGatePluginId,
   requiresSize,
   useProducts,
-  useCheckExclusiveAccess,
+  usePurchaseGateAccess,
   type ProductImage,
   type ProductMetadata,
 } from "@/integrations/api";
@@ -68,7 +69,7 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
       ? `${product.title} | NEAR Merch Store`
       : "NEAR Merch Store";
     const description =
-      product?.description || "Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles";
+      product?.description || "Shop official NEAR Protocol merchandise, apparel, accessories, and collectibles";
     const image = product?.images?.[0]?.url;
 
     return {
@@ -156,38 +157,17 @@ function ProductDetailPage() {
 
   const { product } = loaderData.data;
 
-  const exclusiveCollection = product.collections?.find((c) => c.isExclusive);
-  const isExclusiveProduct = !!exclusiveCollection;
   const nearAccountId = authClient.near.getAccountId();
-  
-  const checkExclusiveAccess = useCheckExclusiveAccess();
-  const [hasExclusiveAccess, setHasExclusiveAccess] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    if (isExclusiveProduct && exclusiveCollection && nearAccountId) {
-      checkExclusiveAccess.mutate(
-        {
-          collectionSlug: exclusiveCollection.slug,
-          nearAccountId,
-        },
-        {
-          onSuccess: (data) => {
-            setHasExclusiveAccess(data.hasAccess);
-          },
-          onError: () => {
-            setHasExclusiveAccess(false);
-          },
-        }
-      );
-    } else if (isExclusiveProduct && !nearAccountId) {
-      setHasExclusiveAccess(false);
-    } else {
-      setHasExclusiveAccess(true);
-    }
-  }, [isExclusiveProduct, exclusiveCollection?.slug, nearAccountId]);
-
-  const isAccessLoading = isExclusiveProduct && hasExclusiveAccess === null;
-  const canPurchase = !isExclusiveProduct || hasExclusiveAccess === true;
+  const purchaseGatePluginId = getPurchaseGatePluginId(
+    product.metadata as ProductMetadata | undefined,
+  );
+  const isGatedProduct = Boolean(purchaseGatePluginId);
+  const {
+    hasAccess: canPurchase,
+    isLoading: isAccessLoading,
+  } = usePurchaseGateAccess(purchaseGatePluginId, nearAccountId);
+  const shouldDimProduct = isGatedProduct && !canPurchase && !isAccessLoading;
 
   const availableVariants = product.variants || [];
   const hasVariants = availableVariants.length > 0;
@@ -322,7 +302,7 @@ function ProductDetailPage() {
     requiresSize(product.collections) && hasVariants && orderedSizes.length > 0;
 
   const handleAddToCart = () => {
-    if (!selectedVariant) return;
+    if (!selectedVariant || !canPurchase) return;
     const variantImageUrl = selectedVariantId ? getVariantImageUrl(product, selectedVariantId) : undefined;
     for (let i = 0; i < quantity; i++) {
       addToCart(product.slug, selectedVariantId || '', selectedSize, selectedColor, variantImageUrl);
@@ -366,9 +346,9 @@ function ProductDetailPage() {
           {/* Title Block */}
           <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
             <div className="flex items-center justify-end gap-3">
-              {isExclusiveProduct && (
+              {isGatedProduct && (
                 <div className="h-[40px] flex items-center justify-center bg-muted/30 px-3 py-2 text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60 rounded-lg">
-                  EXCLUSIVE
+                  LEGION GATED
                 </div>
               )}
               <FavoriteButton
@@ -408,7 +388,10 @@ function ProductDetailPage() {
                     alt={`${product.title} - Image ${index + 1}`}
                     loading={index === currentImageIndex ? "eager" : "lazy"}
                     decoding="async"
-                    className="w-full h-full object-cover relative z-10"
+                    className={cn(
+                      "w-full h-full object-cover relative z-10",
+                      shouldDimProduct && "grayscale brightness-75"
+                    )}
                   />
                 </div>
               ))}
@@ -699,19 +682,19 @@ function ProductDetailPage() {
 
             {/* Add to Cart Button */}
             <div className="pt-2">
-            {isExclusiveProduct && !canPurchase ? (
+            {isGatedProduct && !canPurchase ? (
               <div className="space-y-2">
                 <Button
                   className="w-full bg-muted text-muted-foreground rounded-lg h-14 text-base font-bold cursor-not-allowed"
                   disabled
                 >
                   <Lock className="size-5 mr-2" />
-                  Exclusive Access Required
+                  Legion Holder Required
                 </Button>
                 <p className="text-xs text-center text-muted-foreground">
                   {!nearAccountId 
-                    ? "Sign in with your NEAR account to check access"
-                    : "Your account doesn't have access to this exclusive item"}
+                    ? "Sign in with your NEAR account to unlock this item"
+                    : "Your account does not hold the required Legion NFT"}
                 </p>
               </div>
             ) : (

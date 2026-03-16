@@ -104,7 +104,7 @@ export const contract = oc.router({
         collectionSlugs: z.array(z.string()).optional(),
         tags: z.array(z.string()).optional(),
         featured: z.boolean().optional(),
-        limit: z.number().int().positive().max(100).default(50),
+        limit: z.number().int().positive().max(500).default(50),
         offset: z.number().int().min(0).default(0),
         includeUnlisted: z.boolean().optional(),
       }),
@@ -830,46 +830,23 @@ export const contract = oc.router({
       }),
     ),
 
-  checkExclusiveAccess: oc
+  checkPurchaseGateAccess: oc
     .route({
       method: "POST",
-      path: "/exclusive/check-access",
-      summary: "Check exclusive access",
-      description: "Checks if a NEAR account has access to an exclusive collection.",
-      tags: ["Exclusive"],
+      path: "/purchase-gates/check-access",
+      summary: "Check purchase gate access",
+      description: "Checks if a NEAR account can purchase a product gated by a plugin.",
+      tags: ["Purchase Gates"],
     })
     .input(
       z.object({
-        collectionSlug: z.string(),
+        pluginId: z.string(),
         nearAccountId: z.string(),
       }),
     )
     .output(
       z.object({
         hasAccess: z.boolean(),
-      }),
-    ),
-
-  updateCollectionExclusive: oc
-    .route({
-      method: "POST",
-      path: "/collections/{slug}/exclusive",
-      summary: "Update collection exclusive settings",
-      description: "Updates the exclusive settings for a collection.",
-      tags: ["Collections"],
-    })
-    .input(
-      z.object({
-        slug: z.string(),
-        isExclusive: z.boolean(),
-        exclusiveCheckPluginId: z.string().nullable().optional(),
-        exclusiveCheckConfig: z.record(z.string(), z.any()).nullable().optional(),
-      }),
-    )
-    .output(
-      z.object({
-        success: z.boolean(),
-        collection: CollectionSchema.nullable(),
       }),
     ),
 

@@ -1,13 +1,19 @@
 import { ProductCard } from "@/components/marketplace/product-card";
 import { useCart } from "@/hooks/use-cart";
 import { useNearPrice } from "@/hooks/use-near-price";
+import { authClient } from "@/lib/auth-client";
 import {
   COLOR_MAP,
   getAttributeHex
 } from "@/lib/product-utils";
-import { type ProductMetadata } from "@/integrations/api";
+import {
+  getPurchaseGatePluginId,
+  usePurchaseGateAccessMap,
+  type ProductMetadata,
+  type PurchaseGatePluginId,
+} from "@/integrations/api";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Minus, Plus, X, Info } from "lucide-react";
+import { ArrowLeft, Lock, Minus, Plus, X, Info } from "lucide-react";
 
 export const Route = createFileRoute("/_marketplace/cart")({
   component: CartPage,
@@ -33,6 +39,26 @@ function CartPage() {
   const { nearPrice, isLoading: isLoadingNearPrice } = useNearPrice();
   const nearAmount = (subtotal / nearPrice).toFixed(2);
   const totalFees = getTotalFeesFromCart(cartItems);
+  const nearAccountId = authClient.near.getAccountId();
+  const gatedPluginIds = Array.from(
+    new Set(
+      cartItems
+        .map((item) =>
+          getPurchaseGatePluginId(item.product.metadata as ProductMetadata | undefined),
+        )
+        .filter((pluginId): pluginId is PurchaseGatePluginId => Boolean(pluginId)),
+    ),
+  );
+  const { accessByPlugin, isLoading: isPurchaseGateLoading } =
+    usePurchaseGateAccessMap(gatedPluginIds, nearAccountId);
+  const blockedItems = cartItems.filter((item) => {
+    const pluginId = getPurchaseGatePluginId(
+      item.product.metadata as ProductMetadata | undefined,
+    );
+
+    return pluginId ? !accessByPlugin.get(pluginId) : false;
+  });
+  const hasBlockedItems = blockedItems.length > 0;
 
   return (
     <div className="bg-background min-h-screen pt-32">
@@ -171,6 +197,18 @@ function CartPage() {
                 </h2>
 
                 <div className="space-y-3 mb-6">
+                  {hasBlockedItems && (
+                    <div className="rounded-xl border border-border/60 bg-background/40 p-4 text-sm text-foreground/80">
+                      <div className="flex items-start gap-2 font-medium">
+                        <Lock className="size-4 mt-0.5 shrink-0" />
+                        <span>
+                          {!nearAccountId
+                            ? "Connect your NEAR account to buy Legion-gated items in your cart."
+                            : "Your connected account cannot purchase one or more Legion-gated items in your cart."}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-foreground/90 dark:text-muted-foreground">Subtotal</span>
                     <span className="text-foreground font-medium">${subtotal.toFixed(2)}</span>
@@ -214,11 +252,21 @@ function CartPage() {
                       Continue Shopping
                     </button>
                   </Link>
-                <Link to="/checkout" data-testid="checkout-link" className="w-full">
-                    <button className="w-full px-8 py-3 rounded-lg bg-[#00EC97] text-black font-semibold text-base hover:bg-[#00d97f] transition-colors" data-testid="checkout-button">
-                    Checkout
-                  </button>
-                </Link>
+                  {hasBlockedItems ? (
+                    <button
+                      className="w-full px-8 py-3 rounded-lg bg-muted text-muted-foreground font-semibold text-base cursor-not-allowed"
+                      disabled
+                      data-testid="checkout-button"
+                    >
+                      {isPurchaseGateLoading ? "Checking Access..." : "Checkout Locked"}
+                    </button>
+                  ) : (
+                    <Link to="/checkout" data-testid="checkout-link" className="w-full">
+                      <button className="w-full px-8 py-3 rounded-lg bg-[#00EC97] text-black font-semibold text-base hover:bg-[#00d97f] transition-colors" data-testid="checkout-button">
+                        Checkout
+                      </button>
+                    </Link>
+                  )}
                 </div>
 
                 <p className="text-foreground/90 dark:text-muted-foreground text-xs text-center mt-4">

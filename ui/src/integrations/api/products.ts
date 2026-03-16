@@ -851,11 +851,89 @@ export type ProviderDetails = {
   printful?: PrintfulProviderDetails;
 };
 
+export type PurchaseGatePluginId = "legion-holder";
+
+export type PurchaseGate = {
+  pluginId?: PurchaseGatePluginId;
+};
+
 export type ProductMetadata = {
   creatorAccountId?: string;
   fees: FeeConfig[];
   providerDetails?: ProviderDetails;
+  purchaseGate?: PurchaseGate;
 };
+
+export function getPurchaseGatePluginId(
+  metadata?: ProductMetadata,
+): PurchaseGatePluginId | undefined {
+  return metadata?.purchaseGate?.pluginId;
+}
+
+export function usePurchaseGateAccess(
+  pluginId?: PurchaseGatePluginId,
+  nearAccountId?: string | null,
+) {
+  const query = useQuery({
+    queryKey: ["purchase-gate-access", pluginId ?? "none", nearAccountId ?? "anonymous"],
+    queryFn: () =>
+      apiClient.checkPurchaseGateAccess({
+        pluginId: pluginId!,
+        nearAccountId: nearAccountId!,
+      }),
+    enabled: Boolean(pluginId && nearAccountId),
+    staleTime: 60_000,
+  });
+
+  const isGated = Boolean(pluginId);
+  const hasAccess = !isGated
+    ? true
+    : !nearAccountId
+      ? false
+      : query.data?.hasAccess ?? false;
+  const isLoading = Boolean(pluginId && nearAccountId && query.isPending);
+
+  return {
+    ...query,
+    isGated,
+    hasAccess,
+    isLoading,
+  };
+}
+
+export function usePurchaseGateAccessMap(
+  pluginIds: PurchaseGatePluginId[],
+  nearAccountId?: string | null,
+) {
+  const uniquePluginIds = Array.from(new Set(pluginIds));
+  const queries = useQueries({
+    queries: uniquePluginIds.map((pluginId) => ({
+      queryKey: ["purchase-gate-access", pluginId, nearAccountId ?? "anonymous"],
+      queryFn: () =>
+        apiClient.checkPurchaseGateAccess({
+          pluginId,
+          nearAccountId: nearAccountId!,
+        }),
+      enabled: Boolean(nearAccountId),
+      staleTime: 60_000,
+    })),
+  });
+
+  const accessByPlugin = new Map<PurchaseGatePluginId, boolean>();
+
+  uniquePluginIds.forEach((pluginId, index) => {
+    const query = queries[index];
+    accessByPlugin.set(
+      pluginId,
+      !nearAccountId ? false : query?.data?.hasAccess ?? false,
+    );
+  });
+
+  return {
+    accessByPlugin,
+    isLoading: Boolean(nearAccountId) && queries.some((query) => query.isPending),
+  };
+}
 
 export function useUpdateProductMetadata() {
   const queryClient = useQueryClient();
@@ -914,52 +992,6 @@ export function useUpdateProductMetadata() {
     },
     onSuccess: () => {
       toast.success("Metadata updated successfully");
-    },
-  });
-}
-
-export function useCheckExclusiveAccess() {
-  return useMutation({
-    mutationFn: ({
-      collectionSlug,
-      nearAccountId,
-    }: {
-      collectionSlug: string;
-      nearAccountId: string;
-    }) =>
-      apiClient.checkExclusiveAccess({
-        collectionSlug,
-        nearAccountId,
-      }),
-  });
-}
-
-export function useUpdateCollectionExclusive() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      slug,
-      isExclusive,
-      exclusiveCheckPluginId,
-      exclusiveCheckConfig,
-    }: {
-      slug: string;
-      isExclusive: boolean;
-      exclusiveCheckPluginId?: string | null;
-      exclusiveCheckConfig?: Record<string, unknown> | null;
-    }) =>
-      apiClient.updateCollectionExclusive({
-        slug,
-        isExclusive,
-        exclusiveCheckPluginId,
-        exclusiveCheckConfig,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: collectionKeys.all });
-      toast.success("Collection exclusive settings updated");
-    },
-    onError: () => {
-      toast.error("Failed to update collection exclusive settings");
     },
   });
 }

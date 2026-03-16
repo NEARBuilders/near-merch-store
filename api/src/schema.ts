@@ -86,9 +86,6 @@ export const CollectionSchema = z.object({
   carouselDescription: z.string().optional(),
   showInCarousel: z.boolean().default(true),
   carouselOrder: z.number().default(0),
-  isExclusive: z.boolean().default(false),
-  exclusiveCheckPluginId: z.string().optional(),
-  exclusiveCheckConfig: z.record(z.string(), z.any()).optional(),
 });
 
 export const ProductTypeSchema = z.object({
@@ -127,10 +124,20 @@ export const ProviderDetailsSchema = z.object({
 
 export type ProviderDetails = z.infer<typeof ProviderDetailsSchema>;
 
+export const PurchaseGatePluginIdSchema = z.enum(["legion-holder"]);
+
+export const PurchaseGateSchema = z.object({
+  pluginId: PurchaseGatePluginIdSchema.optional(),
+});
+
+export type PurchaseGatePluginId = z.infer<typeof PurchaseGatePluginIdSchema>;
+export type PurchaseGate = z.infer<typeof PurchaseGateSchema>;
+
 export const ProductMetadataSchema = z.object({
   creatorAccountId: z.string().optional(),
   fees: z.array(FeeConfigSchema).default([]),
   providerDetails: ProviderDetailsSchema.optional(),
+  purchaseGate: PurchaseGateSchema.optional(),
 });
 
 export type ProductMetadata = z.infer<typeof ProductMetadataSchema>;
@@ -139,6 +146,8 @@ export const ProductSchema = z.object({
   id: z.string(),
   slug: z.string(),
   title: z.string(),
+  createdAt: z.string().datetime(),
+  lastSyncedAt: z.string().datetime().optional(),
   handle: z.string().optional(),
   description: z.string().optional(),
   price: z.number(),

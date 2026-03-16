@@ -20,16 +20,12 @@ export class CollectionStore extends Context.Tag('CollectionStore')<
       carouselDescription?: string;
       showInCarousel?: boolean;
       carouselOrder?: number;
-      isExclusive?: boolean;
-      exclusiveCheckPluginId?: string | null;
-      exclusiveCheckConfig?: Record<string, unknown>;
     }) => Effect.Effect<Collection | null, Error>;
     readonly updateFeaturedProduct: (slug: string, productId: string | null) => Effect.Effect<Collection | null, Error>;
     readonly delete: (slug: string) => Effect.Effect<void, Error>;
     readonly getProductCollections: (productId: string) => Effect.Effect<Collection[], Error>;
     readonly setProductCollections: (productId: string, collectionSlugs: string[]) => Effect.Effect<void, Error>;
     readonly getProductIdsByCollection: (slug: string) => Effect.Effect<string[], Error>;
-    readonly findExclusiveCollections: () => Effect.Effect<Collection[], Error>;
   }
 >() { }
 
@@ -50,9 +46,6 @@ export const CollectionStoreLive = Layer.effect(
       carouselDescription: row.carouselDescription || undefined,
       showInCarousel: row.showInCarousel ?? true,
       carouselOrder: row.carouselOrder ?? 0,
-      isExclusive: row.isExclusive ?? false,
-      exclusiveCheckPluginId: row.exclusiveCheckPluginId || undefined,
-      exclusiveCheckConfig: row.exclusiveCheckConfig || undefined,
     });
 
     const getFeaturedProduct = async (productId: string | null): Promise<CollectionFeaturedProduct | undefined> => {
@@ -157,9 +150,6 @@ export const CollectionStoreLive = Layer.effect(
               carouselDescription: null,
               showInCarousel: true,
               carouselOrder: 0,
-              isExclusive: false,
-              exclusiveCheckPluginId: null,
-              exclusiveCheckConfig: null,
               createdAt: now,
               updatedAt: now,
             });
@@ -194,9 +184,6 @@ export const CollectionStoreLive = Layer.effect(
                 ...(data.carouselDescription !== undefined && { carouselDescription: data.carouselDescription }),
                 ...(data.showInCarousel !== undefined && { showInCarousel: data.showInCarousel }),
                 ...(data.carouselOrder !== undefined && { carouselOrder: data.carouselOrder }),
-                ...(data.isExclusive !== undefined && { isExclusive: data.isExclusive }),
-                ...(data.exclusiveCheckPluginId !== undefined && { exclusiveCheckPluginId: data.exclusiveCheckPluginId }),
-                ...(data.exclusiveCheckConfig !== undefined && { exclusiveCheckConfig: data.exclusiveCheckConfig }),
                 updatedAt: now,
               })
               .where(eq(schema.collections.slug, slug));
@@ -313,26 +300,6 @@ export const CollectionStoreLive = Layer.effect(
           catch: (error) => new Error(`Failed to get products by collection: ${error}`),
         }),
 
-      findExclusiveCollections: () =>
-        Effect.tryPromise({
-          try: async () => {
-            const results = await db
-              .select()
-              .from(schema.collections)
-              .where(eq(schema.collections.isExclusive, true))
-              .orderBy(schema.collections.name);
-
-            const collections = await Promise.all(
-              results.map(async (row) => {
-                const featuredProduct = await getFeaturedProduct(row.featuredProductId);
-                return rowToCollection(row, featuredProduct);
-              })
-            );
-
-            return collections;
-          },
-          catch: (error) => new Error(`Failed to find exclusive collections: ${error}`),
-        }),
     };
   })
 );

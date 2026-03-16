@@ -6,7 +6,11 @@ import PrintfulPlugin from './services/fulfillment/printful';
 import { PaymentContract } from './services/payment';
 import PingPayPlugin from './services/payment/pingpay';
 import StripePlugin from './services/payment/stripe';
-import { ExclusiveCheckContract, WhitelistPlugin } from './services/exclusive';
+import {
+  ExclusiveCheckContract,
+  LegionHolderPlugin,
+  WhitelistPlugin,
+} from './services/exclusive';
 import { ReturnAddress } from './schema';
 
 export interface FulfillmentConfig {
@@ -33,6 +37,10 @@ export interface PaymentConfig {
   };
 }
 
+export interface ExclusiveCheckConfig {
+  nodeUrl: string;
+}
+
 export interface FulfillmentProvider {
   name: string;
   client: ContractRouterClient<typeof FulfillmentContract>
@@ -53,7 +61,8 @@ export interface ExclusiveCheckProvider {
 
 export async function createMarketplaceRuntime(
   fulfillmentConfig: FulfillmentConfig,
-  paymentConfig?: PaymentConfig
+  paymentConfig?: PaymentConfig,
+  exclusiveCheckConfig?: ExclusiveCheckConfig,
 ) {
   const runtime = createPluginRuntime({
     registry: {
@@ -61,6 +70,7 @@ export async function createMarketplaceRuntime(
       gelato: { module: GelatoPlugin },
       stripe: { module: StripePlugin },
       pingpay: { module: PingPayPlugin },
+      'legion-holder': { module: LegionHolderPlugin },
       whitelist: { module: WhitelistPlugin },
     },
     secrets: {},
@@ -159,6 +169,23 @@ export async function createMarketplaceRuntime(
 
   console.log(`[MarketplaceRuntime] Enabled fulfillment providers: ${providers.map((p) => p.name).join(', ') || 'none'}`);
   console.log(`[MarketplaceRuntime] Enabled payment providers: ${paymentProviders.map((p) => p.name).join(', ') || 'none'}`);
+
+  try {
+    const legionHolder = await runtime.usePlugin('legion-holder', {
+      variables: {
+        nodeUrl: exclusiveCheckConfig?.nodeUrl || 'https://rpc.mainnet.near.org',
+      },
+      secrets: {},
+    });
+    exclusiveCheckProviders.push({
+      name: 'legion-holder',
+      client: legionHolder.createClient(),
+      router: legionHolder.router,
+    });
+    console.log('[MarketplaceRuntime] Legion holder exclusive check provider initialized');
+  } catch (error) {
+    console.error('[MarketplaceRuntime] Failed to initialize Legion holder provider:', error);
+  }
 
   try {
     const whitelist = await runtime.usePlugin('whitelist', {

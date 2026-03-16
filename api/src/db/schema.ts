@@ -149,9 +149,6 @@ export const collections = pgTable(
     carouselDescription: text("carousel_description"),
     showInCarousel: boolean("show_in_carousel").notNull().default(true),
     carouselOrder: integer("carousel_order").notNull().default(0),
-    isExclusive: boolean("is_exclusive").notNull().default(false),
-    exclusiveCheckPluginId: text("exclusive_check_plugin_id"),
-    exclusiveCheckConfig: jsonb("exclusive_check_config").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -164,7 +161,6 @@ export const collections = pgTable(
       table.showInCarousel,
       table.carouselOrder,
     ),
-    index("collections_exclusive_idx").on(table.isExclusive),
   ],
 );
 

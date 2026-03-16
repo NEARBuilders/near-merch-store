@@ -19,7 +19,7 @@ export const requiresSize = (
   items: Category[] | Collection[] | undefined,
 ): boolean => {
   const names = (items ?? []).map((c) => c.name.toLowerCase());
-  return names.some((n) => ["men", "women", "exclusives"].includes(n));
+  return names.some((n) => ["men", "women"].includes(n));
 };
 
 export {
@@ -43,18 +43,21 @@ export {
   useUpdateProductFeatured,
   useUpdateProductType,
   useUpdateProductMetadata,
-  useCheckExclusiveAccess,
-  useUpdateCollectionExclusive,
+  usePurchaseGateAccess,
+  usePurchaseGateAccessMap,
   useProductTypes,
   useCreateProductType,
   useUpdateProductTypeItem,
   useDeleteProductType,
+  getPurchaseGatePluginId,
   getPrimaryCategoryName,
   type Product,
   type ProductImage,
   type ProductTypeData,
   type SyncProgressEvent,
   type FeeConfig,
+  type PurchaseGate,
+  type PurchaseGatePluginId,
   type ProductMetadata,
   type PrintfulProviderDetails,
   type ProviderDetails,

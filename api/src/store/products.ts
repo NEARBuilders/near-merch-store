@@ -138,9 +138,6 @@ export const ProductStoreLive = Layer.effect(
           image: schema.collections.image,
           showInCarousel: schema.collections.showInCarousel,
           carouselOrder: schema.collections.carouselOrder,
-          isExclusive: schema.collections.isExclusive,
-          exclusiveCheckPluginId: schema.collections.exclusiveCheckPluginId,
-          exclusiveCheckConfig: schema.collections.exclusiveCheckConfig,
         })
         .from(schema.productCollections)
         .innerJoin(
@@ -156,9 +153,6 @@ export const ProductStoreLive = Layer.effect(
         image: row.image || undefined,
         showInCarousel: row.showInCarousel,
         carouselOrder: row.carouselOrder,
-        isExclusive: row.isExclusive ?? false,
-        exclusiveCheckPluginId: row.exclusiveCheckPluginId || undefined,
-        exclusiveCheckConfig: row.exclusiveCheckConfig || undefined,
       }));
     };
 
@@ -222,6 +216,8 @@ export const ProductStoreLive = Layer.effect(
         id: row.id,
         slug: row.slug,
         title: row.name,
+        createdAt: row.createdAt.toISOString(),
+        lastSyncedAt: row.lastSyncedAt?.toISOString(),
         description: row.description || undefined,
         price: row.price / 100,
         currency: row.currency,
