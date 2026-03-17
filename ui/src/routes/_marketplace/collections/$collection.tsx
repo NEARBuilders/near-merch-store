@@ -28,22 +28,106 @@ import {
   useProductTypes,
   collectionLoaders,
   productLoaders,
+  type Collection,
   type Product,
 } from '@/integrations/api';
 import { COLOR_MAP } from '@/lib/product-utils';
+import {
+  absoluteUrl,
+  buildCollectionDescription,
+  buildCollectionJsonLd,
+  createSeoHead,
+  getCollectionSeoImage,
+  SITE_NAME,
+} from '@/lib/seo';
 
 export const Route = createFileRoute('/_marketplace/collections/$collection')({
   pendingComponent: LoadingSpinner,
   loader: async ({ params, context }) => {
     const queryClient = context.queryClient;
+    const siteUrl = context.runtimeConfig?.hostUrl ?? '';
+    const assetsUrl = context.assetsUrl ?? '';
     const listData = await queryClient.ensureQueryData(collectionLoaders.list());
     if (params.collection === 'all') {
       const collections = (listData as { collections: { slug: string }[] }).collections;
       const collectionSlugs = collections.length > 0 ? [...collections.map((c) => c.slug)].sort() : ['_none'];
-      await queryClient.ensureQueryData(productLoaders.list({ collectionSlugs, limit: 100 }));
-    } else {
-      await queryClient.ensureQueryData(collectionLoaders.detail(params.collection));
+      const productsData = await queryClient.ensureQueryData(productLoaders.list({ collectionSlugs, limit: 100 }));
+      return {
+        kind: 'all' as const,
+        collections: (listData as { collections: Collection[] }).collections,
+        products: productsData.products,
+        totalProducts: productsData.total,
+        siteUrl,
+        assetsUrl,
+      };
     }
+
+    const detailData = await queryClient.ensureQueryData(collectionLoaders.detail(params.collection));
+    return {
+      kind: 'collection' as const,
+      collection: detailData.collection,
+      products: detailData.products,
+      siteUrl,
+      assetsUrl,
+    };
+  },
+  head: ({ loaderData, params }) => {
+    const siteUrl = loaderData?.siteUrl ?? '';
+    const assetsUrl = loaderData?.assetsUrl ?? '';
+    const fallbackImage = assetsUrl ? absoluteUrl(assetsUrl, '/metadata.png') : undefined;
+    const canonicalUrl = siteUrl
+      ? absoluteUrl(siteUrl, `/collections/${encodeURIComponent(params.collection)}`)
+      : undefined;
+
+    if (params.collection === 'all') {
+      const allProducts = loaderData?.products ?? [];
+      const totalProducts = loaderData?.totalProducts ?? allProducts.length;
+      const title = `All Collections | ${SITE_NAME}`;
+      const description = buildCollectionDescription(undefined, totalProducts);
+      const image = getCollectionSeoImage(undefined, allProducts) || fallbackImage;
+
+      return createSeoHead({
+        title,
+        description,
+        url: canonicalUrl,
+        image,
+        imageAlt: image ? 'All collections preview image' : undefined,
+        jsonLd: canonicalUrl
+          ? buildCollectionJsonLd({
+              name: 'All Collections',
+              description,
+              url: canonicalUrl,
+              image,
+              products: allProducts,
+              totalItems: totalProducts,
+            })
+          : null,
+      });
+    }
+
+    const collection = loaderData?.collection;
+    const products = loaderData?.products ?? [];
+    const collectionTitle = collection?.name ?? 'Collection';
+    const title = `${collectionTitle} | ${SITE_NAME}`;
+    const description = buildCollectionDescription(collection, products.length);
+    const image = getCollectionSeoImage(collection, products) || fallbackImage;
+
+    return createSeoHead({
+      title,
+      description,
+      url: canonicalUrl,
+      image,
+      imageAlt: image ? `${collectionTitle} collection preview image` : undefined,
+      jsonLd: canonicalUrl
+        ? buildCollectionJsonLd({
+            name: collectionTitle,
+            description,
+            url: canonicalUrl,
+            image,
+            products,
+          })
+        : null,
+    });
   },
   errorComponent: ({ error }) => {
     const router = useRouter();

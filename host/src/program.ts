@@ -363,6 +363,7 @@ export const createStartServer = (onReady?: () => void) =>
 					const runtimeConfig = {
 						env: config.env,
 						account: config.account,
+						hostUrl: config.hostUrl,
 						assetsUrl: clientUrl,
 						apiBase: "/api",
 						rpcBase: "/api/rpc",
@@ -444,6 +445,7 @@ export const createStartServer = (onReady?: () => void) =>
 						runtimeConfig: {
 							env,
 							account,
+							hostUrl: config.hostUrl,
 							assetsUrl,
 							apiBase: "/api",
 							rpcBase: "/api/rpc",

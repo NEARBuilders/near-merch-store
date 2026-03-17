@@ -1,15 +1,12 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { AnyRoute } from "@tanstack/react-router";
-import {
-  createMemoryHistory,
-  createRouter as createTanStackRouter,
-} from "@tanstack/react-router";
+import { createMemoryHistory } from "@tanstack/react-router";
 import {
   createRequestHandler,
   renderRouterToStream,
   RouterServer,
 } from "@tanstack/react-router/ssr/server";
-import { createRouter, routeTree } from "./router";
+import { createRouter } from "./router";
 import type {
   HeadData,
   HeadLink,
@@ -45,6 +42,7 @@ function getMetaKey(meta: HeadMeta): string {
 function getLinkKey(link: HeadLink): string {
   const rel = (link as { rel?: string }).rel ?? "";
   const href = (link as { href?: string }).href ?? "";
+  if (rel === "canonical") return "rel:canonical";
   return `${rel}:${href}`;
 }
 
@@ -61,19 +59,23 @@ export async function getRouteHead(
   context?: Partial<RouterContext>,
 ): Promise<HeadData> {
   const history = createMemoryHistory({ initialEntries: [pathname] });
-
-  const router = createTanStackRouter({
-    routeTree,
+  const { router } = createRouter({
     history,
-      context: {
-        queryClient: undefined as never,
-        assetsUrl: context?.assetsUrl ?? "",
-        runtimeConfig: context?.runtimeConfig,
-        nearAccountId: context?.nearAccountId ?? null,
-      },
+    context: {
+      assetsUrl: context?.assetsUrl ?? "",
+      runtimeConfig: context?.runtimeConfig,
+      session: context?.session,
+      nearAccountId: context?.nearAccountId ?? null,
+    },
   });
 
-  const matches = router.matchRoutes(pathname);
+  try {
+    await router.load();
+  } catch (error) {
+    console.warn(`[getRouteHead] router.load() failed for ${pathname}:`, error);
+  }
+
+  const matches = router.state.matches;
 
   const metaMap = new Map<string, HeadMeta>();
   const linkMap = new Map<string, HeadLink>();
@@ -83,29 +85,9 @@ export async function getRouteHead(
     const route = router.looseRoutesById[match.routeId] as AnyRoute | undefined;
     if (!route?.options?.head) continue;
 
-    let loaderData: unknown;
-    const loaderFn = route.options.loader;
-
-    if (loaderFn) {
-      try {
-        loaderData = await loaderFn({
-          params: match.params,
-          context: router.options.context,
-          abortController: new AbortController(),
-          preload: false,
-          cause: "enter",
-        } as Parameters<typeof loaderFn>[0]);
-      } catch (error) {
-        console.warn(
-          `[getRouteHead] Loader failed for ${match.routeId}:`,
-          error,
-        );
-      }
-    }
-
     try {
       const headResult = await route.options.head({
-        loaderData,
+        loaderData: match.loaderData,
         matches,
         match,
         params: match.params,

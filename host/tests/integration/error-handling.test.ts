@@ -1,5 +1,5 @@
 import { Effect } from "every-plugin/effect";
-import { loadBosConfig, type RuntimeConfig } from "everything-dev/config";
+import { loadConfig as loadBosConfig } from "everything-dev/config";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { loadRouterModule } from "@/services/federation.server";
 import type { RouterModule } from "@/types";
@@ -41,9 +41,9 @@ const parseORPCError = async (
 	}
 };
 
-describe("Error Propagation & Formatting", () => {
-	let routerModule: RouterModule;
-	let config: RuntimeConfig;
+	describe("Error Propagation & Formatting", () => {
+		let routerModule: RouterModule;
+		let config: any;
 
 	const createMockApiClient = () => ({
 		// Marketplace SSR prefetch
@@ -96,7 +96,11 @@ describe("Error Propagation & Formatting", () => {
 	beforeAll(async () => {
 		mockApiClient = createMockApiClient();
 		globalThis.$apiClient = mockApiClient;
-		config = await loadBosConfig();
+		const loadedConfig = await loadBosConfig();
+		if (!loadedConfig) {
+			throw new Error("Failed to load config for error handling tests");
+		}
+		config = loadedConfig.runtime;
 		const uiUrl = process.env.BOS_UI_URL;
 		const uiSsrUrl = process.env.BOS_UI_SSR_URL ?? uiUrl;
 		if (uiUrl) config.ui.url = uiUrl;

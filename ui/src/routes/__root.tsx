@@ -62,7 +62,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { name: "twitter:site", content: "@nearmerch" },
       ],
       links: [
-        { rel: "canonical", href: siteUrl },
         { rel: "stylesheet", href: `${assetsUrl}/static/css/async/style.css` },
         { rel: "preconnect", href: "https://fonts.googleapis.com" },
         {
