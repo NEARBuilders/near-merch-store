@@ -15,6 +15,7 @@ import type {
   FulfillmentOrder,
   FulfillmentOrderInput,
   FulfillmentOrderStatus,
+  ProviderDetails,
   ProviderProduct,
   ProviderVariant,
   ShippingQuoteInput,
@@ -122,7 +123,14 @@ export class PrintfulService {
           // Use batch V2 API for better performance
           const catalogVariants = yield* this.getCatalogVariantsV2(catalogVariantIds, VARIANT_CONCURRENCY);
 
-          return this.transformProduct(detail.sync_product, detail.sync_variants, catalogVariants);
+          // Phase 4: Fetch catalog product details for provider facts
+          const catalogProductId = detail.sync_variants[0]?.product?.product_id;
+          let catalogProduct = null;
+          if (catalogProductId) {
+            catalogProduct = yield* this.getCatalogProduct(catalogProductId);
+          }
+
+          return this.transformProduct(detail.sync_product, detail.sync_variants, catalogVariants, catalogProduct);
         });
 
       // Process products in batches with bounded concurrency
@@ -157,7 +165,14 @@ export class PrintfulService {
       const { sync_product, sync_variants } = yield* this.getSyncProduct(numericId);
       const catalogVariantIds = sync_variants.map(v => v.variant_id).filter(Boolean);
       const catalogVariants = yield* this.getCatalogVariants(catalogVariantIds);
-      return { product: this.transformProduct(sync_product, sync_variants, catalogVariants) };
+      
+      const catalogProductId = sync_variants[0]?.product?.product_id;
+      let catalogProduct = null;
+      if (catalogProductId) {
+        catalogProduct = yield* this.getCatalogProduct(catalogProductId);
+      }
+      
+      return { product: this.transformProduct(sync_product, sync_variants, catalogVariants, catalogProduct) };
     });
   }
 
@@ -232,18 +247,58 @@ export class PrintfulService {
     });
   }
 
+  getCatalogProduct(productId: number) {
+    return Effect.tryPromise({
+      try: () => this.client.getCatalogProduct(productId),
+      catch: (e) => new Error(`Failed to fetch catalog product ${productId}: ${e instanceof Error ? e.message : String(e)}`),
+    });
+  }
+
   private transformProduct(
     syncProduct: PrintfulSyncProduct,
     syncVariants: PrintfulSyncVariant[],
-    catalogVariants: Map<number, Variant>
+    catalogVariants: Map<number, Variant>,
+    catalogProduct?: {
+      brand?: string;
+      model?: string;
+      description?: string;
+      techniques?: string[];
+      placements?: string[];
+    } | null
   ): ProviderProduct {
+    const providerDetails: ProviderDetails | undefined = catalogProduct ? {
+      printful: {
+        brand: catalogProduct.brand,
+        model: catalogProduct.model,
+        description: catalogProduct.description,
+        techniques: catalogProduct.techniques,
+        placements: catalogProduct.placements,
+        gsm: catalogProduct.description ? this.extractGsm(catalogProduct.description) : undefined,
+        material: undefined,
+      },
+    } : undefined;
+
     return {
       id: syncProduct.id,
       sourceId: syncProduct.id,
       name: syncProduct.name,
       thumbnailUrl: syncProduct.thumbnail_url ?? undefined,
       variants: syncVariants.map(v => this.transformVariant(v, syncProduct.name, catalogVariants.get(v.variant_id))),
+      providerDetails,
     };
+  }
+
+  private extractGsm(description: string | undefined): number | undefined {
+    if (!description) return undefined;
+    const gsmMatch = description.match(/(\d+(?:\.\d+)?)\s*g\/m²/i);
+    if (gsmMatch && gsmMatch[1]) {
+      return parseFloat(gsmMatch[1]);
+    }
+    const ozMatch = description.match(/(\d+(?:\.\d+)?)\s*oz\/yd²/i);
+    if (ozMatch && ozMatch[1]) {
+      return Math.round(parseFloat(ozMatch[1]) * 33.906);
+    }
+    return undefined;
   }
 
   private transformVariant(

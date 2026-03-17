@@ -99,7 +99,7 @@ function AdminCollections() {
       <div>
         <h2 className="text-3xl font-bold tracking-tight mb-2">Collections</h2>
         <p className="text-sm text-foreground/90 dark:text-muted-foreground">
-          Create and manage product collections (e.g. Exclusives, Legion Merch Collection).
+          Create and manage product collections (e.g. New Arrivals, Legion Merch Collection).
           Products can belong to multiple collections.
         </p>
       </div>
@@ -108,11 +108,11 @@ function AdminCollections() {
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] items-end">
           <div className="space-y-1">
             <div className="text-sm font-medium">Name</div>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Exclusives"
-            />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. New Arrivals"
+              />
           </div>
           <div className="space-y-1">
             <div className="text-sm font-medium">Slug</div>

@@ -1,4 +1,4 @@
-import { apiClient } from '@/utils/orpc';
+import { apiClient } from "@/utils/orpc";
 import {
   useMutation,
   useQueries,
@@ -6,20 +6,30 @@ import {
   useQueryClient,
   useSuspenseQuery,
   type QueryClient,
-} from '@tanstack/react-query';
-import { useState, useEffect, useCallback } from 'react';
-import { productKeys, productTypeKeys, collectionKeys, categoryKeys, type Category } from './keys';
-import { toast } from 'sonner';
+} from "@tanstack/react-query";
+import { useState, useEffect, useCallback } from "react";
+import {
+  productKeys,
+  productTypeKeys,
+  collectionKeys,
+  categoryKeys,
+  type Category,
+} from "./keys";
+import { toast } from "sonner";
 
+type SyncProgressStream = Awaited<
+  ReturnType<typeof apiClient.subscribeSyncProgress>
+>;
+export type SyncProgressEvent =
+  SyncProgressStream extends AsyncIterable<infer T> ? T : never;
 
-type SyncProgressStream = Awaited<ReturnType<typeof apiClient.subscribeSyncProgress>>;
-export type SyncProgressEvent = SyncProgressStream extends AsyncIterable<infer T> ? T : never;
-
-export type Product = Awaited<ReturnType<typeof apiClient.getProduct>>['product'];
-export type ProductImage = Product['images'][number];
+export type Product = Awaited<
+  ReturnType<typeof apiClient.getProduct>
+>["product"];
+export type ProductImage = Product["images"][number];
 
 export function getPrimaryCategoryName(product: Product): string {
-  return product.collections?.[0]?.name ?? '';
+  return product.collections?.[0]?.name ?? "";
 }
 
 export function useProducts(options?: {
@@ -82,7 +92,7 @@ export function useSuspenseProduct(id: string) {
     queryFn: async () => {
       const data = await apiClient.getProduct({ id });
       return {
-        product: data.product
+        product: data.product,
       };
     },
   });
@@ -109,9 +119,12 @@ export function useSuspenseFeaturedProducts(limit = 12) {
   });
 }
 
-export function useSearchProducts(query: string, options?: {
-  limit?: number;
-}) {
+export function useSearchProducts(
+  query: string,
+  options?: {
+    limit?: number;
+  },
+) {
   return useQuery({
     queryKey: productKeys.search(query, options?.limit),
     queryFn: async () => {
@@ -125,9 +138,12 @@ export function useSearchProducts(query: string, options?: {
   });
 }
 
-export function useSuspenseSearchProducts(query: string, options?: {
-  limit?: number;
-}) {
+export function useSuspenseSearchProducts(
+  query: string,
+  options?: {
+    limit?: number;
+  },
+) {
   return useSuspenseQuery({
     queryKey: productKeys.search(query, options?.limit),
     queryFn: async () => {
@@ -166,12 +182,12 @@ export const productLoaders = {
     queryFn: () => apiClient.getProduct({ id }),
   }),
 
-  list: (options?: { 
+  list: (options?: {
     productTypeSlug?: string;
     collectionSlugs?: string[];
     tags?: string[];
     featured?: boolean;
-    limit?: number; 
+    limit?: number;
     offset?: number;
   }) => ({
     queryKey: productKeys.list({
@@ -224,7 +240,11 @@ export const productLoaders = {
     await qc.prefetchQuery(productLoaders.list(options));
   },
 
-  prefetchSearch: async (qc: QueryClient, query: string, options?: { limit?: number }) => {
+  prefetchSearch: async (
+    qc: QueryClient,
+    query: string,
+    options?: { limit?: number },
+  ) => {
     await qc.prefetchQuery(productLoaders.search(query, options));
   },
 };
@@ -234,7 +254,7 @@ export function useSyncStatus() {
     queryKey: productKeys.syncStatus(),
     queryFn: () => apiClient.getSyncStatus(),
     refetchInterval: (query) => {
-      if (query.state.data?.status === 'running') {
+      if (query.state.data?.status === "running") {
         return 2000;
       }
       return false;
@@ -271,36 +291,39 @@ export function useSyncProgressSubscription(isRunning: boolean) {
 
     const subscribe = async () => {
       try {
-        const stream = await apiClient.subscribeSyncProgress({}, { signal: abortController.signal });
-        
+        const stream = await apiClient.subscribeSyncProgress(
+          {},
+          { signal: abortController.signal },
+        );
+
         for await (const event of stream) {
           if (!active) break;
-          
+
           setEvents((prev) => [...prev, event]);
-          
-          if (event.status === 'completed' || event.status === 'error') {
+
+          if (event.status === "completed" || event.status === "error") {
             setFinalEvent(event);
             setIsSubscribed(false);
-            
+
             // Show completion toast
-            if (event.status === 'completed') {
+            if (event.status === "completed") {
               const synced = event.totalSynced ?? 0;
               const failed = event.totalFailed ?? 0;
-              const failedStr = failed > 0 ? ` (${failed} failed)` : '';
+              const failedStr = failed > 0 ? ` (${failed} failed)` : "";
               queryClient.invalidateQueries({ queryKey: productKeys.all });
               toast.success(`Synced ${synced} products${failedStr}`);
-            } else if (event.status === 'error') {
-              toast.error(event.message || 'Sync failed');
+            } else if (event.status === "error") {
+              toast.error(event.message || "Sync failed");
             }
             break;
           }
         }
       } catch (error) {
         // Ignore abort errors (cleanup)
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (error instanceof Error && error.name === "AbortError") {
           return;
         }
-        console.error('Sync progress subscription error:', error);
+        console.error("Sync progress subscription error:", error);
         setIsSubscribed(false);
       }
     };
@@ -328,18 +351,18 @@ export function useSyncProgressSubscription(isRunning: boolean) {
  */
 export function useSyncProgress() {
   return useQuery({
-    queryKey: ['syncProgress'],
+    queryKey: ["syncProgress"],
     queryFn: async () => {
       const events: SyncProgressEvent[] = [];
       const stream = await apiClient.subscribeSyncProgress({});
-      
+
       for await (const event of stream) {
         events.push(event);
-        if (event.status === 'completed' || event.status === 'error') {
+        if (event.status === "completed" || event.status === "error") {
           return { events, finalEvent: event };
         }
       }
-      
+
       return { events, finalEvent: null };
     },
     refetchOnWindowFocus: false,
@@ -356,23 +379,24 @@ export function useSyncProducts() {
     onSuccess: (data) => {
       // Sync started in background - just invalidate status
       queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
-      
-      if (data.status === 'started') {
-        toast.success('Sync started - progress will update automatically');
-      } else if (data.status === 'already_running') {
-        toast.info('Sync is already in progress');
+
+      if (data.status === "started") {
+        toast.success("Sync started - progress will update automatically");
+      } else if (data.status === "already_running") {
+        toast.info("Sync is already in progress");
       }
     },
     onError: (error) => {
       queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
-      
-      const errorCode = (error as any)?.code || (error as any)?.response?.data?.code;
-      const errorMessage = (error as any)?.message || 'Sync failed to start';
-      
-      if (errorCode === 'SYNC_IN_PROGRESS') {
-        toast.info('Sync is already in progress');
+
+      const errorCode =
+        (error as any)?.code || (error as any)?.response?.data?.code;
+      const errorMessage = (error as any)?.message || "Sync failed to start";
+
+      if (errorCode === "SYNC_IN_PROGRESS") {
+        toast.info("Sync is already in progress");
       } else {
-        toast.error(errorMessage || 'Failed to start sync');
+        toast.error(errorMessage || "Failed to start sync");
       }
     },
   });
@@ -384,11 +408,11 @@ export function useCancelSync() {
     mutationFn: () => apiClient.cancelSync(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
-      queryClient.removeQueries({ queryKey: ['syncProgress'] });
-      toast.success('Sync cancelled');
+      queryClient.removeQueries({ queryKey: ["syncProgress"] });
+      toast.success("Sync cancelled");
     },
     onError: () => {
-      toast.error('Failed to cancel sync');
+      toast.error("Failed to cancel sync");
     },
   });
 }
@@ -401,13 +425,15 @@ export function useUpdateProductListing() {
     onMutate: async ({ id, listed }) => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
 
-      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
-      
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: productKeys.all,
+      });
+
       queryClient.setQueriesData(
-        { 
-          predicate: (query) => 
-            query.queryKey[0] === 'products' &&
-            query.state.status === 'success'
+        {
+          predicate: (query) =>
+            query.queryKey[0] === "products" &&
+            query.state.status === "success",
         },
         (old: any) => {
           if (!old) return old;
@@ -415,7 +441,7 @@ export function useUpdateProductListing() {
             return {
               ...old,
               products: old.products.map((p: Product) =>
-                p.id === id ? { ...p, listed } : p
+                p.id === id ? { ...p, listed } : p,
               ),
             };
           }
@@ -429,7 +455,7 @@ export function useUpdateProductListing() {
             };
           }
           return old;
-        }
+        },
       );
 
       return { previousProducts };
@@ -440,7 +466,7 @@ export function useUpdateProductListing() {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      toast.error('Failed to update listing status');
+      toast.error("Failed to update listing status");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.all });
@@ -455,24 +481,28 @@ export function useUpdateProductCategories() {
       apiClient.updateProductCategories({ id, categoryIds }),
     onMutate: async ({ id, categoryIds }) => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
-      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: productKeys.all,
+      });
 
       const categoriesData = queryClient.getQueryData(categoryKeys.list()) as
         | { categories: Category[] }
         | undefined;
 
       queryClient.setQueriesData(
-        { 
-          predicate: (query) => 
-            query.queryKey[0] === 'products' && 
-            query.state.status === 'success'
+        {
+          predicate: (query) =>
+            query.queryKey[0] === "products" &&
+            query.state.status === "success",
         },
         (old: any) => {
           if (!old) return old;
 
           const toCollection = (slug: string, existing?: any) => {
             if (existing) return existing;
-            const cat = categoriesData?.categories?.find((c) => c.slug === slug);
+            const cat = categoriesData?.categories?.find(
+              (c) => c.slug === slug,
+            );
             return {
               slug,
               name: cat?.name ?? slug,
@@ -485,14 +515,17 @@ export function useUpdateProductCategories() {
             return {
               ...old,
               products: old.products.map((p: Product) =>
-                p.id === id 
-                  ? { 
-                      ...p, 
+                p.id === id
+                  ? {
+                      ...p,
                       collections: (categoryIds as string[]).map((slug) =>
-                        toCollection(slug, p.collections?.find((c: any) => c.slug === slug))
-                      )
-                    } 
-                  : p
+                        toCollection(
+                          slug,
+                          p.collections?.find((c: any) => c.slug === slug),
+                        ),
+                      ),
+                    }
+                  : p,
               ),
             };
           }
@@ -504,14 +537,17 @@ export function useUpdateProductCategories() {
               product: {
                 ...p,
                 collections: (categoryIds as string[]).map((slug) =>
-                  toCollection(slug, p.collections?.find((c: any) => c.slug === slug))
+                  toCollection(
+                    slug,
+                    p.collections?.find((c: any) => c.slug === slug),
+                  ),
                 ),
               },
             };
           }
 
           return old;
-        }
+        },
       );
 
       return { previousProducts };
@@ -522,17 +558,17 @@ export function useUpdateProductCategories() {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      toast.error('Failed to update collections', {
-        description: 'An unknown error occurred'
+      toast.error("Failed to update collections", {
+        description: "An unknown error occurred",
       });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.all });
       queryClient.invalidateQueries({ queryKey: collectionKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
     onSuccess: () => {
-      toast.success('Collections updated successfully');
+      toast.success("Collections updated successfully");
     },
   });
 }
@@ -544,13 +580,15 @@ export function useUpdateProductTags() {
       apiClient.updateProductTags({ id, tags }),
     onMutate: async ({ id, tags }) => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
-      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: productKeys.all,
+      });
 
       queryClient.setQueriesData(
-        { 
-          predicate: (query) => 
-            query.queryKey[0] === 'products' &&
-            query.state.status === 'success'
+        {
+          predicate: (query) =>
+            query.queryKey[0] === "products" &&
+            query.state.status === "success",
         },
         (old: any) => {
           if (!old) return old;
@@ -558,7 +596,7 @@ export function useUpdateProductTags() {
             return {
               ...old,
               products: old.products.map((p: Product) =>
-                p.id === id ? { ...p, tags } : p
+                p.id === id ? { ...p, tags } : p,
               ),
             };
           }
@@ -572,7 +610,7 @@ export function useUpdateProductTags() {
             };
           }
           return old;
-        }
+        },
       );
 
       return { previousProducts };
@@ -583,15 +621,15 @@ export function useUpdateProductTags() {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      toast.error('Failed to update tags', {
-        description: 'An unknown error occurred'
+      toast.error("Failed to update tags", {
+        description: "An unknown error occurred",
       });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.all });
     },
     onSuccess: () => {
-      toast.success('Tags updated successfully');
+      toast.success("Tags updated successfully");
     },
   });
 }
@@ -603,13 +641,15 @@ export function useUpdateProductFeatured() {
       apiClient.updateProductFeatured({ id, featured }),
     onMutate: async ({ id, featured }) => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
-      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: productKeys.all,
+      });
 
       queryClient.setQueriesData(
-        { 
-          predicate: (query) => 
-            query.queryKey[0] === 'products' &&
-            query.state.status === 'success'
+        {
+          predicate: (query) =>
+            query.queryKey[0] === "products" &&
+            query.state.status === "success",
         },
         (old: any) => {
           if (!old) return old;
@@ -617,7 +657,7 @@ export function useUpdateProductFeatured() {
             return {
               ...old,
               products: old.products.map((p: Product) =>
-                p.id === id ? { ...p, featured } : p
+                p.id === id ? { ...p, featured } : p,
               ),
             };
           }
@@ -631,7 +671,7 @@ export function useUpdateProductFeatured() {
             };
           }
           return old;
-        }
+        },
       );
 
       return { previousProducts };
@@ -642,15 +682,15 @@ export function useUpdateProductFeatured() {
           queryClient.setQueryData(queryKey, data);
         });
       }
-      toast.error('Failed to update featured status', {
-        description: 'An unknown error occurred'
+      toast.error("Failed to update featured status", {
+        description: "An unknown error occurred",
       });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: productKeys.all });
     },
     onSuccess: (_, { featured }) => {
-      const status = featured ? 'featured' : 'unfeatured';
+      const status = featured ? "featured" : "unfeatured";
       toast.success(`Product ${status} successfully`);
     },
   });
@@ -659,17 +699,24 @@ export function useUpdateProductFeatured() {
 export function useUpdateProductType() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, productTypeSlug }: { id: string; productTypeSlug: string | null }) =>
-      apiClient.updateProductType({ id, productTypeSlug }),
+    mutationFn: ({
+      id,
+      productTypeSlug,
+    }: {
+      id: string;
+      productTypeSlug: string | null;
+    }) => apiClient.updateProductType({ id, productTypeSlug }),
     onMutate: async ({ id, productTypeSlug }) => {
       await queryClient.cancelQueries({ queryKey: productKeys.all });
-      const previousProducts = queryClient.getQueriesData({ queryKey: productKeys.all });
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: productKeys.all,
+      });
 
       queryClient.setQueriesData(
-        { 
-          predicate: (query) => 
-            query.queryKey[0] === 'products' && 
-            query.state.status === 'success'
+        {
+          predicate: (query) =>
+            query.queryKey[0] === "products" &&
+            query.state.status === "success",
         },
         (old: any) => {
           if (!old) return old;
@@ -677,16 +724,18 @@ export function useUpdateProductType() {
             return {
               ...old,
               products: old.products.map((p: Product) =>
-                p.id === id 
-                  ? { 
-                      ...p, 
-                      productType: productTypeSlug ? { 
-                        slug: productTypeSlug,
-                        label: productTypeSlug,
-                        displayOrder: 0,
-                      } : null
-                    } 
-                  : p
+                p.id === id
+                  ? {
+                      ...p,
+                      productType: productTypeSlug
+                        ? {
+                            slug: productTypeSlug,
+                            label: productTypeSlug,
+                            displayOrder: 0,
+                          }
+                        : null,
+                    }
+                  : p,
               ),
             };
           }
@@ -707,7 +756,7 @@ export function useUpdateProductType() {
             };
           }
           return old;
-        }
+        },
       );
 
       return { previousProducts };
@@ -725,7 +774,9 @@ export function useUpdateProductType() {
   });
 }
 
-export type ProductTypeData = Awaited<ReturnType<typeof apiClient.getProductTypes>>['productTypes'][number];
+export type ProductTypeData = Awaited<
+  ReturnType<typeof apiClient.getProductTypes>
+>["productTypes"][number];
 
 export function useProductTypes() {
   return useQuery({
@@ -740,8 +791,12 @@ export function useProductTypes() {
 export function useCreateProductType() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { slug: string; label: string; description?: string; displayOrder?: number }) =>
-      apiClient.createProductType(data),
+    mutationFn: (data: {
+      slug: string;
+      label: string;
+      description?: string;
+      displayOrder?: number;
+    }) => apiClient.createProductType(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
     },
@@ -751,8 +806,15 @@ export function useCreateProductType() {
 export function useUpdateProductTypeItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ slug, ...data }: { slug: string; label?: string; description?: string; displayOrder?: number }) =>
-      apiClient.updateProductTypeItem({ slug, ...data }),
+    mutationFn: ({
+      slug,
+      ...data
+    }: {
+      slug: string;
+      label?: string;
+      description?: string;
+      displayOrder?: number;
+    }) => apiClient.updateProductTypeItem({ slug, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
     },
@@ -766,6 +828,172 @@ export function useDeleteProductType() {
       apiClient.deleteProductType({ slug }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
+    },
+  });
+}
+
+export type FeeConfig = {
+  type: "royalty" | "affiliate" | "platform" | "custom";
+  label: string;
+  recipient: string;
+  bps: number;
+};
+
+export type PrintfulProviderDetails = {
+  brand?: string;
+  model?: string;
+  description?: string;
+  techniques?: string[];
+  placements?: string[];
+  gsm?: number;
+  material?: string;
+};
+
+export type ProviderDetails = {
+  printful?: PrintfulProviderDetails;
+};
+
+export type PurchaseGatePluginId = "legion-holder";
+
+export type PurchaseGate = {
+  pluginId?: PurchaseGatePluginId;
+};
+
+export type ProductMetadata = {
+  creatorAccountId?: string;
+  fees: FeeConfig[];
+  providerDetails?: ProviderDetails;
+  purchaseGate?: PurchaseGate;
+};
+
+export function getPurchaseGatePluginId(
+  metadata?: ProductMetadata,
+): PurchaseGatePluginId | undefined {
+  return metadata?.purchaseGate?.pluginId;
+}
+
+export function usePurchaseGateAccess(
+  pluginId?: PurchaseGatePluginId,
+  nearAccountId?: string | null,
+) {
+  const query = useQuery({
+    queryKey: ["purchase-gate-access", pluginId ?? "none", nearAccountId ?? "anonymous"],
+    queryFn: () =>
+      apiClient.checkPurchaseGateAccess({
+        pluginId: pluginId!,
+        nearAccountId: nearAccountId!,
+      }),
+    enabled: Boolean(pluginId && nearAccountId),
+    staleTime: 60_000,
+  });
+
+  const isGated = Boolean(pluginId);
+  const hasAccess = !isGated
+    ? true
+    : !nearAccountId
+      ? false
+      : query.data?.hasAccess ?? false;
+  const isLoading = Boolean(pluginId && nearAccountId && query.isPending);
+
+  return {
+    ...query,
+    isGated,
+    hasAccess,
+    isLoading,
+  };
+}
+
+export function usePurchaseGateAccessMap(
+  pluginIds: PurchaseGatePluginId[],
+  nearAccountId?: string | null,
+) {
+  const uniquePluginIds = Array.from(new Set(pluginIds));
+  const queries = useQueries({
+    queries: uniquePluginIds.map((pluginId) => ({
+      queryKey: ["purchase-gate-access", pluginId, nearAccountId ?? "anonymous"],
+      queryFn: () =>
+        apiClient.checkPurchaseGateAccess({
+          pluginId,
+          nearAccountId: nearAccountId!,
+        }),
+      enabled: Boolean(nearAccountId),
+      staleTime: 60_000,
+    })),
+  });
+
+  const accessByPlugin = new Map<PurchaseGatePluginId, boolean>();
+
+  uniquePluginIds.forEach((pluginId, index) => {
+    const query = queries[index];
+    accessByPlugin.set(
+      pluginId,
+      !nearAccountId ? false : query?.data?.hasAccess ?? false,
+    );
+  });
+
+  return {
+    accessByPlugin,
+    isLoading: Boolean(nearAccountId) && queries.some((query) => query.isPending),
+  };
+}
+
+export function useUpdateProductMetadata() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, metadata }: { id: string; metadata: ProductMetadata }) =>
+      apiClient.updateProductMetadata({ id, metadata }),
+    onMutate: async ({ id, metadata }) => {
+      await queryClient.cancelQueries({ queryKey: productKeys.all });
+      const previousProducts = queryClient.getQueriesData({
+        queryKey: productKeys.all,
+      });
+
+      queryClient.setQueriesData(
+        {
+          predicate: (query) =>
+            query.queryKey[0] === "products" &&
+            query.state.status === "success",
+        },
+        (old: any) => {
+          if (!old) return old;
+          if (old.products) {
+            return {
+              ...old,
+              products: old.products.map((p: Product) =>
+                p.id === id ? { ...p, metadata } : p,
+              ),
+            };
+          }
+          if (old.product && old.product.id === id) {
+            return {
+              ...old,
+              product: {
+                ...old.product,
+                metadata,
+              },
+            };
+          }
+          return old;
+        },
+      );
+
+      return { previousProducts };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousProducts) {
+        context.previousProducts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      toast.error("Failed to update metadata", {
+        description: "An unknown error occurred",
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+    },
+    onSuccess: () => {
+      toast.success("Metadata updated successfully");
     },
   });
 }

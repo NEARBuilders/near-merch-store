@@ -8,9 +8,12 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { useNearPrice } from "@/hooks/use-near-price";
 import { useCartSidebarStore } from "@/stores/cart-sidebar-store";
 import {
+  getPurchaseGatePluginId,
   requiresSize,
   useProducts,
+  usePurchaseGateAccess,
   type ProductImage,
+  type ProductMetadata,
 } from "@/integrations/api";
 import {
   COLOR_MAP,
@@ -20,6 +23,7 @@ import {
 } from "@/lib/product-utils";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/utils/orpc";
+import { useNearAccountId } from "@/hooks/use-near-account-id";
 import { createFileRoute, Link, useRouter, useCanGoBack } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -28,8 +32,26 @@ import {
   ChevronRight,
   Minus,
   Plus,
+  Lock,
+  Info,
 } from "lucide-react";
 import { useState, useMemo, useEffect, useRef } from "react";
+
+function getTotalFeePercentage(metadata: ProductMetadata | undefined): number {
+  if (!metadata?.fees?.length) return 0;
+  const totalBps = metadata.fees.reduce((sum, f) => sum + f.bps, 0);
+  return totalBps / 100;
+}
+
+function formatFeeType(type: string): string {
+  switch (type) {
+    case "royalty": return "Creator Royalty";
+    case "affiliate": return "Affiliate";
+    case "platform": return "Platform Fee";
+    case "custom": return "Custom";
+    default: return type;
+  }
+}
 
 export const Route = createFileRoute("/_marketplace/products/$productId")({
   pendingComponent: LoadingSpinner,
@@ -47,7 +69,7 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
       ? `${product.title} | NEAR Merch Store`
       : "NEAR Merch Store";
     const description =
-      product?.description || "Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles";
+      product?.description || "Shop official NEAR Protocol merchandise, apparel, accessories, and collectibles";
     const image = product?.images?.[0]?.url;
 
     return {
@@ -135,6 +157,17 @@ function ProductDetailPage() {
 
   const { product } = loaderData.data;
 
+  const nearAccountId = useNearAccountId();
+
+  const purchaseGatePluginId = getPurchaseGatePluginId(
+    product.metadata as ProductMetadata | undefined,
+  );
+  const isGatedProduct = Boolean(purchaseGatePluginId);
+  const {
+    hasAccess: canPurchase,
+    isLoading: isAccessLoading,
+  } = usePurchaseGateAccess(purchaseGatePluginId, nearAccountId);
+
   const availableVariants = product.variants || [];
   const hasVariants = availableVariants.length > 0;
 
@@ -165,7 +198,9 @@ function ProductDetailPage() {
     return availableVariants.some((v) => {
       const vSize = getOptionValue(v.attributes, "Size");
       const vColor = getOptionValue(v.attributes, "Color");
-      return vSize === size && vColor === selectedColor && v.availableForSale;
+      const colorMatches = orderedColors.length === 0 || vColor === selectedColor;
+
+      return vSize === size && colorMatches && v.availableForSale;
     });
   });
 
@@ -218,11 +253,13 @@ function ProductDetailPage() {
 
   // Reset image index when product changes
   useEffect(() => {
+    setSelectedColor(defaultColor);
+    setSelectedSize(defaultSize);
     setCurrentImageIndex(0);
     setIsManualImageSelection(false);
     isInitialMountRef.current = true;
     prevColorSizeRef.current = null;
-  }, [product.id]);
+  }, [defaultColor, defaultSize, product.id]);
 
   // When color/variant changes via color picker (not thumbnail click), update main image
   useEffect(() => {
@@ -270,7 +307,7 @@ function ProductDetailPage() {
     requiresSize(product.collections) && hasVariants && orderedSizes.length > 0;
 
   const handleAddToCart = () => {
-    if (!selectedVariant) return;
+    if (!selectedVariant || !canPurchase) return;
     const variantImageUrl = selectedVariantId ? getVariantImageUrl(product, selectedVariantId) : undefined;
     for (let i = 0; i < quantity; i++) {
       addToCart(product.slug, selectedVariantId || '', selectedSize, selectedColor, variantImageUrl);
@@ -314,9 +351,9 @@ function ProductDetailPage() {
           {/* Title Block */}
           <div className="flex-1 rounded-2xl bg-background/60 backdrop-blur-sm border border-border/60 px-4 md:px-8 lg:px-10 py-4 md:py-8">
             <div className="flex items-center justify-end gap-3">
-              {(product.collections ?? []).some((c) => c.name === "Exclusives") && (
+              {isGatedProduct && (
                 <div className="h-[40px] flex items-center justify-center bg-muted/30 px-3 py-2 text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60 rounded-lg">
-                  EXCLUSIVE
+                  LEGION GATED
                 </div>
               )}
               <FavoriteButton
@@ -495,6 +532,41 @@ function ProductDetailPage() {
               )}
             </div>
 
+            {/* Fee Distribution */}
+            {(() => {
+              const feePct = getTotalFeePercentage(product.metadata as ProductMetadata | undefined);
+              const fees = (product.metadata as ProductMetadata | undefined)?.fees || [];
+              const providerDetails = (product.metadata as ProductMetadata | undefined)?.providerDetails;
+              
+              if (feePct === 0 && !providerDetails?.printful) return null;
+              
+              return (
+                <div className="rounded-lg bg-background/40 border border-border/40 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground/80">
+                    <Info className="size-4" />
+                    <span>Price includes {feePct}% creator fees</span>
+                  </div>
+                  {fees.length > 0 && (
+                    <div className="text-xs text-foreground/60 space-y-1">
+                      {fees.map((fee, idx) => (
+                        <div key={idx} className="flex justify-between">
+                          <span>{formatFeeType(fee.type)} ({fee.label})</span>
+                          <span>{fee.bps / 100}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {providerDetails?.printful && (
+                    <div className="text-xs text-foreground/50 pt-2 border-t border-border/30">
+                      {providerDetails.printful.brand && <span>Brand: {providerDetails.printful.brand}</span>}
+                      {providerDetails.printful.model && <span className="ml-2">Model: {providerDetails.printful.model}</span>}
+                      {providerDetails.printful.gsm && <span className="ml-2">{providerDetails.printful.gsm} g/m²</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Description */}
             {product.description && (
               <div className="space-y-2">
@@ -612,13 +684,30 @@ function ProductDetailPage() {
 
             {/* Add to Cart Button */}
             <div className="pt-2">
-            <Button
-              onClick={handleAddToCart}
-                className="w-full bg-[#00EC97] text-black hover:bg-[#00d97f] rounded-lg h-14 text-base font-bold transition-colors"
-              disabled={needsSize && !selectedVariant}
-            >
-              Add to Cart - ${(displayPrice * quantity).toFixed(2)}
-            </Button>
+            {isGatedProduct && !canPurchase ? (
+              <div className="space-y-2">
+                <Button
+                  className="w-full bg-muted text-muted-foreground rounded-lg h-14 text-base font-bold cursor-not-allowed"
+                  disabled
+                >
+                  <Lock className="size-5 mr-2" />
+                  Legion Holder Required
+                </Button>
+                <p className="text-xs text-center text-muted-foreground">
+                  {!nearAccountId 
+                    ? "Sign in with your NEAR account to unlock this item"
+                    : "Your account does not hold the required Legion NFT"}
+                </p>
+              </div>
+            ) : (
+              <Button
+                onClick={handleAddToCart}
+                  className="w-full bg-[#00EC97] text-black hover:bg-[#00d97f] rounded-lg h-14 text-base font-bold transition-colors"
+                disabled={(needsSize && !selectedVariant) || isAccessLoading}
+              >
+                {isAccessLoading ? "Checking access..." : `Add to Cart - $${(displayPrice * quantity).toFixed(2)}`}
+              </Button>
+            )}
             </div>
             </div>
           </div>

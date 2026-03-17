@@ -1,10 +1,19 @@
-import { Context, Effect, Layer, Schedule } from 'every-plugin/effect';
-import type { MarketplaceRuntime } from '../runtime';
-import type { ProviderBreakdown, ProviderShippingOption, QuoteItemInput, QuoteOutput, ShippingAddress, FulfillmentConfig, TaxBreakdown } from '../schema';
-import { OrderStore, ProductStore } from '../store';
-import type { FulfillmentOrderItem } from './fulfillment/schema';
-import type { PaymentLineItem } from './payment/schema';
-import { CheckoutError } from './checkout/errors';
+import { Context, Effect, Layer, Schedule } from "every-plugin/effect";
+import type { MarketplaceRuntime } from "../runtime";
+import type {
+  ProviderBreakdown,
+  ProviderShippingOption,
+  QuoteItemInput,
+  QuoteOutput,
+  ShippingAddress,
+  FulfillmentConfig,
+  TaxBreakdown,
+  FeeConfig,
+} from "../schema";
+import { OrderStore, ProductStore } from "../store";
+import type { FulfillmentOrderItem } from "./fulfillment/schema";
+import type { PaymentLineItem } from "./payment/schema";
+import { CheckoutError } from "./checkout/errors";
 
 interface ProviderItemGroup {
   item: QuoteItemInput;
@@ -17,6 +26,7 @@ interface ProviderItemGroup {
   productDescription?: string;
   productImage?: string;
   fulfillmentProvider?: string;
+  metadata?: { creatorAccountId?: string; fees: FeeConfig[] };
 }
 
 export interface CreateCheckoutParams {
@@ -27,7 +37,7 @@ export interface CreateCheckoutParams {
   shippingCost: number;
   successUrl: string;
   cancelUrl: string;
-  paymentProvider?: 'stripe' | 'pingpay';
+  paymentProvider?: "stripe" | "pingpay";
 }
 
 export interface CreateCheckoutOutput {
@@ -66,9 +76,9 @@ function mapToFulfillmentItems(providerItems: ProviderItemGroup[], selectedRateI
       productId: providerData?.catalogProductId as number | undefined,
       variantId: providerData?.catalogVariantId as number | undefined,
       quantity: pi.item.quantity,
-      files: config?.designFiles?.map(df => ({
+      files: config?.designFiles?.map((df) => ({
         url: df.url,
-        type: 'default' as const,
+        type: "default" as const,
         placement: df.placement,
       })),
       providerData: mergedProviderData,
@@ -76,15 +86,15 @@ function mapToFulfillmentItems(providerItems: ProviderItemGroup[], selectedRateI
   });
 }
 
-export class CheckoutService extends Context.Tag('CheckoutService')<
+export class CheckoutService extends Context.Tag("CheckoutService")<
   CheckoutService,
   {
     readonly getQuote: (
       items: QuoteItemInput[],
-      address: ShippingAddress
+      address: ShippingAddress,
     ) => Effect.Effect<QuoteOutput, Error | CheckoutError>;
     readonly createCheckout: (
-      params: CreateCheckoutParams
+      params: CreateCheckoutParams,
     ) => Effect.Effect<CreateCheckoutOutput, Error | CheckoutError>;
   }
 >() {}
@@ -237,25 +247,25 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             const itemsByProvider = new Map<string, ProviderItemGroup[]>();
 
             let totalSubtotal = 0;
-            const currency = 'USD';
+            const currency = "USD";
 
             for (const item of items) {
               const product = yield* productStore.find(item.productId);
               if (!product) {
                 return yield* Effect.fail(
-                  new Error(`Product not found: ${item.productId}`)
+                  new Error(`Product not found: ${item.productId}`),
                 );
               }
 
               const selectedVariant = item.variantId
-                ? product.variants.find(v => v.id === item.variantId)
+                ? product.variants.find((v) => v.id === item.variantId)
                 : product.variants[0];
 
               const unitPrice = selectedVariant?.price ?? product.price;
               const itemSubtotal = unitPrice * item.quantity;
               totalSubtotal += itemSubtotal;
 
-              const provider = product.fulfillmentProvider || 'manual';
+              const provider = product.fulfillmentProvider || "manual";
 
               if (!itemsByProvider.has(provider)) {
                 itemsByProvider.set(provider, []);
@@ -266,7 +276,8 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                 productId: product.id,
                 variantId: selectedVariant?.id,
                 price: unitPrice,
-                currency: selectedVariant?.currency ?? product.currency ?? currency,
+                currency:
+                  selectedVariant?.currency ?? product.currency ?? currency,
                 fulfillmentConfig: selectedVariant?.fulfillmentConfig,
                 productTitle: product.title,
                 productDescription: product.description,
@@ -283,20 +294,23 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             let maxDeliveryDays: number | undefined;
             const providerTaxResults: Array<{ required: boolean; rate: number; shippingTaxable: boolean; exempt: boolean; taxAmount: number; vat: number }> = [];
 
-            for (const [providerName, providerItems] of itemsByProvider.entries()) {
+            for (const [
+              providerName,
+              providerItems,
+            ] of itemsByProvider.entries()) {
               const provider = runtime.getProvider(providerName);
 
               if (!provider) {
-                if (providerName === 'manual') {
+                if (providerName === "manual") {
                   const manualSubtotal = providerItems.reduce(
                     (sum, pi) => sum + pi.price * pi.item.quantity,
-                    0
+                    0,
                   );
 
                   const manualShipping: ProviderShippingOption = {
-                    provider: 'manual',
-                    rateId: 'manual-standard',
-                    rateName: 'Standard Shipping',
+                    provider: "manual",
+                    rateId: "manual-standard",
+                    rateName: "Standard Shipping",
                     shippingCost: 0,
                     currency,
                     minDeliveryDays: 5,
@@ -304,17 +318,23 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                   };
 
                   providerBreakdown.push({
-                    provider: 'manual',
+                    provider: "manual",
                     itemCount: providerItems.length,
                     subtotal: manualSubtotal,
                     selectedShipping: manualShipping,
                     availableRates: [manualShipping],
                   });
 
-                  if (minDeliveryDays === undefined || manualShipping.minDeliveryDays! < minDeliveryDays) {
+                  if (
+                    minDeliveryDays === undefined ||
+                    manualShipping.minDeliveryDays! < minDeliveryDays
+                  ) {
                     minDeliveryDays = manualShipping.minDeliveryDays;
                   }
-                  if (maxDeliveryDays === undefined || manualShipping.maxDeliveryDays! > maxDeliveryDays) {
+                  if (
+                    maxDeliveryDays === undefined ||
+                    manualShipping.maxDeliveryDays! > maxDeliveryDays
+                  ) {
                     maxDeliveryDays = manualShipping.maxDeliveryDays;
                   }
 
@@ -322,7 +342,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                 }
 
                 return yield* Effect.fail(
-                  new Error(`Provider not configured: ${providerName}`)
+                  new Error(`Provider not configured: ${providerName}`),
                 );
               }
 
@@ -337,7 +357,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                   }),
                 catch: (error) =>
                   new CheckoutError({
-                    code: 'QUOTE_FAILED',
+                    code: "QUOTE_FAILED",
                     provider: providerName,
                     cause: error,
                   }),
@@ -346,12 +366,12 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               const rates = quoteResult.rates || [];
               if (rates.length === 0) {
                 return yield* Effect.fail(
-                  new Error(`No shipping rates available from ${providerName}`)
+                  new Error(`No shipping rates available from ${providerName}`),
                 );
               }
 
               const selectedRate = rates.reduce((cheapest, rate) =>
-                rate.rate < cheapest.rate ? rate : cheapest
+                rate.rate < cheapest.rate ? rate : cheapest,
               );
 
               const availableRates: ProviderShippingOption[] = rates.map(rate => ({
@@ -380,7 +400,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
 
               const providerSubtotal = providerItems.reduce(
                 (sum, pi) => sum + pi.price * pi.item.quantity,
-                0
+                0,
               );
 
               providerBreakdown.push({
@@ -407,12 +427,18 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               totalVat += providerTax.vat;
 
               if (selectedRate.minDeliveryDays !== undefined) {
-                if (minDeliveryDays === undefined || selectedRate.minDeliveryDays < minDeliveryDays) {
+                if (
+                  minDeliveryDays === undefined ||
+                  selectedRate.minDeliveryDays < minDeliveryDays
+                ) {
                   minDeliveryDays = selectedRate.minDeliveryDays;
                 }
               }
               if (selectedRate.maxDeliveryDays !== undefined) {
-                if (maxDeliveryDays === undefined || selectedRate.maxDeliveryDays > maxDeliveryDays) {
+                if (
+                  maxDeliveryDays === undefined ||
+                  selectedRate.maxDeliveryDays > maxDeliveryDays
+                ) {
                   maxDeliveryDays = selectedRate.maxDeliveryDays;
                 }
               }
@@ -451,30 +477,38 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
 
         createCheckout: (params) =>
           Effect.gen(function* () {
-            const { userId, items, address, selectedRates, shippingCost, successUrl, cancelUrl } = params;
+            const {
+              userId,
+              items,
+              address,
+              selectedRates,
+              shippingCost,
+              successUrl,
+              cancelUrl,
+            } = params;
 
             const itemsByProvider = new Map<string, ProviderItemGroup[]>();
 
             let totalSubtotal = 0;
-            const currency = 'USD';
+            const currency = "USD";
 
             for (const item of items) {
               const product = yield* productStore.find(item.productId);
               if (!product) {
                 return yield* Effect.fail(
-                  new Error(`Product not found: ${item.productId}`)
+                  new Error(`Product not found: ${item.productId}`),
                 );
               }
 
               const selectedVariant = item.variantId
-                ? product.variants.find(v => v.id === item.variantId)
+                ? product.variants.find((v) => v.id === item.variantId)
                 : product.variants[0];
 
               const unitPrice = selectedVariant?.price ?? product.price;
               const itemSubtotal = unitPrice * item.quantity;
               totalSubtotal += itemSubtotal;
 
-              const provider = product.fulfillmentProvider || 'manual';
+              const provider = product.fulfillmentProvider || "manual";
 
               if (!itemsByProvider.has(provider)) {
                 itemsByProvider.set(provider, []);
@@ -485,12 +519,14 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                 productId: product.id,
                 variantId: selectedVariant?.id,
                 price: unitPrice,
-                currency: selectedVariant?.currency ?? product.currency ?? currency,
+                currency:
+                  selectedVariant?.currency ?? product.currency ?? currency,
                 fulfillmentConfig: selectedVariant?.fulfillmentConfig,
                 productTitle: product.title,
                 productDescription: product.description,
                 productImage: product.images?.[0]?.url,
                 fulfillmentProvider: product.fulfillmentProvider,
+                metadata: product.metadata,
               });
             }
 
@@ -499,8 +535,11 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             let vat = 0;
             const providerTaxResults: Array<{ required: boolean; rate: number; shippingTaxable: boolean; exempt: boolean; taxAmount: number; vat: number }> = [];
 
-            for (const [providerName, providerItems] of itemsByProvider.entries()) {
-              if (providerName === 'manual') continue;
+            for (const [
+              providerName,
+              providerItems,
+            ] of itemsByProvider.entries()) {
+              if (providerName === "manual") continue;
 
               const provider = runtime.getProvider(providerName);
               if (!provider) continue;
@@ -519,15 +558,22 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                       currency,
                     }),
                   catch: (error) => {
-                    console.error(`[createCheckout] Failed to get shipping rates for ${providerName}:`, error);
-                    return new Error(`Failed to get shipping rates: ${error instanceof Error ? error.message : String(error)}`);
+                    console.error(
+                      `[createCheckout] Failed to get shipping rates for ${providerName}:`,
+                      error,
+                    );
+                    return new Error(
+                      `Failed to get shipping rates: ${error instanceof Error ? error.message : String(error)}`,
+                    );
                   },
-                })
+                }),
               );
 
-              if (quoteResultOption._tag === 'Some') {
+              if (quoteResultOption._tag === "Some") {
                 const quoteResult = quoteResultOption.value;
-                const selectedRate = quoteResult.rates?.find(r => r.id === selectedRateId);
+                const selectedRate = quoteResult.rates?.find(
+                  (r) => r.id === selectedRateId,
+                );
                 if (selectedRate) {
                   verifiedShippingCost += selectedRate.rate;
 
@@ -547,7 +593,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               }
             }
 
-            const manualItems = itemsByProvider.get('manual') || [];
+            const manualItems = itemsByProvider.get("manual") || [];
             if (manualItems.length > 0) {
               verifiedShippingCost += 0;
             }
@@ -564,11 +610,12 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               taxExempt = providerTaxResults.every((result) => result.exempt);
             }
 
-            const totalAmount = totalSubtotal + verifiedShippingCost + tax + vat;
+            const totalAmount =
+              totalSubtotal + verifiedShippingCost + tax + vat;
 
             const orderItems = Array.from(itemsByProvider.values())
               .flat()
-              .map(pi => ({
+              .map((pi) => ({
                 productId: pi.productId,
                 variantId: pi.variantId,
                 productName: pi.productTitle,
@@ -586,7 +633,8 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               taxAmount: tax,
               vatAmount: vat,
               taxRequired,
-              taxRate: taxRate !== undefined ? Math.round(taxRate * 10000) : undefined,
+              taxRate:
+                taxRate !== undefined ? Math.round(taxRate * 10000) : undefined,
               taxShippingTaxable,
               taxExempt,
               customerTaxId: address.taxId,
@@ -596,22 +644,27 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
 
             const draftOrderIds: Record<string, string> = {};
 
-            for (const [providerName, providerItems] of itemsByProvider.entries()) {
+            for (const [
+              providerName,
+              providerItems,
+            ] of itemsByProvider.entries()) {
               const selectedRateId = selectedRates[providerName];
               if (!selectedRateId) {
                 return yield* Effect.fail(
-                  new Error(`No shipping rate selected for provider: ${providerName}`)
+                  new Error(
+                    `No shipping rate selected for provider: ${providerName}`,
+                  ),
                 );
               }
 
-              if (providerName === 'manual') {
+              if (providerName === "manual") {
                 continue;
               }
 
               const provider = runtime.getProvider(providerName);
               if (!provider) {
                 return yield* Effect.fail(
-                  new Error(`Provider not configured: ${providerName}`)
+                  new Error(`Provider not configured: ${providerName}`),
                 );
               }
 
@@ -629,7 +682,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                   }),
                 catch: (error) =>
                   new CheckoutError({
-                    code: 'DRAFT_ORDER_FAILED',
+                    code: "DRAFT_ORDER_FAILED",
                     provider: providerName,
                     orderId: order.id,
                     userId,
@@ -640,17 +693,19 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               draftOrderIds[providerName] = draftOrder.id;
             }
 
-            const providerName = params.paymentProvider || 'stripe';
+            const providerName = params.paymentProvider || "stripe";
             const paymentProvider = runtime.getPaymentProvider(providerName);
             if (!paymentProvider) {
               return yield* Effect.fail(
-                new Error(`Payment provider '${providerName}' not configured`)
+                new Error(`Payment provider '${providerName}' not configured`),
               );
             }
 
-            const lineItems: PaymentLineItem[] = Array.from(itemsByProvider.values())
+            const lineItems: PaymentLineItem[] = Array.from(
+              itemsByProvider.values(),
+            )
               .flat()
-              .map(pi => ({
+              .map((pi) => ({
                 name: pi.productTitle,
                 description: pi.productDescription,
                 image: pi.productImage,
@@ -660,7 +715,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
 
             if (verifiedShippingCost > 0) {
               lineItems.push({
-                name: 'Shipping',
+                name: "Shipping",
                 unitAmount: Math.round(verifiedShippingCost * 100),
                 quantity: 1,
               });
@@ -668,10 +723,37 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
 
             if (tax > 0) {
               lineItems.push({
-                name: 'Tax',
+                name: "Tax",
                 unitAmount: Math.round(tax * 100),
                 quantity: 1,
               });
+            }
+
+            let fees: FeeConfig[] | undefined;
+            if (providerName === "pingpay") {
+              const allItems = Array.from(itemsByProvider.values()).flat();
+              const itemsWithFees = allItems.filter(
+                (pi) => pi.metadata?.fees && pi.metadata.fees.length > 0,
+              );
+
+              if (itemsWithFees.length > 0) {
+                const feeMap = new Map<string, FeeConfig>();
+                for (const pi of itemsWithFees) {
+                  for (const fee of pi.metadata!.fees) {
+                    const key = `${fee.recipient}:${fee.type}:${fee.label}`;
+                    const existing = feeMap.get(key);
+                    if (existing) {
+                      feeMap.set(key, {
+                        ...existing,
+                        bps: existing.bps + fee.bps,
+                      });
+                    } else {
+                      feeMap.set(key, fee);
+                    }
+                  }
+                }
+                fees = Array.from(feeMap.values());
+              }
             }
 
             const paymentRequest = {
@@ -681,14 +763,18 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               items: lineItems,
               successUrl,
               cancelUrl,
+              fees,
             };
 
             const checkout = yield* Effect.tryPromise({
               try: () => paymentProvider.client.createCheckout(paymentRequest),
               catch: (error) => {
-                console.error(`[Checkout] Payment provider '${providerName}' createCheckout failed:`, error);
+                console.error(
+                  `[Checkout] Payment provider '${providerName}' createCheckout failed:`,
+                  error,
+                );
                 return new CheckoutError({
-                  code: 'PAYMENT_CHECKOUT_FAILED',
+                  code: "PAYMENT_CHECKOUT_FAILED",
                   orderId: order.id,
                   userId,
                   cause: error,
@@ -706,11 +792,15 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               createdAt: new Date().toISOString(),
             });
 
-            yield* orderStore.updateCheckout(order.id, checkout.sessionId, providerName);
+            yield* orderStore.updateCheckout(
+              order.id,
+              checkout.sessionId,
+              providerName,
+            );
 
             yield* orderStore.updateDraftOrderIds(order.id, draftOrderIds);
 
-            yield* orderStore.updateStatus(order.id, 'draft_created');
+            yield* orderStore.updateStatus(order.id, "draft_created");
 
             return {
               orderId: order.id,
@@ -720,5 +810,5 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             };
           }),
       };
-    })
+    }),
   );

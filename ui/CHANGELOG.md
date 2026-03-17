@@ -1,5 +1,63 @@
 # Changelog
 
+## 1.4.2
+
+### Patch Changes
+
+- 273343b: Fix marketplace variant selection so single-color products auto-select correctly on product pages and quick add flows.
+- 273343b: Add a mint link to the Legion SBT required label on gated product cards.
+- 273343b: Remove creator fee rows from cart and checkout so those summaries only show amounts included before PingPay adds any extra fees.
+
+## 1.4.1
+
+### Patch Changes
+
+- ea92005: Fix marketplace variant selection so single-color products auto-select correctly on product pages and quick add flows.
+- ea92005: Add a mint link to the Legion SBT required label on gated product cards.
+
+## 1.4.0
+
+### Minor Changes
+
+- b7807ab: Add exclusive products with fee splits and product metadata
+
+  - Add `exclusive` boolean field to products for storefront filtering
+  - Add `metadata` JSON field to products for creator account and fee splits
+  - Add `/exclusives` route showing exclusive products
+  - Add admin inventory editors for exclusive toggle and metadata configuration
+  - Add PingPay fee support for checkout with creator royalties
+  - Add database index on `exclusive` for query performance
+
+- b7807ab: Move Legion purchase gating to product metadata and remove the legacy collection-exclusive flow
+
+  - Add a `legion-holder` purchase gate plugin with NEAR holder checks and checkout enforcement
+  - Add product metadata controls and storefront gating states for locked Legion products
+  - Remove old collection-exclusive API, schema, and database support
+
+- b7807ab: Add product metadata enrichment with Printful provider details and fee display on storefront
+
+  - Extend ProductMetadataSchema with providerDetails.printful for brand/model/description/techniques/placements/GSM
+  - Fetch catalog product details from Printful API during sync to enrich product metadata
+  - Fix admin inventory metadata editor to use "Product Metadata" label and percentage inputs (converts to BPS)
+  - Display fee percentage on product cards next to price
+  - Show fee breakdown and provider facts on product detail page
+  - Add creator fees line item to cart and checkout order summaries
+
+### Patch Changes
+
+- 89e5517: Improve admin order management with inline status updates, optional notes, and clickable status notes across order views.
+
+## 1.3.1
+
+### Patch Changes
+
+- ff33a93: Fix: Make user context nullable and add defensive checks
+
+  - Update API context schema to accept nullable user field, matching the actual data structure from the host
+  - Add defensive null checks for loaderData.orders and items arrays in orders page
+  - Fix tracking info checks to properly handle undefined/null values
+  - Remove verbose hydration/dehydration console logging from router and hydrate modules
+
 ## 1.3.0
 
 ### Minor Changes

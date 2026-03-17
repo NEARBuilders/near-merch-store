@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import { Context, Effect, Layer } from 'every-plugin/effect';
 import type { CheckoutSessionInput, CheckoutSessionOutput } from '../schema';
+import type { FeeConfig } from '../../../schema';
 import { PingWebhookPayloadSchema, type PingWebhookResult } from './schema';
 import { WebhookSignatureError, WebhookParseError, PingApiError } from './errors';
 import { PingPayClient } from './client';
@@ -60,7 +61,7 @@ const verifySignature = (
 export class PingPayService extends Context.Tag('PingPayService')<
   PingPayService,
   {
-    readonly createCheckout: (input: CheckoutSessionInput) => Effect.Effect<CheckoutSessionOutput, PingApiError>;
+    readonly createCheckout: (input: CheckoutSessionInput, fees?: FeeConfig[]) => Effect.Effect<CheckoutSessionOutput, PingApiError>;
     readonly verifyWebhook: (body: string, signature: string, timestamp: string) => Effect.Effect<PingWebhookResult, WebhookSignatureError | WebhookParseError>;
     readonly getSession: (sessionId: string) => Effect.Effect<PingSessionInfo, PingApiError>;
   }
@@ -70,11 +71,18 @@ export const PingPayServiceLive = (config: PingPayConfig) =>
   Layer.succeed(
     PingPayService,
     {
-      createCheckout: (input) =>
+      createCheckout: (input, fees) =>
         Effect.gen(function* () {
           const client = new PingPayClient(config.baseUrl, config.apiKey);
           const amountInCents = Math.round(input.amount);
           const amountInUSDC = amountInCents * 10000;
+
+          const pingFees = fees?.map(f => ({
+            type: f.type,
+            label: f.label,
+            recipient: f.recipient,
+            bps: f.bps,
+          }));
 
           const response = yield* Effect.tryPromise({
             try: () =>
@@ -85,6 +93,7 @@ export const PingPayServiceLive = (config: PingPayConfig) =>
                 successUrl: input.successUrl,
                 cancelUrl: input.cancelUrl,
                 metadata: { orderId: input.orderId },
+                fees: pingFees,
               }),
             catch: (e) =>
               new PingApiError({

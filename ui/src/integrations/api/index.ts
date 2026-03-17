@@ -1,7 +1,7 @@
-export * from './keys';
-import type { Category } from './keys';
-export * from './collections';
-import type { Collection } from './collections';
+export * from "./keys";
+import type { Category } from "./keys";
+export * from "./collections";
+import type { Collection } from "./collections";
 
 export interface CartItem {
   productId: string;
@@ -12,12 +12,14 @@ export interface CartItem {
   imageUrl?: string;
 }
 
-export const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
+export const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 export type Size = (typeof SIZES)[number];
 
-export const requiresSize = (items: Category[] | Collection[] | undefined): boolean => {
+export const requiresSize = (
+  items: Category[] | Collection[] | undefined,
+): boolean => {
   const names = (items ?? []).map((c) => c.name.toLowerCase());
-  return names.some((n) => ['men', 'women', 'exclusives'].includes(n));
+  return names.some((n) => ["men", "women"].includes(n));
 };
 
 export {
@@ -40,16 +42,26 @@ export {
   useUpdateProductTags,
   useUpdateProductFeatured,
   useUpdateProductType,
+  useUpdateProductMetadata,
+  usePurchaseGateAccess,
+  usePurchaseGateAccessMap,
   useProductTypes,
   useCreateProductType,
   useUpdateProductTypeItem,
   useDeleteProductType,
+  getPurchaseGatePluginId,
   getPrimaryCategoryName,
   type Product,
   type ProductImage,
   type ProductTypeData,
   type SyncProgressEvent,
-} from './products';
+  type FeeConfig,
+  type PurchaseGate,
+  type PurchaseGatePluginId,
+  type ProductMetadata,
+  type PrintfulProviderDetails,
+  type ProviderDetails,
+} from "./products";
 
 export {
   useCollections,
@@ -65,14 +77,14 @@ export {
   collectionLoaders,
   type Collection,
   type CarouselCollection,
-} from './collections';
+} from "./collections";
 
 export {
   useCategories,
   useCreateCategory,
   useDeleteCategory,
   type Category,
-} from './categories';
+} from "./categories";
 
 export {
   useOrders,
@@ -82,13 +94,13 @@ export {
   useOrderByCheckoutSession,
   orderLoaders,
   type Order,
-} from './orders';
+} from "./orders";
 
 export {
   useCreateCheckout,
   type CreateCheckoutInput,
   type CreateCheckoutOutput,
-} from './checkout';
+} from "./checkout";
 
 export {
   useProviderConfig,
@@ -99,9 +111,9 @@ export {
   PRINTFUL_WEBHOOK_EVENTS,
   type ProviderConfig,
   type PrintfulWebhookEventType,
-} from './providers';
+} from "./providers";
 
 export {
   useSubscribeNewsletter,
   type SubscribeNewsletterOutput,
-} from './newsletter';
+} from "./newsletter";

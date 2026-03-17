@@ -67,4 +67,5 @@ export const orderKeys = {
     [...orderKeys.lists(), filters] as const,
   details: () => [...orderKeys.all, 'detail'] as const,
   detail: (id: string) => [...orderKeys.details(), id] as const,
+  auditLog: (id: string) => [...orderKeys.detail(id), 'audit-log'] as const,
 };

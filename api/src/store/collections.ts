@@ -299,6 +299,7 @@ export const CollectionStoreLive = Layer.effect(
           },
           catch: (error) => new Error(`Failed to get products by collection: ${error}`),
         }),
+
     };
   })
 );

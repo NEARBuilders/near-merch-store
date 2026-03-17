@@ -1,51 +1,94 @@
-import { and, asc, count, eq, inArray, like, lt } from 'drizzle-orm';
-import { Context, Effect, Layer } from 'every-plugin/effect';
-import * as schema from '../db/schema';
-import type { Collection, Product, ProductCriteria, ProductImage, ProductType, ProductVariant, ProductWithImages } from '../schema';
-import { Database } from './database';
+import { and, asc, count, eq, inArray, like, lt } from "drizzle-orm";
+import { Context, Effect, Layer } from "every-plugin/effect";
+import * as schema from "../db/schema";
+import type {
+  Collection,
+  ProductMetadata,
+  Product,
+  ProductCriteria,
+  ProductImage,
+  ProductType,
+  ProductVariant,
+  ProductWithImages,
+} from "../schema";
+import { Database } from "./database";
 
-export class ProductStore extends Context.Tag('ProductStore')<
+export class ProductStore extends Context.Tag("ProductStore")<
   ProductStore,
   {
     readonly find: (identifier: string) => Effect.Effect<Product | null, Error>;
-    readonly findByPublicKey: (publicKey: string) => Effect.Effect<Product | null, Error>;
-    readonly findMany: (criteria: ProductCriteria) => Effect.Effect<{ products: Product[]; total: number }, Error>;
-    readonly search: (query: string, limit: number) => Effect.Effect<Product[], Error>;
-    readonly upsert: (product: ProductWithImages, syncedAt?: Date) => Effect.Effect<Product, Error>;
+    readonly findByPublicKey: (
+      publicKey: string,
+    ) => Effect.Effect<Product | null, Error>;
+    readonly findMany: (
+      criteria: ProductCriteria,
+    ) => Effect.Effect<{ products: Product[]; total: number }, Error>;
+    readonly search: (
+      query: string,
+      limit: number,
+    ) => Effect.Effect<Product[], Error>;
+    readonly upsert: (
+      product: ProductWithImages,
+      syncedAt?: Date,
+    ) => Effect.Effect<Product, Error>;
     readonly delete: (id: string) => Effect.Effect<void, Error>;
-    readonly prune: (source: string, before: Date) => Effect.Effect<number, Error>;
-    readonly updateListing: (id: string, listed: boolean) => Effect.Effect<Product | null, Error>;
-    readonly updateTags: (id: string, tags: string[]) => Effect.Effect<Product | null, Error>;
-    readonly updateFeatured: (id: string, featured: boolean) => Effect.Effect<Product | null, Error>;
-    readonly updateProductType: (id: string, productTypeSlug: string | null) => Effect.Effect<Product | null, Error>;
+    readonly prune: (
+      source: string,
+      before: Date,
+    ) => Effect.Effect<number, Error>;
+    readonly updateListing: (
+      id: string,
+      listed: boolean,
+    ) => Effect.Effect<Product | null, Error>;
+    readonly updateTags: (
+      id: string,
+      tags: string[],
+    ) => Effect.Effect<Product | null, Error>;
+    readonly updateFeatured: (
+      id: string,
+      featured: boolean,
+    ) => Effect.Effect<Product | null, Error>;
+    readonly updateProductType: (
+      id: string,
+      productTypeSlug: string | null,
+    ) => Effect.Effect<Product | null, Error>;
+    readonly updateMetadata: (
+      id: string,
+      metadata: ProductMetadata,
+    ) => Effect.Effect<Product | null, Error>;
     readonly setSyncStatus: (
       id: string,
-      status: 'idle' | 'running' | 'error',
+      status: "idle" | "running" | "error",
       lastSuccessAt: Date | null,
       lastErrorAt: Date | null,
       errorMessage: string | null,
       errorData: Record<string, any> | null,
-      syncStartedAt: Date | null
+      syncStartedAt: Date | null,
     ) => Effect.Effect<void, Error>;
-    readonly getSyncStatus: (id: string) => Effect.Effect<{
-      status: 'idle' | 'running' | 'error';
-      lastSuccessAt: number | null;
-      lastErrorAt: number | null;
-      errorMessage: string | null;
-      syncStartedAt: number | null;
-      updatedAt: number;
-      errorData: Record<string, any> | null;
-    }, Error>;
+    readonly getSyncStatus: (id: string) => Effect.Effect<
+      {
+        status: "idle" | "running" | "error";
+        lastSuccessAt: number | null;
+        lastErrorAt: number | null;
+        errorMessage: string | null;
+        syncStartedAt: number | null;
+        updatedAt: number;
+        errorData: Record<string, any> | null;
+      },
+      Error
+    >;
     readonly isSyncInProgress: (id: string) => Effect.Effect<boolean, Error>;
   }
->() { }
+>() {}
 
 export const ProductStoreLive = Layer.effect(
   ProductStore,
   Effect.gen(function* () {
     const db = yield* Database;
 
-    const getProductImages = async (productId: string): Promise<ProductImage[]> => {
+    const getProductImages = async (
+      productId: string,
+    ): Promise<ProductImage[]> => {
       const images = await db
         .select()
         .from(schema.productImages)
@@ -55,7 +98,7 @@ export const ProductStoreLive = Layer.effect(
       return images.map((img) => ({
         id: img.id,
         url: img.url,
-        type: img.type as ProductImage['type'],
+        type: img.type as ProductImage["type"],
         placement: img.placement || undefined,
         style: img.style || undefined,
         variantIds: img.variantIds || undefined,
@@ -63,7 +106,9 @@ export const ProductStoreLive = Layer.effect(
       }));
     };
 
-    const getProductVariants = async (productId: string): Promise<ProductVariant[]> => {
+    const getProductVariants = async (
+      productId: string,
+    ): Promise<ProductVariant[]> => {
       const variants = await db
         .select()
         .from(schema.productVariants)
@@ -82,7 +127,9 @@ export const ProductStoreLive = Layer.effect(
       }));
     };
 
-    const getProductCollections = async (productId: string): Promise<Collection[]> => {
+    const getProductCollections = async (
+      productId: string,
+    ): Promise<Collection[]> => {
       const results = await db
         .select({
           slug: schema.collections.slug,
@@ -95,7 +142,7 @@ export const ProductStoreLive = Layer.effect(
         .from(schema.productCollections)
         .innerJoin(
           schema.collections,
-          eq(schema.productCollections.collectionSlug, schema.collections.slug)
+          eq(schema.productCollections.collectionSlug, schema.collections.slug),
         )
         .where(eq(schema.productCollections.productId, productId));
 
@@ -109,17 +156,19 @@ export const ProductStoreLive = Layer.effect(
       }));
     };
 
-    const getProductType = async (productTypeSlug: string | null): Promise<ProductType | undefined> => {
+    const getProductType = async (
+      productTypeSlug: string | null,
+    ): Promise<ProductType | undefined> => {
       if (!productTypeSlug) return undefined;
-      
+
       const results = await db
         .select()
         .from(schema.productTypes)
         .where(eq(schema.productTypes.slug, productTypeSlug))
         .limit(1);
-      
+
       if (results.length === 0) return undefined;
-      
+
       const row = results[0]!;
       return {
         slug: row.slug,
@@ -129,36 +178,46 @@ export const ProductStoreLive = Layer.effect(
       };
     };
 
-    const safeParseJsonArray = (value: unknown, fieldName: string, rowId: string): any[] => {
+    const safeParseJsonArray = (
+      value: unknown,
+      fieldName: string,
+      rowId: string,
+    ): any[] => {
       if (!value) return [];
       if (Array.isArray(value)) return value;
-      
-      if (typeof value === 'string') {
+
+      if (typeof value === "string") {
         try {
           const parsed = JSON.parse(value);
           return Array.isArray(parsed) ? parsed : [];
         } catch (error) {
-          console.error(`[ProductStore] Invalid JSON in ${fieldName} for product ${rowId}: ${value}`);
+          console.error(
+            `[ProductStore] Invalid JSON in ${fieldName} for product ${rowId}: ${value}`,
+          );
           return [];
         }
       }
-      
+
       return [];
     };
 
-    const rowToProduct = async (row: typeof schema.products.$inferSelect): Promise<Product> => {
+    const rowToProduct = async (
+      row: typeof schema.products.$inferSelect,
+    ): Promise<Product> => {
       const images = await getProductImages(row.id);
       const variants = await getProductVariants(row.id);
       const collections = await getProductCollections(row.id);
       const productType = await getProductType(row.productTypeSlug);
 
-      const tags = safeParseJsonArray(row.tags, 'tags', row.id);
-      const options = safeParseJsonArray(row.options, 'options', row.id);
+      const tags = safeParseJsonArray(row.tags, "tags", row.id);
+      const options = safeParseJsonArray(row.options, "options", row.id);
 
       return {
         id: row.id,
         slug: row.slug,
         title: row.name,
+        createdAt: row.createdAt.toISOString(),
+        lastSyncedAt: row.lastSyncedAt?.toISOString(),
         description: row.description || undefined,
         price: row.price / 100,
         currency: row.currency,
@@ -176,6 +235,7 @@ export const ProductStoreLive = Layer.effect(
         source: row.source,
         thumbnailImage: row.thumbnailImage || undefined,
         listed: row.listed ?? true,
+        metadata: row.metadata || undefined,
       };
     };
 
@@ -183,8 +243,11 @@ export const ProductStoreLive = Layer.effect(
       find: (identifier) =>
         Effect.tryPromise({
           try: async () => {
-            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
-            
+            const isUUID =
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                identifier,
+              );
+
             if (isUUID) {
               const results = await db
                 .select()
@@ -197,7 +260,7 @@ export const ProductStoreLive = Layer.effect(
               }
               return null;
             }
-            
+
             const publicKey = identifier.slice(-12);
             const results = await db
               .select()
@@ -229,13 +292,22 @@ export const ProductStoreLive = Layer.effect(
 
             return await rowToProduct(results[0]!);
           },
-          catch: (error) => new Error(`Failed to find product by publicKey: ${error}`),
+          catch: (error) =>
+            new Error(`Failed to find product by publicKey: ${error}`),
         }),
 
       findMany: (criteria) =>
         Effect.tryPromise({
           try: async () => {
-            const { productTypeSlug, collectionSlugs, tags, featured, limit = 50, offset = 0, includeUnlisted = false } = criteria;
+            const {
+              productTypeSlug,
+              collectionSlugs,
+              tags,
+              featured,
+              limit = 50,
+              offset = 0,
+              includeUnlisted = false,
+            } = criteria;
 
             const conditions = [];
 
@@ -244,16 +316,17 @@ export const ProductStoreLive = Layer.effect(
             }
 
             if (productTypeSlug) {
-              conditions.push(eq(schema.products.productTypeSlug, productTypeSlug));
+              conditions.push(
+                eq(schema.products.productTypeSlug, productTypeSlug),
+              );
             }
 
             if (featured !== undefined) {
               conditions.push(eq(schema.products.featured, featured));
             }
 
-            const whereClause = conditions.length > 0
-              ? and(...conditions)
-              : undefined;
+            const whereClause =
+              conditions.length > 0 ? and(...conditions) : undefined;
 
             let productIds: string[] | undefined;
 
@@ -261,10 +334,17 @@ export const ProductStoreLive = Layer.effect(
               const collectionProducts = await db
                 .select({ productId: schema.productCollections.productId })
                 .from(schema.productCollections)
-                .where(inArray(schema.productCollections.collectionSlug, collectionSlugs));
-              
-              productIds = [...new Set(collectionProducts.map((p) => p.productId))];
-              
+                .where(
+                  inArray(
+                    schema.productCollections.collectionSlug,
+                    collectionSlugs,
+                  ),
+                );
+
+              productIds = [
+                ...new Set(collectionProducts.map((p) => p.productId)),
+              ];
+
               if (productIds.length === 0) {
                 return { products: [], total: 0 };
               }
@@ -297,7 +377,7 @@ export const ProductStoreLive = Layer.effect(
 
             if (tags && tags.length > 0) {
               products = products.filter((product) =>
-                tags.some((tag) => product.tags.includes(tag))
+                tags.some((tag) => product.tags.includes(tag)),
               );
             }
 
@@ -311,9 +391,7 @@ export const ProductStoreLive = Layer.effect(
           try: async () => {
             const searchTerm = `%${query}%`;
 
-            const conditions = [
-              eq(schema.products.listed, true),
-            ];
+            const conditions = [eq(schema.products.listed, true)];
 
             const results = await db
               .select()
@@ -322,10 +400,14 @@ export const ProductStoreLive = Layer.effect(
               .limit(limit);
 
             const allProducts = await Promise.all(results.map(rowToProduct));
-            
+
             return allProducts.filter((product) => {
-              const nameMatch = product.title.toLowerCase().includes(query.toLowerCase());
-              const tagMatch = product.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()));
+              const nameMatch = product.title
+                .toLowerCase()
+                .includes(query.toLowerCase());
+              const tagMatch = product.tags.some((tag) =>
+                tag.toLowerCase().includes(query.toLowerCase()),
+              );
               return nameMatch || tagMatch;
             });
           },
@@ -337,16 +419,23 @@ export const ProductStoreLive = Layer.effect(
           try: async () => {
             const now = new Date();
 
-            let existingProduct: typeof schema.products.$inferSelect | null = null;
+            let existingProduct: typeof schema.products.$inferSelect | null =
+              null;
             if (product.externalProductId) {
               const existing = await db
                 .select()
                 .from(schema.products)
                 .where(
                   and(
-                    eq(schema.products.externalProductId, product.externalProductId),
-                    eq(schema.products.fulfillmentProvider, product.fulfillmentProvider)
-                  )
+                    eq(
+                      schema.products.externalProductId,
+                      product.externalProductId,
+                    ),
+                    eq(
+                      schema.products.fulfillmentProvider,
+                      product.fulfillmentProvider,
+                    ),
+                  ),
                 )
                 .limit(1);
 
@@ -382,29 +471,27 @@ export const ProductStoreLive = Layer.effect(
                 })
                 .where(eq(schema.products.id, finalId));
             } else {
-              await db
-                .insert(schema.products)
-                .values({
-                  id: finalId,
-                  publicKey: product.publicKey,
-                  slug: product.slug,
-                  name: product.name,
-                  description: product.description || null,
-                  price: Math.round(product.price * 100),
-                  currency: product.currency,
-                  brand: product.brand || null,
-                  productTypeSlug: null,
-                  tags: [],
-                  options: product.options,
-                  thumbnailImage: product.thumbnailImage || null,
-                  featured: false,
-                  fulfillmentProvider: product.fulfillmentProvider,
-                  externalProductId: product.externalProductId || null,
-                  source: product.source,
-                  createdAt: now,
-                  updatedAt: now,
-                  listed: true,
-                });
+              await db.insert(schema.products).values({
+                id: finalId,
+                publicKey: product.publicKey,
+                slug: product.slug,
+                name: product.name,
+                description: product.description || null,
+                price: Math.round(product.price * 100),
+                currency: product.currency,
+                brand: product.brand || null,
+                productTypeSlug: null,
+                tags: [],
+                options: product.options,
+                thumbnailImage: product.thumbnailImage || null,
+                featured: false,
+                fulfillmentProvider: product.fulfillmentProvider,
+                externalProductId: product.externalProductId || null,
+                source: product.source,
+                createdAt: now,
+                updatedAt: now,
+                listed: true,
+              });
             }
 
             await db
@@ -423,7 +510,7 @@ export const ProductStoreLive = Layer.effect(
                   variantIds: img.variantIds || null,
                   order: img.order ?? index,
                   createdAt: now,
-                }))
+                })),
               );
             }
 
@@ -445,7 +532,7 @@ export const ProductStoreLive = Layer.effect(
                   fulfillmentConfig: variant.fulfillmentConfig || null,
                   inStock: variant.inStock ?? true,
                   createdAt: now,
-                }))
+                })),
               );
             }
 
@@ -456,7 +543,7 @@ export const ProductStoreLive = Layer.effect(
               .limit(1);
 
             if (results.length === 0) {
-              throw new Error('Product not found after upsert');
+              throw new Error("Product not found after upsert");
             }
 
             return await rowToProduct(results[0]!);
@@ -493,7 +580,8 @@ export const ProductStoreLive = Layer.effect(
 
             return await rowToProduct(results[0]!);
           },
-          catch: (error) => new Error(`Failed to update product listing: ${error}`),
+          catch: (error) =>
+            new Error(`Failed to update product listing: ${error}`),
         }),
 
       updateTags: (id, tags) =>
@@ -517,7 +605,8 @@ export const ProductStoreLive = Layer.effect(
 
             return await rowToProduct(results[0]!);
           },
-          catch: (error) => new Error(`Failed to update product tags: ${error}`),
+          catch: (error) =>
+            new Error(`Failed to update product tags: ${error}`),
         }),
 
       updateFeatured: (id, featured) =>
@@ -541,7 +630,8 @@ export const ProductStoreLive = Layer.effect(
 
             return await rowToProduct(results[0]!);
           },
-          catch: (error) => new Error(`Failed to update product featured status: ${error}`),
+          catch: (error) =>
+            new Error(`Failed to update product featured status: ${error}`),
         }),
 
       updateProductType: (id, productTypeSlug) =>
@@ -565,7 +655,33 @@ export const ProductStoreLive = Layer.effect(
 
             return await rowToProduct(results[0]!);
           },
-          catch: (error) => new Error(`Failed to update product type: ${error}`),
+          catch: (error) =>
+            new Error(`Failed to update product type: ${error}`),
+        }),
+
+      updateMetadata: (id, metadata) =>
+        Effect.tryPromise({
+          try: async () => {
+            const now = new Date();
+            await db
+              .update(schema.products)
+              .set({ metadata, updatedAt: now })
+              .where(eq(schema.products.id, id));
+
+            const results = await db
+              .select()
+              .from(schema.products)
+              .where(eq(schema.products.id, id))
+              .limit(1);
+
+            if (results.length === 0) {
+              return null;
+            }
+
+            return await rowToProduct(results[0]!);
+          },
+          catch: (error) =>
+            new Error(`Failed to update product metadata: ${error}`),
         }),
 
       prune: (source: string, before: Date) =>
@@ -574,23 +690,36 @@ export const ProductStoreLive = Layer.effect(
             const staleProducts = await db
               .select({ id: schema.products.id })
               .from(schema.products)
-              .where(and(
-                eq(schema.products.source, source),
-                lt(schema.products.lastSyncedAt, before)
-              ));
+              .where(
+                and(
+                  eq(schema.products.source, source),
+                  lt(schema.products.lastSyncedAt, before),
+                ),
+              );
 
             if (staleProducts.length > 0) {
               for (const { id } of staleProducts) {
-                await db.delete(schema.products).where(eq(schema.products.id, id));
+                await db
+                  .delete(schema.products)
+                  .where(eq(schema.products.id, id));
               }
             }
 
             return staleProducts.length;
           },
-          catch: (error) => new Error(`Failed to prune stale products: ${error}`),
+          catch: (error) =>
+            new Error(`Failed to prune stale products: ${error}`),
         }),
 
-      setSyncStatus: (id, status, lastSuccessAt, lastErrorAt, errorMessage, errorData, syncStartedAt) =>
+      setSyncStatus: (
+        id,
+        status,
+        lastSuccessAt,
+        lastErrorAt,
+        errorMessage,
+        errorData,
+        syncStartedAt,
+      ) =>
         Effect.tryPromise({
           try: async () => {
             await db
@@ -632,8 +761,8 @@ export const ProductStoreLive = Layer.effect(
                   .where(
                     and(
                       eq(schema.syncState.id, id),
-                      eq(schema.syncState.status, 'running')
-                    )
+                      eq(schema.syncState.status, "running"),
+                    ),
                   )
                   .limit(1);
               },
@@ -643,12 +772,12 @@ export const ProductStoreLive = Layer.effect(
             });
             return results.length > 0;
           } catch (error) {
-            console.error('[Store] Failed to check sync status:', error);
+            console.error("[Store] Failed to check sync status:", error);
             return false;
           }
         }),
 
-getSyncStatus: (id) =>
+      getSyncStatus: (id) =>
         Effect.gen(function* () {
           try {
             const results = yield* Effect.tryPromise({
@@ -666,7 +795,7 @@ getSyncStatus: (id) =>
 
             if (results.length === 0) {
               return {
-                status: 'idle' as const,
+                status: "idle" as const,
                 lastSuccessAt: null,
                 lastErrorAt: null,
                 errorMessage: null,
@@ -677,24 +806,25 @@ getSyncStatus: (id) =>
             }
 
             const row = results[0]!;
-            
+
             // Auto-detect stale sync (>5 min running without update)
             const isStale =
-              row.status === 'running' &&
+              row.status === "running" &&
               row.syncStartedAt &&
-              Date.now() - new Date(row.syncStartedAt).getTime() > 5 * 60 * 1000;
+              Date.now() - new Date(row.syncStartedAt).getTime() >
+                5 * 60 * 1000;
 
             if (isStale) {
-              console.warn('[Store] Detected stale sync, marking as error');
+              console.warn("[Store] Detected stale sync, marking as error");
               return {
-                status: 'error' as const,
+                status: "error" as const,
                 lastSuccessAt: row.lastSuccessAt?.getTime() ?? null,
                 lastErrorAt: Date.now(),
-                errorMessage: 'Sync timed out - duration exceeded 5 minutes',
+                errorMessage: "Sync timed out - duration exceeded 5 minutes",
                 syncStartedAt: row.syncStartedAt?.getTime() ?? null,
                 updatedAt: Date.now(),
                 errorData: {
-                  errorType: 'SYNC_TIMEOUT',
+                  errorType: "SYNC_TIMEOUT",
                   syncStartedAt: row.syncStartedAt,
                   duration: 5 * 60,
                 },
@@ -702,7 +832,7 @@ getSyncStatus: (id) =>
             }
 
             return {
-              status: row.status as 'idle' | 'running' | 'error',
+              status: row.status as "idle" | "running" | "error",
               lastSuccessAt: row.lastSuccessAt?.getTime() ?? null,
               lastErrorAt: row.lastErrorAt?.getTime() ?? null,
               errorMessage: row.errorMessage || null,
@@ -711,10 +841,10 @@ getSyncStatus: (id) =>
               errorData: row.errorData,
             };
           } catch (error) {
-            console.error('[Store] Failed to get sync status:', error);
+            console.error("[Store] Failed to get sync status:", error);
             throw new Error(`Failed to get sync status: ${error}`);
           }
         }),
     };
-  })
+  }),
 );

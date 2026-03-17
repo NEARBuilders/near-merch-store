@@ -4,10 +4,9 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { ExternalLink, Package, History } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { apiClient } from '@/utils/orpc';
-import { Badge } from '@/components/ui/badge';
-import { getStatusLabel, getStatusColor } from '@/lib/order-status';
 import { cn } from '@/lib/utils';
 import { AuditLogViewer } from '@/components/orders/audit-log-viewer';
+import { OrderStatusBadge } from '@/components/orders/order-status-badge';
 import {
   Dialog,
   DialogContent,
@@ -87,7 +86,8 @@ function OrdersPage() {
     );
   }
 
-  const { orders } = loaderData;
+  const { orders: rawOrders } = loaderData ?? { orders: [] };
+  const orders = rawOrders?.filter(Boolean) ?? [];
 
   const handleViewTimeline = (order: Order) => {
     setAuditLogOrder(order);
@@ -118,7 +118,7 @@ function OrdersPage() {
         accessorKey: 'items',
         header: 'Items',
         cell: ({ row }) => {
-          const items = row.original.items;
+          const items = row.original.items || [];
           const totalQty = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
           const productNames = items.map((item: any) => item.productName).join(', ');
 
@@ -136,9 +136,11 @@ function OrdersPage() {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <Badge className={getStatusColor(row.original.status)}>
-            {getStatusLabel(row.original.status)}
-          </Badge>
+          <OrderStatusBadge
+            status={row.original.status}
+            note={row.original.currentStatusNote}
+            noteCreatedAt={row.original.currentStatusNoteCreatedAt}
+          />
         ),
       },
       {
@@ -155,7 +157,7 @@ function OrdersPage() {
         header: 'Actions',
         cell: ({ row }) => {
           const order = row.original;
-          const hasTracking = order.trackingInfo && order.trackingInfo.length > 0;
+          const hasTracking = order.trackingInfo?.[0]?.trackingUrl;
 
           return (
             <div className="flex items-center gap-2">
@@ -215,8 +217,8 @@ function OrdersPage() {
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
             {orders.map((order) => {
-              const hasTracking = order.trackingInfo && order.trackingInfo.length > 0;
-              const items = order.items;
+              const hasTracking = order.trackingInfo?.[0]?.trackingUrl;
+              const items = order.items || [];
               const totalQty = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
               const productNames = items.map((item: any) => item.productName).join(', ');
 
@@ -228,9 +230,11 @@ function OrdersPage() {
                         <span className="font-mono text-xs font-semibold text-foreground">
                           {order.id.substring(0, 8)}...
                         </span>
-                        <Badge className={getStatusColor(order.status)}>
-                          {getStatusLabel(order.status)}
-                        </Badge>
+                        <OrderStatusBadge
+                          status={order.status}
+                          note={order.currentStatusNote}
+                          noteCreatedAt={order.currentStatusNoteCreatedAt}
+                        />
                       </div>
                       <p className="text-xs text-foreground/70 dark:text-muted-foreground mb-1">
                         {new Date(order.createdAt).toLocaleDateString()}

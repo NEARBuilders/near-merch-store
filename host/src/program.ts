@@ -440,6 +440,7 @@ export const createStartServer = (onReady?: () => void) =>
 					ssrRouterModule?.renderToStream(c.req.raw, {
 						assetsUrl,
 						session: requestContext.session,
+						nearAccountId: requestContext.nearAccountId,
 						runtimeConfig: {
 							env,
 							account,
