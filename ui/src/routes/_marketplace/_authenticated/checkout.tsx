@@ -49,7 +49,7 @@ function getPhoneRequirementError(phone: string | undefined, required: boolean) 
   }
 
   if (!phone?.trim()) {
-    return 'Phone number is required for Lulu orders';
+    return 'Phone number is required for delivery';
   }
 
   return undefined;
@@ -474,7 +474,7 @@ function CheckoutPage() {
                       Phone {requiresPhone ? <span className="text-red-500">*</span> : null}{' '}
                       <span className="text-muted-foreground text-xs">
                         {requiresPhone
-                          ? '(required for Lulu book delivery)'
+                          ? '(required for delivery)'
                           : '(optional - helps carriers reach you for delivery)'}
                       </span>
                     </Label>
