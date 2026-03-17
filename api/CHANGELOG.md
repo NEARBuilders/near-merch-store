@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.1
+
+### Patch Changes
+
+- e6ebc1a: Fix Lulu book defaults and generated image IDs during product sync.
+
+  - Round the default Lulu book retail price to a clean whole-dollar amount
+  - Fall back to a stable generated image ID when synced provider files do not include one
+
+- e6ebc1a: Add product-level referral sharing and checkout fee routing for PingPay purchases.
+
+  - Add admin metadata controls for enabling referral sharing on specific products
+  - Generate clean slug-based referral links from product pages and keep referral context in cart items
+  - Append dynamic affiliate fees during PingPay checkout without changing listed storefront prices
+
 ## 1.3.0
 
 ### Minor Changes
