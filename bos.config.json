@@ -82,7 +82,7 @@
     "api": {
       "name": "api",
       "development": "http://localhost:3014",
-      "production": "https://elliot-braem-2330-api-near-merch-store-nearbuilde-e57ae7e55-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-2375-api-near-merch-store-nearbuilde-6f76e70b3-ze.zephyrcloud.app",
       "proxy": "https://nearmerch.com",
       "variables": {
         "network": "mainnet",
