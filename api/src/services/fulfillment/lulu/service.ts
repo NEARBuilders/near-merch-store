@@ -23,6 +23,29 @@ import {
   type LuluWebhookPayload,
 } from './types';
 
+function parseLuluApiError(error: unknown): string {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  
+  const unsupportedDestinationMatch = errorMessage.match(
+    /shipping.*not (available|supported|possible)|no shipping (options|rates)|cannot ship|destination not (supported|serviced)/i
+  );
+  if (unsupportedDestinationMatch) {
+    return 'Shipping is not available to this destination';
+  }
+  
+  const countryMatch = errorMessage.match(/country.*not (supported|valid|recognized)|invalid country/i);
+  if (countryMatch) {
+    return 'Shipping is not available to this destination';
+  }
+  
+  const addressMatch = errorMessage.match(/invalid.*address|address.*not (valid|found|supported)/i);
+  if (addressMatch) {
+    return 'Shipping is not available to this destination';
+  }
+  
+  return errorMessage;
+}
+
 interface LuluConfig {
   clientKey: string;
   clientSecret: string;
@@ -93,7 +116,6 @@ export class LuluService {
       country: recipient.countryCode,
       city: recipient.city,
       postcode: recipient.zip,
-      state: recipient.stateCode,
       state_code: recipient.stateCode,
       street1: recipient.address1,
       street2: recipient.address2,
@@ -341,7 +363,7 @@ export class LuluService {
 
         const selectedOption = this.selectRate(shippingOptions);
         if (!selectedOption) {
-          return { rates: [], currency: input.currency || 'USD' };
+          throw new Error('Shipping is not available to this destination');
         }
 
         const costCalculation = await this.client.calculatePrintJobCost({
@@ -372,7 +394,7 @@ export class LuluService {
         if (error instanceof FulfillmentError) {
           throw error;
         }
-        throw new Error(`Failed to quote Lulu order: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(parseLuluApiError(error));
       },
     }).pipe(
       Effect.retry({

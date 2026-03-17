@@ -5,7 +5,7 @@ export function getProviderAddressRequirementError(
   address: ShippingAddress,
 ): string | undefined {
   if (providerName === "lulu" && !address.phone?.trim()) {
-    return "Phone number is required for Lulu orders";
+    return "Phone number is required for delivery";
   }
 
   return undefined;
