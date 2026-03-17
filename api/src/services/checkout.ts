@@ -69,6 +69,57 @@ function getReferralFeeBps(metadata?: ProductMetadata) {
   return feeBps;
 }
 
+interface ReferralFeeDetail {
+  productId: string;
+  productTitle: string;
+  recipient: string;
+  configuredFeeBps: number;
+  itemSubtotal: number;
+  allocationWeight: number;
+  allocatedTotalAmount: number;
+  feeAmount: number;
+}
+
+export function buildReferralFeeDetails({
+  providerItems,
+  userId,
+  totalSubtotal,
+  totalAmount,
+}: {
+  providerItems: ProviderItemGroup[];
+  userId: string;
+  totalSubtotal: number;
+  totalAmount: number;
+}): ReferralFeeDetail[] {
+  const normalizedUserId = normalizeNearAccountId(userId);
+
+  return providerItems
+    .map((pi) => {
+      const recipient = pi.referralAccountId;
+      const feeBps = getReferralFeeBps(pi.metadata);
+
+      if (!recipient || !feeBps || recipient === normalizedUserId) {
+        return null;
+      }
+
+      const itemSubtotal = pi.price * pi.item.quantity;
+      const allocationWeight = totalSubtotal > 0 ? itemSubtotal / totalSubtotal : 0;
+      const allocatedTotalAmount = totalAmount * allocationWeight;
+
+      return {
+        productId: pi.productId,
+        productTitle: pi.productTitle,
+        recipient,
+        configuredFeeBps: feeBps,
+        itemSubtotal,
+        allocationWeight,
+        allocatedTotalAmount,
+        feeAmount: (allocatedTotalAmount * feeBps) / 10000,
+      };
+    })
+    .filter((detail): detail is ReferralFeeDetail => detail !== null);
+}
+
 export interface CreateCheckoutOutput {
   orderId: string;
   checkoutSessionId: string;
@@ -695,31 +746,16 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             const totalAmount =
               totalSubtotal + verifiedShippingCost + tax + vat;
 
-            const referralFeeDetails = Array.from(itemsByProvider.values())
-              .flat()
-              .map((pi) => {
-                const recipient = pi.referralAccountId;
-                const feeBps = getReferralFeeBps(pi.metadata);
+            const allItems = Array.from(itemsByProvider.values()).flat();
 
-                if (!recipient || !feeBps || recipient === normalizeNearAccountId(userId)) {
-                  return null;
-                }
+            const referralFeeDetails = buildReferralFeeDetails({
+              providerItems: allItems,
+              userId,
+              totalSubtotal,
+              totalAmount,
+            });
 
-                const itemSubtotal = pi.price * pi.item.quantity;
-
-                return {
-                  productId: pi.productId,
-                  productTitle: pi.productTitle,
-                  recipient,
-                  configuredFeeBps: feeBps,
-                  itemSubtotal,
-                  feeAmount: (itemSubtotal * feeBps) / 10000,
-                };
-              })
-              .filter((detail): detail is NonNullable<typeof detail> => detail !== null);
-
-            const orderItems = Array.from(itemsByProvider.values())
-              .flat()
+            const orderItems = allItems
               .map((pi) => ({
                 productId: pi.productId,
                 variantId: pi.variantId,
@@ -836,7 +872,6 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
 
             let fees: FeeConfig[] | undefined;
             if (providerName === "pingpay") {
-              const allItems = Array.from(itemsByProvider.values()).flat();
               const itemsWithFees = allItems.filter(
                 (pi) => pi.metadata?.fees && pi.metadata.fees.length > 0,
               );
