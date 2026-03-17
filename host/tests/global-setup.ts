@@ -65,14 +65,6 @@ function ensureUiBuild(uiDir: string) {
 	const distDir = path.join(uiDir, "dist");
 	mkdirSync(distDir, { recursive: true });
 
-	const clientEntry = path.join(distDir, "remoteEntry.js");
-	const ssrEntry = path.join(distDir, "remoteEntry.server.js");
-
-	const hasClient = existsSync(clientEntry) && statSync(clientEntry).size > 0;
-	const hasSsr = existsSync(ssrEntry) && statSync(ssrEntry).size > 0;
-
-	if (hasClient && hasSsr) return;
-
 	// Build both client + server so both remoteEntry files exist.
 	const result = spawnSync("bun", ["run", "build"], {
 		cwd: uiDir,
@@ -116,8 +108,8 @@ function handlerFactory(distDir: string) {
 }
 
 export default async function globalSetup() {
-	const repoRoot = path.resolve(__dirname, "../../..");
-	const uiDir = path.join(repoRoot, "demo", "ui");
+	const repoRoot = path.resolve(__dirname, "../..");
+	const uiDir = path.join(repoRoot, "ui");
 	const distDir = path.join(uiDir, "dist");
 
 	ensureUiBuild(uiDir);

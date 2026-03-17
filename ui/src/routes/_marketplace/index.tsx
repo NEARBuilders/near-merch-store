@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { absoluteUrl, createSeoHead, SITE_NAME } from "@/lib/seo";
 import {
   productLoaders,
   useFeaturedProducts,
@@ -52,6 +53,21 @@ export const Route = createFileRoute("/_marketplace/")({
       if (!isExpected) {
         console.warn('Failed to prefetch:', error);
       }
+    });
+
+    return {
+      siteUrl: context.runtimeConfig?.hostUrl ?? "",
+    };
+  },
+  head: ({ loaderData }) => {
+    const siteUrl = loaderData?.siteUrl ?? "";
+    const title = SITE_NAME;
+    const description = "Shop official NEAR Protocol merchandise, apparel, accessories, and collectibles for the ecosystem.";
+
+    return createSeoHead({
+      title,
+      description,
+      url: siteUrl ? absoluteUrl(siteUrl, '/') : undefined,
     });
   },
   component: MarketplaceHome,

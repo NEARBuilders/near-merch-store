@@ -1,5 +1,5 @@
 import { Effect } from "every-plugin/effect";
-import { loadBosConfig, type RuntimeConfig } from "everything-dev/config";
+import { loadConfig as loadBosConfig } from "everything-dev/config";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { loadRouterModule } from "@/services/federation.server";
 import type { RouterModule } from "@/types";
@@ -43,7 +43,7 @@ const parseORPCError = async (
 
 describe("ORPC Error Propagation to HTTP Response", () => {
 	let routerModule: RouterModule;
-	let config: RuntimeConfig;
+	let config: any;
 
 	const mockApiClient = {
 		getValue: vi.fn(),
@@ -60,7 +60,11 @@ describe("ORPC Error Propagation to HTTP Response", () => {
 
 	beforeAll(async () => {
 		globalThis.$apiClient = mockApiClient as any;
-		config = await loadBosConfig();
+		const loadedConfig = await loadBosConfig();
+		if (!loadedConfig) {
+			throw new Error("Failed to load config for error propagation tests");
+		}
+		config = loadedConfig.runtime;
 		routerModule = await loadRouterModule(config);
 	});
 

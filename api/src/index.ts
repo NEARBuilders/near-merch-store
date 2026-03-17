@@ -27,14 +27,7 @@ const DEFAULT_LULU_BOOK: LuluBookConfig = {
   id: 'e7neqq2',
   title: 'User-owned AI is NEAR',
   description: 'A collection of talks by the Co-Founders and Builders of NEAR Protocol & NEAR AI',
-  thumbnailUrl: 'https://assets.lulu.com/cover_thumbs/e/7/e7neqq2-front-shortedge-384.jpg',
-  files: [
-    {
-      type: 'preview',
-      url: 'https://assets.lulu.com/cover_thumbs/e/7/e7neqq2-front-shortedge-384.jpg',
-      previewUrl: 'https://assets.lulu.com/cover_thumbs/e/7/e7neqq2-front-shortedge-384.jpg',
-    },
-  ],
+  files: [],
   retailPrice: 19.99,
   currency: 'USD',
   variantName: 'Paperback',

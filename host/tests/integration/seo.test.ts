@@ -1,5 +1,5 @@
 import { Effect } from "every-plugin/effect";
-import { loadBosConfig, type RuntimeConfig } from "everything-dev/config";
+import { loadConfig as loadBosConfig } from "everything-dev/config";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { loadRouterModule } from "@/services/federation.server";
 import type { HeadData, RouterModule } from "@/types";
@@ -8,9 +8,74 @@ declare global {
 	var $apiClient: import("../../../ui/src/remote/orpc").ApiClient | undefined;
 }
 
+async function consumeStream(stream: ReadableStream): Promise<string> {
+	const reader = stream.getReader();
+	const decoder = new TextDecoder();
+	let html = "";
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		html += decoder.decode(value, { stream: true });
+	}
+	html += decoder.decode();
+	return html;
+}
+
 const mockApiClient = {
 	getFeaturedProducts: vi.fn().mockResolvedValue({ products: [] }),
-	getProducts: vi.fn().mockResolvedValue({ products: [] }),
+	getProducts: vi.fn().mockResolvedValue({
+		products: [
+			{
+				id: "featured-1",
+				slug: "featured-1",
+				title: "Featured Product",
+				description: "Featured product description",
+				price: 15,
+				thumbnailImage: "https://example.com/featured.png",
+				images: [{ url: "https://example.com/featured.png" }],
+				variants: [{ availableForSale: true }],
+				options: [],
+				collections: [{ slug: "collectibles", name: "Collectibles" }],
+			},
+		],
+		total: 1,
+	}),
+	getCollections: vi.fn().mockResolvedValue({
+		collections: [
+			{
+				slug: "collectibles",
+				name: "Collectibles",
+				description: "Curated collectible merch",
+				image: "https://example.com/collection.png",
+				badge: "Limited",
+			},
+		],
+	}),
+	getCollection: vi.fn().mockImplementation(({ slug }: { slug: string }) =>
+		Promise.resolve({
+			collection: {
+				slug,
+				name: slug === "all" ? "All Collections" : "Collectibles",
+				description: `Collection description for ${slug}`,
+				image: "https://example.com/collection.png",
+				badge: "Limited",
+			},
+			products: [
+				{
+					id: "collection-prod-1",
+					slug: "collection-prod-1",
+					title: "Collection Product",
+					description: "Collection product description",
+					price: 20,
+					thumbnailImage: "https://example.com/collection-product.png",
+					images: [{ url: "https://example.com/collection-product.png" }],
+					variants: [{ availableForSale: true }],
+					options: [],
+					collections: [{ slug, name: "Collectibles" }],
+				},
+			],
+		}),
+	),
 	getCarouselCollections: vi.fn().mockResolvedValue({ collections: [] }),
 	getProductTypes: vi.fn().mockResolvedValue({ productTypes: [] }),
 	getProduct: vi.fn().mockImplementation(({ id }: { id: string }) =>
@@ -21,10 +86,12 @@ const mockApiClient = {
 				title: `SEO Product ${id}`,
 				description: `SEO description for ${id}`,
 				price: 10,
+				currency: "USD",
+				thumbnailImage: "https://example.com/seo.png",
 				images: [{ url: "https://example.com/seo.png" }],
-				variants: [],
+				variants: [{ availableForSale: true }],
 				options: [],
-				collections: [],
+				collections: [{ slug: "collectibles", name: "Collectibles" }],
 			},
 		}),
 	),
@@ -92,17 +159,100 @@ function renderHeadToString(head: HeadData): string {
 
 describe("SEO Head Extraction", () => {
 	let routerModule: RouterModule;
-	let config: RuntimeConfig;
+	let config: any;
 
 	beforeAll(async () => {
-		globalThis.$apiClient = mockApiClient;
+		globalThis.$apiClient = mockApiClient as never;
 
-		config = await loadBosConfig();
+		const loadedConfig = await loadBosConfig();
+		if (!loadedConfig) {
+			throw new Error("Failed to load config for SEO tests");
+		}
+		config = loadedConfig.runtime;
 		const uiUrl = process.env.BOS_UI_URL;
 		const uiSsrUrl = process.env.BOS_UI_SSR_URL ?? uiUrl;
 		if (uiUrl) config.ui.url = uiUrl;
 		if (uiSsrUrl) config.ui.ssrUrl = uiSsrUrl;
 		routerModule = await Effect.runPromise(loadRouterModule(config));
+	});
+
+	describe("Product Route (/products/:id)", () => {
+		it("builds dynamic product metadata and structured data", async () => {
+			const result = await routerModule.renderToStream(
+				new Request("http://localhost/products/seo-product-1"),
+				{
+					assetsUrl: config.ui.url,
+					runtimeConfig: {
+						env: config.env,
+						account: config.account,
+						hostUrl: config.hostUrl,
+						apiBase: "/api",
+						rpcBase: "/api/rpc",
+						assetsUrl: config.ui.url,
+					},
+				},
+			);
+			const html = await consumeStream(result.stream);
+
+			expect(html).toContain("SEO Product seo-product-1 | NEAR Merch Store");
+			expect(html).toContain('property="og:type" content="product"');
+			expect(html).toContain('property="og:image" content="https://example.com/seo.png"');
+			expect(html).toContain(
+				`<link rel="canonical" href="${config.hostUrl}/products/seo-product-1"`,
+			);
+			expect(html).toContain('"@type":"Product"');
+			expect(html).toContain(`"url":"${config.hostUrl}/products/seo-product-1"`);
+		});
+	});
+
+	describe("Collection Route (/collections/:slug)", () => {
+		it("builds dynamic collection metadata", async () => {
+			const result = await routerModule.renderToStream(
+				new Request("http://localhost/collections/collectibles"),
+				{
+					assetsUrl: config.ui.url,
+					runtimeConfig: {
+						env: config.env,
+						account: config.account,
+						hostUrl: config.hostUrl,
+						apiBase: "/api",
+						rpcBase: "/api/rpc",
+						assetsUrl: config.ui.url,
+					},
+				},
+			);
+			const html = await consumeStream(result.stream);
+
+			expect(html).toContain("Collectibles | NEAR Merch Store");
+			expect(html).toContain('property="og:image" content="https://example.com/collection.png"');
+			expect(html).toContain(
+				`<link rel="canonical" href="${config.hostUrl}/collections/collectibles"`,
+			);
+		});
+
+		it("builds dynamic all-collections metadata", async () => {
+			const result = await routerModule.renderToStream(
+				new Request("http://localhost/collections/all"),
+				{
+					assetsUrl: config.ui.url,
+					runtimeConfig: {
+						env: config.env,
+						account: config.account,
+						hostUrl: config.hostUrl,
+						apiBase: "/api",
+						rpcBase: "/api/rpc",
+						assetsUrl: config.ui.url,
+					},
+				},
+			);
+			const html = await consumeStream(result.stream);
+
+			expect(html).toContain("All Collections | NEAR Merch Store");
+			expect(html).toContain('property="og:image" content="https://example.com/featured.png"');
+			expect(html).toContain(
+				`<link rel="canonical" href="${config.hostUrl}/collections/all"`,
+			);
+		});
 	});
 
 	describe("Module Federation", () => {
@@ -252,7 +402,7 @@ describe("SEO Head Extraction", () => {
 			if (scriptObj.children) {
 				const parsed = JSON.parse(scriptObj.children);
 				expect(parsed["@context"]).toBe("https://schema.org");
-				expect(parsed["@type"]).toBe("WebSite");
+				expect(parsed["@type"]).toBe("OnlineStore");
 			}
 		});
 	});

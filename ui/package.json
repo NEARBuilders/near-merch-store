@@ -15,6 +15,7 @@
     "deploy": "DEPLOY=true bun run build"
   },
   "dependencies": {
+    "@dnd-kit/react": "^0.3.2",
     "@hot-labs/near-connect": "catalog:",
     "@orpc/client": "^1.12.3",
     "@orpc/contract": "^1.13.4",

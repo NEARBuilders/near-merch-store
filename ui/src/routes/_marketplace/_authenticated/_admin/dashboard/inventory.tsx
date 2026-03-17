@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Fragment, useState, useEffect, useMemo, useRef } from "react";
+import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
+import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import {
   useReactTable,
   getCoreRowModel,
@@ -25,6 +27,9 @@ import {
   Plus,
   XCircle,
   ChevronDown,
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { ProductTitleCell } from "@/components/admin/product-title-cell";
 import { Button } from "@/components/ui/button";
@@ -46,6 +51,7 @@ import {
   useUpdateProductFeatured,
   useUpdateProductType,
   useCreateProductType,
+  useUpdateProductTypeItem,
   useUpdateProductMetadata,
   type Product,
   type FeeConfig,
@@ -146,6 +152,18 @@ function TagsEditor({
   );
 }
 
+function reorderList<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  const nextItems = [...items];
+  const movedItems = nextItems.splice(fromIndex, 1);
+
+  if (movedItems.length === 0) {
+    return items;
+  }
+
+  nextItems.splice(toIndex, 0, movedItems[0]!);
+  return nextItems;
+}
+
 function ProductTypeEditor({
   currentType,
   availableTypes,
@@ -159,8 +177,17 @@ function ProductTypeEditor({
 }) {
   const [newTypeLabel, setNewTypeLabel] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [orderedTypes, setOrderedTypes] = useState(availableTypes);
+  const [isReordering, setIsReordering] = useState(false);
 
   const createMutation = useCreateProductType();
+  const updateProductTypeItemMutation = useUpdateProductTypeItem();
+
+  useEffect(() => {
+    if (!isReordering) {
+      setOrderedTypes(availableTypes);
+    }
+  }, [availableTypes, isReordering]);
 
   const generateSlug = (label: string): string => {
     return label
@@ -177,7 +204,7 @@ function ProductTypeEditor({
     setIsCreating(true);
 
     createMutation.mutate(
-      { slug, label: trimmed },
+      { slug, label: trimmed, displayOrder: orderedTypes.length },
       {
         onSuccess: () => {
           onUpdate(slug);
@@ -191,6 +218,48 @@ function ProductTypeEditor({
     );
   };
 
+  const persistOrder = async (
+    previousTypes: Array<{ slug: string; label: string }>,
+    nextTypes: Array<{ slug: string; label: string }>,
+  ) => {
+    setIsReordering(true);
+
+    try {
+      for (const [index, productType] of nextTypes.entries()) {
+        await updateProductTypeItemMutation.mutateAsync({
+          slug: productType.slug,
+          displayOrder: index,
+        });
+      }
+    } catch {
+      setOrderedTypes(previousTypes);
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
+  const moveType = (fromIndex: number, toIndex: number) => {
+    if (isReordering) {
+      return;
+    }
+
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= orderedTypes.length ||
+      toIndex >= orderedTypes.length
+    ) {
+      return;
+    }
+
+    const previousTypes = orderedTypes;
+    const nextTypes = reorderList(previousTypes, fromIndex, toIndex);
+
+    setOrderedTypes(nextTypes);
+    void persistOrder(previousTypes, nextTypes);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -201,34 +270,78 @@ function ProductTypeEditor({
   return (
     <div className="space-y-3">
       <div className="space-y-2 max-h-48 overflow-auto pr-1">
+        <p className="text-xs text-foreground/50">
+          Drag product types to control how they appear in marketplace filters.
+        </p>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
           <Checkbox
             checked={!currentType}
             onCheckedChange={(next) => {
               if (next) onUpdate(null);
             }}
+            disabled={isPending || isCreating || createMutation.isPending || isReordering}
           />
           <span className="text-foreground/60 dark:text-muted-foreground">
             None
           </span>
         </label>
-        {availableTypes.map((pt) => {
-          const checked = currentType === pt.slug;
-          return (
-            <label
-              key={pt.slug}
-              className="flex items-center gap-2 text-sm cursor-pointer"
-            >
-              <Checkbox
-                checked={checked}
-                onCheckedChange={(next) => {
-                  if (next) onUpdate(pt.slug);
-                }}
+        <DragDropProvider
+          onDragEnd={(event) => {
+            if (event.canceled) {
+              return;
+            }
+
+            const { source } = event.operation;
+
+            if (!isSortable(source)) {
+              return;
+            }
+
+            if (source.initialIndex === source.index) {
+              return;
+            }
+
+            moveType(source.initialIndex, source.index);
+          }}
+        >
+          <div className="space-y-2">
+            {orderedTypes.map((pt, index) => (
+              <SortableProductTypeOption
+                key={pt.slug}
+                productType={pt}
+                index={index}
+                checked={currentType === pt.slug}
+                disabled={
+                  isPending ||
+                  isCreating ||
+                  createMutation.isPending ||
+                  isReordering
+                }
+                onSelect={() => onUpdate(pt.slug)}
+                onMoveUp={() => moveType(index, index - 1)}
+                onMoveDown={() => moveType(index, index + 1)}
+                canMoveUp={index > 0}
+                canMoveDown={index < orderedTypes.length - 1}
               />
-              <span className="truncate">{pt.label}</span>
-            </label>
-          );
-        })}
+            ))}
+          </div>
+          <DragOverlay
+            dropAnimation={{ duration: 180, easing: "ease-out" }}
+            className="w-full"
+          >
+            {(source) => {
+              const activeType = orderedTypes.find(
+                (productType) => productType.slug === String(source.id),
+              );
+
+              if (!activeType) {
+                return null;
+              }
+
+              return <ProductTypeOverlay label={activeType.label} />;
+            }}
+          </DragOverlay>
+        </DragDropProvider>
       </div>
       <div className="border-t border-border/60 pt-3">
         <div className="flex gap-2">
@@ -238,7 +351,12 @@ function ProductTypeEditor({
             onChange={(e) => setNewTypeLabel(e.target.value)}
             onKeyDown={handleKeyDown}
             className="h-9 text-sm bg-background/60 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]"
-            disabled={isCreating || createMutation.isPending || isPending}
+            disabled={
+              isCreating ||
+              createMutation.isPending ||
+              isPending ||
+              isReordering
+            }
           />
           <Button
             type="button"
@@ -248,7 +366,8 @@ function ProductTypeEditor({
               !newTypeLabel.trim() ||
               isCreating ||
               createMutation.isPending ||
-              isPending
+              isPending ||
+              isReordering
             }
             className="h-9 px-3 bg-[#00EC97] text-black hover:bg-[#00d97f]"
           >
@@ -256,6 +375,101 @@ function ProductTypeEditor({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SortableProductTypeOption({
+  productType,
+  index,
+  checked,
+  disabled,
+  onSelect,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
+}: {
+  productType: { slug: string; label: string };
+  index: number;
+  checked: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+}) {
+  const { ref, handleRef, isDragging, isDropTarget } = useSortable({
+    id: productType.slug,
+    index,
+    disabled,
+  });
+
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "flex items-center gap-2 rounded-lg border border-border/60 bg-background/40 px-2 py-2 transition-colors",
+        isDragging && "opacity-50",
+        isDropTarget && !isDragging && "border-[#00EC97]/60 bg-[#00EC97]/5",
+      )}
+    >
+      <button
+        ref={handleRef}
+        type="button"
+        aria-label={`Drag to reorder ${productType.label}`}
+        disabled={disabled}
+        className="rounded-md p-1 text-foreground/40 transition-colors hover:bg-background/60 hover:text-foreground/70 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <GripVertical className="size-4" />
+      </button>
+      <label
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-2 text-sm",
+          !disabled && "cursor-pointer",
+        )}
+      >
+        <Checkbox
+          checked={checked}
+          onCheckedChange={(next) => {
+            if (next) {
+              onSelect();
+            }
+          }}
+          disabled={disabled}
+        />
+        <span className="truncate">{productType.label}</span>
+      </label>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onMoveUp}
+          disabled={disabled || !canMoveUp}
+          aria-label={`Move ${productType.label} up`}
+          className="rounded-md p-1 text-foreground/50 transition-colors hover:bg-background/60 hover:text-foreground/80 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <ArrowUp className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onMoveDown}
+          disabled={disabled || !canMoveDown}
+          aria-label={`Move ${productType.label} down`}
+          className="rounded-md p-1 text-foreground/50 transition-colors hover:bg-background/60 hover:text-foreground/80 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <ArrowDown className="size-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProductTypeOverlay({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-[#00EC97]/40 bg-background px-3 py-2 shadow-lg">
+      <GripVertical className="size-4 text-[#00EC97]" />
+      <span className="text-sm font-medium text-foreground">{label}</span>
     </div>
   );
 }

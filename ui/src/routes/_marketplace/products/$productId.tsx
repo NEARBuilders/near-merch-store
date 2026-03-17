@@ -21,6 +21,14 @@ import {
   getOptionValue,
   getVariantImageUrl,
 } from "@/lib/product-utils";
+import {
+  absoluteUrl,
+  buildProductDescription,
+  buildProductJsonLd,
+  createSeoHead,
+  getProductSeoImage,
+  SITE_NAME,
+} from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/utils/orpc";
 import { useNearAccountId } from "@/hooks/use-near-account-id";
@@ -39,7 +47,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 
 function getTotalFeePercentage(metadata: ProductMetadata | undefined): number {
   if (!metadata?.fees?.length) return 0;
-  const totalBps = metadata.fees.reduce((sum, f) => sum + f.bps, 0);
+  const totalBps = metadata.fees.reduce((sum: number, fee: ProductMetadata["fees"][number]) => sum + fee.bps, 0);
   return totalBps / 100;
 }
 
@@ -55,42 +63,46 @@ function formatFeeType(type: string): string {
 
 export const Route = createFileRoute("/_marketplace/products/$productId")({
   pendingComponent: LoadingSpinner,
-  loader: async ({ params }) => {
+  loader: async ({ params, context }) => {
+    const siteUrl = context.runtimeConfig?.hostUrl ?? '';
+    const assetsUrl = context.assetsUrl ?? '';
+
     try {
       const data = await apiClient.getProduct({ id: params.productId });
-      return { data: { product: data.product } };
+      return { data: { product: data.product }, siteUrl, assetsUrl };
     } catch (error) {
-      return { error: error as Error, data: null };
+      return { error: error as Error, data: null, siteUrl, assetsUrl };
     }
   },
-  head: ({ loaderData }) => {
+  head: ({ loaderData, params }) => {
     const product = loaderData?.data?.product;
-    const title = product?.title
-      ? `${product.title} | NEAR Merch Store`
-      : "NEAR Merch Store";
-    const description =
-      product?.description || "Shop official NEAR Protocol merchandise, apparel, accessories, and collectibles";
-    const image = product?.images?.[0]?.url;
+    const siteUrl = loaderData?.siteUrl ?? '';
+    const assetsUrl = loaderData?.assetsUrl ?? '';
+    const fallbackImage = assetsUrl ? absoluteUrl(assetsUrl, '/metadata.png') : undefined;
 
-    return {
-      meta: [
-        { title },
-        { name: "description", content: description },
-        { property: "og:title", content: title },
-        { property: "og:description", content: description },
-        { property: "og:type", content: "product" },
-        ...(image ? [
-          { property: "og:image", content: image },
-          { property: "og:image:width", content: "1200" },
-          { property: "og:image:height", content: "630" }
-        ] : []),
-        { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:title", content: title },
-        { name: "twitter:description", content: description },
-        { name: "twitter:site", content: "@nearmerch" },
-        ...(image ? [{ name: "twitter:image", content: image }] : []),
-      ],
-    };
+    if (!product) {
+      return createSeoHead({
+        title: SITE_NAME,
+        description: "Shop official NEAR Protocol merchandise, apparel, accessories, and collectibles",
+        image: fallbackImage,
+        robots: 'noindex, nofollow',
+      });
+    }
+
+    const title = `${product.title} | ${SITE_NAME}`;
+    const description = buildProductDescription(product);
+    const url = siteUrl ? absoluteUrl(siteUrl, `/products/${params.productId}`) : undefined;
+    const productImage = getProductSeoImage(product) || fallbackImage;
+
+    return createSeoHead({
+      title,
+      description,
+      url,
+      image: productImage,
+      imageAlt: productImage ? `${product.title} product image` : undefined,
+      type: "product",
+      jsonLd: url ? buildProductJsonLd(product, url, productImage) : null,
+    });
   },
   errorComponent: ({ error }) => {
     const router = useRouter();
@@ -548,7 +560,7 @@ function ProductDetailPage() {
                   </div>
                   {fees.length > 0 && (
                     <div className="text-xs text-foreground/60 space-y-1">
-                      {fees.map((fee, idx) => (
+                      {fees.map((fee: ProductMetadata["fees"][number], idx: number) => (
                         <div key={idx} className="flex justify-between">
                           <span>{formatFeeType(fee.type)} ({fee.label})</span>
                           <span>{fee.bps / 100}%</span>

@@ -5,6 +5,12 @@ import { FulfillmentContract } from '../contract';
 import { LuluService } from './service';
 import { LuluBookConfigSchema } from './types';
 
+const LULU_PRODUCT_IMAGE_URLS = [
+  'https://assets.nearmerch.com/book-side.png',
+  'https://assets.nearmerch.com/book.png',
+  'https://assets.nearmerch.com/book-front.png',
+];
+
 export default createPlugin({
   variables: z.object({
     baseUrl: z.string().optional(),
@@ -21,12 +27,22 @@ export default createPlugin({
 
   initialize: (config) =>
     Effect.gen(function* () {
+      const books = config.variables.books.map((book) => ({
+        ...book,
+        thumbnailUrl: LULU_PRODUCT_IMAGE_URLS[0],
+        files: LULU_PRODUCT_IMAGE_URLS.map((url) => ({
+          type: 'preview',
+          url,
+          previewUrl: url,
+        })),
+      }));
+
       const service = new LuluService({
         clientKey: config.secrets.LULU_CLIENT_KEY,
         clientSecret: config.secrets.LULU_CLIENT_SECRET,
         baseUrl: config.variables.baseUrl,
         environment: config.variables.environment,
-        books: config.variables.books,
+        books,
       });
 
       console.log('[Lulu Plugin] Initialized successfully');
