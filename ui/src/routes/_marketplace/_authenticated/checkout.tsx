@@ -39,6 +39,26 @@ import {
   type PurchaseGatePluginId,
 } from '@/integrations/api';
 
+function requiresPhoneForProvider(providerName?: string) {
+  return providerName === 'lulu';
+}
+
+function getPhoneRequirementError(phone: string | undefined, required: boolean) {
+  if (!required) {
+    return undefined;
+  }
+
+  if (!phone?.trim()) {
+    return 'Phone number is required for Lulu orders';
+  }
+
+  return undefined;
+}
+
+function getOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
 export const Route = createFileRoute("/_marketplace/_authenticated/checkout")({
   component: CheckoutPage,
 });
@@ -70,6 +90,9 @@ function CheckoutPage() {
   );
   const { accessByPlugin, isLoading: isPurchaseGateLoading } =
     usePurchaseGateAccessMap(gatedPluginIds, nearAccountId);
+  const requiresPhone = cartItems.some((item) =>
+    requiresPhoneForProvider(item.product.fulfillmentProvider),
+  );
   const hasBlockedItems = cartItems.some((item) => {
     const pluginId = getPurchaseGatePluginId(
       item.product.metadata as ProductMetadata | undefined,
@@ -119,6 +142,13 @@ function CheckoutPage() {
     } as ShippingAddress,
     validators: {
       onSubmit: ({ value }) => {
+        const phoneRequirementError = getPhoneRequirementError(
+          getOptionalString(value.phone),
+          requiresPhone,
+        );
+        if (phoneRequirementError) {
+          return phoneRequirementError;
+        }
         if (availableStates.length > 0 && !value.state) {
           return 'State/Province is required for the selected country';
         }
@@ -161,7 +191,7 @@ function CheckoutPage() {
     onError: (error: Error) => {
       setShippingError(error.message);
       setShippingQuote(null);
-      toast.error('Failed to calculate shipping');
+      toast.error(error.message || 'Failed to calculate shipping');
     },
   });
 
@@ -199,12 +229,23 @@ function CheckoutPage() {
         toast.error('Failed to create checkout session');
       }
     },
-    onError: () => {
-      toast.error('Order Failed, please contact support (merch@near.foundation)');
+    onError: (error: Error) => {
+      toast.error(error.message || 'Order Failed, please contact support (merch@near.foundation)');
     },
   });
 
   const handleCalculateShipping = async (formData: ShippingAddress) => {
+    const phoneRequirementError = getPhoneRequirementError(
+      getOptionalString(formData.phone),
+      requiresPhone,
+    );
+    if (phoneRequirementError) {
+      setShippingError(phoneRequirementError);
+      setShippingQuote(null);
+      toast.error(phoneRequirementError);
+      return;
+    }
+
     setIsCalculatingShipping(true);
 
     try {
@@ -244,6 +285,16 @@ function CheckoutPage() {
     }
 
     const formData = form.state.values;
+    const phoneRequirementError = getPhoneRequirementError(
+      getOptionalString(formData.phone),
+      requiresPhone,
+    );
+
+    if (phoneRequirementError) {
+      setShippingError(phoneRequirementError);
+      toast.error(phoneRequirementError);
+      return;
+    }
 
     if (!shippingQuote) {
       await handleCalculateShipping(formData);
@@ -403,6 +454,11 @@ function CheckoutPage() {
                 name="phone"
                 validators={{
                   onBlur: ({ value }) => {
+                    const requiredError = getPhoneRequirementError(
+                      getOptionalString(value),
+                      requiresPhone,
+                    );
+                    if (requiredError) return requiredError;
                     if (!value) return undefined;
                     const phoneStr = String(value);
                     const digits = phoneStr.replace(/\D/g, '');
@@ -415,7 +471,12 @@ function CheckoutPage() {
                 children={(field) => (
                   <div className="space-y-2">
                     <Label htmlFor="phone">
-                      Phone <span className="text-muted-foreground text-xs">(optional – helps carriers reach you for delivery)</span>
+                      Phone {requiresPhone ? <span className="text-red-500">*</span> : null}{' '}
+                      <span className="text-muted-foreground text-xs">
+                        {requiresPhone
+                          ? '(required for Lulu book delivery)'
+                          : '(optional - helps carriers reach you for delivery)'}
+                      </span>
                     </Label>
                     <Input
                       id="phone"

@@ -30,6 +30,7 @@ import {
   getProductSeoImage,
   SITE_NAME,
 } from "@/lib/seo";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/utils/orpc";
 import { useNearAccountId } from "@/hooks/use-near-account-id";
@@ -38,6 +39,7 @@ import { createFileRoute, Link, useRouter, useCanGoBack } from "@tanstack/react-
 import {
   AlertCircle,
   ArrowLeft,
+  Award,
   ChevronLeft,
   ChevronRight,
   Minus,
@@ -444,15 +446,47 @@ function ProductDetailPage() {
                 </div>
               )}
               {referralConfig && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleShareReferral}
-                  className="h-[40px] rounded-lg border-border/60 bg-background/40 px-3 text-xs font-semibold uppercase tracking-[0.16em]"
-                >
-                  <Share2 className="mr-2 size-4" />
-                  Share
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleShareReferral}
+                    className="h-[40px] rounded-lg border-border/60 bg-background/40 px-3 text-xs font-semibold uppercase tracking-[0.16em]"
+                  >
+                    <Share2 className="mr-2 size-4" />
+                    Share
+                  </Button>
+                  {referralConfig.feeBps && referralConfig.feeBps > 0 && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="h-[40px] flex items-center gap-1.5 rounded-lg border border-[#00EC97]/40 bg-[#00EC97]/10 px-3 text-xs font-semibold text-[#00EC97] cursor-default">
+                            <Award className="size-4 shrink-0" />
+                            <span>{referralConfig.feeBps / 100}% referral</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          align="end"
+                          sideOffset={8}
+                          className="max-w-72 rounded-lg border border-[#00EC97]/30 bg-background/95 backdrop-blur-md p-3 text-xs text-foreground/80 shadow-lg"
+                        >
+                          <p>
+                            Half of this fee goes to your wallet, half goes towards a NEAR buy back.{" "}
+                            <a
+                              href="https://docs.near-intents.org/integration/distribution-channels/1click-api/fee-config"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[#00EC97] underline underline-offset-2 hover:text-[#00d97f]"
+                            >
+                              Learn more
+                            </a>
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
               )}
               <FavoriteButton
                 isFavorite={isFavorite}

@@ -98,6 +98,22 @@ export function MarketplaceFooter() {
               >
                 Refunds &amp; Returns
               </Link>
+              <a
+                href="https://github.com/NEARBuilders/near-merch-store/issues/new?template=BLANK_ISSUE"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block link-muted text-sm hover:text-[#00EC97] transition-colors"
+              >
+                Feedback
+              </a>
+              <a
+                href="https://trezu.app/nearmerchstore.sputnik-dao.near"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block link-muted text-sm hover:text-[#00EC97] transition-colors"
+              >
+                Treasury
+              </a>
             </div>
           </div>
         </div>

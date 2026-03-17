@@ -834,6 +834,15 @@ export default createPlugin({
 
             // Don't leak provider/internal details to the UI.
             if (error instanceof CheckoutError) {
+              if (error.code === "INVALID_ADDRESS") {
+                throw new ORPCError("BAD_REQUEST", {
+                  message:
+                    error.cause instanceof Error
+                      ? error.cause.message
+                      : error.message,
+                });
+              }
+
               console.error("[createCheckout] Checkout failed:", error.message);
               if (error.cause)
                 console.error("[createCheckout] Cause:", error.cause);
