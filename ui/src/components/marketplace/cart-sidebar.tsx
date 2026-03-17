@@ -79,9 +79,8 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                   null;
 
                 return (
-                  <div onClick={onClose}>
+                  <div key={item.id} onClick={onClose}>
                     <ProductCard
-                      key={item.variantId}
                       product={item.product}
                       variant="horizontal"
                       hideFavorite
@@ -93,7 +92,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            removeItem(item.variantId);
+                            removeItem(item.id);
                           }}
                           className="size-8 flex items-center justify-center shrink-0 rounded-lg hover:bg-background/60 hover:text-[#00EC97] transition-colors"
                           aria-label={`Remove ${item.product.title}`}
@@ -131,7 +130,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              updateQuantity(item.variantId, -1);
+                              updateQuantity(item.id, -1);
                             }}
                             disabled={item.quantity <= 1}
                             className="size-9 flex items-center justify-center disabled:opacity-50 hover:text-[#00EC97] transition-colors rounded-l-lg"
@@ -146,7 +145,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              updateQuantity(item.variantId, 1);
+                              updateQuantity(item.id, 1);
                             }}
                             className="size-9 flex items-center justify-center hover:text-[#00EC97] transition-colors rounded-r-lg"
                             aria-label="Increase quantity"

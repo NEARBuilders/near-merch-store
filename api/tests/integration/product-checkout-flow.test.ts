@@ -283,6 +283,105 @@ describe('Database Integration Tests', () => {
       expect(order.order.id).toBe(checkoutResult.orderId);
     });
 
+    it('should append dynamic referral fees for eligible products', async () => {
+      const client = await getPluginClient({ nearAccountId: TEST_USER });
+
+      await createTestProduct('prod_ref', {
+        name: 'Referral Product',
+        price: 1000,
+        currency: 'USD',
+        fulfillmentProvider: 'manual',
+        source: 'test',
+        metadata: {
+          fees: [],
+          affiliate: {
+            referral: {
+              enabled: true,
+              feeBps: 2000,
+            },
+          },
+        },
+      });
+
+      await createTestProductVariant('var_ref', 'prod_ref', {
+        name: 'Referral Variant',
+        price: 1000,
+        sku: 'SKU-REF-001',
+        inStock: true,
+      });
+
+      const quoteResult = await client.quote({
+        items: [{ productId: 'prod_ref', variantId: 'var_ref', quantity: 1 }],
+        shippingAddress: {
+          firstName: 'Referral',
+          lastName: 'Buyer',
+          email: 'buyer@example.com',
+          addressLine1: '123 Main St',
+          city: 'Los Angeles',
+          state: 'CA',
+          postCode: '90001',
+          country: 'US',
+        },
+      });
+
+      const selectedRates: Record<string, string> = {};
+      quoteResult.providerBreakdown.forEach((provider: any) => {
+        selectedRates[provider.provider] = provider.selectedShipping.rateId;
+      });
+
+      const checkoutResult = await client.createCheckout({
+        items: [
+          {
+            productId: 'prod_ref',
+            variantId: 'var_ref',
+            quantity: 1,
+            referralAccountId: 'referrer.near',
+          },
+        ],
+        shippingAddress: {
+          firstName: 'Referral',
+          lastName: 'Buyer',
+          email: 'buyer@example.com',
+          addressLine1: '123 Main St',
+          city: 'Los Angeles',
+          state: 'CA',
+          postCode: '90001',
+          country: 'US',
+        },
+        selectedRates,
+        shippingCost: quoteResult.shippingCost,
+        successUrl: 'https://example.com/success',
+        cancelUrl: 'https://example.com/cancel',
+        paymentProvider: 'pingpay',
+      });
+
+      const order = await client.getOrder({ id: checkoutResult.orderId });
+      const paymentDetails = order.order.paymentDetails as any;
+      const requestFees = paymentDetails?.request?.fees as Array<any> | undefined;
+      const referralItems = paymentDetails?.referral?.items as Array<any> | undefined;
+
+      expect(requestFees).toBeDefined();
+      expect(requestFees).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'affiliate',
+            label: 'Referral',
+            recipient: 'referrer.near',
+            bps: 2000,
+          }),
+        ]),
+      );
+      expect(referralItems).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            productId: 'prod_ref',
+            recipient: 'referrer.near',
+            configuredFeeBps: 2000,
+          }),
+        ]),
+      );
+    });
+
     it('should find order by checkout session ID from PostgreSQL', async () => {
       const client = await getPluginClient({ nearAccountId: TEST_USER });
 

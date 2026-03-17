@@ -8,6 +8,7 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { useNearPrice } from "@/hooks/use-near-price";
 import { useCartSidebarStore } from "@/stores/cart-sidebar-store";
 import {
+  getReferralConfig,
   getPurchaseGatePluginId,
   requiresSize,
   useProducts,
@@ -32,6 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/utils/orpc";
 import { useNearAccountId } from "@/hooks/use-near-account-id";
+import { toast } from "sonner";
 import { createFileRoute, Link, useRouter, useCanGoBack } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -42,8 +44,22 @@ import {
   Plus,
   Lock,
   Info,
+  Share2,
 } from "lucide-react";
 import { useState, useMemo, useEffect, useRef } from "react";
+
+function normalizeNearAccountId(value?: string | null): string | undefined {
+  const trimmed = value?.trim().toLowerCase();
+
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const firstToken = trimmed.split(/\s+/)[0];
+  const cleaned = firstToken?.replace(/[^a-z0-9._-]/g, "");
+
+  return cleaned || undefined;
+}
 
 function getTotalFeePercentage(metadata: ProductMetadata | undefined): number {
   if (!metadata?.fees?.length) return 0;
@@ -74,7 +90,7 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
       return { error: error as Error, data: null, siteUrl, assetsUrl };
     }
   },
-  head: ({ loaderData, params }) => {
+  head: ({ loaderData }) => {
     const product = loaderData?.data?.product;
     const siteUrl = loaderData?.siteUrl ?? '';
     const assetsUrl = loaderData?.assetsUrl ?? '';
@@ -91,7 +107,7 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
 
     const title = `${product.title} | ${SITE_NAME}`;
     const description = buildProductDescription(product);
-    const url = siteUrl ? absoluteUrl(siteUrl, `/products/${params.productId}`) : undefined;
+    const url = siteUrl ? absoluteUrl(siteUrl, `/products/${product.slug}`) : undefined;
     const productImage = getProductSeoImage(product) || fallbackImage;
 
     return createSeoHead({
@@ -170,9 +186,32 @@ function ProductDetailPage() {
   const { product } = loaderData.data;
 
   const nearAccountId = useNearAccountId();
+  const ref =
+    typeof window === "undefined"
+      ? undefined
+      : new URLSearchParams(window.location.search).get("ref");
+  const metadata = product.metadata as ProductMetadata | undefined;
+  const referralConfig = getReferralConfig(metadata);
+  const normalizedNearAccountId = normalizeNearAccountId(nearAccountId);
+  const normalizedRefAccountId = normalizeNearAccountId(ref);
+  const activeReferralAccountId =
+    referralConfig &&
+    normalizedRefAccountId &&
+    normalizedRefAccountId !== normalizedNearAccountId
+      ? normalizedRefAccountId
+      : undefined;
+  const shareReferralUrl = useMemo(() => {
+    if (typeof window === "undefined" || !referralConfig || !normalizedNearAccountId) {
+      return null;
+    }
+
+    const url = new URL(`/products/${product.slug}`, window.location.origin);
+    url.searchParams.set("ref", normalizedNearAccountId);
+    return url.toString();
+  }, [normalizedNearAccountId, product.slug, referralConfig]);
 
   const purchaseGatePluginId = getPurchaseGatePluginId(
-    product.metadata as ProductMetadata | undefined,
+    metadata,
   );
   const isGatedProduct = Boolean(purchaseGatePluginId);
   const {
@@ -263,6 +302,35 @@ function ProductDetailPage() {
     [validImages, selectedVariantId]
   );
 
+  const handleShareReferral = async () => {
+    if (!referralConfig) {
+      return;
+    }
+
+    if (!shareReferralUrl) {
+      toast.error("Sign in with your NEAR account to share this product");
+      return;
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          url: shareReferralUrl,
+        });
+        toast.success("Referral link shared");
+      } else {
+        await navigator.clipboard.writeText(shareReferralUrl);
+        toast.success("Referral link copied");
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
+
+      toast.error("Unable to share referral link");
+    }
+  };
+
   // Reset image index when product changes
   useEffect(() => {
     setSelectedColor(defaultColor);
@@ -322,7 +390,14 @@ function ProductDetailPage() {
     if (!selectedVariant || !canPurchase) return;
     const variantImageUrl = selectedVariantId ? getVariantImageUrl(product, selectedVariantId) : undefined;
     for (let i = 0; i < quantity; i++) {
-      addToCart(product.slug, selectedVariantId || '', selectedSize, selectedColor, variantImageUrl);
+      addToCart(
+        product.slug,
+        selectedVariantId || '',
+        selectedSize,
+        selectedColor,
+        variantImageUrl,
+        activeReferralAccountId,
+      );
     }
     openCartSidebar();
   };
@@ -367,6 +442,17 @@ function ProductDetailPage() {
                 <div className="h-[40px] flex items-center justify-center bg-muted/30 px-3 py-2 text-xs font-semibold tracking-[0.16em] uppercase text-muted-foreground border border-border/40 w-fit dark:bg-[#00EC97]/10 dark:text-[#00EC97] dark:border-[#00EC97]/60 rounded-lg">
                   LEGION GATED
                 </div>
+              )}
+              {referralConfig && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleShareReferral}
+                  className="h-[40px] rounded-lg border-border/60 bg-background/40 px-3 text-xs font-semibold uppercase tracking-[0.16em]"
+                >
+                  <Share2 className="mr-2 size-4" />
+                  Share
+                </Button>
               )}
               <FavoriteButton
                 isFavorite={isFavorite}

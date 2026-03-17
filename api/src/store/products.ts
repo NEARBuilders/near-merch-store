@@ -261,6 +261,16 @@ export const ProductStoreLive = Layer.effect(
               return null;
             }
 
+            const slugResults = await db
+              .select()
+              .from(schema.products)
+              .where(eq(schema.products.slug, identifier))
+              .limit(1);
+
+            if (slugResults.length > 0) {
+              return await rowToProduct(slugResults[0]!);
+            }
+
             const publicKey = identifier.slice(-12);
             const results = await db
               .select()

@@ -859,17 +859,39 @@ export type PurchaseGate = {
   pluginId?: PurchaseGatePluginId;
 };
 
+export type ReferralConfig = {
+  enabled?: boolean;
+  feeBps?: number;
+};
+
+export type AffiliateMetadata = {
+  referral?: ReferralConfig;
+};
+
 export type ProductMetadata = {
   creatorAccountId?: string;
   fees: FeeConfig[];
   providerDetails?: ProviderDetails;
   purchaseGate?: PurchaseGate;
+  affiliate?: AffiliateMetadata;
 };
 
 export function getPurchaseGatePluginId(
   metadata?: ProductMetadata,
 ): PurchaseGatePluginId | undefined {
   return metadata?.purchaseGate?.pluginId;
+}
+
+export function getReferralConfig(
+  metadata?: ProductMetadata,
+): ReferralConfig | undefined {
+  const referral = metadata?.affiliate?.referral;
+
+  if (!referral?.enabled || !referral.feeBps || referral.feeBps <= 0) {
+    return undefined;
+  }
+
+  return referral;
 }
 
 export function usePurchaseGateAccess(

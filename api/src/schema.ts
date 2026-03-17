@@ -133,11 +133,24 @@ export const PurchaseGateSchema = z.object({
 export type PurchaseGatePluginId = z.infer<typeof PurchaseGatePluginIdSchema>;
 export type PurchaseGate = z.infer<typeof PurchaseGateSchema>;
 
+export const ReferralConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  feeBps: z.number().int().min(0).max(10000).default(2000),
+});
+
+export const AffiliateMetadataSchema = z.object({
+  referral: ReferralConfigSchema.optional(),
+});
+
+export type ReferralConfig = z.infer<typeof ReferralConfigSchema>;
+export type AffiliateMetadata = z.infer<typeof AffiliateMetadataSchema>;
+
 export const ProductMetadataSchema = z.object({
   creatorAccountId: z.string().optional(),
   fees: z.array(FeeConfigSchema).default([]),
   providerDetails: ProviderDetailsSchema.optional(),
   purchaseGate: PurchaseGateSchema.optional(),
+  affiliate: AffiliateMetadataSchema.optional(),
 });
 
 export type ProductMetadata = z.infer<typeof ProductMetadataSchema>;
@@ -287,14 +300,15 @@ export type TrackingInfo = z.infer<typeof TrackingInfoSchema>;
 export type OrderItem = z.infer<typeof OrderItemSchema>;
 export type Order = z.infer<typeof OrderSchema>;
 
+export const CheckoutItemInputSchema = z.object({
+  productId: z.string(),
+  variantId: z.string().optional(),
+  quantity: z.number().int().positive().default(1),
+  referralAccountId: z.string().trim().min(1).optional(),
+});
+
 export const CreateCheckoutInputSchema = z.object({
-  items: z.array(
-    z.object({
-      productId: z.string(),
-      variantId: z.string().optional(),
-      quantity: z.number().int().positive().default(1),
-    }),
-  ),
+  items: z.array(CheckoutItemInputSchema),
   shippingAddress: ShippingAddressSchema,
   selectedRates: z.record(z.string(), z.string()),
   shippingCost: z.number(),
@@ -311,6 +325,7 @@ export const CreateCheckoutOutputSchema = z.object({
 
 export type CreateCheckoutInput = z.infer<typeof CreateCheckoutInputSchema>;
 export type CreateCheckoutOutput = z.infer<typeof CreateCheckoutOutputSchema>;
+export type CheckoutItemInput = z.infer<typeof CheckoutItemInputSchema>;
 
 export const WebhookResponseSchema = z.object({
   received: z.boolean(),

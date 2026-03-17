@@ -4,12 +4,14 @@ export * from "./collections";
 import type { Collection } from "./collections";
 
 export interface CartItem {
+  id?: string;
   productId: string;
   variantId: string;
   quantity: number;
   size: string;
   color: string;
   imageUrl?: string;
+  referralAccountId?: string;
 }
 
 export const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
@@ -50,17 +52,20 @@ export {
   useUpdateProductTypeItem,
   useDeleteProductType,
   getPurchaseGatePluginId,
+  getReferralConfig,
   getPrimaryCategoryName,
   type Product,
   type ProductImage,
   type ProductTypeData,
   type SyncProgressEvent,
+  type AffiliateMetadata,
   type FeeConfig,
   type PurchaseGate,
   type PurchaseGatePluginId,
   type ProductMetadata,
   type PrintfulProviderDetails,
   type ProviderDetails,
+  type ReferralConfig,
 } from "./products";
 
 export {

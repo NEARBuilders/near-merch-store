@@ -28,7 +28,7 @@ const DEFAULT_LULU_BOOK: LuluBookConfig = {
   title: 'User-owned AI is NEAR',
   description: 'A collection of talks by the Co-Founders and Builders of NEAR Protocol & NEAR AI',
   files: [],
-  retailPrice: 19.99,
+  retailPrice: 20,
   currency: 'USD',
   variantName: 'Paperback',
   sku: '0600X0900BWSTDPB060UC444MXX',

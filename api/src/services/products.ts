@@ -118,8 +118,12 @@ function transformProviderProduct(
       if (!url) continue;
 
       if (!imageMap.has(url)) {
+        const imageId = file.id != null
+          ? `file-${file.id}-${variant.id}`
+          : `file-${variant.id}-${imageOrder}`;
+
         imageMap.set(url, {
-          id: `file-${file.id}-${variant.id}`,
+          id: imageId,
           url,
           type: file.type === 'preview' ? 'preview' : 'detail',
           placement: file.type !== 'preview' && file.type !== 'default' ? file.type : undefined,

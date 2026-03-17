@@ -175,14 +175,15 @@ function CheckoutPage() {
         selectedRates[provider.provider] = provider.selectedShipping.rateId;
       });
 
-      const result = await apiClient.createCheckout({
-        items: cartItems.map((item) => ({
-          productId: item.productId,
-          variantId: item.variantId,
-          quantity: item.quantity,
-        })),
-        shippingAddress: params.formData,
-        selectedRates,
+        const result = await apiClient.createCheckout({
+          items: cartItems.map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+            referralAccountId: item.referralAccountId,
+          })),
+          shippingAddress: params.formData,
+          selectedRates,
         shippingCost: shippingQuote.shippingCost,
         successUrl: `${window.location.origin}/order-confirmation`,
         cancelUrl: `${window.location.origin}/checkout`,

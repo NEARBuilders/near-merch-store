@@ -99,7 +99,7 @@ function CartPage() {
                     null;
 
                   return (
-                    <div key={item.variantId}>
+                    <div key={item.id}>
                     <ProductCard
                       product={item.product}
                       variant="horizontal"
@@ -108,7 +108,7 @@ function CartPage() {
                         className="hover:shadow-none !bg-transparent !p-0"
                       actionSlot={
                         <button
-                          onClick={() => removeItem(item.variantId)}
+                           onClick={() => removeItem(item.id)}
                             className="size-8 flex items-center justify-center shrink-0 rounded-lg hover:bg-background/60 hover:text-[#00EC97] transition-colors"
                           aria-label={`Remove ${item.product.title}`}
                         >
@@ -142,7 +142,7 @@ function CartPage() {
                         <div className="flex items-center justify-between gap-3 w-full">
                           <div className="flex items-center border border-border/60 rounded-lg h-[38px]">
                             <button
-                              onClick={() => updateQuantity(item.variantId, -1)}
+                              onClick={() => updateQuantity(item.id, -1)}
                               disabled={item.quantity <= 1}
                               className="size-9 flex items-center justify-center disabled:opacity-50 hover:text-[#00EC97] transition-colors rounded-l-lg"
                               aria-label="Decrease quantity"
@@ -153,7 +153,7 @@ function CartPage() {
                               {item.quantity}
                             </span>
                             <button
-                              onClick={() => updateQuantity(item.variantId, 1)}
+                              onClick={() => updateQuantity(item.id, 1)}
                               className="size-9 flex items-center justify-center hover:text-[#00EC97] transition-colors rounded-r-lg"
                               aria-label="Increase quantity"
                             >
