@@ -161,6 +161,7 @@ export const TaxQuoteInputSchema = z.object({
     })).optional(),
   })),
   currency: z.string().optional(),
+  mode: z.enum(['quote', 'checkout']).optional(),
 });
 
 export const TaxQuoteOutputSchema = z.object({

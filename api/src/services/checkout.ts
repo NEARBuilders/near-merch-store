@@ -134,6 +134,10 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
         const productStore = yield* ProductStore;
         const orderStore = yield* OrderStore;
 
+        const logDuration = (label: string, startedAt: number) => {
+          console.log(`[checkout] ${label} took ${Date.now() - startedAt}ms`);
+        };
+
         const calculateProviderTax = ({
           providerName,
           providerItems,
@@ -142,6 +146,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
           selectedRateVat,
           address,
           currency,
+          mode,
         }: {
           providerName: string;
           providerItems: ProviderItemGroup[];
@@ -150,6 +155,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
           selectedRateVat?: number;
           address: ShippingAddress;
           currency: string;
+          mode: 'quote' | 'checkout';
         }) =>
           Effect.gen(function* () {
             if (providerName === 'manual') {
@@ -222,6 +228,8 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                 };
               }
 
+              const taxStartedAt = Date.now();
+
               const taxResultOption = yield* Effect.option(
                 Effect.tryPromise({
                   try: () =>
@@ -233,6 +241,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                       },
                       items: taxItems,
                       currency,
+                      mode,
                     }),
                   catch: (error) => {
                     console.error(`[${providerName}] Tax calculation failed:`, error);
@@ -240,6 +249,8 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                   },
                 })
               );
+
+              logDuration(`${providerName} tax (${mode})`, taxStartedAt);
 
               if (taxResultOption._tag === 'Some') {
                 const taxResult = taxResultOption.value;
@@ -321,6 +332,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             let minDeliveryDays: number | undefined;
             let maxDeliveryDays: number | undefined;
             const providerTaxResults: Array<{ required: boolean; rate: number; shippingTaxable: boolean; exempt: boolean; taxAmount: number; vat: number }> = [];
+            const quoteStartedAt = Date.now();
 
             for (const [
               providerName,
@@ -375,6 +387,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               }
 
               const fulfillmentItems = mapToFulfillmentItems(providerItems);
+              const providerStartedAt = Date.now();
 
               const quoteResult = yield* Effect.tryPromise({
                 try: () =>
@@ -441,6 +454,8 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
 
               totalShippingCost += selectedRate.rate;
 
+              logDuration(`${providerName} shipping quote`, providerStartedAt);
+
               const providerTax = yield* calculateProviderTax({
                 providerName,
                 providerItems,
@@ -449,6 +464,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                 selectedRateVat: selectedRate.vat,
                 address,
                 currency,
+                mode: 'quote',
               });
               providerTaxResults.push(providerTax);
               totalTax += providerTax.taxAmount;
@@ -487,7 +503,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               };
             }
 
-            return {
+            const quoteResult = {
               subtotal: totalSubtotal,
               shippingCost: totalShippingCost,
               tax,
@@ -501,6 +517,10 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                   ? { minDays: minDeliveryDays, maxDays: maxDeliveryDays }
                   : undefined,
             };
+
+            logDuration('quote aggregation', quoteStartedAt);
+
+            return quoteResult;
           }),
 
         createCheckout: (params) =>
@@ -614,6 +634,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                     selectedRateVat: selectedRate.vat,
                     address,
                     currency,
+                    mode: 'checkout',
                   });
                   providerTaxResults.push(providerTax);
                   tax += providerTax.taxAmount;

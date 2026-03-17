@@ -111,30 +111,62 @@ export default createPlugin({
       }),
 
       calculateTax: builder.calculateTax.handler(async ({ input }) => {
-        const result = await Effect.runPromise(service.estimateOrder({
-          recipient: {
-            countryCode: input.recipient.countryCode,
-            zip: input.recipient.zip,
-            stateCode: input.recipient.stateCode,
-          },
-          items: input.items.map(item => ({
-            catalogVariantId: item.catalogVariantId,
-            quantity: item.quantity,
-            designFiles: item.designFiles,
-          })),
-          currency: input.currency,
-        }));
-        
-        const hasTax = result.tax > 0 || result.vat > 0;
-        
-        return {
-          required: hasTax,
-          rate: result.subtotal > 0 ? result.tax / result.subtotal : 0,
-          shippingTaxable: true,
-          exempt: !hasTax,
-          taxAmount: result.tax,
-          vat: result.vat,
-        };
+        const isQuoteMode = input.mode !== 'checkout';
+        const startedAt = Date.now();
+
+        try {
+          const result = await Effect.runPromise(service.estimateOrder({
+            recipient: {
+              countryCode: input.recipient.countryCode,
+              zip: input.recipient.zip,
+              stateCode: input.recipient.stateCode,
+            },
+            items: input.items.map(item => ({
+              catalogVariantId: item.catalogVariantId,
+              quantity: item.quantity,
+              designFiles: item.designFiles,
+            })),
+            currency: input.currency,
+          }, isQuoteMode ? {
+            timeoutMs: 5000,
+            requestTimeoutMs: 5000,
+            retries: 0,
+          } : undefined));
+
+          console.log(
+            `[printful] Tax calculation (${input.mode ?? 'quote'}) completed in ${Date.now() - startedAt}ms`,
+          );
+
+          const hasTax = result.tax > 0 || result.vat > 0;
+
+          return {
+            required: hasTax,
+            rate: result.subtotal > 0 ? result.tax / result.subtotal : 0,
+            shippingTaxable: true,
+            exempt: !hasTax,
+            taxAmount: result.tax,
+            vat: result.vat,
+          };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+
+          if (isQuoteMode) {
+            console.warn(
+              `[printful] Tax calculation skipped during quote after ${Date.now() - startedAt}ms: ${errorMessage}`,
+            );
+
+            return {
+              required: false,
+              rate: 0,
+              shippingTaxable: false,
+              exempt: true,
+              taxAmount: 0,
+              vat: 0,
+            };
+          }
+
+          throw error;
+        }
       }),
 
       confirmOrder: builder.confirmOrder.handler(async ({ input }) => {
