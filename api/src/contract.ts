@@ -448,6 +448,17 @@ export const contract = oc.router({
     .input(z.unknown())
     .output(WebhookResponseSchema),
 
+  luluWebhook: oc
+    .route({
+      method: 'POST',
+      path: '/webhooks/lulu',
+      summary: 'Lulu webhook',
+      description: 'Handles Lulu webhook events for order status updates.',
+      tags: ['Webhooks'],
+    })
+    .input(z.unknown())
+    .output(WebhookResponseSchema),
+
   pingWebhook: oc
     .route({
       method: "POST",
@@ -629,7 +640,7 @@ export const contract = oc.router({
         "Returns the configuration for a fulfillment provider including webhook settings.",
       tags: ["Admin", "Providers"],
     })
-    .input(z.object({ provider: z.literal("printful") }))
+    .input(z.object({ provider: z.enum(['printful', 'lulu']) }))
     .output(z.object({ config: ProviderConfigSchema.nullable() }))
     .errors({ UNAUTHORIZED }),
 
@@ -654,7 +665,7 @@ export const contract = oc.router({
       description: "Disables webhook notifications for a fulfillment provider.",
       tags: ["Admin", "Providers"],
     })
-    .input(z.object({ provider: z.literal("printful") }))
+    .input(z.object({ provider: z.enum(['printful', 'lulu']) }))
     .output(z.object({ success: z.boolean() }))
     .errors({ BAD_REQUEST, UNAUTHORIZED }),
 
@@ -666,14 +677,12 @@ export const contract = oc.router({
       description: "Tests the connection to a fulfillment provider.",
       tags: ["Admin", "Providers"],
     })
-    .input(z.object({ provider: z.literal("printful") }))
-    .output(
-      z.object({
-        success: z.boolean(),
-        message: z.string().optional(),
-        timestamp: z.string().datetime(),
-      }),
-    )
+    .input(z.object({ provider: z.enum(['printful', 'lulu']) }))
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string().optional(),
+      timestamp: z.string().datetime(),
+    }))
     .errors({ BAD_REQUEST, UNAUTHORIZED }),
 
   getCategories: oc

@@ -2,16 +2,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/utils/orpc';
 
 export type ProviderConfig = Awaited<ReturnType<typeof apiClient.getProviderConfig>>['config'];
+export type ProviderName = Parameters<typeof apiClient.getProviderConfig>[0]['provider'];
 
 type ConfigureWebhookParams = Parameters<typeof apiClient.configureWebhook>[0];
-export type PrintfulWebhookEventType = ConfigureWebhookParams['events'][number];
+export type ProviderWebhookEventType = ConfigureWebhookParams['events'][number];
+export type PrintfulWebhookEventType = Exclude<ProviderWebhookEventType, 'PRINT_JOB_STATUS_CHANGED'>;
+export type LuluWebhookEventType = 'PRINT_JOB_STATUS_CHANGED';
 
 export const providerKeys = {
   all: ['providers'] as const,
-  config: (provider: 'printful') => [...providerKeys.all, 'config', provider] as const,
+  config: (provider: ProviderName) => [...providerKeys.all, 'config', provider] as const,
 };
 
-export function useProviderConfig(provider: 'printful') {
+export function useProviderConfig(provider: ProviderName) {
   return useQuery({
     queryKey: providerKeys.config(provider),
     queryFn: async () => {
@@ -27,9 +30,9 @@ export function useConfigureWebhook() {
 
   return useMutation({
     mutationFn: async (params: {
-      provider: 'printful';
+      provider: ProviderName;
       webhookUrlOverride?: string;
-      events: PrintfulWebhookEventType[];
+      events: ProviderWebhookEventType[];
       expiresAt?: string;
     }) => {
       return await apiClient.configureWebhook(params);
@@ -44,7 +47,7 @@ export function useDisableWebhook() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { provider: 'printful' }) => {
+    mutationFn: async (params: { provider: ProviderName }) => {
       return await apiClient.disableWebhook(params);
     },
     onSuccess: (_, variables) => {
@@ -55,11 +58,19 @@ export function useDisableWebhook() {
 
 export function useTestProvider() {
   return useMutation({
-    mutationFn: async (params: { provider: 'printful' }) => {
+    mutationFn: async (params: { provider: ProviderName }) => {
       return await apiClient.testProvider(params);
     },
   });
 }
+
+export const LULU_WEBHOOK_EVENTS: { value: LuluWebhookEventType; label: string; description: string }[] = [
+  {
+    value: 'PRINT_JOB_STATUS_CHANGED',
+    label: 'Print Job Status Changed',
+    description: 'Sent whenever a Lulu print job changes status',
+  },
+];
 
 export const PRINTFUL_WEBHOOK_EVENTS: { value: PrintfulWebhookEventType; label: string; description: string }[] = [
   { value: 'shipment_sent', label: 'Shipment Sent', description: 'Order shipment has been dispatched' },

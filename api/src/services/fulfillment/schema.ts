@@ -1,7 +1,7 @@
 import { z } from 'every-plugin/zod';
 import { DesignFileSchema } from '../../schema';
 
-export const FulfillmentProviderSchema = z.enum(['printful', 'gelato', 'manual']);
+export const FulfillmentProviderSchema = z.enum(['printful', 'gelato', 'lulu', 'manual']);
 
 export const FulfillmentOrderStatusSchema = z.enum([
   'draft',
@@ -34,6 +34,7 @@ export const ProviderVariantSchema = z.object({
     url: z.string().nullable(),
     previewUrl: z.string().nullable().optional(),
   })).optional(),
+  providerData: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const PrintfulProviderDetailsSchema = z.object({
@@ -74,6 +75,7 @@ export const FulfillmentOrderItemSchema = z.object({
     type: z.string().default('default'),
     placement: z.string().optional(),
   })).optional(),
+  providerData: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const FulfillmentAddressSchema = z.object({
@@ -125,6 +127,8 @@ export const ShippingRateSchema = z.object({
   name: z.string(),
   rate: z.number(),
   currency: z.string(),
+  taxAmount: z.number().optional(),
+  vat: z.number().optional(),
   minDeliveryDays: z.number().optional(),
   maxDeliveryDays: z.number().optional(),
   minDeliveryDate: z.string().optional(),

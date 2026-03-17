@@ -11,7 +11,7 @@ import {
 import type {
   Attribute,
   FulfillmentConfig,
-  PrintfulWebhookEventType,
+  ProviderWebhookEventType,
   ProductOption,
   ProductMetadata,
 } from "../schema";
@@ -352,7 +352,7 @@ export const providerConfigs = pgTable("provider_configs", {
   enabled: boolean("enabled").notNull().default(false),
   webhookUrl: text("webhook_url"),
   webhookUrlOverride: text("webhook_url_override"),
-  enabledEvents: jsonb("enabled_events").$type<PrintfulWebhookEventType[]>(),
+  enabledEvents: jsonb("enabled_events").$type<ProviderWebhookEventType[]>(),
   publicKey: text("public_key"),
   secretKey: text("secret_key"),
   lastConfiguredAt: timestamp("last_configured_at", {

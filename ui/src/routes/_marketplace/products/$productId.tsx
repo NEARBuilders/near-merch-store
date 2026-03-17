@@ -186,11 +186,10 @@ function ProductDetailPage() {
   const selectedVariant = availableVariants.find((v) => {
     const vSize = getOptionValue(v.attributes, "Size");
     const vColor = getOptionValue(v.attributes, "Color");
-    const sizeMatches = orderedSizes.length === 0 || vSize === selectedSize;
-    const colorMatches = orderedColors.length === 0 || vColor === selectedColor;
-
-    return sizeMatches && colorMatches;
-  });
+    const colorMatch = orderedColors.length === 0 || vColor === selectedColor;
+    const sizeMatch = orderedSizes.length === 0 || vSize === selectedSize;
+    return colorMatch && sizeMatch;
+  }) || availableVariants[0];
 
   const displayPrice = selectedVariant?.price || product.price;
   const selectedVariantId = selectedVariant?.id;
