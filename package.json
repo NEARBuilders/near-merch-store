@@ -40,7 +40,7 @@
     "dev:api": "bunx everything-dev dev --ui=remote",
     "dev:proxy": "bunx everything-dev dev --proxy",
     "build": "bunx everything-dev build",
-    "build:api": "bun run --cwd api build",
+    "build:api": "bun run --cwd api deploy",
     "build:ui": "bun run --cwd ui build",
     "deploy": "DEPLOY=true NODE_ENV=production bun run build:ui && bun run build:api",
     "typecheck": "bun run --cwd ui tsc --noEmit && bun run --cwd api tsc --noEmit",
