@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.2
+
+### Patch Changes
+
+- 7272c14: Reduce checkout quote delays when Printful tax estimation is slow by making quote-time tax best-effort and adding provider timing logs.
+
 ## 1.3.1
 
 ### Patch Changes
