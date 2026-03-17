@@ -10,6 +10,13 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  buildSiteJsonLd,
+  createSeoHead,
+  DEFAULT_DESCRIPTION,
+  getSiteMetadataImage,
+  SITE_NAME,
+} from "@/lib/seo";
 import { getBaseStyles, getRemoteScripts } from "@/remote/head";
 import type { RouterContext } from "@/types";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
@@ -23,9 +30,18 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const assetsUrl = loaderData?.assetsUrl || "";
     const runtimeConfig = loaderData?.runtimeConfig;
     const siteUrl = runtimeConfig?.hostUrl || "";
-    const title = "NEAR Merch Store";
-    const description = "Shop official NEAR Protocol merchandise, apparel, accessories, and collectibles for the ecosystem.";
-    const ogImage = `${assetsUrl}/metadata.png`;
+    const title = SITE_NAME;
+    const description = DEFAULT_DESCRIPTION;
+    const seoHead = createSeoHead({
+      title,
+      description,
+      url: siteUrl,
+      image: getSiteMetadataImage(assetsUrl),
+      jsonLd: buildSiteJsonLd({
+        url: siteUrl,
+        description,
+      }),
+    });
 
     return {
       meta: [
@@ -46,22 +62,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         },
         { name: "format-detection", content: "telephone=no" },
         { name: "robots", content: "index, follow" },
-        { property: "og:title", content: title },
-        { property: "og:description", content: description },
-        { property: "og:type", content: "website" },
-        { property: "og:url", content: siteUrl },
-        { property: "og:image", content: ogImage },
-        { property: "og:image:width", content: "1200" },
-        { property: "og:image:height", content: "630" },
-        { property: "og:site_name", content: title },
-        { property: "og:locale", content: "en_US" },
-        { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:title", content: title },
-        { name: "twitter:description", content: description },
-        { name: "twitter:image", content: ogImage },
-        { name: "twitter:site", content: "@nearmerch" },
+        ...seoHead.meta,
       ],
       links: [
+        ...seoHead.links,
         { rel: "stylesheet", href: `${assetsUrl}/static/css/async/style.css` },
         { rel: "preconnect", href: "https://fonts.googleapis.com" },
         {
@@ -79,24 +83,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { rel: "manifest", href: `${assetsUrl}/manifest.json` },
       ],
       scripts: [
-        {
-          type: "application/ld+json",
-          children: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "OnlineStore",
-            name: title,
-            url: siteUrl,
-            description,
-            brand: {
-              "@type": "Brand",
-              name: "NEAR Protocol",
-            },
-            offers: {
-              "@type": "AggregateOffer",
-              priceCurrency: "USD",
-            },
-          }),
-        },
+        ...seoHead.scripts,
         ...getRemoteScripts({ assetsUrl, runtimeConfig }),
       ]
     };

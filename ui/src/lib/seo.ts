@@ -4,10 +4,6 @@ export const SITE_NAME = 'NEAR Merch Store';
 export const SITE_HANDLE = '@nearmerch';
 export const DEFAULT_DESCRIPTION = 'Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles for the NEAR ecosystem';
 
-type RouteMatchLike = {
-  loaderData?: unknown;
-};
-
 type SeoHeadInput = {
   title: string;
   description: string;
@@ -34,24 +30,8 @@ export function absoluteUrl(baseUrl: string, path: string) {
   return new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`).toString();
 }
 
-export function getSiteUrlFromMatches(matches: RouteMatchLike[] | undefined) {
-  const rootMatch = matches?.find((match) => {
-    const loaderData = match?.loaderData as { runtimeConfig?: { hostUrl?: string } } | undefined;
-    return !!loaderData?.runtimeConfig?.hostUrl;
-  });
-
-  const rootLoaderData = rootMatch?.loaderData as { runtimeConfig?: { hostUrl?: string } } | undefined;
-  return rootLoaderData?.runtimeConfig?.hostUrl ?? '';
-}
-
-export function getAssetsUrlFromMatches(matches: RouteMatchLike[] | undefined) {
-  const rootMatch = matches?.find((match) => {
-    const loaderData = match?.loaderData as { assetsUrl?: string } | undefined;
-    return !!loaderData?.assetsUrl;
-  });
-
-  const rootLoaderData = rootMatch?.loaderData as { assetsUrl?: string } | undefined;
-  return rootLoaderData?.assetsUrl ?? '';
+export function getSiteMetadataImage(assetsUrl: string) {
+  return absoluteUrl(assetsUrl, '/metadata.png');
 }
 
 export function createSeoHead({
@@ -156,6 +136,30 @@ export function buildProductJsonLd(product: Product, url: string, image?: string
         ? 'https://schema.org/InStock'
         : 'https://schema.org/OutOfStock',
       url,
+    },
+  };
+}
+
+export function buildSiteJsonLd({
+  url,
+  description = DEFAULT_DESCRIPTION,
+}: {
+  url?: string;
+  description?: string;
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'OnlineStore',
+    name: SITE_NAME,
+    url,
+    description,
+    brand: {
+      '@type': 'Brand',
+      name: 'NEAR Protocol',
+    },
+    offers: {
+      '@type': 'AggregateOffer',
+      priceCurrency: 'USD',
     },
   };
 }
