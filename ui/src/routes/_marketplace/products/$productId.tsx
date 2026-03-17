@@ -39,6 +39,7 @@ import { createFileRoute, Link, useRouter, useCanGoBack } from "@tanstack/react-
 import {
   AlertCircle,
   ArrowLeft,
+  Award,
   ChevronLeft,
   ChevronRight,
   Minus,
@@ -460,6 +461,7 @@ function ProductDetailPage() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div className="h-[40px] flex items-center gap-1.5 rounded-lg border border-[#00EC97]/40 bg-[#00EC97]/10 px-3 text-xs font-semibold text-[#00EC97] cursor-default">
+                            <Award className="size-4 shrink-0" />
                             <span>{referralConfig.feeBps / 100}% referral</span>
                           </div>
                         </TooltipTrigger>
