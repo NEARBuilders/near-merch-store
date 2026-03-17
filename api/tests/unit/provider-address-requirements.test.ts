@@ -15,7 +15,7 @@ describe('provider address requirements', () => {
   it('requires a phone number for Lulu orders', () => {
     expect(
       getProviderAddressRequirementError('lulu', baseAddress),
-    ).toBe('Phone number is required for Lulu orders');
+    ).toBe('Phone number is required for delivery');
   });
 
   it('does not require a phone number for manual orders', () => {
@@ -29,7 +29,7 @@ describe('provider address requirements', () => {
       getProvidersAddressRequirementError(['manual', 'lulu'], baseAddress),
     ).toEqual({
       provider: 'lulu',
-      message: 'Phone number is required for Lulu orders',
+      message: 'Phone number is required for delivery',
     });
   });
 

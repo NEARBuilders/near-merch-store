@@ -382,6 +382,175 @@ describe('Database Integration Tests', () => {
       );
     });
 
+    it('should split referral fees proportionally across the full order total', async () => {
+      const client = await getPluginClient({ nearAccountId: TEST_USER });
+
+      await createTestProduct('prod_book', {
+        name: 'Book',
+        price: 2000,
+        currency: 'USD',
+        fulfillmentProvider: 'manual',
+        source: 'test',
+        metadata: {
+          fees: [],
+          affiliate: {
+            referral: {
+              enabled: true,
+              feeBps: 5000,
+            },
+          },
+        },
+      });
+
+      await createTestProductVariant('var_book', 'prod_book', {
+        name: 'Book Variant',
+        price: 2000,
+        sku: 'SKU-BOOK-001',
+        inStock: true,
+      });
+
+      await createTestProduct('prod_poster', {
+        name: 'Poster',
+        price: 3000,
+        currency: 'USD',
+        fulfillmentProvider: 'manual',
+        source: 'test',
+        metadata: {
+          fees: [],
+          affiliate: {
+            referral: {
+              enabled: true,
+              feeBps: 1000,
+            },
+          },
+        },
+      });
+
+      await createTestProductVariant('var_poster', 'prod_poster', {
+        name: 'Poster Variant',
+        price: 3000,
+        sku: 'SKU-POSTER-001',
+        inStock: true,
+      });
+
+      await createTestProduct('prod_other', {
+        name: 'Other',
+        price: 5000,
+        currency: 'USD',
+        fulfillmentProvider: 'manual',
+        source: 'test',
+        metadata: {
+          fees: [],
+        },
+      });
+
+      await createTestProductVariant('var_other', 'prod_other', {
+        name: 'Other Variant',
+        price: 5000,
+        sku: 'SKU-OTHER-001',
+        inStock: true,
+      });
+
+      const quoteResult = await client.quote({
+        items: [
+          { productId: 'prod_book', variantId: 'var_book', quantity: 1 },
+          { productId: 'prod_poster', variantId: 'var_poster', quantity: 1 },
+          { productId: 'prod_other', variantId: 'var_other', quantity: 1 },
+        ],
+        shippingAddress: {
+          firstName: 'Referral',
+          lastName: 'Buyer',
+          email: 'buyer@example.com',
+          addressLine1: '123 Main St',
+          city: 'Los Angeles',
+          state: 'CA',
+          postCode: '90001',
+          country: 'US',
+        },
+      });
+
+      const selectedRates: Record<string, string> = {};
+      quoteResult.providerBreakdown.forEach((provider: any) => {
+        selectedRates[provider.provider] = provider.selectedShipping.rateId;
+      });
+
+      const checkoutResult = await client.createCheckout({
+        items: [
+          {
+            productId: 'prod_book',
+            variantId: 'var_book',
+            quantity: 1,
+            referralAccountId: 'reader.near',
+          },
+          {
+            productId: 'prod_poster',
+            variantId: 'var_poster',
+            quantity: 1,
+            referralAccountId: 'artist.near',
+          },
+          {
+            productId: 'prod_other',
+            variantId: 'var_other',
+            quantity: 1,
+          },
+        ],
+        shippingAddress: {
+          firstName: 'Referral',
+          lastName: 'Buyer',
+          email: 'buyer@example.com',
+          addressLine1: '123 Main St',
+          city: 'Los Angeles',
+          state: 'CA',
+          postCode: '90001',
+          country: 'US',
+        },
+        selectedRates,
+        shippingCost: quoteResult.shippingCost,
+        successUrl: 'https://example.com/success',
+        cancelUrl: 'https://example.com/cancel',
+        paymentProvider: 'pingpay',
+      });
+
+      const order = await client.getOrder({ id: checkoutResult.orderId });
+      const paymentDetails = order.order.paymentDetails as any;
+      const requestFees = paymentDetails?.request?.fees as Array<any> | undefined;
+      const referralItems = paymentDetails?.referral?.items as Array<any> | undefined;
+
+      expect(requestFees).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            recipient: 'reader.near',
+            bps: 1000,
+          }),
+          expect.objectContaining({
+            recipient: 'artist.near',
+            bps: 300,
+          }),
+        ]),
+      );
+
+      const bookReferral = referralItems?.find((item) => item.productId === 'prod_book');
+      const posterReferral = referralItems?.find((item) => item.productId === 'prod_poster');
+
+      expect(bookReferral).toMatchObject({
+        recipient: 'reader.near',
+        configuredFeeBps: 5000,
+        itemSubtotal: 20,
+      });
+      expect(bookReferral?.allocationWeight).toBeCloseTo(0.2);
+      expect(bookReferral?.allocatedTotalAmount).toBeCloseTo(20);
+      expect(bookReferral?.feeAmount).toBeCloseTo(10);
+
+      expect(posterReferral).toMatchObject({
+        recipient: 'artist.near',
+        configuredFeeBps: 1000,
+        itemSubtotal: 30,
+      });
+      expect(posterReferral?.allocationWeight).toBeCloseTo(0.3);
+      expect(posterReferral?.allocatedTotalAmount).toBeCloseTo(30);
+      expect(posterReferral?.feeAmount).toBeCloseTo(3);
+    });
+
     it('should find order by checkout session ID from PostgreSQL', async () => {
       const client = await getPluginClient({ nearAccountId: TEST_USER });
 
