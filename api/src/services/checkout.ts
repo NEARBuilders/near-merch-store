@@ -4,11 +4,13 @@ import type {
   ProviderBreakdown,
   ProviderShippingOption,
   QuoteItemInput,
+  CheckoutItemInput,
   QuoteOutput,
   ShippingAddress,
   FulfillmentConfig,
   TaxBreakdown,
   FeeConfig,
+  ProductMetadata,
 } from "../schema";
 import { OrderStore, ProductStore } from "../store";
 import type { FulfillmentOrderItem } from "./fulfillment/schema";
@@ -16,7 +18,7 @@ import type { PaymentLineItem } from "./payment/schema";
 import { CheckoutError } from "./checkout/errors";
 
 interface ProviderItemGroup {
-  item: QuoteItemInput;
+  item: CheckoutItemInput;
   productId: string;
   variantId?: string;
   price: number;
@@ -26,18 +28,44 @@ interface ProviderItemGroup {
   productDescription?: string;
   productImage?: string;
   fulfillmentProvider?: string;
-  metadata?: { creatorAccountId?: string; fees: FeeConfig[] };
+  metadata?: ProductMetadata;
+  referralAccountId?: string;
 }
 
 export interface CreateCheckoutParams {
   userId: string;
-  items: QuoteItemInput[];
+  items: CheckoutItemInput[];
   address: ShippingAddress;
   selectedRates: Record<string, string>;
   shippingCost: number;
   successUrl: string;
   cancelUrl: string;
   paymentProvider?: "stripe" | "pingpay";
+}
+
+function normalizeNearAccountId(value?: string | null) {
+  const trimmed = value?.trim().toLowerCase();
+
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const firstToken = trimmed.split(/\s+/)[0];
+  const cleaned = firstToken?.replace(/[^a-z0-9._-]/g, "");
+
+  return cleaned || undefined;
+}
+
+function getReferralFeeBps(metadata?: ProductMetadata) {
+  const feeBps = metadata?.affiliate?.referral?.enabled
+    ? metadata.affiliate.referral.feeBps ?? 2000
+    : undefined;
+
+  if (!feeBps || feeBps <= 0) {
+    return undefined;
+  }
+
+  return feeBps;
 }
 
 export interface CreateCheckoutOutput {
@@ -527,6 +555,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                 productImage: product.images?.[0]?.url,
                 fulfillmentProvider: product.fulfillmentProvider,
                 metadata: product.metadata,
+                referralAccountId: normalizeNearAccountId(item.referralAccountId),
               });
             }
 
@@ -612,6 +641,29 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
 
             const totalAmount =
               totalSubtotal + verifiedShippingCost + tax + vat;
+
+            const referralFeeDetails = Array.from(itemsByProvider.values())
+              .flat()
+              .map((pi) => {
+                const recipient = pi.referralAccountId;
+                const feeBps = getReferralFeeBps(pi.metadata);
+
+                if (!recipient || !feeBps || recipient === normalizeNearAccountId(userId)) {
+                  return null;
+                }
+
+                const itemSubtotal = pi.price * pi.item.quantity;
+
+                return {
+                  productId: pi.productId,
+                  productTitle: pi.productTitle,
+                  recipient,
+                  configuredFeeBps: feeBps,
+                  itemSubtotal,
+                  feeAmount: (itemSubtotal * feeBps) / 10000,
+                };
+              })
+              .filter((detail): detail is NonNullable<typeof detail> => detail !== null);
 
             const orderItems = Array.from(itemsByProvider.values())
               .flat()
@@ -735,25 +787,57 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               const itemsWithFees = allItems.filter(
                 (pi) => pi.metadata?.fees && pi.metadata.fees.length > 0,
               );
+              const feeMap = new Map<string, FeeConfig>();
+
+              const upsertFee = (fee: FeeConfig) => {
+                const key = `${fee.recipient}:${fee.type}:${fee.label}`;
+                const existing = feeMap.get(key);
+
+                if (existing) {
+                  feeMap.set(key, {
+                    ...existing,
+                    bps: existing.bps + fee.bps,
+                  });
+                  return;
+                }
+
+                feeMap.set(key, fee);
+              };
 
               if (itemsWithFees.length > 0) {
-                const feeMap = new Map<string, FeeConfig>();
                 for (const pi of itemsWithFees) {
                   for (const fee of pi.metadata!.fees) {
-                    const key = `${fee.recipient}:${fee.type}:${fee.label}`;
-                    const existing = feeMap.get(key);
-                    if (existing) {
-                      feeMap.set(key, {
-                        ...existing,
-                        bps: existing.bps + fee.bps,
-                      });
-                    } else {
-                      feeMap.set(key, fee);
-                    }
+                    upsertFee(fee);
                   }
                 }
-                fees = Array.from(feeMap.values());
               }
+
+              const referralFeeAmountByRecipient = new Map<string, number>();
+              for (const referralFee of referralFeeDetails) {
+                referralFeeAmountByRecipient.set(
+                  referralFee.recipient,
+                  (referralFeeAmountByRecipient.get(referralFee.recipient) ?? 0) +
+                    referralFee.feeAmount,
+                );
+              }
+
+              for (const [recipient, feeAmount] of referralFeeAmountByRecipient.entries()) {
+                const effectiveBps =
+                  totalAmount > 0 ? Math.round((feeAmount / totalAmount) * 10000) : 0;
+
+                if (effectiveBps <= 0) {
+                  continue;
+                }
+
+                upsertFee({
+                  type: "affiliate",
+                  label: "Referral",
+                  recipient,
+                  bps: effectiveBps,
+                });
+              }
+
+              fees = Array.from(feeMap.values());
             }
 
             const paymentRequest = {
@@ -785,6 +869,12 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             yield* orderStore.updatePaymentDetails(order.id, {
               provider: providerName,
               request: paymentRequest,
+              referral:
+                referralFeeDetails.length > 0
+                  ? {
+                      items: referralFeeDetails,
+                    }
+                  : undefined,
               response: {
                 sessionId: checkout.sessionId,
                 url: checkout.url,

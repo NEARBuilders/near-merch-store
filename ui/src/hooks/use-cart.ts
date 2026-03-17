@@ -8,6 +8,7 @@ import { useCartStore } from "@/stores/cart-store";
 import { useMemo } from "react";
 
 export interface CartItemWithProduct extends CartItem {
+  id: string;
   product: Product;
 }
 
@@ -39,10 +40,10 @@ export function useCart() {
   const cartItems: CartItemWithProduct[] = useMemo(() => {
     const result: CartItemWithProduct[] = [];
 
-    Object.values(items).forEach((item) => {
+    Object.entries(items).forEach(([itemId, item]) => {
       const product = products.find((p) => p.slug === item.productId);
       if (product) {
-        result.push({ ...item, product });
+        result.push({ ...item, id: item.id ?? itemId, product });
       }
     });
 

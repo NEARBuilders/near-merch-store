@@ -11,7 +11,7 @@ interface ProductTitleCellProps {
 
 export function ProductTitleCell({ product }: ProductTitleCellProps) {
   const [copied, setCopied] = useState(false);
-  const productUrl = `${window.location.origin}/products/${product.id}`;
+  const productUrl = `${window.location.origin}/products/${product.slug}`;
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -24,7 +24,7 @@ export function ProductTitleCell({ product }: ProductTitleCellProps) {
   return (
     <Link
       to="/products/$productId"
-      params={{ productId: product.id }}
+      params={{ productId: product.slug }}
       className="flex items-center gap-2 w-full"
     >
       <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors flex-1">{product.title}</p>

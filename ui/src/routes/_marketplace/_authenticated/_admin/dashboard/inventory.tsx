@@ -531,6 +531,8 @@ function MetadataEditor({
     0,
   );
   const totalPercentage = totalBps / 100;
+  const referralConfig = localMetadata.affiliate?.referral;
+  const referralFeeBps = referralConfig?.feeBps ?? 2000;
 
   return (
     <div className="space-y-4">
@@ -671,6 +673,78 @@ function MetadataEditor({
         </div>
       </div>
 
+      <div className="space-y-3 rounded-xl border border-border/60 bg-background/40 p-4">
+        <div className="space-y-1">
+          <Label>Referral Fees</Label>
+          <p className="text-xs text-foreground/50">
+            When enabled, PingPay appends an affiliate fee for the shared `ref`
+            account without changing the listed product price.
+          </p>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <Checkbox
+            checked={referralConfig?.enabled === true}
+            onCheckedChange={(checked) => {
+              setLocalMetadata((current) => ({
+                ...current,
+                affiliate: checked
+                  ? {
+                      ...current.affiliate,
+                      referral: {
+                        enabled: true,
+                        feeBps: current.affiliate?.referral?.feeBps ?? 2000,
+                      },
+                    }
+                  : undefined,
+              }));
+            }}
+            disabled={isPending}
+          />
+          <span className="text-foreground/80 dark:text-muted-foreground">
+            Enable referral sharing for this product
+          </span>
+        </label>
+
+        {referralConfig?.enabled && (
+          <div className="grid gap-2 md:grid-cols-[120px_minmax(0,1fr)]">
+            <div className="space-y-2">
+              <Label>Referral %</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={String(referralFeeBps / 100)}
+                onChange={(e) => {
+                  const nextPercentage = Number.parseFloat(e.target.value);
+
+                  setLocalMetadata((current) => ({
+                    ...current,
+                    affiliate: {
+                      ...current.affiliate,
+                      referral: {
+                        enabled: true,
+                        feeBps: Number.isFinite(nextPercentage)
+                          ? Math.min(Math.max(Math.round(nextPercentage * 100), 0), 10000)
+                          : 0,
+                      },
+                    },
+                  }));
+                }}
+                className="h-9 text-sm bg-background/60 border border-border/60 rounded-lg"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Behavior</Label>
+              <div className="flex h-9 items-center rounded-lg border border-border/60 bg-background/60 px-3 text-xs text-foreground/60">
+                Shared links use the visitor's `ref` param as the affiliate recipient.
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="flex justify-end border-t border-border/60 pt-3">
         <Button
           type="button"
@@ -697,7 +771,8 @@ function MetadataSummary({ metadata }: { metadata?: ProductMetadata }) {
   if (
     resolvedMetadata.fees.length === 0 &&
     !resolvedMetadata.creatorAccountId &&
-    !resolvedMetadata.purchaseGate?.pluginId
+    !resolvedMetadata.purchaseGate?.pluginId &&
+    !resolvedMetadata.affiliate?.referral?.enabled
   ) {
     return (
       <span className="text-xs text-foreground/60 dark:text-muted-foreground">
@@ -719,6 +794,11 @@ function MetadataSummary({ metadata }: { metadata?: ProductMetadata }) {
       {resolvedMetadata.purchaseGate?.pluginId && (
         <Badge variant="outline" className="font-normal text-xs">
           {resolvedMetadata.purchaseGate.pluginId}
+        </Badge>
+      )}
+      {resolvedMetadata.affiliate?.referral?.enabled && (
+        <Badge variant="outline" className="font-normal text-xs">
+          Ref {(resolvedMetadata.affiliate.referral.feeBps ?? 0) / 100}%
         </Badge>
       )}
     </div>
@@ -1124,7 +1204,7 @@ function InventoryManagement() {
       cell: ({ row }) => (
         <Link
           to="/products/$productId"
-          params={{ productId: row.original.id }}
+          params={{ productId: row.original.slug }}
           className="block"
         >
           <div className="size-12 bg-muted border border-border/60 overflow-hidden rounded-lg group-hover:border-[#00EC97] group-hover:opacity-80 transition-all cursor-pointer">
@@ -1897,7 +1977,7 @@ function InventoryManagement() {
                   <div className="flex items-start gap-3">
                     <Link
                       to="/products/$productId"
-                      params={{ productId: product.id }}
+                      params={{ productId: product.slug }}
                       className="shrink-0"
                     >
                       <div className="size-16 bg-muted border border-border/60 overflow-hidden rounded-lg group-hover:border-[#00EC97] transition-colors">
@@ -1918,7 +1998,7 @@ function InventoryManagement() {
                       <div className="flex items-start justify-between gap-2">
                         <Link
                           to="/products/$productId"
-                          params={{ productId: product.id }}
+                          params={{ productId: product.slug }}
                           className="block min-w-0 flex-1"
                         >
                           <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground truncate hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors">

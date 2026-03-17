@@ -14,15 +14,30 @@ interface CartState {
   items: Record<string, CartItem>;
 
   // Actions
-  addToCart: (productId: string, variantId: string, size: string, color: string, imageUrl?: string) => void;
-  updateQuantity: (variantId: string, change: number) => void;
-  removeItem: (variantId: string) => void;
+  addToCart: (
+    productId: string,
+    variantId: string,
+    size: string,
+    color: string,
+    imageUrl?: string,
+    referralAccountId?: string,
+  ) => void;
+  updateQuantity: (itemId: string, change: number) => void;
+  removeItem: (itemId: string) => void;
   clearCart: () => void;
 
   // Getters (computed values)
-  getItem: (variantId: string) => CartItem | undefined;
+  getItem: (itemId: string) => CartItem | undefined;
   getItemCount: () => number;
-  getVariantIds: () => string[];
+  getItemIds: () => string[];
+}
+
+function buildCartItemId(variantId: string, referralAccountId?: string) {
+  const normalizedReferral = referralAccountId?.trim().toLowerCase();
+
+  return normalizedReferral
+    ? `${variantId}::ref:${normalizedReferral}`
+    : `${variantId}::direct`;
 }
 
 export const useCartStore = create<CartState>()(
@@ -30,50 +45,61 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: {},
 
-      addToCart: (productId: string, variantId: string, size: string, color: string, imageUrl?: string) => {
+      addToCart: (
+        productId: string,
+        variantId: string,
+        size: string,
+        color: string,
+        imageUrl?: string,
+        referralAccountId?: string,
+      ) => {
         set((state) => {
-          const existingItem = state.items[variantId];
+          const normalizedReferral = referralAccountId?.trim().toLowerCase() || undefined;
+          const itemId = buildCartItemId(variantId, normalizedReferral);
+          const existingItem = state.items[itemId];
 
           return {
             items: {
               ...state.items,
-              [variantId]: {
+              [itemId]: {
+                id: itemId,
                 productId,
                 variantId,
                 quantity: (existingItem?.quantity || 0) + 1,
                 size,
                 color,
                 imageUrl: imageUrl || existingItem?.imageUrl,
+                referralAccountId: normalizedReferral,
               },
             },
           };
         });
       },
 
-      updateQuantity: (variantId: string, change: number) => {
+      updateQuantity: (itemId: string, change: number) => {
         set((state) => {
-          const current = state.items[variantId];
+          const current = state.items[itemId];
           if (!current) return state;
 
           const newQuantity = current.quantity + change;
 
           if (newQuantity <= 0) {
-            const { [variantId]: _, ...rest } = state.items;
+            const { [itemId]: _, ...rest } = state.items;
             return { items: rest };
           }
 
           return {
             items: {
               ...state.items,
-              [variantId]: { ...current, quantity: newQuantity },
+              [itemId]: { ...current, quantity: newQuantity },
             },
           };
         });
       },
 
-      removeItem: (variantId: string) => {
+      removeItem: (itemId: string) => {
         set((state) => {
-          const { [variantId]: _, ...rest } = state.items;
+          const { [itemId]: _, ...rest } = state.items;
           return { items: rest };
         });
       },
@@ -82,8 +108,8 @@ export const useCartStore = create<CartState>()(
         set({ items: {} });
       },
 
-      getItem: (variantId: string) => {
-        return get().items[variantId];
+      getItem: (itemId: string) => {
+        return get().items[itemId];
       },
 
       getItemCount: () => {
@@ -93,7 +119,7 @@ export const useCartStore = create<CartState>()(
         );
       },
 
-      getVariantIds: () => {
+      getItemIds: () => {
         return Object.keys(get().items);
       },
     }),
