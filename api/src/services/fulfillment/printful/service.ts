@@ -501,6 +501,10 @@ export class PrintfulService {
       designFiles?: Array<{ placement: string; url: string }>;
     }>;
     currency?: string;
+  }, options?: {
+    timeoutMs?: number;
+    requestTimeoutMs?: number;
+    retries?: number;
   }): Effect.Effect<{
     subtotal: number;
     shipping: number;
@@ -523,6 +527,9 @@ export class PrintfulService {
             designFiles: item.designFiles,
           })),
           currency: params.currency || 'USD',
+          timeoutMs: options?.timeoutMs,
+          requestTimeoutMs: options?.requestTimeoutMs,
+          retries: options?.retries,
         });
 
         return result;
@@ -530,7 +537,7 @@ export class PrintfulService {
       catch: (e) => new Error(`Failed to estimate order: ${e instanceof Error ? e.message : String(e)}`),
     }).pipe(
       Effect.retry({
-        times: 3,
+        times: options?.retries ?? 3,
         schedule: Schedule.exponential(100),
       })
     );

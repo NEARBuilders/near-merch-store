@@ -146,10 +146,17 @@ export class PrintfulClient {
   private async executeWithRateLimit<T>(
     operation: () => Promise<T>,
     operationName: string,
-    extractHeadersFn?: (result: T) => Record<string, string>
+    extractHeadersFn?: (result: T) => Record<string, string>,
+    options?: {
+      timeoutMs?: number;
+      retries?: number;
+    }
   ): Promise<T> {
     // Initialize rate limiter if needed (thread-safe)
     const limiter = await this.initializeRateLimiter();
+
+    const timeoutMs = options?.timeoutMs ?? 30000;
+    const retries = options?.retries ?? 5;
 
     const execute = Effect.gen(this, function* () {
       const result = yield* limiter.withRateLimit(
@@ -204,9 +211,9 @@ export class PrintfulClient {
 
       return result.data;
     }).pipe(
-      Effect.timeout('30000 millis'), // 30 second global timeout for API calls
+      Effect.timeout(`${timeoutMs} millis`),
       Effect.retry({
-        times: 5,
+        times: retries,
         schedule: createRetrySchedule(1000),
         while: (error) => {
           // Retry on rate limit with explicit wait time
@@ -725,8 +732,11 @@ export class PrintfulClient {
       catalog_variant_id: number;
       quantity: number;
       designFiles?: Array<{ placement: string; url: string }>;
-    }>;
+    }>; 
     currency?: string;
+    timeoutMs?: number;
+    requestTimeoutMs?: number;
+    retries?: number;
   }): Promise<{
     subtotal: number;
     shipping: number;
@@ -763,11 +773,17 @@ export class PrintfulClient {
       retail_costs: params.currency ? { currency: params.currency } : undefined,
     };
     
+    const timeoutMs = params.timeoutMs ?? 30000;
+    const requestTimeoutMs = params.requestTimeoutMs ?? timeoutMs;
+    const retries = params.retries ?? 5;
+
     let result;
     try {
       result = await this.executeWithRateLimit(
         () => this.sdk.ordersV2.createOrderEstimationTask(this.storeId, requestBody),
-        'createOrderEstimationTask'
+        'createOrderEstimationTask',
+        undefined,
+        { timeoutMs: requestTimeoutMs, retries }
       );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -778,12 +794,12 @@ export class PrintfulClient {
     const task = result.data as { id: string; status: string };
     
     const startTime = Date.now();
-    const timeoutMs = 30000;
-    
     while (Date.now() - startTime < timeoutMs) {
       const pollResult = await this.executeWithRateLimit(
         () => this.sdk.ordersV2.getOrderEstimationTask(task.id, this.storeId),
-        `getOrderEstimationTask(${task.id})`
+        `getOrderEstimationTask(${task.id})`,
+        undefined,
+        { timeoutMs: requestTimeoutMs, retries }
       );
       
       const estimation = pollResult.data as {
@@ -818,6 +834,6 @@ export class PrintfulClient {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
     
-    throw new Error('Order estimation timed out after 30 seconds');
+    throw new Error(`Order estimation timed out after ${timeoutMs}ms`);
   }
 }
