@@ -30,6 +30,7 @@ import {
   useDisableWebhook,
   useTestProvider,
   PRINTFUL_WEBHOOK_EVENTS,
+  LULU_WEBHOOK_EVENTS,
   type PrintfulWebhookEventType,
 } from "@/integrations/api/providers";
 
@@ -63,7 +64,17 @@ function ProvidersError({ error }: { error: Error }) {
 export const Route = createFileRoute(
   "/_marketplace/_authenticated/_admin/dashboard/providers"
 )({
-  loader: () => apiClient.getProviderConfig({ provider: "printful" }),
+  loader: async () => {
+    const [printful, lulu] = await Promise.all([
+      apiClient.getProviderConfig({ provider: "printful" }),
+      apiClient.getProviderConfig({ provider: "lulu" }),
+    ]);
+
+    return {
+      printfulConfig: printful.config,
+      luluConfig: lulu.config,
+    };
+  },
   errorComponent: ProvidersError,
   component: ProvidersPage,
 });
@@ -93,13 +104,16 @@ function ProvidersPage() {
     );
   }
 
-  const { config } = loaderData;
+  const { printfulConfig, luluConfig } = loaderData;
   const configureWebhook = useConfigureWebhook();
   const disableWebhook = useDisableWebhook();
   const testProvider = useTestProvider();
 
   const [webhookUrl, setWebhookUrl] = useState(() => 
     typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/printful` : ""
+  );
+  const [luluWebhookUrl, setLuluWebhookUrl] = useState(() =>
+    typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/lulu` : ""
   );
   const [selectedEvents, setSelectedEvents] = useState<PrintfulWebhookEventType[]>([
     "shipment_sent",
@@ -112,6 +126,7 @@ function ProvidersPage() {
     "order_failed",
   ]);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [luluConfigDialogOpen, setLuluConfigDialogOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const handleCopyKey = async (key: string, keyType: string) => {
@@ -146,6 +161,23 @@ function ProvidersPage() {
     }
   };
 
+  const handleConfigureLulu = async () => {
+    try {
+      await configureWebhook.mutateAsync({
+        provider: "lulu",
+        webhookUrlOverride: luluWebhookUrl || undefined,
+        events: LULU_WEBHOOK_EVENTS.map((event) => event.value),
+      });
+      toast.success("Lulu webhook configured successfully");
+      setLuluConfigDialogOpen(false);
+      router.invalidate();
+    } catch (err) {
+      const message = getErrorMessage(err);
+      toast.error("Failed to configure Lulu webhook", { description: message });
+      console.error("Failed to configure Lulu webhook:", err);
+    }
+  };
+
   const handleDisable = async () => {
     try {
       await disableWebhook.mutateAsync({ provider: "printful" });
@@ -155,6 +187,18 @@ function ProvidersPage() {
       const message = getErrorMessage(err);
       toast.error("Failed to disable webhook", { description: message });
       console.error("Failed to disable webhook:", err);
+    }
+  };
+
+  const handleDisableLulu = async () => {
+    try {
+      await disableWebhook.mutateAsync({ provider: "lulu" });
+      toast.success("Lulu webhook disabled successfully");
+      router.invalidate();
+    } catch (err) {
+      const message = getErrorMessage(err);
+      toast.error("Failed to disable Lulu webhook", { description: message });
+      console.error("Failed to disable Lulu webhook:", err);
     }
   };
 
@@ -170,6 +214,21 @@ function ProvidersPage() {
       const message = getErrorMessage(err);
       toast.error("Connection test failed", { description: message });
       console.error("Failed to test provider:", err);
+    }
+  };
+
+  const handleTestLulu = async () => {
+    try {
+      const result = await testProvider.mutateAsync({ provider: "lulu" });
+      if (result.success) {
+        toast.success("Lulu connection test successful");
+      } else {
+        toast.error("Lulu connection test failed", { description: result.message || "Unknown error" });
+      }
+    } catch (err) {
+      const message = getErrorMessage(err);
+      toast.error("Lulu connection test failed", { description: message });
+      console.error("Failed to test Lulu provider:", err);
     }
   };
 
@@ -211,7 +270,7 @@ function ProvidersPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {config?.enabled ? (
+               {printfulConfig?.enabled ? (
                 <div className="px-3 py-1 rounded-2xl bg-[#00EC97]/10 border border-[#00EC97]/60 text-[#00EC97] flex items-center gap-1.5 text-sm font-semibold">
                   <CheckCircle className="size-3" />
                   Active
@@ -326,7 +385,7 @@ function ProvidersPage() {
               </DialogContent>
             </Dialog>
 
-            {config?.webhookUrl && (
+             {printfulConfig?.webhookUrl && (
               <button
                 type="button"
                 onClick={handleDisable}
@@ -343,7 +402,7 @@ function ProvidersPage() {
             )}
           </div>
 
-          {config?.webhookUrl && (
+           {printfulConfig?.webhookUrl && (
             <div className="rounded-2xl bg-background/40 border border-border/60 p-4 space-y-4">
               <h4 className="font-semibold text-base flex items-center gap-2">
                 <Webhook className="size-4" />
@@ -354,15 +413,15 @@ function ProvidersPage() {
                 <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
                   <span className="text-foreground/90 dark:text-muted-foreground">Webhook URL:</span>
                   <code className="text-xs bg-background px-2 py-1 rounded border border-border/60">
-                    {config.webhookUrl}
+                     {printfulConfig.webhookUrl}
                   </code>
                 </div>
 
-                {config.enabledEvents && config.enabledEvents.length > 0 && (
+                 {printfulConfig.enabledEvents && printfulConfig.enabledEvents.length > 0 && (
                   <div className="p-3 rounded-2xl bg-background/60 border border-border/60">
                     <span className="text-foreground/90 dark:text-muted-foreground block mb-2">Enabled Events:</span>
                     <div className="flex flex-wrap gap-1">
-                      {config.enabledEvents.map((event) => (
+                       {printfulConfig.enabledEvents.map((event) => (
                         <div key={event} className="px-2 py-1 rounded border border-border/60 text-xs">
                           {event}
                         </div>
@@ -371,17 +430,17 @@ function ProvidersPage() {
                   </div>
                 )}
 
-                {config.publicKey && (
+                 {printfulConfig.publicKey && (
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
                     <span className="text-foreground/90 dark:text-muted-foreground">Public Key:</span>
                     <div className="flex items-center gap-2">
                       <code className="text-xs bg-background px-2 py-1 rounded border border-border/60 truncate max-w-[200px]">
-                        {config.publicKey}
+                         {printfulConfig.publicKey}
                       </code>
                       <button
                         type="button"
                         className="h-6 w-6 flex items-center justify-center rounded hover:bg-background/60 transition-colors"
-                        onClick={() => handleCopyKey(config.publicKey!, "public")}
+                         onClick={() => handleCopyKey(printfulConfig.publicKey!, "public")}
                       >
                         {copiedKey === "public" ? (
                           <Check className="size-3" />
@@ -393,23 +452,23 @@ function ProvidersPage() {
                   </div>
                 )}
 
-                {config.lastConfiguredAt && (
+                 {printfulConfig.lastConfiguredAt && (
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
                     <span className="text-foreground/90 dark:text-muted-foreground">Last Configured:</span>
                     <span className="text-xs text-foreground">
-                      {new Date(config.lastConfiguredAt).toLocaleString()}
+                       {new Date(printfulConfig.lastConfiguredAt).toLocaleString()}
                     </span>
                   </div>
                 )}
 
-                {config.expiresAt && (
+                 {printfulConfig.expiresAt && (
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-background border border-amber-500/60">
                     <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
                       <AlertTriangle className="size-3" />
                       Expires:
                     </span>
                     <span className="text-xs text-amber-600 dark:text-amber-400">
-                      {new Date(config.expiresAt).toLocaleString()}
+                       {new Date(printfulConfig.expiresAt).toLocaleString()}
                     </span>
                   </div>
                 )}
@@ -433,14 +492,104 @@ function ProvidersPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="px-3 py-1 rounded-2xl bg-background/60 border border-border/60 text-foreground/90 dark:text-muted-foreground flex items-center gap-1.5 text-sm font-semibold">
-                <Settings2 className="size-3" />
-                API Keys Required
-              </div>
+              {luluConfig?.enabled ? (
+                <div className="px-3 py-1 rounded-2xl bg-orange-500/10 border border-orange-500/60 text-orange-500 flex items-center gap-1.5 text-sm font-semibold">
+                  <CheckCircle className="size-3" />
+                  Active
+                </div>
+              ) : (
+                <div className="px-3 py-1 rounded-2xl bg-background/60 border border-border/60 text-foreground/90 dark:text-muted-foreground flex items-center gap-1.5 text-sm font-semibold">
+                  <XCircle className="size-3" />
+                  Not Configured
+                </div>
+              )}
             </div>
           </div>
         </div>
         <div className="space-y-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleTestLulu}
+              disabled={testProvider.isPending}
+              className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-orange-500 hover:border-orange-500 hover:text-white transition-colors disabled:opacity-50"
+            >
+              {testProvider.isPending ? (
+                <Loader2 className="size-4 mr-2 animate-spin" />
+              ) : (
+                <Settings2 className="size-4 mr-2" />
+              )}
+              Test Connection
+            </button>
+
+            <Dialog open={luluConfigDialogOpen} onOpenChange={setLuluConfigDialogOpen}>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="px-6 py-3 rounded-lg bg-orange-500 text-white flex items-center justify-center font-semibold text-sm hover:bg-orange-600 transition-colors"
+                >
+                  <Webhook className="size-4 mr-2" />
+                  Configure Webhook
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-xl rounded-2xl bg-background border border-border/60">
+                <DialogHeader>
+                  <DialogTitle>Configure Lulu Webhook</DialogTitle>
+                  <DialogDescription>
+                    Subscribe to `PRINT_JOB_STATUS_CHANGED` via the Lulu API.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="luluWebhookUrl">Webhook URL</Label>
+                    <Input
+                      id="luluWebhookUrl"
+                      placeholder="https://your-domain.com/api/webhooks/lulu"
+                      value={luluWebhookUrl}
+                      onChange={(e) => setLuluWebhookUrl(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="rounded-2xl bg-background/40 border border-border/60 p-3 text-sm text-foreground/90 dark:text-muted-foreground">
+                    Event: <code className="text-xs">PRINT_JOB_STATUS_CHANGED</code>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <button
+                    type="button"
+                    onClick={() => setLuluConfigDialogOpen(false)}
+                    className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-orange-500 hover:border-orange-500 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfigureLulu}
+                    disabled={configureWebhook.isPending || !luluWebhookUrl}
+                    className="px-6 py-3 rounded-lg bg-orange-500 text-white flex items-center justify-center font-semibold text-sm hover:bg-orange-600 transition-colors disabled:opacity-50"
+                  >
+                    {configureWebhook.isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+                    Save Configuration
+                  </button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {luluConfig?.webhookUrl && (
+              <button
+                type="button"
+                onClick={handleDisableLulu}
+                disabled={disableWebhook.isPending}
+                className="px-6 py-3 rounded-lg bg-destructive text-destructive-foreground flex items-center justify-center font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {disableWebhook.isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <XCircle className="size-4 mr-2" />}
+                Disable Webhook
+              </button>
+            )}
+          </div>
+
           <div className="rounded-2xl bg-background/40 border border-border/60 p-4">
             <h4 className="font-semibold text-base flex items-center gap-2 mb-3">
               <Settings2 className="size-4" />
@@ -459,10 +608,6 @@ function ProvidersPage() {
                 <code className="text-xs font-mono">LULU_CLIENT_SECRET</code>
                 <span className="text-xs text-foreground/60">From Lulu Developer Dashboard</span>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
-                <code className="text-xs font-mono">LULU_WEBHOOK_SECRET</code>
-                <span className="text-xs text-foreground/60">Optional, for webhook verification</span>
-              </div>
             </div>
           </div>
 
@@ -472,7 +617,7 @@ function ProvidersPage() {
               Webhook Setup
             </h4>
             <p className="text-sm text-foreground/90 dark:text-muted-foreground mb-3">
-              Configure webhooks in your Lulu Developer Dashboard to receive order status updates:
+              Configure webhooks via the Lulu API. Signatures are verified with your Lulu client secret:
             </p>
             <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
               <span className="text-foreground/90 dark:text-muted-foreground text-sm">Webhook URL:</span>
@@ -480,8 +625,31 @@ function ProvidersPage() {
                 {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/lulu` : 'https://your-domain.com/api/webhooks/lulu'}
               </code>
             </div>
+            {luluConfig?.webhookUrl && (
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
+                  <span className="text-foreground/90 dark:text-muted-foreground">Configured URL:</span>
+                  <code className="text-xs bg-background px-2 py-1 rounded border border-border/60">{luluConfig.webhookUrl}</code>
+                </div>
+                {luluConfig.publicKey && (
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-background/60 border border-border/60">
+                    <span className="text-foreground/90 dark:text-muted-foreground">Webhook ID:</span>
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs bg-background px-2 py-1 rounded border border-border/60 truncate max-w-[200px]">{luluConfig.publicKey}</code>
+                      <button
+                        type="button"
+                        className="h-6 w-6 flex items-center justify-center rounded hover:bg-background/60 transition-colors"
+                        onClick={() => handleCopyKey(luluConfig.publicKey!, "lulu")}
+                      >
+                        {copiedKey === "lulu" ? <Check className="size-3" /> : <Copy className="size-3" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <p className="text-xs text-foreground/60 mt-2">
-              Supported events: printjob.status.updated, printjob.created, printjob.cancelled
+              Supported event: PRINT_JOB_STATUS_CHANGED
             </p>
           </div>
 

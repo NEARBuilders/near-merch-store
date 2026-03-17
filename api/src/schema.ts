@@ -400,6 +400,8 @@ export const ProviderShippingOptionSchema = z.object({
   rateName: z.string(),
   shippingCost: z.number(),
   currency: z.string(),
+  taxAmount: z.number().optional(),
+  vat: z.number().optional(),
   minDeliveryDays: z.number().optional(),
   maxDeliveryDays: z.number().optional(),
 });
@@ -469,12 +471,20 @@ export const PrintfulEventConfigSchema = z.object({
   params: z.array(z.record(z.string(), z.unknown())).optional(),
 });
 
+export const LuluWebhookEventTypeSchema = z.enum(['PRINT_JOB_STATUS_CHANGED']);
+
+export const ProviderNameSchema = z.enum(['printful', 'lulu']);
+export const ProviderWebhookEventTypeSchema = z.union([
+  PrintfulWebhookEventTypeSchema,
+  LuluWebhookEventTypeSchema,
+]);
+
 export const ProviderConfigSchema = z.object({
-  provider: z.literal('printful'),
+  provider: ProviderNameSchema,
   enabled: z.boolean(),
   webhookUrl: z.string().nullable(),
   webhookUrlOverride: z.string().nullable(),
-  enabledEvents: z.array(PrintfulWebhookEventTypeSchema),
+  enabledEvents: z.array(ProviderWebhookEventTypeSchema),
   publicKey: z.string().nullable(),
   secretKey: z.string().nullable(),
   lastConfiguredAt: z.number().nullable(),
@@ -484,9 +494,9 @@ export const ProviderConfigSchema = z.object({
 });
 
 export const ConfigureWebhookInputSchema = z.object({
-  provider: z.literal('printful'),
+  provider: ProviderNameSchema,
   webhookUrlOverride: z.string().url().nullable().optional(),
-  events: z.array(PrintfulWebhookEventTypeSchema).min(1),
+  events: z.array(ProviderWebhookEventTypeSchema).min(1),
   expiresAt: z.string().datetime().nullable().optional(),
 });
 
@@ -494,12 +504,15 @@ export const ConfigureWebhookOutputSchema = z.object({
   success: z.boolean(),
   webhookUrl: z.string(),
   publicKey: z.string().nullable(),
-  enabledEvents: z.array(PrintfulWebhookEventTypeSchema),
+  enabledEvents: z.array(ProviderWebhookEventTypeSchema),
   expiresAt: z.number().nullable(),
 });
 
 export type PrintfulWebhookEventType = z.infer<typeof PrintfulWebhookEventTypeSchema>;
+export type LuluWebhookEventType = z.infer<typeof LuluWebhookEventTypeSchema>;
 export type PrintfulEventConfig = z.infer<typeof PrintfulEventConfigSchema>;
+export type ProviderName = z.infer<typeof ProviderNameSchema>;
+export type ProviderWebhookEventType = z.infer<typeof ProviderWebhookEventTypeSchema>;
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 export type ConfigureWebhookInput = z.infer<typeof ConfigureWebhookInputSchema>;
 export type ConfigureWebhookOutput = z.infer<typeof ConfigureWebhookOutputSchema>;

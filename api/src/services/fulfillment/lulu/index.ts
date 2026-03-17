@@ -3,17 +3,18 @@ import { Effect } from 'every-plugin/effect';
 import { z } from 'every-plugin/zod';
 import { FulfillmentContract } from '../contract';
 import { LuluService } from './service';
+import { LuluBookConfigSchema } from './types';
 
 export default createPlugin({
   variables: z.object({
     baseUrl: z.string().optional(),
     environment: z.enum(['sandbox', 'production']).default('sandbox'),
+    books: z.array(LuluBookConfigSchema).default([]),
   }),
 
   secrets: z.object({
     LULU_CLIENT_KEY: z.string(),
     LULU_CLIENT_SECRET: z.string(),
-    LULU_WEBHOOK_SECRET: z.string().optional(),
   }),
 
   contract: FulfillmentContract,
@@ -23,16 +24,15 @@ export default createPlugin({
       const service = new LuluService({
         clientKey: config.secrets.LULU_CLIENT_KEY,
         clientSecret: config.secrets.LULU_CLIENT_SECRET,
-        webhookSecret: config.secrets.LULU_WEBHOOK_SECRET,
         baseUrl: config.variables.baseUrl,
         environment: config.variables.environment,
+        books: config.variables.books,
       });
 
       console.log('[Lulu Plugin] Initialized successfully');
 
       return {
         service,
-        webhookSecret: config.secrets.LULU_WEBHOOK_SECRET,
       };
     }),
 

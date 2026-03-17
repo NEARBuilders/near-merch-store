@@ -4,6 +4,7 @@ import { FulfillmentContract } from './services/fulfillment';
 import GelatoPlugin from './services/fulfillment/gelato';
 import PrintfulPlugin from './services/fulfillment/printful';
 import LuluPlugin from './services/fulfillment/lulu';
+import type { LuluBookConfig } from './services/fulfillment/lulu/types';
 import { PaymentContract } from './services/payment';
 import PingPayPlugin from './services/payment/pingpay';
 import StripePlugin from './services/payment/stripe';
@@ -23,8 +24,8 @@ export interface FulfillmentConfig {
   lulu?: {
     clientKey: string;
     clientSecret: string;
-    webhookSecret?: string;
     environment?: 'sandbox' | 'production';
+    books?: LuluBookConfig[];
   };
 }
 
@@ -121,11 +122,11 @@ export async function createMarketplaceRuntime(
         variables: {
           baseUrl: fulfillmentConfig.lulu.environment === 'production' ? 'https://api.lulu.com' : 'https://api.sandbox.lulu.com',
           environment: fulfillmentConfig.lulu.environment || 'sandbox',
+          books: fulfillmentConfig.lulu.books || [],
         },
         secrets: {
           LULU_CLIENT_KEY: fulfillmentConfig.lulu.clientKey,
           LULU_CLIENT_SECRET: fulfillmentConfig.lulu.clientSecret,
-          LULU_WEBHOOK_SECRET: fulfillmentConfig.lulu.webhookSecret,
         },
       });
       providers.push({

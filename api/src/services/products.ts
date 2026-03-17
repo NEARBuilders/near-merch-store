@@ -100,9 +100,11 @@ function transformProviderProduct(
     imageMap.set(thumbnailUrl, {
       id: `catalog-${product.sourceId}`,
       url: thumbnailUrl,
-      type: 'catalog',
+      type: providerName === 'lulu' ? 'preview' : 'catalog',
       order: 0,
-      variantIds: [],
+      variantIds: providerName === 'lulu'
+        ? product.variants.map((variant) => `${providerName}-variant-${variant.id}`)
+        : [],
     });
   }
 
@@ -176,8 +178,17 @@ function transformProviderProduct(
         }
         : providerName === 'gelato'
           ? { productUid: String(product.sourceId) }
+          : providerName === 'lulu'
+            ? variant.providerData || {}
           : {},
     };
+
+    const attributes = providerName === 'lulu'
+      ? []
+      : [
+          { name: 'Size', value: variant.size || 'One Size' },
+          ...(variant.color ? [{ name: 'Color', value: variant.color }] : []),
+        ];
 
     return {
       id: `${providerName}-variant-${variantId}`,
@@ -185,10 +196,7 @@ function transformProviderProduct(
       sku: variant.sku,
       price: variant.retailPrice,
       currency: variant.currency,
-      attributes: [
-        { name: 'Size', value: variant.size || 'One Size' },
-        ...(variant.color ? [{ name: 'Color', value: variant.color }] : []),
-      ],
+      attributes,
       externalVariantId: variantId,
       fulfillmentConfig,
       inStock: true,

@@ -669,7 +669,8 @@ function InventoryManagement() {
           className={cn(
             "font-normal capitalize",
             row.original.fulfillmentProvider === "printful" && "bg-[#3d7fff]/10 text-[#3d7fff] border-[#3d7fff]",
-            row.original.fulfillmentProvider === "gelato" && "bg-[#635bff]/10 text-[#635bff] border-[#635bff]"
+            row.original.fulfillmentProvider === "gelato" && "bg-[#635bff]/10 text-[#635bff] border-[#635bff]",
+            row.original.fulfillmentProvider === "lulu" && "bg-orange-500/10 text-orange-500 border-orange-500"
           )}
         >
           {row.original.fulfillmentProvider}

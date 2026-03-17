@@ -7,7 +7,7 @@ import { z } from 'every-plugin/zod';
 import { contract } from './contract';
 import { cleanupAbandonedDrafts } from './jobs/cleanup-drafts';
 import { createMarketplaceRuntime } from './runtime';
-import { ReturnAddressSchema, type OrderStatus, type TrackingInfo } from './schema';
+import { ReturnAddressSchema, type ConfigureWebhookOutput, type OrderStatus, type PrintfulWebhookEventType, type ProviderWebhookEventType, type TrackingInfo } from './schema';
 import { CheckoutService, CheckoutServiceLive } from './services/checkout';
 import { CheckoutError } from './services/checkout/errors';
 import { ProductService, ProductServiceLive } from './services/products';
@@ -19,8 +19,31 @@ import { DatabaseLive, OrderStore, OrderStoreLive, ProductStore, ProductStoreLiv
 import { NewsletterStoreLive } from './store/newsletter';
 import { ProviderConfigStore, ProviderConfigStoreLive } from './store/providers';
 import { computePrintfulUpdate, parsePrintfulWebhook, verifyPrintfulWebhookSignature } from './services/fulfillment/printful/webhook';
+import { LuluBookConfigSchema, type LuluBookConfig } from './services/fulfillment/lulu/types';
 import { handlePingPayWebhookEffect } from './services/payment/pingpay/webhook';
 export * from './schema';
+
+const DEFAULT_LULU_BOOK: LuluBookConfig = {
+  id: 'e7neqq2',
+  title: 'User-owned AI is NEAR',
+  description: 'A collection of talks by the Co-Founders and Builders of NEAR Protocol & NEAR AI',
+  thumbnailUrl: 'https://assets.lulu.com/cover_thumbs/e/7/e7neqq2-front-shortedge-384.jpg',
+  files: [
+    {
+      type: 'preview',
+      url: 'https://assets.lulu.com/cover_thumbs/e/7/e7neqq2-front-shortedge-384.jpg',
+      previewUrl: 'https://assets.lulu.com/cover_thumbs/e/7/e7neqq2-front-shortedge-384.jpg',
+    },
+  ],
+  retailPrice: 19.99,
+  currency: 'USD',
+  variantName: 'Paperback',
+  sku: '0600X0900BWSTDPB060UC444MXX',
+  podPackageId: '0600X0900BWSTDPB060UC444MXX',
+  pageCount: 120,
+  coverPdfUrl: 'https://assets.nearmerch.com/e7neqq2_cover.pdf',
+  interiorPdfUrl: 'https://assets.nearmerch.com/e7neqq2_interior.pdf',
+};
 
 export default createPlugin({
   variables: z.object({
@@ -28,6 +51,8 @@ export default createPlugin({
     contractId: z.string().default('social.near'),
     nodeUrl: z.string().optional(),
     returnAddress: ReturnAddressSchema.optional(),
+    luluEnvironment: z.enum(['sandbox', 'production']).default('production'),
+    luluBooks: z.array(LuluBookConfigSchema).default([DEFAULT_LULU_BOOK]),
   }),
 
   secrets: z.object({
@@ -40,7 +65,6 @@ export default createPlugin({
     PRINTFUL_WEBHOOK_SECRET: z.string().optional(),
     LULU_CLIENT_KEY: z.string().optional(),
     LULU_CLIENT_SECRET: z.string().optional(),
-    LULU_WEBHOOK_SECRET: z.string().optional(),
     PING_API_KEY: z.string().optional(),
     PING_WEBHOOK_SECRET: z.string().optional(),
     API_DATABASE_URL: z.string().default('file:./marketplace.db'),
@@ -91,7 +115,8 @@ export default createPlugin({
                 ? {
                   clientKey: config.secrets.LULU_CLIENT_KEY,
                   clientSecret: config.secrets.LULU_CLIENT_SECRET,
-                  webhookSecret: config.secrets.LULU_WEBHOOK_SECRET,
+                  environment: config.variables.luluEnvironment,
+                  books: config.variables.luluBooks,
                 }
                 : undefined,
           },
@@ -153,6 +178,7 @@ export default createPlugin({
         managedRuntime,
         secrets: config.secrets,
         nearPriceCache,
+        luluEnvironment: config.variables.luluEnvironment,
       };
     }),
 
@@ -166,7 +192,7 @@ export default createPlugin({
     }),
 
   createRouter: (context, builder) => {
-    const { stripeService, runtime, managedRuntime, secrets, nearPriceCache } = context;
+    const { stripeService, runtime, managedRuntime, secrets, nearPriceCache, luluEnvironment } = context;
 
     const requireAuth = builder.middleware(async ({ context, next }) => {
       if (!context.nearAccountId) {
@@ -1352,7 +1378,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       }),
 
       luluWebhook: builder.luluWebhook.handler(async ({ input, context }) => {
-        const signature = context.reqHeaders?.get('x-lulu-signature') || '';
+        const signature = context.reqHeaders?.get('Lulu-HMAC-SHA256') || '';
         const rawBody = (await context.getRawBody?.()) ?? JSON.stringify(input as unknown);
         
         let eventType: string | undefined;
@@ -1370,23 +1396,20 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
           const luluService = new LuluService({
             clientKey: secrets.LULU_CLIENT_KEY || '',
             clientSecret: secrets.LULU_CLIENT_SECRET || '',
-            webhookSecret: secrets.LULU_WEBHOOK_SECRET,
+            environment: luluEnvironment,
           });
 
-          // Verify signature if webhook secret is configured
-          if (secrets.LULU_WEBHOOK_SECRET) {
-            const isValid = await managedRuntime.runPromise(
-              luluService.verifyWebhookSignature(rawBody, signature)
-            );
-            if (!isValid) {
-              console.error('[Lulu Webhook] Invalid signature');
-              throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
-            }
+          const isValid = await managedRuntime.runPromise(
+            luluService.verifyWebhookSignature(rawBody, signature)
+          );
+          if (!isValid) {
+            console.error('[Lulu Webhook] Invalid signature');
+            throw new ORPCError('UNAUTHORIZED', { message: 'Invalid webhook signature' });
           }
 
           const { eventType: parsedEventType, data } = luluService.parseWebhookPayload(rawBody);
           eventType = parsedEventType;
-          externalId = data.data.external_id;
+          externalId = data.external_id;
 
           if (!externalId) {
             return { received: true };
@@ -1415,33 +1438,25 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
           let newTracking: TrackingInfo[] | undefined = undefined;
 
           switch (eventType) {
-            case 'printjob.status.updated':
-              const luluStatus = data.data.status;
+            case 'PRINT_JOB_STATUS_CHANGED': {
+              const luluStatus = typeof data.status === 'string' ? data.status : data.status?.name || 'CREATED';
               newStatus = luluService.mapStatus(luluStatus) as OrderStatus;
               
               // Check for tracking information in line items
-              if (data.data.line_items && data.data.line_items.length > 0) {
-                const shippedItems = data.data.line_items.filter(item => item.tracking_number);
+              if (data.line_items && data.line_items.length > 0) {
+                const shippedItems = data.line_items.filter((item) => item.tracking_id);
                 if (shippedItems.length > 0) {
-                  newTracking = shippedItems.map(item => ({
-                    trackingCode: item.tracking_number || '',
+                  newTracking = shippedItems.map((item) => ({
+                    trackingCode: item.tracking_id || '',
                     trackingUrl: item.tracking_urls?.[0] || '',
-                    shipmentMethodName: item.shipping_level || 'Standard',
-                    shipmentMethodUid: item.shipping_level,
-                    fulfillmentCountry: data.data.shipping_address?.country,
+                    shipmentMethodName: 'Standard',
+                    fulfillmentCountry: data.shipping_address?.country_code,
                   }));
                   newStatus = 'shipped';
                 }
               }
               break;
-
-            case 'printjob.created':
-              newStatus = 'processing';
-              break;
-
-            case 'printjob.cancelled':
-              newStatus = 'cancelled';
-              break;
+            }
 
             default:
               break;
@@ -1456,7 +1471,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
                   newStatus!,
                   'service:lulu',
                   eventType,
-                  { eventType, externalId, data: data.data }
+                  { eventType, externalId, data }
                 );
               })
             );
@@ -1576,30 +1591,69 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       configureWebhook: builder.configureWebhook
         .use(requireAuth)
         .handler(async ({ input }) => {
-          const printfulProvider = runtime.getProvider('printful');
-          if (!printfulProvider) {
-            throw new ORPCError('BAD_REQUEST', { message: 'Printful provider not configured' });
-          }
-
-          const { PrintfulService } = await import('./services/fulfillment/printful/service');
-          const printfulService = new PrintfulService(
-            secrets.PRINTFUL_API_KEY!,
-            secrets.PRINTFUL_STORE_ID!
-          );
-
           const webhookUrl = input.webhookUrlOverride || '';
-          
-          let result;
+
+          let result: ConfigureWebhookOutput;
+          let providerSecretKey: string | null = null;
           try {
-            result = await managedRuntime.runPromise(
-              printfulService.configureWebhooks({
-                defaultUrl: webhookUrl,
-                events: input.events,
-                expiresAt: input.expiresAt,
-              })
-            );
+            if (input.provider === 'printful') {
+              const printfulProvider = runtime.getProvider('printful');
+              if (!printfulProvider) {
+                throw new ORPCError('BAD_REQUEST', { message: 'Printful provider not configured' });
+              }
+
+              const { PrintfulService } = await import('./services/fulfillment/printful/service');
+              const printfulService = new PrintfulService(
+                secrets.PRINTFUL_API_KEY!,
+                secrets.PRINTFUL_STORE_ID!
+              );
+
+              const printfulResult = await managedRuntime.runPromise(
+                printfulService.configureWebhooks({
+                  defaultUrl: webhookUrl,
+                  events: input.events.filter((event): event is PrintfulWebhookEventType => event !== 'PRINT_JOB_STATUS_CHANGED'),
+                  expiresAt: input.expiresAt,
+                })
+              );
+              result = {
+                success: true,
+                webhookUrl: printfulResult.webhookUrl,
+                enabledEvents: printfulResult.enabledEvents as ProviderWebhookEventType[],
+                publicKey: printfulResult.publicKey,
+                expiresAt: printfulResult.expiresAt,
+              };
+              providerSecretKey = printfulResult.secretKey;
+            } else {
+              const luluProvider = runtime.getProvider('lulu');
+              if (!luluProvider) {
+                throw new ORPCError('BAD_REQUEST', { message: 'Lulu provider not configured' });
+              }
+
+              if (!secrets.LULU_CLIENT_KEY || !secrets.LULU_CLIENT_SECRET) {
+                throw new ORPCError('BAD_REQUEST', { message: 'Lulu credentials are not configured' });
+              }
+
+              const { LuluService } = await import('./services/fulfillment/lulu/service');
+              const luluService = new LuluService({
+                clientKey: secrets.LULU_CLIENT_KEY,
+                clientSecret: secrets.LULU_CLIENT_SECRET,
+                environment: luluEnvironment,
+              });
+
+              const luluResult = await managedRuntime.runPromise(
+                luluService.configureWebhook(webhookUrl)
+              );
+              result = {
+                success: true,
+                webhookUrl: luluResult.webhookUrl,
+                enabledEvents: ['PRINT_JOB_STATUS_CHANGED'],
+                publicKey: luluResult.publicKey,
+                expiresAt: luluResult.expiresAt,
+              };
+            }
           } catch (error) {
-            console.error('[configureWebhook] Failed to configure Printful webhooks:', error);
+            console.error(`[configureWebhook] Failed to configure ${input.provider} webhooks:`, error);
+            if (error instanceof ORPCError) throw error;
             throw new ORPCError('INTERNAL_SERVER_ERROR', {
               message: error instanceof Error ? error.message : 'Failed to configure webhook',
             });
@@ -1616,7 +1670,7 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
                   webhookUrlOverride: webhookUrl,
                   enabledEvents: result.enabledEvents,
                   publicKey: result.publicKey,
-                  secretKey: result.secretKey,
+                  secretKey: providerSecretKey,
                   lastConfiguredAt: Date.now(),
                   expiresAt: result.expiresAt,
                 });
@@ -1641,21 +1695,45 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       disableWebhook: builder.disableWebhook
         .use(requireAuth)
         .handler(async ({ input }) => {
-          const printfulProvider = runtime.getProvider('printful');
-          if (!printfulProvider) {
-            throw new ORPCError('BAD_REQUEST', { message: 'Printful provider not configured' });
-          }
-
-          const { PrintfulService } = await import('./services/fulfillment/printful/service');
-          const printfulService = new PrintfulService(
-            secrets.PRINTFUL_API_KEY!,
-            secrets.PRINTFUL_STORE_ID!
-          );
-
           try {
-            await managedRuntime.runPromise(printfulService.disableWebhooks());
+            if (input.provider === 'printful') {
+              const printfulProvider = runtime.getProvider('printful');
+              if (!printfulProvider) {
+                throw new ORPCError('BAD_REQUEST', { message: 'Printful provider not configured' });
+              }
+
+              const { PrintfulService } = await import('./services/fulfillment/printful/service');
+              const printfulService = new PrintfulService(
+                secrets.PRINTFUL_API_KEY!,
+                secrets.PRINTFUL_STORE_ID!
+              );
+
+              await managedRuntime.runPromise(printfulService.disableWebhooks());
+            } else {
+              const luluProvider = runtime.getProvider('lulu');
+              if (!luluProvider || !secrets.LULU_CLIENT_KEY || !secrets.LULU_CLIENT_SECRET) {
+                throw new ORPCError('BAD_REQUEST', { message: 'Lulu provider not configured' });
+              }
+
+              const existingConfig = await managedRuntime.runPromise(
+                Effect.gen(function* () {
+                  const store = yield* ProviderConfigStore;
+                  return yield* store.getConfig('lulu');
+                })
+              );
+
+              const { LuluService } = await import('./services/fulfillment/lulu/service');
+              const luluService = new LuluService({
+                clientKey: secrets.LULU_CLIENT_KEY,
+                clientSecret: secrets.LULU_CLIENT_SECRET,
+                environment: luluEnvironment,
+              });
+
+              await managedRuntime.runPromise(luluService.disableWebhooks(existingConfig?.webhookUrl));
+            }
           } catch (error) {
-            console.error('[disableWebhook] Failed to disable Printful webhooks:', error);
+            console.error(`[disableWebhook] Failed to disable ${input.provider} webhooks:`, error);
+            if (error instanceof ORPCError) throw error;
             throw new ORPCError('INTERNAL_SERVER_ERROR', {
               message: error instanceof Error ? error.message : 'Failed to disable webhook',
             });
@@ -1681,22 +1759,38 @@ updateCollection: builder.updateCollection.handler(async ({ input }) => {
       testProvider: builder.testProvider
         .use(requireAuth)
         .handler(async ({ input }) => {
-          const printfulProvider = runtime.getProvider('printful');
-          if (!printfulProvider) {
-            throw new ORPCError('BAD_REQUEST', { message: 'Printful provider not configured' });
-          }
-
-          const { PrintfulService } = await import('./services/fulfillment/printful/service');
-          const printfulService = new PrintfulService(
-            secrets.PRINTFUL_API_KEY!,
-            secrets.PRINTFUL_STORE_ID!
-          );
-
           try {
-            const result = await managedRuntime.runPromise(printfulService.ping());
+            let result: { success: boolean; message?: string; timestamp: string };
+            if (input.provider === 'printful') {
+              const printfulProvider = runtime.getProvider('printful');
+              if (!printfulProvider) {
+                throw new ORPCError('BAD_REQUEST', { message: 'Printful provider not configured' });
+              }
+
+              const { PrintfulService } = await import('./services/fulfillment/printful/service');
+              const printfulService = new PrintfulService(
+                secrets.PRINTFUL_API_KEY!,
+                secrets.PRINTFUL_STORE_ID!
+              );
+              result = await managedRuntime.runPromise(printfulService.ping());
+            } else {
+              if (!runtime.getProvider('lulu') || !secrets.LULU_CLIENT_KEY || !secrets.LULU_CLIENT_SECRET) {
+                throw new ORPCError('BAD_REQUEST', { message: 'Lulu provider not configured' });
+              }
+
+              const { LuluService } = await import('./services/fulfillment/lulu/service');
+              const luluService = new LuluService({
+                clientKey: secrets.LULU_CLIENT_KEY,
+                clientSecret: secrets.LULU_CLIENT_SECRET,
+                environment: luluEnvironment,
+              });
+              result = await managedRuntime.runPromise(luluService.ping());
+            }
+
             return {
               success: result.success,
               timestamp: result.timestamp,
+              message: result.message,
             };
           } catch (error) {
             return {

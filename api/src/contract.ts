@@ -601,7 +601,7 @@ export const contract = oc.router({
       description: 'Returns the configuration for a fulfillment provider including webhook settings.',
       tags: ['Admin', 'Providers'],
     })
-    .input(z.object({ provider: z.literal('printful') }))
+    .input(z.object({ provider: z.enum(['printful', 'lulu']) }))
     .output(z.object({ config: ProviderConfigSchema.nullable() }))
     .errors({ UNAUTHORIZED }),
 
@@ -625,7 +625,7 @@ export const contract = oc.router({
       description: 'Disables webhook notifications for a fulfillment provider.',
       tags: ['Admin', 'Providers'],
     })
-    .input(z.object({ provider: z.literal('printful') }))
+    .input(z.object({ provider: z.enum(['printful', 'lulu']) }))
     .output(z.object({ success: z.boolean() }))
     .errors({ BAD_REQUEST, UNAUTHORIZED }),
 
@@ -637,7 +637,7 @@ export const contract = oc.router({
       description: 'Tests the connection to a fulfillment provider.',
       tags: ['Admin', 'Providers'],
     })
-    .input(z.object({ provider: z.literal('printful') }))
+    .input(z.object({ provider: z.enum(['printful', 'lulu']) }))
     .output(z.object({
       success: z.boolean(),
       message: z.string().optional(),

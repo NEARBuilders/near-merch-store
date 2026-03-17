@@ -247,6 +247,7 @@ export function useSyncStatus() {
  * This hook subscribes to sync progress updates while sync is running
  */
 export function useSyncProgressSubscription(isRunning: boolean) {
+  const queryClient = useQueryClient();
   const [events, setEvents] = useState<SyncProgressEvent[]>([]);
   const [finalEvent, setFinalEvent] = useState<SyncProgressEvent | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -286,6 +287,7 @@ export function useSyncProgressSubscription(isRunning: boolean) {
               const synced = event.totalSynced ?? 0;
               const failed = event.totalFailed ?? 0;
               const failedStr = failed > 0 ? ` (${failed} failed)` : '';
+              queryClient.invalidateQueries({ queryKey: productKeys.all });
               toast.success(`Synced ${synced} products${failedStr}`);
             } else if (event.status === 'error') {
               toast.error(event.message || 'Sync failed');
@@ -309,7 +311,7 @@ export function useSyncProgressSubscription(isRunning: boolean) {
       active = false;
       abortController.abort();
     };
-  }, [isRunning]); // Only depend on isRunning, not isSubscribed
+  }, [isRunning, queryClient]); // Only depend on isRunning, not isSubscribed
 
   const reset = useCallback(() => {
     setEvents([]);

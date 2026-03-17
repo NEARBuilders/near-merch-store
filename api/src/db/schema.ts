@@ -1,5 +1,5 @@
 import { index, integer, pgTable, primaryKey, text, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
-import type { Attribute, FulfillmentConfig, PrintfulWebhookEventType, ProductOption } from '../schema';
+import type { Attribute, FulfillmentConfig, ProviderWebhookEventType, ProductOption } from '../schema';
 
 export const productTypes = pgTable('product_types', {
   slug: text('slug').primaryKey(),
@@ -238,7 +238,7 @@ export const providerConfigs = pgTable('provider_configs', {
   enabled: boolean('enabled').notNull().default(false),
   webhookUrl: text('webhook_url'),
   webhookUrlOverride: text('webhook_url_override'),
-  enabledEvents: jsonb('enabled_events').$type<PrintfulWebhookEventType[]>(),
+  enabledEvents: jsonb('enabled_events').$type<ProviderWebhookEventType[]>(),
   publicKey: text('public_key'),
   secretKey: text('secret_key'),
   lastConfiguredAt: timestamp('last_configured_at', { withTimezone: true, mode: 'date' }),

@@ -97,7 +97,9 @@
         "PRINTFUL_STORE_ID",
         "PRINTFUL_WEBHOOK_SECRET",
         "PING_API_KEY",
-        "PING_WEBHOOK_SECRET"
+        "PING_WEBHOOK_SECRET",
+        "LULU_CLIENT_KEY",
+        "LULU_CLIENT_SECRET"
       ],
       "template": "nearbuilders/near-merch-store/api",
       "files": [

@@ -34,6 +34,7 @@ export const ProviderVariantSchema = z.object({
     url: z.string().nullable(),
     previewUrl: z.string().nullable().optional(),
   })).optional(),
+  providerData: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const ProviderProductSchema = z.object({
@@ -107,6 +108,8 @@ export const ShippingRateSchema = z.object({
   name: z.string(),
   rate: z.number(),
   currency: z.string(),
+  taxAmount: z.number().optional(),
+  vat: z.number().optional(),
   minDeliveryDays: z.number().optional(),
   maxDeliveryDays: z.number().optional(),
   minDeliveryDate: z.string().optional(),

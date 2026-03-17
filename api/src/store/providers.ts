@@ -1,31 +1,31 @@
 import { eq } from 'drizzle-orm';
 import { Context, Effect, Layer } from 'every-plugin/effect';
 import * as schema from '../db/schema';
-import type { PrintfulWebhookEventType, ProviderConfig } from '../schema';
+import type { ProviderConfig, ProviderName, ProviderWebhookEventType } from '../schema';
 import { Database } from './database';
 
 export class ProviderConfigStore extends Context.Tag('ProviderConfigStore')<
   ProviderConfigStore,
   {
-    readonly getConfig: (provider: 'printful') => Effect.Effect<ProviderConfig | null, Error>;
+    readonly getConfig: (provider: ProviderName) => Effect.Effect<ProviderConfig | null, Error>;
     readonly upsertConfig: (config: {
-      provider: 'printful';
+      provider: ProviderName;
       enabled?: boolean;
       webhookUrl?: string | null;
       webhookUrlOverride?: string | null;
-      enabledEvents?: PrintfulWebhookEventType[];
+      enabledEvents?: ProviderWebhookEventType[];
       publicKey?: string | null;
       secretKey?: string | null;
       lastConfiguredAt?: number | null;
       expiresAt?: number | null;
     }) => Effect.Effect<ProviderConfig, Error>;
-    readonly clearWebhookConfig: (provider: 'printful') => Effect.Effect<void, Error>;
-    readonly getSecretKey: (provider: 'printful') => Effect.Effect<string | null, Error>;
+    readonly clearWebhookConfig: (provider: ProviderName) => Effect.Effect<void, Error>;
+    readonly getSecretKey: (provider: ProviderName) => Effect.Effect<string | null, Error>;
   }
 >() {}
 
 const rowToConfig = (row: typeof schema.providerConfigs.$inferSelect): ProviderConfig => ({
-  provider: row.provider as 'printful',
+  provider: row.provider as ProviderName,
   enabled: row.enabled,
   webhookUrl: row.webhookUrl,
   webhookUrlOverride: row.webhookUrlOverride,
