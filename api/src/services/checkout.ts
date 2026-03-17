@@ -16,6 +16,7 @@ import { OrderStore, ProductStore } from "../store";
 import type { FulfillmentOrderItem } from "./fulfillment/schema";
 import type { PaymentLineItem } from "./payment/schema";
 import { CheckoutError } from "./checkout/errors";
+import { getProvidersAddressRequirementError } from "./checkout/provider-address-requirements";
 
 interface ProviderItemGroup {
   item: CheckoutItemInput;
@@ -325,6 +326,21 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               });
             }
 
+            const quoteAddressError = getProvidersAddressRequirementError(
+              itemsByProvider.keys(),
+              address,
+            );
+
+            if (quoteAddressError) {
+              return yield* Effect.fail(
+                new CheckoutError({
+                  code: "INVALID_ADDRESS",
+                  provider: quoteAddressError.provider,
+                  cause: new Error(quoteAddressError.message),
+                }),
+              );
+            }
+
             const providerBreakdown: ProviderBreakdown[] = [];
             let totalShippingCost = 0;
             let totalTax = 0;
@@ -577,6 +593,22 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                 metadata: product.metadata,
                 referralAccountId: normalizeNearAccountId(item.referralAccountId),
               });
+            }
+
+            const checkoutAddressError = getProvidersAddressRequirementError(
+              itemsByProvider.keys(),
+              address,
+            );
+
+            if (checkoutAddressError) {
+              return yield* Effect.fail(
+                new CheckoutError({
+                  code: "INVALID_ADDRESS",
+                  provider: checkoutAddressError.provider,
+                  userId,
+                  cause: new Error(checkoutAddressError.message),
+                }),
+              );
             }
 
             let verifiedShippingCost = 0;

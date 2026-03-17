@@ -111,7 +111,7 @@ export class LuluService {
       is_business: Boolean(recipient.company),
       name: recipient.name,
       organization: recipient.company,
-      phone_number: recipient.phone || '0000000000',
+      phone_number: recipient.phone!,
       postcode: recipient.zip,
       state_code: recipient.stateCode,
       street1: recipient.address1,
