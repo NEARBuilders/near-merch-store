@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.5
+
+### Patch Changes
+
+- 9a92577: Allocate referral fees proportionally across the checkout total so referred items only receive their weighted share of full-order Ping fees.
+
 ## 1.3.4
 
 ### Patch Changes
