@@ -33,6 +33,12 @@ import { Country, State } from 'country-state-city';
 import type { IState } from 'country-state-city';
 import { cn } from '@/lib/utils';
 import {
+  formatPhoneNumberInput,
+  getPhoneValidationError,
+  getPhonePlaceholder,
+  type CountryCode,
+} from '@/lib/phone';
+import {
   getPurchaseGatePluginId,
   usePurchaseGateAccessMap,
   type ProductMetadata,
@@ -460,12 +466,10 @@ function CheckoutPage() {
                     );
                     if (requiredError) return requiredError;
                     if (!value) return undefined;
-                    const phoneStr = String(value);
-                    const digits = phoneStr.replace(/\D/g, '');
-                    if (digits.length < 7) {
-                      return 'Please enter a valid phone number';
-                    }
-                    return undefined;
+                    return getPhoneValidationError(
+                      String(value),
+                      form.state.values.country as CountryCode | undefined,
+                    );
                   }
                 }}
                 children={(field) => (
@@ -484,23 +488,29 @@ function CheckoutPage() {
                       ref={(el) => {
                         if (el) fieldRefs.current.set('phone', el);
                       }}
-                      placeholder="+1 234 567 8900"
+                      placeholder={getPhonePlaceholder(form.state.values.country as CountryCode | undefined)}
                       value={String(field.state.value || '')}
                       onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
+                      onChange={(e) => {
+                        const formatted = formatPhoneNumberInput(
+                          e.target.value,
+                          form.state.values.country as CountryCode | undefined,
+                        );
+                        field.handleChange(formatted);
+                      }}
                       onKeyDown={(e) => handleKeyDown(e, 'addressLine1')}
                       autoComplete="tel"
                       className={cn(
-                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
-                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
-                       )}
-                     />
-                     {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
-                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
-                     )}
-                   </div>
-                 )}
-               />
+                          "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                          field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                        )}
+                      />
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                        <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                      )}
+                    </div>
+                  )}
+                />
 
                <form.Field
                  name="addressLine1"

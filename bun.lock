@@ -19,7 +19,7 @@
     },
     "api": {
       "name": "api",
-      "version": "1.2.0",
+      "version": "1.3.5",
       "dependencies": {
         "@orpc/contract": "^1.13.4",
         "@orpc/server": "^1.13.4",
@@ -98,7 +98,7 @@
     },
     "ui": {
       "name": "ui",
-      "version": "1.4.2",
+      "version": "1.5.3",
       "dependencies": {
         "@dnd-kit/react": "^0.3.2",
         "@hot-labs/near-connect": "catalog:",
@@ -132,6 +132,7 @@
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
         "country-state-city": "^3.2.1",
+        "libphonenumber-js": "^1.12.40",
         "lucide-react": "^0.563.0",
         "near-kit": "catalog:",
         "near-social-js": "^2.0.4",
@@ -1779,6 +1780,8 @@
     "kysely": ["kysely@0.28.11", "", {}, "sha512-zpGIFg0HuoC893rIjYX1BETkVWdDnzTzF5e0kWXJFg5lE0k1/LfNWBejrcnOFu8Q2Rfq/hTDTU7XLUM8QOrpzg=="],
 
     "launch-editor": ["launch-editor@2.13.1", "", { "dependencies": { "picocolors": "^1.1.1", "shell-quote": "^1.8.3" } }, "sha512-lPSddlAAluRKJ7/cjRFoXUFzaX7q/YKI7yPHuEvSJVqoXvFnJov1/Ud87Aa4zULIbA9Nja4mSPK8l0z/7eV2wA=="],
+
+    "libphonenumber-js": ["libphonenumber-js@1.12.40", "", {}, "sha512-HKGs7GowShNls3Zh+7DTr6wYpPk5jC78l508yQQY3e8ZgJChM3A9JZghmMJZuK+5bogSfuTafpjksGSR3aMIEg=="],
 
     "libsql": ["libsql@0.5.22", "", { "dependencies": { "@neon-rs/load": "^0.0.4", "detect-libc": "2.0.2" }, "optionalDependencies": { "@libsql/darwin-arm64": "0.5.22", "@libsql/darwin-x64": "0.5.22", "@libsql/linux-arm-gnueabihf": "0.5.22", "@libsql/linux-arm-musleabihf": "0.5.22", "@libsql/linux-arm64-gnu": "0.5.22", "@libsql/linux-arm64-musl": "0.5.22", "@libsql/linux-x64-gnu": "0.5.22", "@libsql/linux-x64-musl": "0.5.22", "@libsql/win32-x64-msvc": "0.5.22" }, "os": [ "linux", "win32", "darwin", ], "cpu": [ "arm", "x64", "arm64", ] }, "sha512-NscWthMQt7fpU8lqd7LXMvT9pi+KhhmTHAJWUB/Lj6MWa0MKFv0F2V4C6WKKpjCVZl0VwcDz4nOI3CyaT1DDiA=="],
 
