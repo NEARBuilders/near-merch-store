@@ -44,26 +44,11 @@ import {
   type ProductMetadata,
   type PurchaseGatePluginId,
 } from '@/integrations/api';
-
-function requiresPhoneForProvider(providerName?: string) {
-  return providerName === 'lulu';
-}
-
-function getPhoneRequirementError(phone: string | undefined, required: boolean) {
-  if (!required) {
-    return undefined;
-  }
-
-  if (!phone?.trim()) {
-    return 'Phone number is required for delivery';
-  }
-
-  return undefined;
-}
-
-function getOptionalString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
+import {
+  isFieldRequired,
+  getFieldMaxLength,
+  getFieldErrorMessage,
+} from '@/lib/validation/address-validation';
 
 export const Route = createFileRoute("/_marketplace/_authenticated/checkout")({
   component: CheckoutPage,
@@ -96,9 +81,14 @@ function CheckoutPage() {
   );
   const { accessByPlugin, isLoading: isPurchaseGateLoading } =
     usePurchaseGateAccessMap(gatedPluginIds, nearAccountId);
-  const requiresPhone = cartItems.some((item) =>
-    requiresPhoneForProvider(item.product.fulfillmentProvider),
+  const providers = Array.from(
+    new Set(
+      cartItems
+        .map((item) => item.product.fulfillmentProvider)
+        .filter((provider): provider is string => Boolean(provider)),
+    ),
   );
+  const requiresPhone = isFieldRequired(providers, 'phone');
   const hasBlockedItems = cartItems.some((item) => {
     const pluginId = getPurchaseGatePluginId(
       item.product.metadata as ProductMetadata | undefined,
@@ -148,12 +138,8 @@ function CheckoutPage() {
     } as ShippingAddress,
     validators: {
       onSubmit: ({ value }) => {
-        const phoneRequirementError = getPhoneRequirementError(
-          getOptionalString(value.phone),
-          requiresPhone,
-        );
-        if (phoneRequirementError) {
-          return phoneRequirementError;
+        if (requiresPhone && !String(value.phone || '').trim()) {
+          return getFieldErrorMessage(providers, 'phone') || 'Phone number is required';
         }
         if (availableStates.length > 0 && !value.state) {
           return 'State/Province is required for the selected country';
@@ -241,14 +227,11 @@ function CheckoutPage() {
   });
 
   const handleCalculateShipping = async (formData: ShippingAddress) => {
-    const phoneRequirementError = getPhoneRequirementError(
-      getOptionalString(formData.phone),
-      requiresPhone,
-    );
-    if (phoneRequirementError) {
-      setShippingError(phoneRequirementError);
+    if (requiresPhone && !String(formData.phone || '').trim()) {
+      const errorMsg = getFieldErrorMessage(providers, 'phone') || 'Phone number is required';
+      setShippingError(errorMsg);
       setShippingQuote(null);
-      toast.error(phoneRequirementError);
+      toast.error(errorMsg);
       return;
     }
 
@@ -291,14 +274,11 @@ function CheckoutPage() {
     }
 
     const formData = form.state.values;
-    const phoneRequirementError = getPhoneRequirementError(
-      getOptionalString(formData.phone),
-      requiresPhone,
-    );
-
-    if (phoneRequirementError) {
-      setShippingError(phoneRequirementError);
-      toast.error(phoneRequirementError);
+    
+    if (requiresPhone && !String(formData.phone || '').trim()) {
+      const errorMsg = getFieldErrorMessage(providers, 'phone') || 'Phone number is required';
+      setShippingError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -460,11 +440,9 @@ function CheckoutPage() {
                 name="phone"
                 validators={{
                   onBlur: ({ value }) => {
-                    const requiredError = getPhoneRequirementError(
-                      getOptionalString(value),
-                      requiresPhone,
-                    );
-                    if (requiredError) return requiredError;
+                    if (requiresPhone && !String(value || '').trim()) {
+                      return getFieldErrorMessage(providers, 'phone') || 'Phone number is required';
+                    }
                     if (!value) return undefined;
                     return getPhoneValidationError(
                       String(value),
@@ -516,64 +494,104 @@ function CheckoutPage() {
                  name="addressLine1"
                 validators={{
                   onBlur: ({ value }) => {
-                    if (!value || value.trim() === '') {
+                    if (!value || String(value).trim() === '') {
                       return 'Street address is required';
+                    }
+                    const maxLength = getFieldMaxLength(providers, 'addressLine1');
+                    if (maxLength && String(value).length > maxLength) {
+                      return getFieldErrorMessage(providers, 'addressLine1') || 
+                             `Address is too long (max ${maxLength} characters).`;
                     }
                     return undefined;
                   }
                 }}
-                children={(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor="addressLine1">
-                      Street address <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="addressLine1"
-                      ref={(el) => {
-                        if (el) fieldRefs.current.set('addressLine1', el);
-                      }}
-                      placeholder="House number and street name"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, 'addressLine2')}
-                      autoComplete="address-line1"
-                      required
-                       className={cn(
-                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
-                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                 children={(field) => {
+                   const maxLength = getFieldMaxLength(providers, 'addressLine1');
+                   const currentLength = String(field.state.value || '').length;
+                   
+                   return (
+                   <div className="space-y-2">
+                     <Label htmlFor="addressLine1" className="flex justify-between">
+                       <span>Street address <span className="text-red-500">*</span></span>
+                       {maxLength && (
+                         <span className="text-xs text-muted-foreground">
+                           {currentLength}/{maxLength}
+                         </span>
                        )}
+                     </Label>
+                     <Input
+                       id="addressLine1"
+                       ref={(el) => {
+                         if (el) fieldRefs.current.set('addressLine1', el);
+                       }}
+                       placeholder="House number and street name"
+                       value={field.state.value}
+                       onBlur={field.handleBlur}
+                       onChange={(e) => field.handleChange(e.target.value)}
+                       onKeyDown={(e) => handleKeyDown(e, 'addressLine2')}
+                       autoComplete="address-line1"
+                       required
+                       maxLength={maxLength}
+                        className={cn(
+                          "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                          field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                        )}
+                      />
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                        <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                      )}
+                    </div>
+                  );
+                }}
+                />
+
+               <form.Field
+                 name="addressLine2"
+                validators={{
+                  onBlur: ({ value }) => {
+                    const maxLength = getFieldMaxLength(providers, 'addressLine2');
+                    if (maxLength && String(value || '').length > maxLength) {
+                      return getFieldErrorMessage(providers, 'addressLine2') || 
+                             `Address Line 2 is too long (max ${maxLength} characters).`;
+                    }
+                    return undefined;
+                  }
+                }}
+                 children={(field) => {
+                   const maxLength = getFieldMaxLength(providers, 'addressLine2');
+                   const currentLength = String(field.state.value || '').length;
+                   
+                   return (
+                   <div className="space-y-2">
+                     <Label htmlFor="addressLine2" className="flex justify-between">
+                       <span>Street address 2 <span className="text-muted-foreground text-xs">(optional)</span></span>
+                       {maxLength && (
+                         <span className="text-xs text-muted-foreground">
+                           {currentLength}/{maxLength}
+                         </span>
+                       )}
+                     </Label>
+                     <Input
+                       id="addressLine2"
+                       ref={(el) => {
+                         if (el) fieldRefs.current.set('addressLine2', el);
+                       }}
+                       placeholder="Apartment, suite, unit, etc."
+                       value={String(field.state.value || '')}
+                       onBlur={field.handleBlur}
+                       onChange={(e) => field.handleChange(e.target.value)}
+                       onKeyDown={(e) => handleKeyDown(e, 'city')}
+                       autoComplete="address-line2"
+                       maxLength={maxLength}
+                       className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
                      />
                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
                        <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
                      )}
                    </div>
-                 )}
+                  );
+                }}
                />
-
-               <form.Field
-                 name="addressLine2"
-                children={(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor="addressLine2">
-                      Street address 2 <span className="text-muted-foreground text-xs">(optional)</span>
-                    </Label>
-                    <Input
-                      id="addressLine2"
-                      ref={(el) => {
-                        if (el) fieldRefs.current.set('addressLine2', el);
-                      }}
-                      placeholder="Apartment, suite, unit, etc."
-                      value={String(field.state.value || '')}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, 'city')}
-                      autoComplete="address-line2"
-                      className="bg-background/70 border border-border/60 rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97] hover:border-border/60"
-                    />
-                  </div>
-                )}
-              />
 
               <form.Field
                 name="city"
@@ -794,42 +812,58 @@ function CheckoutPage() {
                    />
                  )}
 
-                 <form.Field
-                   name="postCode"
-                  validators={{
-                    onBlur: ({ value }) => {
-                      if (!value || value.trim() === '') {
-                        return 'ZIP / Postal Code is required';
-                      }
-                      return undefined;
-                    }
-                  }}
-                  children={(field) => (
-                    <div className="space-y-2">
-                      <Label htmlFor="postCode">
-                        ZIP / Postal Code <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="postCode"
-                        ref={(el) => {
-                          if (el) fieldRefs.current.set('postCode', el);
-                        }}
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        autoComplete="postal-code"
-                        required
-                       className={cn(
-                         "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
-                         field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
-                       )}
-                     />
-                     {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
-                       <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
-                     )}
-                   </div>
-                 )}
-               />
+                  <form.Field
+                    name="postCode"
+                   validators={{
+                     onBlur: ({ value }) => {
+                       if (!value || String(value).trim() === '') {
+                         return 'ZIP / Postal Code is required';
+                       }
+                       const maxLength = getFieldMaxLength(providers, 'postcode');
+                       if (maxLength && String(value).length > maxLength) {
+                         return getFieldErrorMessage(providers, 'postcode') || 
+                                `ZIP/Postal code is too long (max ${maxLength} characters).`;
+                       }
+                       return undefined;
+                     }
+                   }}
+                   children={(field) => {
+                     const maxLength = getFieldMaxLength(providers, 'postcode');
+                     const currentLength = String(field.state.value || '').length;
+                     
+                     return (
+                     <div className="space-y-2">
+                       <Label htmlFor="postCode" className="flex justify-between">
+                         <span>ZIP / Postal Code <span className="text-red-500">*</span></span>
+                         {maxLength && (
+                           <span className="text-xs text-muted-foreground">
+                             {currentLength}/{maxLength}
+                           </span>
+                         )}
+                       </Label>
+                       <Input
+                         id="postCode"
+                         ref={(el) => {
+                           if (el) fieldRefs.current.set('postCode', el);
+                         }}
+                         value={field.state.value}
+                         onBlur={field.handleBlur}
+                         onChange={(e) => field.handleChange(e.target.value)}
+                         autoComplete="postal-code"
+                         required
+                         maxLength={maxLength}
+                        className={cn(
+                          "bg-background/70 border rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#00EC97]",
+                          field.state.meta.errors.length > 0 && field.state.meta.isTouched ? "border-red-500" : "border-border/60 hover:border-border/60"
+                        )}
+                      />
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                        <p className="text-red-500 text-xs">{field.state.meta.errors}</p>
+                      )}
+                    </div>
+                  );
+                }}
+                />
               </div>
 
               {form.state.values.country === 'BR' && (

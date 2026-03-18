@@ -1,7 +1,11 @@
 import { z } from 'every-plugin/zod';
-import { DesignFileSchema } from '../../schema';
 import { PrintfulProviderDetailsSchema, type PrintfulProviderDetails } from './printful/types';
 import { LuluProviderDetailsSchema, type LuluProviderDetails } from './lulu/types';
+
+const DesignFileSchema = z.object({
+  placement: z.string(),
+  url: z.string(),
+});
 
 export { PrintfulProviderDetailsSchema, LuluProviderDetailsSchema };
 export type { PrintfulProviderDetails, LuluProviderDetails };
