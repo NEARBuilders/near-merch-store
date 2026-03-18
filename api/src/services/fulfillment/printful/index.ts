@@ -181,3 +181,4 @@ export default createPlugin({
 });
 
 export { PrintfulService } from './service';
+export { PRINTFUL_PROVIDER_FIELDS, PrintfulProviderDetailsSchema, type PrintfulProviderDetails, type PrintfulProviderFields } from './types';

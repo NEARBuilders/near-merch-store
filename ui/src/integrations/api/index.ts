@@ -64,6 +64,7 @@ export {
   type PurchaseGatePluginId,
   type ProductMetadata,
   type PrintfulProviderDetails,
+  type LuluProviderDetails,
   type ProviderDetails,
   type ReferralConfig,
 } from "./products";
@@ -112,10 +113,12 @@ export {
   useConfigureWebhook,
   useDisableWebhook,
   useTestProvider,
+  useProviderFieldConfigs,
   providerKeys,
   PRINTFUL_WEBHOOK_EVENTS,
   type ProviderConfig,
   type PrintfulWebhookEventType,
+  type ProviderFieldConfigs,
 } from "./providers";
 
 export {

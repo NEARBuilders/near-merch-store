@@ -67,6 +67,29 @@ export type PrintfulSyncVariant = z.infer<typeof PrintfulSyncVariantSchema>;
 export type PrintfulSyncProduct = z.infer<typeof PrintfulSyncProductSchema>;
 export type PrintfulCatalogVariant = z.infer<typeof PrintfulCatalogVariantSchema>;
 
+export const PrintfulProviderDetailsSchema = z.object({
+  brand: z.string().optional(),
+  model: z.string().optional(),
+  description: z.string().optional(),
+  techniques: z.array(z.string()).optional(),
+  placements: z.array(z.string()).optional(),
+  gsm: z.number().optional(),
+  material: z.string().optional(),
+});
+
+export type PrintfulProviderDetails = z.infer<typeof PrintfulProviderDetailsSchema>;
+
+export const PRINTFUL_PROVIDER_FIELDS = {
+  brand: { label: 'Brand', order: 1 },
+  model: { label: 'Model', order: 2 },
+  gsm: { label: 'Fabric Weight', format: (v: number) => `${v} g/m²`, order: 3 },
+  material: { label: 'Material', order: 4 },
+  techniques: { label: 'Print Method', format: (v: string[]) => v?.join(', '), order: 5 },
+  placements: { label: 'Print Locations', format: (v: string[]) => v?.join(', '), order: 6 },
+} as const;
+
+export type PrintfulProviderFields = typeof PRINTFUL_PROVIDER_FIELDS;
+
 // Mockup-related types for Printful service
 export const MockupStyleSchema = z.enum([
   'Lifestyle',

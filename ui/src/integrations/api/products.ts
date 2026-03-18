@@ -849,8 +849,14 @@ export type PrintfulProviderDetails = {
   material?: string;
 };
 
+export type LuluProviderDetails = {
+  pageCount?: number;
+  format?: string;
+};
+
 export type ProviderDetails = {
   printful?: PrintfulProviderDetails;
+  lulu?: LuluProviderDetails;
 };
 
 export type PurchaseGatePluginId = "legion-holder";

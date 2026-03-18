@@ -457,6 +457,17 @@ export const ProductStoreLive = Layer.effect(
             const finalId = existingProduct?.id ?? product.id;
 
             if (existingProduct) {
+              const existingMetadata = existingProduct.metadata as ProductMetadata | null;
+              const newProviderDetails = product.metadata?.providerDetails;
+              
+              const mergedMetadata: ProductMetadata = {
+                creatorAccountId: existingMetadata?.creatorAccountId,
+                fees: existingMetadata?.fees ?? [],
+                providerDetails: newProviderDetails ?? existingMetadata?.providerDetails,
+                purchaseGate: existingMetadata?.purchaseGate,
+                affiliate: existingMetadata?.affiliate,
+              };
+
               await db
                 .update(schema.products)
                 .set({
@@ -474,6 +485,7 @@ export const ProductStoreLive = Layer.effect(
                   source: product.source,
                   publicKey: existingProduct.publicKey || product.publicKey,
                   slug: existingProduct.slug || product.slug,
+                  metadata: mergedMetadata,
                   lastSyncedAt: now,
                   updatedAt: now,
                   featured: existingProduct.featured ?? undefined,
@@ -498,6 +510,7 @@ export const ProductStoreLive = Layer.effect(
                 fulfillmentProvider: product.fulfillmentProvider,
                 externalProductId: product.externalProductId || null,
                 source: product.source,
+                metadata: product.metadata,
                 createdAt: now,
                 updatedAt: now,
                 listed: true,
