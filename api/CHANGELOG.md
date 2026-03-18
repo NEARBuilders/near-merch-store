@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.4.0
+
+### Minor Changes
+
+- 857703a: Add provider-specific product details display
+
+  - Added ProductDetails component to display provider-specific details (GSM, material, page count, etc.)
+  - Each fulfillment provider (Printful, Lulu) now exports field configurations for their product details
+  - Added `getProviderFieldConfigs` API endpoint to fetch field configurations from providers
+  - Updated sync flow to copy `providerDetails` from provider products to product metadata
+  - Lulu products now include `pageCount` and `format` in their provider details
+  - Printful products include `brand`, `model`, `gsm`, `material`, `techniques`, and `placements`
+
+### Patch Changes
+
+- 603eabb: Fix order deletion to cancel fulfillment provider orders
+
+  - When deleting an order, now cancels draft orders with Lulu, Printful, and Gelato providers before local deletion
+  - Enhanced Lulu webhook handling to capture and log error details for REJECTED and ERROR statuses
+  - Added `errors` field to LuluPrintJobResponse type for better error reporting
+
 ## 1.3.5
 
 ### Patch Changes
