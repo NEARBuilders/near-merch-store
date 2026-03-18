@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.6.0
+
+### Minor Changes
+
+- 857703a: Add country-aware phone number formatting on checkout
+
+  - Added libphonenumber-js for international phone number parsing and formatting
+  - Phone input now formats numbers based on selected country (e.g., US: +1 (234) 567-8900, UK: +44 20 1234 5678)
+  - Dynamic placeholder updates when country is selected
+  - Improved phone validation using libphonenumber-js country-specific rules
+
+- 857703a: Add provider-specific product details display
+
+  - Added ProductDetails component to display provider-specific details (GSM, material, page count, etc.)
+  - Each fulfillment provider (Printful, Lulu) now exports field configurations for their product details
+  - Added `getProviderFieldConfigs` API endpoint to fetch field configurations from providers
+  - Updated sync flow to copy `providerDetails` from provider products to product metadata
+  - Lulu products now include `pageCount` and `format` in their provider details
+  - Printful products include `brand`, `model`, `gsm`, `material`, `techniques`, and `placements`
+
 ## 1.5.3
 
 ### Patch Changes
