@@ -2,6 +2,7 @@ import { LoadingSpinner } from "@/components/loading";
 import { FavoriteButton } from "@/components/marketplace/favorite-button";
 import { ImageViewer } from "@/components/marketplace/image-viewer";
 import { ProductCard } from "@/components/marketplace/product-card";
+import { ProductDetails } from "@/components/marketplace/product-details";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
 import { useFavorites } from "@/hooks/use-favorites";
@@ -844,6 +845,12 @@ function ProductDetailPage() {
             </div>
           </div>
         </div>
+
+        <ProductDetails
+          provider={product.fulfillmentProvider}
+          providerDetails={metadata?.providerDetails}
+          className="mt-8"
+        />
 
         {relatedProducts.length > 0 && (
           <div className="mt-16 space-y-6">

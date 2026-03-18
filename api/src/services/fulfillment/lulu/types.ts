@@ -24,6 +24,20 @@ export const LuluBookConfigSchema = z.object({
 
 export type LuluBookConfig = z.infer<typeof LuluBookConfigSchema>;
 
+export const LuluProviderDetailsSchema = z.object({
+  pageCount: z.number().int().positive().optional(),
+  format: z.string().optional(),
+});
+
+export type LuluProviderDetails = z.infer<typeof LuluProviderDetailsSchema>;
+
+export const LULU_PROVIDER_FIELDS = {
+  pageCount: { label: 'Pages', order: 1 },
+  format: { label: 'Format', order: 2 },
+} as const;
+
+export type LuluProviderFields = typeof LULU_PROVIDER_FIELDS;
+
 export const LuluPrintJobStatusSchema = z.enum([
   'CREATED',
   'UNPAID',

@@ -229,6 +229,10 @@ function transformProviderProduct(
     fulfillmentProvider: providerName,
     externalProductId: String(product.sourceId),
     source: providerName,
+    metadata: {
+      fees: [],
+      providerDetails: product.providerDetails,
+    },
   };
 }
 

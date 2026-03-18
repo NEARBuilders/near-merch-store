@@ -1,4 +1,17 @@
 import { z } from "every-plugin/zod";
+import {
+  PrintfulProviderDetailsSchema,
+  LuluProviderDetailsSchema,
+  type PrintfulProviderDetails,
+  type LuluProviderDetails,
+} from './services/fulfillment/schema';
+
+export {
+  PrintfulProviderDetailsSchema,
+  LuluProviderDetailsSchema,
+  type PrintfulProviderDetails,
+  type LuluProviderDetails,
+};
 
 export const AttributeSchema = z.object({
   name: z.string(),
@@ -106,20 +119,9 @@ export const FeeConfigSchema = z.object({
 
 export type FeeConfig = z.infer<typeof FeeConfigSchema>;
 
-export const PrintfulProviderDetailsSchema = z.object({
-  brand: z.string().optional(),
-  model: z.string().optional(),
-  description: z.string().optional(),
-  techniques: z.array(z.string()).optional(),
-  placements: z.array(z.string()).optional(),
-  gsm: z.number().optional(),
-  material: z.string().optional(),
-});
-
-export type PrintfulProviderDetails = z.infer<typeof PrintfulProviderDetailsSchema>;
-
 export const ProviderDetailsSchema = z.object({
   printful: PrintfulProviderDetailsSchema.optional(),
+  lulu: LuluProviderDetailsSchema.optional(),
 });
 
 export type ProviderDetails = z.infer<typeof ProviderDetailsSchema>;
@@ -421,6 +423,7 @@ export const ProductWithImagesSchema = z.object({
   fulfillmentProvider: z.string(),
   externalProductId: z.string().optional(),
   source: z.string(),
+  metadata: ProductMetadataSchema.optional(),
 });
 
 export const ProductCriteriaSchema = z.object({

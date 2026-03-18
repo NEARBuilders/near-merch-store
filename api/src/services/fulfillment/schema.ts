@@ -1,5 +1,10 @@
 import { z } from 'every-plugin/zod';
 import { DesignFileSchema } from '../../schema';
+import { PrintfulProviderDetailsSchema, type PrintfulProviderDetails } from './printful/types';
+import { LuluProviderDetailsSchema, type LuluProviderDetails } from './lulu/types';
+
+export { PrintfulProviderDetailsSchema, LuluProviderDetailsSchema };
+export type { PrintfulProviderDetails, LuluProviderDetails };
 
 export const FulfillmentProviderSchema = z.enum(['printful', 'gelato', 'lulu', 'manual']);
 
@@ -37,20 +42,9 @@ export const ProviderVariantSchema = z.object({
   providerData: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const PrintfulProviderDetailsSchema = z.object({
-  brand: z.string().optional(),
-  model: z.string().optional(),
-  description: z.string().optional(),
-  techniques: z.array(z.string()).optional(),
-  placements: z.array(z.string()).optional(),
-  gsm: z.number().optional(),
-  material: z.string().optional(),
-});
-
-export type PrintfulProviderDetails = z.infer<typeof PrintfulProviderDetailsSchema>;
-
 export const ProviderDetailsSchema = z.object({
   printful: PrintfulProviderDetailsSchema.optional(),
+  lulu: LuluProviderDetailsSchema.optional(),
 });
 
 export type ProviderDetails = z.infer<typeof ProviderDetailsSchema>;

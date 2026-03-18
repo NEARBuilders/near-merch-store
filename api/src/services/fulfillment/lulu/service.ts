@@ -70,6 +70,8 @@ export class LuluService {
         ? [{ type: 'preview', url: book.thumbnailUrl, previewUrl: book.thumbnailUrl }]
         : undefined;
 
+    const format = book.variantName || 'Paperback';
+
     return {
       id: book.id,
       sourceId: book.id,
@@ -94,6 +96,12 @@ export class LuluService {
           },
         },
       ],
+      providerDetails: {
+        lulu: {
+          pageCount: book.pageCount,
+          format,
+        },
+      },
     };
   }
 

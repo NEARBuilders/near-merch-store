@@ -2089,6 +2089,24 @@ export default createPlugin({
           }
         }),
 
+      getProviderFieldConfigs: builder.getProviderFieldConfigs
+        .use(requireAuth)
+        .handler(async ({ input }) => {
+          const { PRINTFUL_PROVIDER_FIELDS } = await import('./services/fulfillment/printful');
+          const { LULU_PROVIDER_FIELDS } = await import('./services/fulfillment/lulu');
+
+          const allConfigs = {
+            printful: PRINTFUL_PROVIDER_FIELDS,
+            lulu: LULU_PROVIDER_FIELDS,
+          };
+
+          if (input.provider) {
+            return { [input.provider]: allConfigs[input.provider] };
+          }
+
+          return allConfigs;
+        }),
+
       getCategories: builder.getCategories.handler(async () => {
         const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {

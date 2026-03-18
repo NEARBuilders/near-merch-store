@@ -64,6 +64,18 @@ export function useTestProvider() {
   });
 }
 
+export type ProviderFieldConfigs = Awaited<ReturnType<typeof apiClient.getProviderFieldConfigs>>;
+
+export function useProviderFieldConfigs(provider?: ProviderName) {
+  return useQuery({
+    queryKey: [...providerKeys.all, 'field-configs', provider],
+    queryFn: async () => {
+      return await apiClient.getProviderFieldConfigs({ provider });
+    },
+    staleTime: Infinity,
+  });
+}
+
 export const LULU_WEBHOOK_EVENTS: { value: LuluWebhookEventType; label: string; description: string }[] = [
   {
     value: 'PRINT_JOB_STATUS_CHANGED',
