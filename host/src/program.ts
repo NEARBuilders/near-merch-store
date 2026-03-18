@@ -351,7 +351,6 @@ export const createStartServer = (onReady?: () => void) =>
 		logMilestone("Server starting");
 
 		app.get("*", async (c: Context) => {
-			console.log(`[HTTP] ${c.req.method} ${c.req.url}`);
 			const loadingTime = Date.now() - loadingState.startTime;
 			const isTimedOut = loadingTime > 30000;
 
@@ -434,8 +433,6 @@ export const createStartServer = (onReady?: () => void) =>
 				const ssrApiClient = pluginApi?.createClient
 					? pluginApi.createClient(requestContext)
 					: undefined;
-
-				logger.info(`[SSR] Request: ${c.req.method} ${c.req.path}`);
 
 				const render = () =>
 					ssrRouterModule?.renderToStream(c.req.raw, {
