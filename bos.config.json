@@ -48,7 +48,7 @@
   "app": {
     "host": {
       "development": "http://localhost:3000",
-      "production": "https://elliot-braem-2383-host-near-merch-store-nearbuild-7fc2943ff-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-2408-host-near-merch-store-nearbuild-cb746069a-ze.zephyrcloud.app",
       "secrets": [
         "HOST_DATABASE_URL",
         "HOST_DATABASE_AUTH_TOKEN",
