@@ -1195,29 +1195,74 @@ export default createPlugin({
       deleteOrders: builder.deleteOrders
         .use(requireAdmin)
         .handler(async ({ input, context }) => {
-          const exit = await managedRuntime.runPromiseExit(
-            Effect.gen(function* () {
-              const store = yield* OrderStore;
-              const actor = `admin:${context.nearAccountId || "unknown"}`;
+          const actor = `admin:${context.nearAccountId || "unknown"}`;
+          const errors: { orderId: string; error: string }[] = [];
+          let deleted = 0;
 
-              return yield* store.deleteOrders(input.orderIds, actor);
-            }),
-          );
+          for (const orderId of input.orderIds) {
+            try {
+              const order = await managedRuntime.runPromise(
+                Effect.gen(function* () {
+                  const store = yield* OrderStore;
+                  return yield* store.find(orderId);
+                }),
+              );
 
-          if (Exit.isFailure(exit)) {
-            const error = Cause.squash(exit.cause);
-            if (error instanceof ORPCError) {
-              throw error;
+              if (!order) {
+                errors.push({ orderId, error: "Order not found" });
+                continue;
+              }
+
+              if (order.draftOrderIds && Object.keys(order.draftOrderIds).length > 0) {
+                for (const [providerName, externalId] of Object.entries(order.draftOrderIds)) {
+                  if (providerName === "manual") continue;
+
+                  const provider = runtime.getProvider(providerName);
+                  if (!provider) {
+                    console.warn(
+                      `[deleteOrders] Provider ${providerName} not found for order ${orderId}`,
+                    );
+                    continue;
+                  }
+
+                  try {
+                    await provider.client.cancelOrder({ id: externalId as string });
+                    console.log(
+                      `[deleteOrders] Cancelled ${providerName} order ${externalId} for order ${orderId}`,
+                    );
+                  } catch (err) {
+                    console.warn(
+                      `[deleteOrders] Failed to cancel ${providerName} order ${externalId}:`,
+                      err instanceof Error ? err.message : String(err),
+                    );
+                  }
+                }
+              }
+
+              const deleteResult = await managedRuntime.runPromise(
+                Effect.gen(function* () {
+                  const store = yield* OrderStore;
+                  return yield* store.deleteOrders([orderId], actor);
+                }),
+              );
+
+              if (deleteResult.deleted > 0) {
+                deleted++;
+              } else {
+                errors.push(...deleteResult.errors);
+              }
+            } catch (err) {
+              errors.push({
+                orderId,
+                error: err instanceof Error ? err.message : String(err),
+              });
             }
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: error instanceof Error ? error.message : String(error),
-            });
           }
 
           return {
             success: true,
-            deleted: exit.value.deleted,
-            errors: exit.value.errors,
+            deleted,
+            errors,
           };
         }),
 
@@ -1643,11 +1688,27 @@ export default createPlugin({
           // Map Lulu status to internal status
           let newStatus: OrderStatus | undefined = undefined;
           let newTracking: TrackingInfo[] | undefined = undefined;
+          let errorDetails: { code?: string; message?: string }[] | undefined = undefined;
 
           switch (eventType) {
             case 'PRINT_JOB_STATUS_CHANGED': {
               const luluStatus = typeof data.status === 'string' ? data.status : data.status?.name || 'CREATED';
               newStatus = luluService.mapStatus(luluStatus) as OrderStatus;
+              
+              // Handle error/rejected statuses with detailed logging
+              if (luluStatus === 'REJECTED' || luluStatus === 'ERROR') {
+                const errors = data.errors || [];
+                errorDetails = errors.map(e => ({
+                  code: e.code,
+                  message: e.message,
+                }));
+                
+                console.error(`[Lulu Webhook] Print job ${luluStatus} for order ${order.id}:`, {
+                  externalId,
+                  errors: errorDetails,
+                  rawData: data,
+                });
+              }
               
               // Check for tracking information in line items
               if (data.line_items && data.line_items.length > 0) {
@@ -1678,7 +1739,7 @@ export default createPlugin({
                   newStatus!,
                   'service:lulu',
                   eventType,
-                  { eventType, externalId, data }
+                  { eventType, externalId, data, errorDetails }
                 );
               })
             );

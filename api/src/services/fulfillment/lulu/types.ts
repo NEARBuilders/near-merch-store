@@ -187,6 +187,11 @@ export interface LuluPrintJobResponse {
     tracking_urls?: string[];
     carrier_name?: string;
   }>;
+  errors?: Array<{
+    code?: string;
+    message?: string;
+    field?: string;
+  }>;
 }
 
 export interface LuluWebhookPayload {
