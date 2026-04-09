@@ -7,6 +7,20 @@ const DesignFileSchema = z.object({
   url: z.string(),
 });
 
+export const ProviderDownloadSchema = z.object({
+  url: z.string().url(),
+  label: z.string().optional(),
+  kind: z.enum(['free', 'paid']).default('free'),
+  fileName: z.string().optional(),
+});
+
+export const ProviderMetadataSchema = z.object({
+  downloads: z.array(ProviderDownloadSchema).optional(),
+});
+
+export type ProviderDownload = z.infer<typeof ProviderDownloadSchema>;
+export type ProviderMetadata = z.infer<typeof ProviderMetadataSchema>;
+
 export { PrintfulProviderDetailsSchema, LuluProviderDetailsSchema };
 export type { PrintfulProviderDetails, LuluProviderDetails };
 
@@ -43,6 +57,7 @@ export const ProviderVariantSchema = z.object({
     url: z.string().nullable(),
     previewUrl: z.string().nullable().optional(),
   })).optional(),
+  metadata: ProviderMetadataSchema.optional(),
   providerData: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -60,6 +75,7 @@ export const ProviderProductSchema = z.object({
   description: z.string().optional(),
   thumbnailUrl: z.string().optional(),
   variants: z.array(ProviderVariantSchema),
+  metadata: ProviderMetadataSchema.optional(),
   providerDetails: ProviderDetailsSchema.optional(),
 });
 

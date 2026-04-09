@@ -459,11 +459,15 @@ export const ProductStoreLive = Layer.effect(
             if (existingProduct) {
               const existingMetadata = existingProduct.metadata as ProductMetadata | null;
               const newProviderDetails = product.metadata?.providerDetails;
+              const newDownloads = product.metadata?.downloads;
               
+              // Merge strategy: provider-controlled fields (providerDetails, downloads) prefer new data,
+              // while admin-controlled fields (creatorAccountId, fees, purchaseGate, affiliate) preserve existing
               const mergedMetadata: ProductMetadata = {
                 creatorAccountId: existingMetadata?.creatorAccountId,
                 fees: existingMetadata?.fees ?? [],
                 providerDetails: newProviderDetails ?? existingMetadata?.providerDetails,
+                downloads: newDownloads ?? existingMetadata?.downloads,
                 purchaseGate: existingMetadata?.purchaseGate,
                 affiliate: existingMetadata?.affiliate,
               };

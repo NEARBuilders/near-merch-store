@@ -43,6 +43,7 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
+  Download,
   Minus,
   Plus,
   Lock,
@@ -194,6 +195,9 @@ function ProductDetailPage() {
       ? undefined
       : new URLSearchParams(window.location.search).get("ref");
   const metadata = product.metadata as ProductMetadata | undefined;
+  const freeDownload = metadata?.downloads?.find(
+    (download) => download.kind === "free" || !download.kind
+  );
   const referralConfig = getReferralConfig(metadata);
   const normalizedNearAccountId = normalizeNearAccountId(nearAccountId);
   const normalizedRefAccountId = normalizeNearAccountId(ref);
@@ -817,7 +821,19 @@ function ProductDetailPage() {
 
             {/* Add to Cart Button */}
             <div className="pt-2">
-            {isGatedProduct && !canPurchase ? (
+              {freeDownload && (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="mb-3 w-full rounded-lg h-14 border-[#00EC97]/40 bg-[#00EC97]/10 text-base font-bold text-[#00EC97] hover:border-[#00EC97] hover:bg-[#00EC97]/12"
+                >
+                  <a href={freeDownload.url} target="_blank" rel="noreferrer">
+                    <Download className="size-5" />
+                    {freeDownload.label || "Download for Free"}
+                  </a>
+                </Button>
+              )}
+              {isGatedProduct && !canPurchase ? (
               <div className="space-y-2">
                 <Button
                   className="w-full bg-muted text-muted-foreground rounded-lg h-14 text-base font-bold cursor-not-allowed"
@@ -835,7 +851,7 @@ function ProductDetailPage() {
             ) : (
               <Button
                 onClick={handleAddToCart}
-                  className="w-full bg-[#00EC97] text-black hover:bg-[#00d97f] rounded-lg h-14 text-base font-bold transition-colors"
+                className="w-full rounded-lg h-14 bg-[#00EC97] text-base font-bold text-black transition-colors hover:bg-[#00d97f]"
                 disabled={(needsSize && !selectedVariant) || isAccessLoading}
               >
                 {isAccessLoading ? "Checking access..." : `Add to Cart - $${(displayPrice * quantity).toFixed(2)}`}

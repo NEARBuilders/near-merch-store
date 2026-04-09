@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from 'every-plugin/effect';
 import type { FulfillmentProvider, MarketplaceRuntime } from '../runtime';
-import type { Collection, FulfillmentConfig, Product, ProductImage, ProductOption, ProductCriteria } from '../schema';
+import type { Collection, FulfillmentConfig, Product, ProductImage, ProductOption, ProductCriteria, ProductMetadata } from '../schema';
 import { ProductStore, CollectionStore, type ProductVariantInput, type ProductWithImages } from '../store';
 import type { ProviderProduct } from './fulfillment/schema';
 import { generateProductId, generatePublicKey, generateSlug } from '../utils/product-ids';
@@ -167,6 +167,7 @@ function transformProviderProduct(
 
   const firstVariant = product.variants[0];
   const baseCurrency = firstVariant?.currency || 'USD';
+  const providerDownloads = product.metadata?.downloads;
 
   const variants: ProductVariantInput[] = product.variants.map((variant) => {
     const variantId = String(variant.id);
@@ -232,6 +233,7 @@ function transformProviderProduct(
     metadata: {
       fees: [],
       providerDetails: product.providerDetails,
+      downloads: providerDownloads,
     },
   };
 }

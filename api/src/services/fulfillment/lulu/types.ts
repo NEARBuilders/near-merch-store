@@ -6,6 +6,8 @@ export const LuluBookConfigSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
   thumbnailUrl: z.string().url().optional(),
+  downloadUrl: z.string().url().optional(),
+  downloadLabel: z.string().optional(),
   files: z.array(z.object({
     id: z.number().optional(),
     type: z.string(),

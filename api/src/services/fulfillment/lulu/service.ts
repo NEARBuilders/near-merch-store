@@ -69,6 +69,13 @@ export class LuluService {
       : book.thumbnailUrl
         ? [{ type: 'preview', url: book.thumbnailUrl, previewUrl: book.thumbnailUrl }]
         : undefined;
+    const downloads = book.downloadUrl
+      ? [{
+          url: book.downloadUrl,
+          label: book.downloadLabel || 'Download for Free',
+          kind: 'free' as const,
+        }]
+      : undefined;
 
     const format = book.variantName || 'Paperback';
 
@@ -96,6 +103,7 @@ export class LuluService {
           },
         },
       ],
+      metadata: downloads ? { downloads } : undefined,
       providerDetails: {
         lulu: {
           pageCount: book.pageCount,

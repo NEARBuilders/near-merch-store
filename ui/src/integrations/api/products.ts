@@ -1,4 +1,5 @@
 import { apiClient } from "@/utils/orpc";
+import type { ProductDownload } from "../../../../api/src/schema";
 import {
   useMutation,
   useQueries,
@@ -878,6 +879,7 @@ export type ProductMetadata = {
   creatorAccountId?: string;
   fees: FeeConfig[];
   providerDetails?: ProviderDetails;
+  downloads?: ProductDownload[];
   purchaseGate?: PurchaseGate;
   affiliate?: AffiliateMetadata;
 };
