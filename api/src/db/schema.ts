@@ -10,11 +10,38 @@ import {
 } from "drizzle-orm/pg-core";
 import type {
   Attribute,
-  FulfillmentConfig,
   ProviderWebhookEventType,
   ProductOption,
   ProductMetadata,
 } from "../schema";
+import type { FulfillmentFile } from "../services/fulfillment/schema";
+
+export interface FulfillmentConfig {
+  providerName: string;
+  providerConfig: Record<string, unknown>;
+  files: FulfillmentFile[];
+}
+
+export const assets = pgTable(
+  "assets",
+  {
+    id: text("id").primaryKey(),
+    url: text("url").notNull(),
+    type: text("type").notNull(),
+    name: text("name"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("assets_type_idx").on(table.type),
+    index("assets_url_idx").on(table.url),
+  ],
+);
 
 export const productTypes = pgTable("product_types", {
   slug: text("slug").primaryKey(),
@@ -53,6 +80,7 @@ export const products = pgTable(
     fulfillmentProvider: text("fulfillment_provider").notNull(),
     externalProductId: text("external_product_id"),
     source: text("source").notNull(),
+    assetId: text("asset_id").references(() => assets.id, { onDelete: "set null" }),
     lastSyncedAt: timestamp("last_synced_at", {
       withTimezone: true,
       mode: "date",

@@ -70,7 +70,7 @@ export async function createMarketplaceRuntime(
   fulfillmentConfig: FulfillmentConfig,
   paymentConfig?: PaymentConfig,
   exclusiveCheckConfig?: ExclusiveCheckConfig,
-) {
+): Promise<MarketplaceRuntime> {
   const runtime = createPluginRuntime({
     registry: {
       printful: { module: PrintfulPlugin },
@@ -118,7 +118,17 @@ export async function createMarketplaceRuntime(
     getPaymentProvider: (name: string) => paymentProviders.find((p) => p.name === name) ?? null,
     getExclusiveCheckProvider: (name: string) => exclusiveCheckProviders.find((p) => p.name === name) ?? null,
     shutdown: () => runtime.shutdown(),
+    luluBooks: fulfillmentConfig.lulu?.books ?? [],
   } as const;
 }
 
-export type MarketplaceRuntime = Awaited<ReturnType<typeof createMarketplaceRuntime>>;
+export interface MarketplaceRuntime {
+  readonly providers: FulfillmentProvider[];
+  readonly paymentProviders: PaymentProvider[];
+  readonly exclusiveCheckProviders: ExclusiveCheckProvider[];
+  readonly getProvider: (name: string) => FulfillmentProvider | null;
+  readonly getPaymentProvider: (name: string) => PaymentProvider | null;
+  readonly getExclusiveCheckProvider: (name: string) => ExclusiveCheckProvider | null;
+  readonly shutdown: () => Promise<void>;
+  readonly luluBooks: LuluBookConfig[];
+}

@@ -8,7 +8,6 @@ import {
   useSuspenseQuery,
   type QueryClient,
 } from "@tanstack/react-query";
-import { useState, useEffect, useCallback } from "react";
 import {
   productKeys,
   productTypeKeys,
@@ -17,12 +16,6 @@ import {
   type Category,
 } from "./keys";
 import { toast } from "sonner";
-
-type SyncProgressStream = Awaited<
-  ReturnType<typeof apiClient.subscribeSyncProgress>
->;
-export type SyncProgressEvent =
-  SyncProgressStream extends AsyncIterable<infer T> ? T : never;
 
 export type Product = Awaited<
   ReturnType<typeof apiClient.getProduct>
@@ -73,20 +66,6 @@ export function useProducts(options?: {
   });
 }
 
-export function useProduct(id: string) {
-  return useQuery({
-    queryKey: productKeys.detail(id),
-    queryFn: async () => {
-      const data = await apiClient.getProduct({ id });
-      return {
-        product: data.product,
-      };
-    },
-    enabled: !!id,
-    placeholderData: (prev) => prev,
-  });
-}
-
 export function useSuspenseProduct(id: string) {
   return useSuspenseQuery({
     queryKey: productKeys.detail(id),
@@ -110,16 +89,6 @@ export function useFeaturedProducts(limit = 12) {
   });
 }
 
-export function useSuspenseFeaturedProducts(limit = 12) {
-  return useSuspenseQuery({
-    queryKey: productKeys.featured(limit),
-    queryFn: async () => {
-      const data = await apiClient.getFeaturedProducts({ limit });
-      return data;
-    },
-  });
-}
-
 export function useSearchProducts(
   query: string,
   options?: {
@@ -136,24 +105,6 @@ export function useSearchProducts(
       return data;
     },
     enabled: query.length > 0,
-  });
-}
-
-export function useSuspenseSearchProducts(
-  query: string,
-  options?: {
-    limit?: number;
-  },
-) {
-  return useSuspenseQuery({
-    queryKey: productKeys.search(query, options?.limit),
-    queryFn: async () => {
-      const data = await apiClient.searchProducts({
-        query,
-        limit: options?.limit ?? 20,
-      });
-      return data;
-    },
   });
 }
 
@@ -249,174 +200,6 @@ export const productLoaders = {
     await qc.prefetchQuery(productLoaders.search(query, options));
   },
 };
-
-export function useSyncStatus() {
-  return useQuery({
-    queryKey: productKeys.syncStatus(),
-    queryFn: () => apiClient.getSyncStatus(),
-    refetchInterval: (query) => {
-      if (query.state.data?.status === "running") {
-        return 2000;
-      }
-      return false;
-    },
-  });
-}
-
-/**
- * Real-time sync progress subscription using SSE
- * This hook subscribes to sync progress updates while sync is running
- */
-export function useSyncProgressSubscription(isRunning: boolean) {
-  const queryClient = useQueryClient();
-  const [events, setEvents] = useState<SyncProgressEvent[]>([]);
-  const [finalEvent, setFinalEvent] = useState<SyncProgressEvent | null>(null);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-
-  useEffect(() => {
-    // Reset state when sync stops
-    if (!isRunning) {
-      setIsSubscribed(false);
-      return;
-    }
-
-    // Already subscribed, don't restart
-    if (isSubscribed) return;
-
-    const abortController = new AbortController();
-    let active = true;
-
-    setIsSubscribed(true);
-    setEvents([]);
-    setFinalEvent(null);
-
-    const subscribe = async () => {
-      try {
-        const stream = await apiClient.subscribeSyncProgress(
-          {},
-          { signal: abortController.signal },
-        );
-
-        for await (const event of stream) {
-          if (!active) break;
-
-          setEvents((prev) => [...prev, event]);
-
-          if (event.status === "completed" || event.status === "error") {
-            setFinalEvent(event);
-            setIsSubscribed(false);
-
-            // Show completion toast
-            if (event.status === "completed") {
-              const synced = event.totalSynced ?? 0;
-              const failed = event.totalFailed ?? 0;
-              const failedStr = failed > 0 ? ` (${failed} failed)` : "";
-              queryClient.invalidateQueries({ queryKey: productKeys.all });
-              toast.success(`Synced ${synced} products${failedStr}`);
-            } else if (event.status === "error") {
-              toast.error(event.message || "Sync failed");
-            }
-            break;
-          }
-        }
-      } catch (error) {
-        // Ignore abort errors (cleanup)
-        if (error instanceof Error && error.name === "AbortError") {
-          return;
-        }
-        console.error("Sync progress subscription error:", error);
-        setIsSubscribed(false);
-      }
-    };
-
-    subscribe();
-
-    return () => {
-      active = false;
-      abortController.abort();
-    };
-  }, [isRunning, queryClient]); // Only depend on isRunning, not isSubscribed
-
-  const reset = useCallback(() => {
-    setEvents([]);
-    setFinalEvent(null);
-    setIsSubscribed(false);
-  }, []);
-
-  return { events, finalEvent, isSubscribed, reset };
-}
-
-/**
- * Legacy hook - kept for backward compatibility
- * Use useSyncProgressSubscription for real-time updates
- */
-export function useSyncProgress() {
-  return useQuery({
-    queryKey: ["syncProgress"],
-    queryFn: async () => {
-      const events: SyncProgressEvent[] = [];
-      const stream = await apiClient.subscribeSyncProgress({});
-
-      for await (const event of stream) {
-        events.push(event);
-        if (event.status === "completed" || event.status === "error") {
-          return { events, finalEvent: event };
-        }
-      }
-
-      return { events, finalEvent: null };
-    },
-    refetchOnWindowFocus: false,
-    staleTime: Infinity,
-    gcTime: 1000 * 60 * 60,
-    enabled: false,
-  });
-}
-
-export function useSyncProducts() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => apiClient.sync(),
-    onSuccess: (data) => {
-      // Sync started in background - just invalidate status
-      queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
-
-      if (data.status === "started") {
-        toast.success("Sync started - progress will update automatically");
-      } else if (data.status === "already_running") {
-        toast.info("Sync is already in progress");
-      }
-    },
-    onError: (error) => {
-      queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
-
-      const errorCode =
-        (error as any)?.code || (error as any)?.response?.data?.code;
-      const errorMessage = (error as any)?.message || "Sync failed to start";
-
-      if (errorCode === "SYNC_IN_PROGRESS") {
-        toast.info("Sync is already in progress");
-      } else {
-        toast.error(errorMessage || "Failed to start sync");
-      }
-    },
-  });
-}
-
-export function useCancelSync() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => apiClient.cancelSync(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productKeys.syncStatus() });
-      queryClient.removeQueries({ queryKey: ["syncProgress"] });
-      toast.success("Sync cancelled");
-    },
-    onError: () => {
-      toast.error("Failed to cancel sync");
-    },
-  });
-}
 
 export function useUpdateProductListing() {
   const queryClient = useQueryClient();
@@ -816,17 +599,6 @@ export function useUpdateProductTypeItem() {
       description?: string;
       displayOrder?: number;
     }) => apiClient.updateProductTypeItem({ slug, ...data }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
-    },
-  });
-}
-
-export function useDeleteProductType() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ slug }: { slug: string }) =>
-      apiClient.deleteProductType({ slug }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: productTypeKeys.all });
     },

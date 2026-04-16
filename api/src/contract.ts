@@ -940,4 +940,256 @@ export const contract = oc.router({
     })
     .input(z.object({ slug: z.string() }))
     .output(z.object({ success: z.boolean() })),
+
+  // ─── Admin: Catalog Browsing ───
+
+  browseProviderCatalog: oc
+    .route({
+      method: "GET",
+      path: "/admin/catalog",
+      summary: "Browse provider catalog",
+      description: "Browses the catalog of a fulfillment provider (blanks/products).",
+      tags: ["Admin", "Catalog"],
+    })
+    .input(z.object({
+      provider: z.enum(["printful", "lulu"]),
+      limit: z.number().int().positive().max(100).default(50),
+      offset: z.number().int().min(0).default(0),
+    }))
+    .output(z.object({
+      products: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        brand: z.string().nullable().optional(),
+        model: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
+        image: z.string().nullable().optional(),
+        providerName: z.string(),
+        slots: z.array(z.object({
+          name: z.string(),
+          label: z.string().optional(),
+          required: z.boolean().optional(),
+          acceptedFormats: z.array(z.string()).optional(),
+        })).optional(),
+        variants: z.array(z.object({
+          id: z.string(),
+          name: z.string(),
+          size: z.string().nullable().optional(),
+          color: z.string().nullable().optional(),
+          colorCode: z.string().nullable().optional(),
+          image: z.string().nullable().optional(),
+          providerRef: z.string(),
+          price: z.object({
+            wholesale: z.number().optional(),
+            retail: z.number().optional(),
+            currency: z.string().optional(),
+          }).nullable().optional(),
+        })).optional(),
+      })),
+      total: z.number(),
+    }))
+    .errors({ UNAUTHORIZED }),
+
+  getProviderCatalogProduct: oc
+    .route({
+      method: "GET",
+      path: "/admin/catalog/{provider}/{id}",
+      summary: "Get provider catalog product",
+      description: "Gets details for a specific catalog product from a provider.",
+      tags: ["Admin", "Catalog"],
+    })
+    .input(z.object({
+      provider: z.enum(["printful", "lulu"]),
+      id: z.string(),
+    }))
+    .output(z.object({
+      product: z.object({
+        id: z.string(),
+        name: z.string(),
+        brand: z.string().nullable().optional(),
+        model: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
+        image: z.string().nullable().optional(),
+        providerName: z.string(),
+        slots: z.array(z.object({
+          name: z.string(),
+          label: z.string().optional(),
+          required: z.boolean().optional(),
+          acceptedFormats: z.array(z.string()).optional(),
+        })).optional(),
+      }),
+    }))
+    .errors({ NOT_FOUND, UNAUTHORIZED }),
+
+  getProviderCatalogVariants: oc
+    .route({
+      method: "GET",
+      path: "/admin/catalog/{provider}/{id}/variants",
+      summary: "Get provider catalog product variants",
+      description: "Gets variants for a specific catalog product from a provider.",
+      tags: ["Admin", "Catalog"],
+    })
+    .input(z.object({
+      provider: z.enum(["printful", "lulu"]),
+      id: z.string(),
+    }))
+    .output(z.object({
+      variants: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        size: z.string().nullable().optional(),
+        color: z.string().nullable().optional(),
+        colorCode: z.string().nullable().optional(),
+        image: z.string().nullable().optional(),
+        providerRef: z.string(),
+        price: z.object({
+          wholesale: z.number().optional(),
+          retail: z.number().optional(),
+          currency: z.string().optional(),
+        }).nullable().optional(),
+      })),
+    }))
+    .errors({ UNAUTHORIZED }),
+
+  // ─── Admin: Assets ───
+
+  createAsset: oc
+    .route({
+      method: "POST",
+      path: "/admin/assets",
+      summary: "Create an asset",
+      description: "Creates a new asset record with a URL.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({
+      url: z.string().url(),
+      type: z.string(),
+      name: z.string().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }))
+    .output(z.object({
+      id: z.string(),
+      url: z.string(),
+      type: z.string(),
+      name: z.string().nullable(),
+      metadata: z.record(z.string(), z.unknown()).nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    }))
+    .errors({ UNAUTHORIZED }),
+
+  listAssets: oc
+    .route({
+      method: "GET",
+      path: "/admin/assets",
+      summary: "List assets",
+      description: "Lists all assets with optional type filter.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({
+      type: z.string().optional(),
+      limit: z.number().int().positive().max(100).default(50),
+      offset: z.number().int().min(0).default(0),
+    }))
+    .output(z.object({
+      assets: z.array(z.object({
+        id: z.string(),
+        url: z.string(),
+        type: z.string(),
+        name: z.string().nullable(),
+        metadata: z.record(z.string(), z.unknown()).nullable(),
+        createdAt: z.string(),
+        updatedAt: z.string(),
+      })),
+      total: z.number(),
+    }))
+    .errors({ UNAUTHORIZED }),
+
+  deleteAsset: oc
+    .route({
+      method: "DELETE",
+      path: "/admin/assets/{id}",
+      summary: "Delete an asset",
+      description: "Deletes an asset by ID.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ success: z.boolean() }))
+    .errors({ UNAUTHORIZED }),
+
+  // ─── Admin: Migration ───
+
+  migrate: oc
+    .route({
+      method: "POST",
+      path: "/admin/migrate",
+      summary: "Migrate legacy fulfillment config",
+      description: "Migrates old-format fulfillment_config on product variants to the new shape, creates asset records, and seeds Lulu books.",
+      tags: ["Admin", "Migration"],
+    })
+    .output(z.object({
+      variantsMigrated: z.number(),
+      variantsSkipped: z.number(),
+      assetsCreated: z.number(),
+      luluBooksSeeded: z.number(),
+      errors: z.array(z.object({
+        productId: z.string().optional(),
+        variantId: z.string().optional(),
+        error: z.string(),
+      })),
+    }))
+    .errors({ UNAUTHORIZED }),
+
+  // ─── Admin: Product Builder ───
+
+  buildProduct: oc
+    .route({
+      method: "POST",
+      path: "/admin/products/build",
+      summary: "Build a product",
+      description: "Creates a product with the given variants, files, and provider config. Caller constructs providerConfig per variant (opaque to the builder).",
+      tags: ["Admin", "Products"],
+    })
+    .input(z.object({
+      name: z.string(),
+      description: z.string().optional(),
+      providerName: z.string(),
+      image: z.string().optional(),
+      variants: z.array(z.object({
+        name: z.string(),
+        variantRef: z.string(),
+        providerConfig: z.record(z.string(), z.unknown()),
+        attributes: z.array(z.object({ name: z.string(), value: z.string() })).optional(),
+        price: z.number().optional(),
+        currency: z.string().optional(),
+        sku: z.string().optional(),
+      })).min(1),
+      files: z.array(z.object({
+        assetId: z.string(),
+        url: z.string(),
+        slot: z.string().optional(),
+        metadata: z.record(z.string(), z.unknown()).optional(),
+      })),
+      assetId: z.string().optional(),
+      priceOverride: z.number().optional(),
+      currency: z.string().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }))
+    .output(ProductSchema)
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
+
+  generateProductMockups: oc
+    .route({
+      method: "POST",
+      path: "/admin/products/{id}/mockups",
+      summary: "Generate mockups for a product",
+      description: "Triggers mockup generation for an existing product.",
+      tags: ["Admin", "Products"],
+    })
+    .input(z.object({
+      id: z.string(),
+      styleIds: z.array(z.number()).optional(),
+    }))
+    .output(ProductSchema)
+    .errors({ NOT_FOUND, UNAUTHORIZED }),
 });

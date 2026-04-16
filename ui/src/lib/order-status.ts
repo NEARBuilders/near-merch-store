@@ -41,13 +41,13 @@ export const statusLabels: Record<OrderStatus, string> = {
   refunded: 'Refunded',
 };
 
-export const adminStatusLabels: Record<OrderStatus, string> = {
+const adminStatusLabels: Record<OrderStatus, string> = {
   ...statusLabels,
   processing: 'Processed',
   on_hold: 'Blocked',
 };
 
-export const statusColors: Record<OrderStatus, string> = {
+const statusColors: Record<OrderStatus, string> = {
   pending: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
   draft_created: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
   payment_pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',

@@ -1,10 +1,10 @@
-export interface FieldRule {
+interface FieldRule {
   required?: boolean;
   maxLength?: number;
   errorMessage?: string;
 }
 
-export interface ProviderRules {
+interface ProviderRules {
   addressLine1?: FieldRule;
   addressLine2?: FieldRule;
   phone?: FieldRule;
@@ -40,5 +40,4 @@ export const PROVIDER_ADDRESS_RULES: Record<string, ProviderRules> = {
   gelato: {},
 };
 
-export type ProviderName = keyof typeof PROVIDER_ADDRESS_RULES;
 export type FieldName = keyof ProviderRules;

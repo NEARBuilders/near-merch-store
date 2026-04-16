@@ -1,18 +1,9 @@
-export type CategoryId = string;
-
 export interface Category {
   slug: string;
   id: string;
   name: string;
   description?: string;
   image?: string;
-}
-
-export interface ProductType {
-  slug: string;
-  label: string;
-  description?: string;
-  displayOrder: number;
 }
 
 export const productKeys = {

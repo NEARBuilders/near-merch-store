@@ -146,18 +146,13 @@ function buildRecipient(address: ShippingAddress) {
 function mapToFulfillmentItems(providerItems: ProviderItemGroup[], selectedRateId?: string): FulfillmentOrderItem[] {
   return providerItems.map(pi => {
     const config = pi.fulfillmentConfig;
-    const providerData = config?.providerData as Record<string, unknown> | undefined;
+    const providerConfig = config?.providerConfig as Record<string, unknown> | undefined;
     const mergedProviderConfig = {
-      ...(providerData || {}),
+      ...(providerConfig || {}),
       ...(selectedRateId ? { shippingLevel: selectedRateId } : {}),
     };
 
-    const files = (config?.designFiles || []).map((df: any) => ({
-      assetId: df.assetId || `asset-${df.slot || 'default'}`,
-      url: df.url,
-      slot: df.slot || df.placement,
-      metadata: df.metadata,
-    }));
+    const files = config?.files || [];
 
     return {
       providerConfig: mergedProviderConfig,
@@ -255,16 +250,10 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
             {
               const taxItems = providerItems.map(pi => {
                 const config = pi.fulfillmentConfig;
-                const providerData = config?.providerData as Record<string, unknown> | undefined;
                 return {
-                  providerConfig: providerData || {},
+                  providerConfig: config?.providerConfig || {},
                   quantity: pi.item.quantity,
-                  files: (config?.designFiles || []).map((df: any) => ({
-                    assetId: df.assetId || `asset-${df.slot || 'default'}`,
-                    url: df.url,
-                    slot: df.slot || df.placement,
-                    metadata: df.metadata,
-                  })),
+                  files: config?.files || [],
                 };
               });
 

@@ -2,28 +2,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/utils/orpc';
 
 export type ProviderConfig = Awaited<ReturnType<typeof apiClient.getProviderConfig>>['config'];
-export type ProviderName = Parameters<typeof apiClient.getProviderConfig>[0]['provider'];
+type ProviderName = Parameters<typeof apiClient.getProviderConfig>[0]['provider'];
 
 type ConfigureWebhookParams = Parameters<typeof apiClient.configureWebhook>[0];
-export type ProviderWebhookEventType = ConfigureWebhookParams['events'][number];
+type ProviderWebhookEventType = ConfigureWebhookParams['events'][number];
 export type PrintfulWebhookEventType = Exclude<ProviderWebhookEventType, 'PRINT_JOB_STATUS_CHANGED'>;
-export type LuluWebhookEventType = 'PRINT_JOB_STATUS_CHANGED';
+type LuluWebhookEventType = 'PRINT_JOB_STATUS_CHANGED';
 
-export const providerKeys = {
+const providerKeys = {
   all: ['providers'] as const,
   config: (provider: ProviderName) => [...providerKeys.all, 'config', provider] as const,
 };
-
-export function useProviderConfig(provider: ProviderName) {
-  return useQuery({
-    queryKey: providerKeys.config(provider),
-    queryFn: async () => {
-      const result = await apiClient.getProviderConfig({ provider });
-      return result.config;
-    },
-    staleTime: 30_000,
-  });
-}
 
 export function useConfigureWebhook() {
   const queryClient = useQueryClient();

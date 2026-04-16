@@ -73,13 +73,13 @@ export function getAttributeHex(
  * Falls back to first variant image, then product image, then variant fulfillment design file.
  */
 export function getVariantImageUrl(
-  product: { images?: Array<{ url: string; type?: string; variantIds?: string[] }>; variants?: Array<{ id: string; fulfillmentConfig?: { designFiles?: Array<{ url: string }> } }> },
+  product: { images?: Array<{ url: string; type?: string; variantIds?: string[] }>; variants?: Array<{ id: string; fulfillmentConfig?: { files?: Array<{ url: string }> } }> },
   variantId: string
 ): string | undefined {
   if (!product.images || product.images.length === 0) {
     // Fallback to variant fulfillment design file
     const variant = product.variants?.find((v) => v.id === variantId);
-    return variant?.fulfillmentConfig?.designFiles?.[0]?.url;
+    return variant?.fulfillmentConfig?.files?.[0]?.url;
   }
 
   // First, try to find a variant-specific image (not mockup, not detail)
@@ -118,5 +118,5 @@ export function getVariantImageUrl(
 
   // Last resort: variant fulfillment design file
   const variant = product.variants?.find((v) => v.id === variantId);
-  return variant?.fulfillmentConfig?.designFiles?.[0]?.url;
+  return variant?.fulfillmentConfig?.files?.[0]?.url;
 }

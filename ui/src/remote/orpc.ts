@@ -1,12 +1,11 @@
 import { createORPCClient, onError } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
-import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { contract } from "../../../api/src/contract";
 
-export type ApiContract = typeof contract;
-export type ApiClient = ContractRouterClient<ApiContract>;
+type ApiContract = typeof contract;
+type ApiClient = ContractRouterClient<ApiContract>;
 
 /**
  * IMPORTANT:
@@ -20,29 +19,6 @@ export type ApiClient = ContractRouterClient<ApiContract>;
 declare global {
   var $apiClient: ApiClient | undefined;
 }
-
-export const queryClient = new QueryClient({
-  queryCache: new QueryCache({
-    onError: () => { },
-  }),
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
-      retry: (failureCount, error) => {
-        // this needs better parity with the api behavior (oRPC Error and Effect)
-        if (error && typeof error === "object" && "message" in error) {
-          const message = String(error.message).toLowerCase();
-          if (message.includes("fetch") || message.includes("network")) {
-            return false;
-          }
-        }
-        return failureCount < 2;
-      },
-      refetchOnWindowFocus: false,
-    },
-  },
-});
 
 function createApiLink() {
   return new RPCLink({

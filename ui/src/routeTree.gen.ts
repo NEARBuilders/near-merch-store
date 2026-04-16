@@ -215,7 +215,7 @@ const MarketplaceAuthenticatedAdminDashboardCollectionsRoute =
     getParentRoute: () => MarketplaceAuthenticatedAdminRoute,
   } as any)
 
-export interface FileRoutesByFullPath {
+interface FileRoutesByFullPath {
   '/': typeof MarketplaceIndexRoute
   '/cart': typeof MarketplaceCartRoute
   '/exclusives': typeof MarketplaceExclusivesRoute
@@ -244,7 +244,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/users': typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
   '/dashboard/': typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
-export interface FileRoutesByTo {
+interface FileRoutesByTo {
   '/': typeof MarketplaceIndexRoute
   '/cart': typeof MarketplaceCartRoute
   '/exclusives': typeof MarketplaceExclusivesRoute
@@ -272,7 +272,7 @@ export interface FileRoutesByTo {
   '/dashboard/users': typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
   '/dashboard': typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
-export interface FileRoutesById {
+interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_marketplace': typeof MarketplaceRouteWithChildren
   '/_marketplace/_authenticated': typeof MarketplaceAuthenticatedRouteWithChildren
@@ -306,7 +306,7 @@ export interface FileRoutesById {
   '/_marketplace/_authenticated/_admin/dashboard/users': typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
   '/_marketplace/_authenticated/_admin/dashboard/': typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
-export interface FileRouteTypes {
+interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
@@ -399,7 +399,7 @@ export interface FileRouteTypes {
     | '/_marketplace/_authenticated/_admin/dashboard/'
   fileRoutesById: FileRoutesById
 }
-export interface RootRouteChildren {
+interface RootRouteChildren {
   MarketplaceRoute: typeof MarketplaceRouteWithChildren
 }
 

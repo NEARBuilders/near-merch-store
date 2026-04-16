@@ -7,6 +7,7 @@ import {
   Users,
   Settings,
   Tags,
+  Plus,
   ChevronRight,
   ChevronDown,
   ArrowLeft,
@@ -79,18 +80,20 @@ function AdminLayout() {
   const isUsersActive = !!matchRoute({ to: "/dashboard/users" });
   const isProvidersActive = !!matchRoute({ to: "/dashboard/providers" });
   const isCollectionsActive = !!matchRoute({ to: "/dashboard/collections" });
+  const isNewProductActive = !!matchRoute({ to: "/dashboard/new-product" });
 
   const getActiveSectionName = () => {
     if (isOverviewActive) return "Overview";
     if (isInventoryActive) return "Inventory";
     if (isOrdersActive) return "Orders";
     if (isUsersActive) return "Users";
-    if (isProvidersActive) return "Providers";
-    if (isCollectionsActive) return "Collections";
-    return "Overview";
+if (isProvidersActive) return "Providers";
+  if (isCollectionsActive) return "Collections";
+  if (isNewProductActive) return "Create Product";
+  return "Overview";
   };
 
-  const hasActiveSection = isOverviewActive || isInventoryActive || isOrdersActive || isUsersActive || isProvidersActive || isCollectionsActive;
+  const hasActiveSection = isOverviewActive || isInventoryActive || isOrdersActive || isUsersActive || isProvidersActive || isCollectionsActive || isNewProductActive;
 
   return (
     <div className="bg-background min-h-screen pt-32 overflow-x-hidden">
@@ -226,6 +229,18 @@ function AdminLayout() {
                         Collections
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="focus:bg-transparent hover:bg-transparent focus:text-[#00EC97] p-0">
+                      <Link
+                        to="/dashboard/new-product"
+                        preload="intent"
+                        preloadDelay={0}
+                        className={`block text-sm font-semibold transition-colors px-3 py-2 rounded-lg ${
+                          isNewProductActive ? 'text-[#00EC97]' : 'text-foreground hover:text-[#00EC97]'
+                        }`}
+                      >
+                        Create Product
+                      </Link>
+                    </DropdownMenuItem>
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -325,6 +340,22 @@ function AdminLayout() {
               >
                 <Tags className="size-4" />
                 <span className="flex-1 text-sm font-semibold">Collections</span>
+                <ChevronRight className="size-4" />
+              </Link>
+
+              <Link
+                to="/dashboard/new-product"
+                preload="intent"
+                preloadDelay={0}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors rounded-lg",
+                  isNewProductActive
+                    ? "bg-[#00EC97] border border-[#00EC97] text-black"
+                    : "bg-background border border-border/60 hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black"
+                )}
+              >
+                <Plus className="size-4" />
+                <span className="flex-1 text-sm font-semibold">Create Product</span>
                 <ChevronRight className="size-4" />
               </Link>
             </div>

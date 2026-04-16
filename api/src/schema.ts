@@ -27,16 +27,17 @@ export const ProductOptionSchema = z.object({
   position: z.number(),
 });
 
-export const DesignFileSchema = z.object({
-  placement: z.string(),
+export const FulfillmentFileSchema = z.object({
+  assetId: z.string(),
   url: z.string(),
+  slot: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const FulfillmentConfigSchema = z.object({
-  externalVariantId: z.string().nullable().optional(),
-  externalProductId: z.string().nullable().optional(),
-  designFiles: z.array(DesignFileSchema).optional(),
-  providerData: z.record(z.string(), z.unknown()).optional(),
+  providerName: z.string(),
+  providerConfig: z.record(z.string(), z.unknown()),
+  files: z.array(FulfillmentFileSchema),
 });
 
 export const ProductImageTypeSchema = z.enum([
@@ -187,13 +188,14 @@ export const ProductSchema = z.object({
   options: z.array(ProductOptionSchema).default([]),
   images: z.array(ProductImageSchema).default([]),
   variants: z.array(ProductVariantSchema).default([]),
-  designFiles: z.array(DesignFileSchema).default([]),
+  designFiles: z.array(FulfillmentFileSchema).default([]),
   thumbnailImage: z.string().optional(),
   fulfillmentProvider: z.string().default("manual"),
   externalProductId: z.string().optional(),
   source: z.string().optional(),
   vendor: z.string().optional(),
   listed: z.boolean().default(true),
+  assetId: z.string().optional(),
   metadata: ProductMetadataSchema.optional(),
 });
 
@@ -431,10 +433,11 @@ export const ProductWithImagesSchema = z.object({
   images: z.array(ProductImageSchema),
   thumbnailImage: z.string().optional(),
   variants: z.array(ProductVariantInputSchema),
-  designFiles: z.array(DesignFileSchema).default([]),
+  designFiles: z.array(FulfillmentFileSchema).default([]),
   fulfillmentProvider: z.string(),
   externalProductId: z.string().optional(),
   source: z.string(),
+  assetId: z.string().optional(),
   metadata: ProductMetadataSchema.optional(),
 });
 

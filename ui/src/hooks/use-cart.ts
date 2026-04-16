@@ -7,7 +7,7 @@ import {
 import { useCartStore } from "@/stores/cart-store";
 import { useMemo } from "react";
 
-export interface CartItemWithProduct extends CartItem {
+interface CartItemWithProduct extends CartItem {
   id: string;
   product: Product;
 }

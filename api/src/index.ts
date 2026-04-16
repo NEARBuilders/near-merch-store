@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 import { createPlugin } from 'every-plugin';
-import { Effect, Layer, Schedule, Cause, Exit, Fiber } from 'every-plugin/effect';
+import { Effect, Layer, Schedule, Cause, Exit } from 'every-plugin/effect';
 import { ManagedRuntime } from 'every-plugin/effect';
 import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
@@ -11,11 +11,12 @@ import { ReturnAddressSchema, type ConfigureWebhookOutput, type OrderStatus, typ
 import { CheckoutService, CheckoutServiceLive } from './services/checkout';
 import { CheckoutError } from './services/checkout/errors';
 import { ProductService, ProductServiceLive } from './services/products';
+import { ProductBuilderService, ProductBuilderServiceLive } from './services/product-builder';
+import { AssetService, AssetServiceLive } from './services/assets';
+import { MigrationService, MigrationServiceLive } from './services/migration-service';
 import { StripeService } from './services/stripe';
 import { NewsletterService, NewsletterServiceLive } from './services/newsletter';
-import { syncProgressStore, type SyncProgress } from './services/sync-progress';
-import { syncManager } from './services/sync-manager';
-import { DatabaseLive, OrderStore, OrderStoreLive, ProductStore, ProductStoreLive, ProductTypeStore, ProductTypeStoreLive, CollectionStoreLive } from './store';
+import { DatabaseLive, OrderStore, OrderStoreLive, ProductStore, ProductStoreLive, ProductTypeStore, ProductTypeStoreLive, CollectionStoreLive, AssetStoreLive } from './store';
 import { NewsletterStoreLive } from './store/newsletter';
 import { ProviderConfigStore, ProviderConfigStoreLive } from './store/providers';
 import { computePrintfulUpdate, parsePrintfulWebhook, verifyPrintfulWebhookSignature } from './services/fulfillment/printful/webhook';
@@ -147,6 +148,7 @@ export default createPlugin({
           ProviderConfigStoreLive,
           ProductTypeStoreLive,
           NewsletterStoreLive,
+          AssetStoreLive,
         ),
         dbLayer,
       );
@@ -156,6 +158,9 @@ export default createPlugin({
           ProductServiceLive(runtime),
           CheckoutServiceLive(runtime),
           NewsletterServiceLive,
+          AssetServiceLive,
+          ProductBuilderServiceLive(runtime),
+          MigrationServiceLive(runtime),
         ),
         storesLayer,
       );
@@ -522,160 +527,41 @@ export default createPlugin({
         }),
 
       sync: builder.sync.handler(async () => {
-        return await managedRuntime.runPromise(
-          Effect.gen(function* () {
-            const service = yield* ProductService;
-            const store = yield* ProductStore;
-            const syncStartedAt = new Date();
-
-            // Check if sync already in progress
-            const isInProgress = yield* store.isSyncInProgress("products");
-            if (isInProgress) {
-              const existingStatus = yield* store.getSyncStatus("products");
-              return {
-                status: "already_running" as const,
-                syncStartedAt: new Date(
-                  existingStatus.syncStartedAt || Date.now(),
-                ).toISOString(),
-                message: "Sync is already in progress",
-              };
-            }
-
-            // Set running status
-            yield* store.setSyncStatus(
-              "products",
-              "running",
-              null,
-              null,
-              null,
-              null,
-              syncStartedAt,
-            );
-
-            // Reset progress store
-            syncProgressStore.reset();
-
-            // Create the sync effect
-            const syncEffect = service.sync();
-
-            // Fork sync as background fiber - do NOT wait for completion
-            yield* syncManager.startSync(syncEffect);
-
-            // Return immediately - sync runs in background
-            return {
-              status: "started" as const,
-              syncStartedAt: syncStartedAt.toISOString(),
-              message: "Sync started in background",
-            };
-          }),
-        );
+        throw new ORPCError('GONE', {
+          message: 'Sync has been replaced by the product builder. Use the admin API to create products.',
+        });
       }),
 
       getSyncStatus: builder.getSyncStatus.handler(async () => {
-        const exit = await managedRuntime.runPromiseExit(
-          Effect.gen(function* () {
-            const service = yield* ProductService;
-            return yield* service.getSyncStatus();
-          }),
-        );
-
-        if (Exit.isFailure(exit)) {
-          const error = Cause.squash(exit.cause);
-          if (error instanceof ORPCError) {
-            throw error;
-          }
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-
-        return exit.value;
+        return {
+          status: "idle" as const,
+          lastSuccessAt: null,
+          lastErrorAt: null,
+          errorMessage: null,
+          syncStartedAt: null,
+          updatedAt: Date.now(),
+          errorData: null,
+        };
       }),
 
       subscribeSyncProgress: builder.subscribeSyncProgress.handler(
-        async function* ({ signal }) {
-          const queue: SyncProgress[] = [];
-          let resolve: ((value: SyncProgress) => void) | null = null;
-
-          const unsubscribe = syncProgressStore.subscribe((progress) => {
-            if (resolve) {
-              resolve(progress);
-              resolve = null;
-            } else {
-              queue.push(progress);
-            }
-          });
-
-          signal?.addEventListener("abort", () => {
-            unsubscribe();
-            if (resolve) resolve = null;
-          });
-
-          try {
-            // Yield initial state
-            yield syncProgressStore.get();
-
-            while (!signal?.aborted) {
-              if (queue.length > 0) {
-                const progress = queue.shift()!;
-                yield progress;
-
-                if (
-                  progress.status === "completed" ||
-                  progress.status === "error"
-                ) {
-                  return;
-                }
-              } else {
-                // Wait for next update
-                const progress = await new Promise<SyncProgress>((r) => {
-                  resolve = r;
-                });
-                yield progress;
-
-                if (
-                  progress.status === "completed" ||
-                  progress.status === "error"
-                ) {
-                  return;
-                }
-              }
-            }
-          } finally {
-            unsubscribe();
-          }
+        async function* () {
+          yield {
+            status: "idle" as const,
+            providers: {},
+            totalSynced: 0,
+            totalFailed: 0,
+            totalRemoved: 0,
+            timestamp: Date.now(),
+          };
         },
       ),
 
       cancelSync: builder.cancelSync.handler(async () => {
-        return await managedRuntime.runPromise(
-          Effect.gen(function* () {
-            const cancelled = yield* syncManager.cancelSync();
-            const store = yield* ProductStore;
-
-            if (cancelled) {
-              yield* store.setSyncStatus(
-                "products",
-                "idle",
-                null,
-                null,
-                null,
-                null,
-                null,
-              );
-
-              return {
-                success: true,
-                message: "Sync cancelled successfully",
-              };
-            }
-
-            return {
-              success: false,
-              message: "No active sync to cancel",
-            };
-          }),
-        );
+        return {
+          success: false,
+          message: "Sync has been replaced by the product builder",
+        };
       }),
 
       getNearPrice: builder.getNearPrice.handler(async () => {
@@ -2295,6 +2181,173 @@ export default createPlugin({
           return exit.value;
         },
       ),
+
+      // ─── Admin: Catalog Browsing ───
+
+      browseProviderCatalog: builder.browseProviderCatalog
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const provider = runtime.getProvider(input.provider);
+          if (!provider) {
+            throw new ORPCError('NOT_FOUND', {
+              message: `Provider ${input.provider} not configured`,
+            });
+          }
+          return await provider.client.browseCatalog({
+            limit: input.limit,
+            offset: input.offset,
+          });
+        }),
+
+      getProviderCatalogProduct: builder.getProviderCatalogProduct
+        .use(requireAdmin)
+        .handler(async ({ input, errors }) => {
+          const provider = runtime.getProvider(input.provider);
+          if (!provider) {
+            throw new ORPCError('NOT_FOUND', {
+              message: `Provider ${input.provider} not configured`,
+            });
+          }
+          try {
+            return await provider.client.getCatalogProduct({ id: input.id });
+          } catch {
+            throw errors.NOT_FOUND({
+              message: `Catalog product ${input.id} not found`,
+              data: { resource: 'catalog_product', resourceId: input.id },
+            });
+          }
+        }),
+
+      getProviderCatalogVariants: builder.getProviderCatalogVariants
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const provider = runtime.getProvider(input.provider);
+          if (!provider) {
+            throw new ORPCError('NOT_FOUND', {
+              message: `Provider ${input.provider} not configured`,
+            });
+          }
+          return await provider.client.getCatalogProductVariants({ id: input.id });
+        }),
+
+      // ─── Admin: Assets ───
+
+      createAsset: builder.createAsset
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const service = yield* AssetService;
+              return yield* service.create(input);
+            }),
+          );
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+          return exit.value;
+        }),
+
+      listAssets: builder.listAssets
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const service = yield* AssetService;
+              return yield* service.list(input);
+            }),
+          );
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+          return exit.value;
+        }),
+
+      deleteAsset: builder.deleteAsset
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const service = yield* AssetService;
+              yield* service.delete(input.id);
+              return { success: true };
+            }),
+          );
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+          return exit.value;
+        }),
+
+      // ─── Admin: Product Builder ───
+
+      buildProduct: builder.buildProduct
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const service = yield* ProductBuilderService;
+              return yield* service.build(input);
+            }),
+          );
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) throw error;
+            throw new ORPCError('BAD_REQUEST', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+          return exit.value;
+        }),
+
+      generateProductMockups: builder.generateProductMockups
+        .use(requireAdmin)
+        .handler(async ({ input, errors }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const service = yield* ProductBuilderService;
+              return yield* service.triggerMockups(input.id, input.styleIds);
+            }),
+          );
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) throw error;
+            throw errors.NOT_FOUND({
+              message: error instanceof Error ? error.message : String(error),
+              data: { resource: 'product', resourceId: input.id },
+            });
+          }
+          return exit.value;
+        }),
+
+      // ─── Admin: Migration ───
+
+      migrate: builder.migrate
+        .use(requireAdmin)
+        .handler(async () => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const service = yield* MigrationService;
+              return yield* service.runMigration();
+            }),
+          );
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) throw error;
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+          return exit.value;
+        }),
     };
   },
 });

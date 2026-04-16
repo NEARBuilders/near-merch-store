@@ -20,7 +20,7 @@ export function formatPhoneNumberInput(value: string, countryCode?: CountryCode)
   return digits;
 }
 
-export function isValidPhoneNumber(phone: string, countryCode?: CountryCode): boolean {
+function isValidPhoneNumber(phone: string, countryCode?: CountryCode): boolean {
   if (!phone) return false;
 
   if (countryCode) {
@@ -44,25 +44,6 @@ export function getPhoneValidationError(phone: string, countryCode?: CountryCode
   }
 
   return undefined;
-}
-
-export function toE164(phone: string, countryCode?: CountryCode): string | undefined {
-  if (!phone) return undefined;
-
-  const parsed = countryCode
-    ? parsePhoneNumberFromString(phone, countryCode)
-    : parsePhoneNumberFromString(phone);
-
-  return parsed?.isValid() ? parsed.format('E.164') : undefined;
-}
-
-export function getExampleNumber(countryCode: CountryCode): string | undefined {
-  try {
-    const callingCode = getCountryCallingCode(countryCode);
-    return `+${callingCode}`;
-  } catch {
-    return '+1';
-  }
 }
 
 export function getPhonePlaceholder(countryCode?: CountryCode): string {

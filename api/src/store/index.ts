@@ -1,6 +1,12 @@
 export { Database, DatabaseLive } from "./database";
 
 export {
+  AssetStore,
+  AssetStoreLive,
+  type Asset,
+} from "./assets";
+
+export {
   ProductStore,
   ProductStoreLive,
 } from "./products";
