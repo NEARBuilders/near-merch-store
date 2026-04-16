@@ -32,35 +32,6 @@ import {
   GetOrderAuditLogOutputSchema,
 } from "./schema";
 
-const ProviderProgressSchema = z.object({
-  status: z.enum(["idle", "fetching", "syncing", "completed", "error"]),
-  phase: z.enum([
-    "init",
-    "fetch_products",
-    "fetch_details",
-    "sync_to_db",
-    "cleanup",
-  ]),
-  total: z.number(),
-  synced: z.number(),
-  failed: z.number(),
-  currentProduct: z.string().nullable().optional(),
-  message: z.string().nullable().optional(),
-});
-
-const SyncProgressEventSchema = z.object({
-  status: z.enum(["idle", "syncing", "completed", "error"]),
-  providers: z.record(z.string(), ProviderProgressSchema),
-  totalSynced: z.number(),
-  totalFailed: z.number(),
-  totalRemoved: z.number(),
-  timestamp: z.number(),
-  message: z.string().nullable().optional(),
-});
-
-export type ProviderProgress = z.infer<typeof ProviderProgressSchema>;
-export type SyncProgress = z.infer<typeof SyncProgressEventSchema>;
-
 export const contract = oc.router({
   ping: oc
     .route({
@@ -437,17 +408,6 @@ export const contract = oc.router({
     .input(z.unknown())
     .output(WebhookResponseSchema),
 
-  gelatoWebhook: oc
-    .route({
-      method: "POST",
-      path: "/webhooks/gelato",
-      summary: "Gelato webhook",
-      description: "Handles Gelato webhook events for order status updates.",
-      tags: ["Webhooks"],
-    })
-    .input(z.unknown())
-    .output(WebhookResponseSchema),
-
   luluWebhook: oc
     .route({
       method: 'POST',
@@ -469,98 +429,6 @@ export const contract = oc.router({
     })
     .input(z.unknown())
     .output(WebhookResponseSchema),
-
-  sync: oc
-    .route({
-      method: "POST",
-      path: "/sync",
-      summary: "Sync products from fulfillment providers",
-      description:
-        "Triggers background sync from configured providers. Returns immediately with sync status. " +
-        "Use subscribeSyncProgress SSE endpoint to track progress in real-time. " +
-        "Enforces single sync at a time (mutual exclusion).",
-      tags: ["Sync"],
-    })
-    .output(
-      z.object({
-        status: z.enum(["started", "already_running"]),
-        syncStartedAt: z.string().datetime().describe("ISO 8601 timestamp"),
-        message: z.string().describe("Human-readable status"),
-      }),
-    )
-    .errors({
-      SYNC_IN_PROGRESS: {
-        status: 409,
-        message: "Sync is already in progress. Only one sync can run at a time",
-        data: z.object({
-          syncStartedAt: z
-            .string()
-            .datetime()
-            .describe("When previous sync started"),
-          duration: z
-            .number()
-            .describe("How long it has been running (seconds)"),
-        }),
-      },
-    }),
-
-  cancelSync: oc
-    .route({
-      method: "POST",
-      path: "/sync/cancel",
-      summary: "Cancel active sync",
-      description:
-        "Interrupts an in-progress sync and resets to idle state. " +
-        "Useful for recovering from stuck or stale sync operations.",
-      tags: ["Sync"],
-    })
-    .output(
-      z.object({
-        success: z.boolean().describe("Whether a sync was cancelled"),
-        message: z.string().describe("Human-readable result"),
-      }),
-    ),
-
-  getSyncStatus: oc
-    .route({
-      method: "GET",
-      path: "/sync-status",
-      summary: "Get sync status",
-      description:
-        "Returns current sync status. Auto-detects stale syncs (>5min) and returns error state. " +
-        "Includes error context and timestamps.",
-      tags: ["Sync"],
-    })
-    .output(
-      z.object({
-        status: z.enum(["idle", "running", "error"]),
-        lastSuccessAt: z
-          .number()
-          .nullable()
-          .describe("Last successful sync (epoch ms)"),
-        lastErrorAt: z.number().nullable().describe("Last error timestamp"),
-        errorMessage: z.string().nullable().describe("Latest error message"),
-        syncStartedAt: z
-          .number()
-          .nullable()
-          .describe("Current sync start (epoch ms)"),
-        updatedAt: z.number().describe("Last status update time"),
-        errorData: z
-          .record(z.string(), z.any())
-          .nullable()
-          .describe("Full error context"),
-      }),
-    ),
-
-  subscribeSyncProgress: oc
-    .route({
-      method: "GET",
-      path: "/sync/progress",
-      summary: "Subscribe to sync progress",
-      description: "SSE endpoint streaming real-time sync progress updates.",
-      tags: ["Sync"],
-    })
-    .output(eventIterator(SyncProgressEventSchema)),
 
   updateProductListing: oc
     .route({

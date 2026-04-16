@@ -526,44 +526,6 @@ export default createPlugin({
           return exit.value;
         }),
 
-      sync: builder.sync.handler(async () => {
-        throw new ORPCError('GONE', {
-          message: 'Sync has been replaced by the product builder. Use the admin API to create products.',
-        });
-      }),
-
-      getSyncStatus: builder.getSyncStatus.handler(async () => {
-        return {
-          status: "idle" as const,
-          lastSuccessAt: null,
-          lastErrorAt: null,
-          errorMessage: null,
-          syncStartedAt: null,
-          updatedAt: Date.now(),
-          errorData: null,
-        };
-      }),
-
-      subscribeSyncProgress: builder.subscribeSyncProgress.handler(
-        async function* () {
-          yield {
-            status: "idle" as const,
-            providers: {},
-            totalSynced: 0,
-            totalFailed: 0,
-            totalRemoved: 0,
-            timestamp: Date.now(),
-          };
-        },
-      ),
-
-      cancelSync: builder.cancelSync.handler(async () => {
-        return {
-          success: false,
-          message: "Sync has been replaced by the product builder",
-        };
-      }),
-
       getNearPrice: builder.getNearPrice.handler(async () => {
         const COINGECKO_URL =
           "https://api.coingecko.com/api/v3/simple/price?ids=near&vs_currencies=usd";
@@ -1390,12 +1352,6 @@ export default createPlugin({
           return { received: true };
         },
       ),
-
-
-      gelatoWebhook: builder.gelatoWebhook.handler(async () => {
-        console.warn('[Gelato Webhook] Received but Gelato plugin is not configured');
-        return { received: true };
-      }),
 
       luluWebhook: builder.luluWebhook.handler(async ({ input, context }) => {
         const signature = context.reqHeaders?.get('Lulu-HMAC-SHA256') || '';
