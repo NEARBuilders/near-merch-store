@@ -1,7 +1,9 @@
 import { createPlugin } from 'every-plugin';
 import { Effect } from 'every-plugin/effect';
+import { ORPCError } from 'every-plugin/orpc';
 import { z } from 'every-plugin/zod';
 import { FulfillmentContract } from '../contract';
+import { FulfillmentError } from '../errors';
 import { LuluService } from './service';
 import { LuluBookConfigSchema } from './types';
 
@@ -10,6 +12,23 @@ const LULU_PRODUCT_IMAGE_URLS = [
   'https://assets.nearmerch.com/book.png',
   'https://assets.nearmerch.com/book-front.png',
 ];
+
+const mapError = (error: unknown) => {
+  if (error instanceof FulfillmentError) {
+    switch (error.code) {
+      case 'UNSUPPORTED_OPERATION':
+        return new ORPCError('NOT_IMPLEMENTED', { message: error.message });
+      case 'NOT_FOUND':
+        return new ORPCError('NOT_FOUND', { message: error.message });
+      default:
+        return new ORPCError('INTERNAL_SERVER_ERROR', { message: error.message });
+    }
+  }
+  return error;
+};
+
+const run = <T, E>(effect: Effect.Effect<T, E>) =>
+  Effect.runPromise(effect.pipe(Effect.mapError(mapError as any))) as Promise<T>;
 
 export default createPlugin({
   variables: z.object({
@@ -47,9 +66,7 @@ export default createPlugin({
 
       console.log('[Lulu Plugin] Initialized successfully');
 
-      return {
-        service,
-      };
+      return { service };
     }),
 
   shutdown: () => Effect.void,
@@ -58,49 +75,31 @@ export default createPlugin({
     const { service } = context;
 
     return {
-      ping: builder.ping.handler(async () => {
-        const result = await Effect.runPromise(service.ping());
-        if (!result.success) {
-          throw new Error(result.message || 'Lulu connection failed');
-        }
-        return {
-          provider: 'lulu',
-          status: 'ok' as const,
-          timestamp: result.timestamp,
-        };
-      }),
+      ping: builder.ping.handler(async () => run(service.ping())),
 
-      getProducts: builder.getProducts.handler(async ({ input }) => {
-        return await Effect.runPromise(service.getProducts(input));
-      }),
+      browseCatalog: builder.browseCatalog.handler(async ({ input }) => run(service.browseCatalog(input))),
 
-      getProduct: builder.getProduct.handler(async ({ input }) => {
-        return await Effect.runPromise(service.getProduct(input.id));
-      }),
+      getCatalogProduct: builder.getCatalogProduct.handler(async ({ input }) => run(service.getCatalogProduct(input))),
 
-      createOrder: builder.createOrder.handler(async ({ input }) => {
-        return await Effect.runPromise(service.createOrder(input));
-      }),
+      getCatalogProductVariants: builder.getCatalogProductVariants.handler(async ({ input }) => run(service.getCatalogProductVariants(input))),
 
-      getOrder: builder.getOrder.handler(async ({ input }) => {
-        return await Effect.runPromise(service.getOrder(input.id));
-      }),
+      getVariantPrice: builder.getVariantPrice.handler(async ({ input }) => run(service.getVariantPrice(input))),
 
-      quoteOrder: builder.quoteOrder.handler(async ({ input }) => {
-        return await Effect.runPromise(service.quoteOrder(input));
-      }),
+      generateMockups: builder.generateMockups.handler(async ({ input }) => run(service.generateMockups(input))),
 
-      calculateTax: builder.calculateTax.handler(async ({ input }) => {
-        return await Effect.runPromise(service.calculateTax(input));
-      }),
+      getMockupResult: builder.getMockupResult.handler(async ({ input }) => run(service.getMockupResult(input.taskId))),
 
-      confirmOrder: builder.confirmOrder.handler(async ({ input }) => {
-        return await Effect.runPromise(service.confirmOrder(input.id));
-      }),
+      createOrder: builder.createOrder.handler(async ({ input }) => run(service.createOrder(input))),
 
-      cancelOrder: builder.cancelOrder.handler(async ({ input }) => {
-        return await Effect.runPromise(service.cancelOrder(input.id));
-      }),
+      getOrder: builder.getOrder.handler(async ({ input }) => run(service.getOrder(input.id))),
+
+      confirmOrder: builder.confirmOrder.handler(async ({ input }) => run(service.confirmOrder(input.id))),
+
+      cancelOrder: builder.cancelOrder.handler(async ({ input }) => run(service.cancelOrder(input.id))),
+
+      quoteShipping: builder.quoteShipping.handler(async ({ input }) => run(service.quoteOrder(input))),
+
+      calculateTax: builder.calculateTax.handler(async ({ input }) => run(service.calculateTax(input))),
     };
   },
 });

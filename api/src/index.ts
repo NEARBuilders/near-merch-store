@@ -107,15 +107,6 @@ export default createPlugin({
                     webhookSecret: config.secrets.PRINTFUL_WEBHOOK_SECRET,
                   }
                 : undefined,
-            gelato:
-              config.secrets.GELATO_API_KEY &&
-              config.secrets.GELATO_WEBHOOK_SECRET
-                ? {
-                    apiKey: config.secrets.GELATO_API_KEY,
-                    webhookSecret: config.secrets.GELATO_WEBHOOK_SECRET,
-                    returnAddress: config.variables.returnAddress,
-                  }
-                : undefined,
             lulu:
               config.secrets.LULU_CLIENT_KEY && config.secrets.LULU_CLIENT_SECRET
                 ? {
@@ -1514,121 +1505,11 @@ export default createPlugin({
         },
       ),
 
-      gelatoWebhook: builder.gelatoWebhook.handler(
-        async ({ input, context }) => {
-          let eventType: string | undefined;
-          let externalId: string | undefined;
 
-          try {
-            const rawBody =
-              (await context.getRawBody?.()) ??
-              JSON.stringify(input as unknown);
-            const payload = JSON.parse(rawBody);
-            eventType = payload.event;
-            const orderData = payload.order || payload;
-
-            externalId = orderData.orderReferenceId || orderData.externalId;
-            if (!externalId) {
-              return { received: true };
-            }
-
-            const order = await managedRuntime.runPromise(
-              Effect.gen(function* () {
-                const store = yield* OrderStore;
-                let order = yield* store.findByFulfillmentRef(externalId!);
-                if (!order) {
-                  order = yield* store.find(externalId!);
-                }
-                return order;
-              }),
-            );
-
-            if (!order) {
-              return { received: true };
-            }
-
-            let newStatus: OrderStatus | undefined = undefined;
-            let newTracking: TrackingInfo[] | undefined = undefined;
-
-            switch (eventType) {
-              case "shipment_created":
-              case "shipment:created":
-                newStatus = "shipped";
-                const shipments = orderData.shipments || [orderData.shipment];
-                if (shipments && shipments.length > 0) {
-                  newTracking = shipments.map((s: any) => ({
-                    trackingCode: s.trackingCode || s.tracking_code || "",
-                    trackingUrl: s.trackingUrl || s.tracking_url || "",
-                    shipmentMethodName:
-                      s.shipmentMethodName || s.method || "Standard",
-                    shipmentMethodUid: s.shipmentMethodUid,
-                    fulfillmentCountry: s.fulfillmentCountry,
-                  }));
-                }
-                break;
-
-              case "order_cancelled":
-              case "order:cancelled":
-                newStatus = "cancelled";
-                break;
-
-              case "delivered":
-              case "order:delivered":
-                newStatus = "delivered";
-                break;
-
-              case "order_created":
-              case "order:created":
-                newStatus = "processing";
-                break;
-
-              default:
-                break;
-            }
-
-            if (newStatus && order) {
-              const statusToUpdate = newStatus;
-              await managedRuntime.runPromise(
-                Effect.gen(function* () {
-                  const store = yield* OrderStore;
-                  yield* store.updateStatus(
-                    order.id,
-                    statusToUpdate,
-                    "service:gelato",
-                    eventType,
-                    { eventType, externalId, orderData },
-                  );
-                }),
-              );
-            }
-
-            if (newTracking && order) {
-              const trackingToUpdate = newTracking;
-              await managedRuntime.runPromise(
-                Effect.gen(function* () {
-                  const store = yield* OrderStore;
-                  yield* store.updateTracking(
-                    order.id,
-                    trackingToUpdate,
-                    "service:gelato",
-                    { eventType, externalId },
-                  );
-                }),
-              );
-            }
-          } catch (error) {
-            // Log error but return 200 to prevent webhook retries
-            console.error("[Gelato Webhook] Processing error:", {
-              error: error instanceof Error ? error.message : String(error),
-              stack: error instanceof Error ? error.stack : undefined,
-              eventType,
-              externalId,
-            });
-          }
-
-          return { received: true };
-        },
-      ),
+      gelatoWebhook: builder.gelatoWebhook.handler(async () => {
+        console.warn('[Gelato Webhook] Received but Gelato plugin is not configured');
+        return { received: true };
+      }),
 
       luluWebhook: builder.luluWebhook.handler(async ({ input, context }) => {
         const signature = context.reqHeaders?.get('Lulu-HMAC-SHA256') || '';
@@ -2046,7 +1927,7 @@ export default createPlugin({
         .use(requireAuth)
         .handler(async ({ input }) => {
           try {
-            let result: { success: boolean; message?: string; timestamp: string };
+            let result: { provider: string; status: string; timestamp: string };
             if (input.provider === 'printful') {
               const printfulProvider = runtime.getProvider('printful');
               if (!printfulProvider) {
@@ -2074,9 +1955,9 @@ export default createPlugin({
             }
 
             return {
-              success: result.success,
+              success: true,
               timestamp: result.timestamp,
-              message: result.message,
+              message: `${result.provider}: ${result.status}`,
             };
           } catch (error) {
             return {

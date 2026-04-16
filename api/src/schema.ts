@@ -1,10 +1,12 @@
 import { z } from "every-plugin/zod";
 import {
   PrintfulProviderDetailsSchema,
-  LuluProviderDetailsSchema,
   type PrintfulProviderDetails,
+} from './services/fulfillment/printful/types';
+import {
+  LuluProviderDetailsSchema,
   type LuluProviderDetails,
-} from './services/fulfillment/schema';
+} from './services/fulfillment/lulu/types';
 
 export {
   PrintfulProviderDetailsSchema,

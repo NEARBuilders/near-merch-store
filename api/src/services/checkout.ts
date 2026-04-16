@@ -147,21 +147,22 @@ function mapToFulfillmentItems(providerItems: ProviderItemGroup[], selectedRateI
   return providerItems.map(pi => {
     const config = pi.fulfillmentConfig;
     const providerData = config?.providerData as Record<string, unknown> | undefined;
-    const mergedProviderData = selectedRateId
-      ? { ...(providerData || {}), shippingLevel: selectedRateId }
-      : providerData;
+    const mergedProviderConfig = {
+      ...(providerData || {}),
+      ...(selectedRateId ? { shippingLevel: selectedRateId } : {}),
+    };
+
+    const files = (config?.designFiles || []).map((df: any) => ({
+      assetId: df.assetId || `asset-${df.slot || 'default'}`,
+      url: df.url,
+      slot: df.slot || df.placement,
+      metadata: df.metadata,
+    }));
 
     return {
-      externalVariantId: config?.externalVariantId || undefined,
-      productId: providerData?.catalogProductId as number | undefined,
-      variantId: providerData?.catalogVariantId as number | undefined,
+      providerConfig: mergedProviderConfig,
+      files,
       quantity: pi.item.quantity,
-      files: config?.designFiles?.map((df) => ({
-        url: df.url,
-        type: "default" as const,
-        placement: df.placement,
-      })),
-      providerData: mergedProviderData,
     };
   });
 }
@@ -251,23 +252,21 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               };
             }
 
-            if (providerName === 'printful') {
-              const taxItems: Array<{
-                catalogVariantId: number;
-                quantity: number;
-                designFiles?: Array<{ placement: string; url: string }>;
-              }> = [];
-
-              for (const pi of providerItems) {
-                const catalogVariantId = pi.fulfillmentConfig?.providerData?.catalogVariantId;
-                if (catalogVariantId && typeof catalogVariantId === 'number') {
-                  taxItems.push({
-                    catalogVariantId,
-                    quantity: pi.item.quantity,
-                    designFiles: pi.fulfillmentConfig?.designFiles,
-                  });
-                }
-              }
+            {
+              const taxItems = providerItems.map(pi => {
+                const config = pi.fulfillmentConfig;
+                const providerData = config?.providerData as Record<string, unknown> | undefined;
+                return {
+                  providerConfig: providerData || {},
+                  quantity: pi.item.quantity,
+                  files: (config?.designFiles || []).map((df: any) => ({
+                    assetId: df.assetId || `asset-${df.slot || 'default'}`,
+                    url: df.url,
+                    slot: df.slot || df.placement,
+                    metadata: df.metadata,
+                  })),
+                };
+              });
 
               if (taxItems.length === 0) {
                 return {
@@ -456,9 +455,9 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               const fulfillmentItems = mapToFulfillmentItems(providerItems);
               const providerStartedAt = Date.now();
 
-              const quoteResult = yield* Effect.tryPromise({
+              const quoteResult: any = yield* Effect.tryPromise({
                 try: () =>
-                  provider.client.quoteOrder({
+                  provider.client.quoteShipping({
                     recipient: buildRecipient(address),
                     items: fulfillmentItems,
                     currency,
@@ -478,11 +477,11 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
                 );
               }
 
-              const selectedRate = rates.reduce((cheapest, rate) =>
+              const selectedRate = rates.reduce((cheapest: any, rate: any) =>
                 rate.rate < cheapest.rate ? rate : cheapest,
               );
 
-              const availableRates: ProviderShippingOption[] = rates.map(rate => ({
+              const availableRates: any[] = rates.map((rate: any) => ({
                 provider: providerName,
                 rateId: rate.id,
                 rateName: rate.name,
@@ -684,7 +683,7 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               const quoteResultOption = yield* Effect.option(
                 Effect.tryPromise({
                   try: () =>
-                    provider.client.quoteOrder({
+                    provider.client.quoteShipping({
                       recipient: buildRecipient(address),
                       items: fulfillmentItems,
                       currency,
@@ -702,9 +701,9 @@ export const CheckoutServiceLive = (runtime: MarketplaceRuntime) =>
               );
 
               if (quoteResultOption._tag === "Some") {
-                const quoteResult = quoteResultOption.value;
-                const selectedRate = quoteResult.rates?.find(
-                  (r) => r.id === selectedRateId,
+                const quoteResult: any = quoteResultOption.value;
+                const selectedRate = (quoteResult.rates || [])?.find(
+                  (r: any) => r.id === selectedRateId,
                 );
                 if (selectedRate) {
                   verifiedShippingCost += selectedRate.rate;

@@ -90,8 +90,8 @@ function transformProviderProduct(
   providerName: string,
   product: ProviderProduct
 ): ProductWithImages {
-  const firstVariantWithDesigns = product.variants.find(v => v.designFiles?.length);
-  const designFiles = firstVariantWithDesigns?.designFiles || [];
+  const firstVariantWithFiles = product.variants.find(v => v.files?.length);
+  const firstFiles = firstVariantWithFiles?.files || [];
 
   const imageMap = new Map<string, ProductImage>();
   const thumbnailUrl = product.thumbnailUrl;
@@ -114,19 +114,17 @@ function transformProviderProduct(
 
     if (!variant.files) continue;
     for (const file of variant.files) {
-      const url = file.previewUrl || file.url;
+      const url = file.url;
       if (!url) continue;
 
       if (!imageMap.has(url)) {
-        const imageId = file.id != null
-          ? `file-${file.id}-${variant.id}`
-          : `file-${variant.id}-${imageOrder}`;
+        const imageId = `file-${file.assetId}-${variant.id}`;
 
         imageMap.set(url, {
           id: imageId,
           url,
-          type: file.type === 'preview' ? 'preview' : 'detail',
-          placement: file.type !== 'preview' && file.type !== 'default' ? file.type : undefined,
+          type: file.slot === 'preview' ? 'preview' : 'detail',
+          placement: file.slot && file.slot !== 'preview' && file.slot !== 'default' ? file.slot : undefined,
           order: imageOrder++,
           variantIds: [variantId],
         });
@@ -175,7 +173,7 @@ function transformProviderProduct(
     const fulfillmentConfig: FulfillmentConfig = {
       externalVariantId: providerName === 'printful' ? String(variant.id) : variantId,
       externalProductId: String(product.sourceId),
-      designFiles: variant.designFiles,
+      designFiles: variant.files?.map(f => ({ placement: f.slot || 'default', url: f.url })),
       providerData: providerName === 'printful'
         ? {
           catalogVariantId: variant.catalogVariantId,
@@ -226,7 +224,7 @@ function transformProviderProduct(
     images,
     thumbnailImage: thumbnailUrl,
     variants,
-    designFiles,
+    designFiles: firstFiles?.map(f => ({ placement: f.slot || 'default', url: f.url })) || [],
     fulfillmentProvider: providerName,
     externalProductId: String(product.sourceId),
     source: providerName,
@@ -298,7 +296,7 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
             pageCount++;
 
             const pageResult = yield* Effect.tryPromise({
-              try: () => provider.client.getProducts({ limit: PAGE_SIZE, offset }),
+              try: () => provider.client.browseCatalog({ limit: PAGE_SIZE, offset }),
               catch: (e) => {
                 const issues = extractValidationIssues(e);
                 if (issues) {
@@ -310,7 +308,9 @@ export const ProductServiceLive = (runtime: MarketplaceRuntime) =>
                 return new Error(`Failed to fetch products from ${provider.name} page ${pageCount}: ${errorMessage}`);
               },
             });
-            const { products, failed: pageFailed = [], total = 0 } = pageResult;
+            const products: any[] = pageResult.products || [];
+            const total = pageResult.total || 0;
+            const pageFailed: any[] = [];
             
             allProducts = [...allProducts, ...products];
             totalFetchFailed = [...totalFetchFailed, ...pageFailed];

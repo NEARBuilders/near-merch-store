@@ -6,6 +6,50 @@ import { FulfillmentContract } from '../contract';
 import { FulfillmentError } from '../errors';
 import { PrintfulService } from './service';
 
+const mapFulfillmentErrorToORPC = (error: FulfillmentError) => {
+  switch (error.code) {
+    case 'RATE_LIMIT':
+      return new ORPCError('TOO_MANY_REQUESTS', {
+        message: error.message,
+        data: { provider: error.provider, statusCode: error.statusCode },
+      });
+    case 'INVALID_ADDRESS':
+    case 'INVALID_REQUEST':
+      return new ORPCError('BAD_REQUEST', {
+        message: error.message,
+        data: { provider: error.provider, code: error.code },
+      });
+    case 'AUTHENTICATION_FAILED':
+      return new ORPCError('UNAUTHORIZED', {
+        message: error.message,
+        data: { provider: error.provider },
+      });
+    case 'SERVICE_UNAVAILABLE':
+      return new ORPCError('SERVICE_UNAVAILABLE', {
+        message: error.message,
+        data: { provider: error.provider },
+      });
+    case 'NOT_FOUND':
+      return new ORPCError('NOT_FOUND', {
+        message: error.message,
+        data: { provider: error.provider },
+      });
+    case 'UNSUPPORTED_OPERATION':
+      return new ORPCError('NOT_IMPLEMENTED', {
+        message: error.message,
+        data: { provider: error.provider },
+      });
+    default:
+      return new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: error.message,
+        data: { provider: error.provider },
+      });
+  }
+};
+
+const wrapHandler = <T>(effect: Effect.Effect<T, FulfillmentError>) =>
+  Effect.runPromise(effect.pipe(Effect.mapError(mapFulfillmentErrorToORPC)));
+
 export default createPlugin({
   variables: z.object({
     baseUrl: z.string().default('https://api.printful.com'),
@@ -38,144 +82,60 @@ export default createPlugin({
   shutdown: () => Effect.void,
 
   createRouter: (context, builder) => {
-    const { service, webhookSecret } = context;
+    const { service } = context;
 
     return {
-      ping: builder.ping.handler(async () => ({
-        provider: 'printful',
-        status: 'ok' as const,
-        timestamp: new Date().toISOString(),
-      })),
+      ping: builder.ping.handler(async () =>
+        wrapHandler(service.ping())
+      ),
 
-      getProducts: builder.getProducts.handler(async ({ input }) => {
-        return await Effect.runPromise(service.getProducts(input));
-      }),
+      browseCatalog: builder.browseCatalog.handler(async ({ input }) =>
+        wrapHandler(service.browseCatalog(input))
+      ),
 
-      getProduct: builder.getProduct.handler(async ({ input }) => {
-        return await Effect.runPromise(service.getProduct(input.id));
-      }),
+      getCatalogProduct: builder.getCatalogProduct.handler(async ({ input }) =>
+        wrapHandler(service.getCatalogProduct(input))
+      ),
 
-      createOrder: builder.createOrder.handler(async ({ input }) => {
-        return await Effect.runPromise(service.createOrder(input));
-      }),
+      getCatalogProductVariants: builder.getCatalogProductVariants.handler(async ({ input }) =>
+        wrapHandler(service.getCatalogProductVariants(input))
+      ),
 
-      getOrder: builder.getOrder.handler(async ({ input }) => {
-        return await Effect.runPromise(service.getOrder(input.id));
-      }),
+      getVariantPrice: builder.getVariantPrice.handler(async ({ input }) =>
+        wrapHandler(service.getVariantPrice(input))
+      ),
 
-      quoteOrder: builder.quoteOrder.handler(async ({ input }) => {
-        const mapFulfillmentErrorToORPC = (error: Error) => {
-          if (error instanceof FulfillmentError) {
-            switch (error.code) {
-              case 'RATE_LIMIT':
-                return new ORPCError('TOO_MANY_REQUESTS', {
-                  message: error.message,
-                  data: { provider: error.provider, statusCode: error.statusCode },
-                });
-              case 'INVALID_ADDRESS':
-              case 'INVALID_REQUEST':
-                return new ORPCError('BAD_REQUEST', {
-                  message: error.message,
-                  data: { provider: error.provider, code: error.code },
-                });
-              case 'AUTHENTICATION_FAILED':
-                return new ORPCError('UNAUTHORIZED', {
-                  message: error.message,
-                  data: { provider: error.provider },
-                });
-              case 'SERVICE_UNAVAILABLE':
-                return new ORPCError('SERVICE_UNAVAILABLE', {
-                  message: error.message,
-                  data: { provider: error.provider },
-                });
-              case 'NO_RATES_AVAILABLE':
-                return new ORPCError('NOT_FOUND', {
-                  message: error.message,
-                  data: { provider: error.provider },
-                });
-              default:
-                return new ORPCError('INTERNAL_SERVER_ERROR', {
-                  message: error.message,
-                  data: { provider: error.provider },
-                });
-            }
-          }
-          return error;
-        };
+      generateMockups: builder.generateMockups.handler(async ({ input }) =>
+        wrapHandler(service.generateMockups(input))
+      ),
 
-        return await Effect.runPromise(
-          service.quoteOrder(input).pipe(
-            Effect.mapError(mapFulfillmentErrorToORPC)
-          )
-        );
-      }),
+      getMockupResult: builder.getMockupResult.handler(async ({ input }) =>
+        wrapHandler(service.getMockupResult(input.taskId))
+      ),
 
-      calculateTax: builder.calculateTax.handler(async ({ input }) => {
-        const isQuoteMode = input.mode !== 'checkout';
-        const startedAt = Date.now();
+      createOrder: builder.createOrder.handler(async ({ input }) =>
+        wrapHandler(service.createOrder(input))
+      ),
 
-        try {
-          const result = await Effect.runPromise(service.estimateOrder({
-            recipient: {
-              countryCode: input.recipient.countryCode,
-              zip: input.recipient.zip,
-              stateCode: input.recipient.stateCode,
-            },
-            items: input.items.map(item => ({
-              catalogVariantId: item.catalogVariantId,
-              quantity: item.quantity,
-              designFiles: item.designFiles,
-            })),
-            currency: input.currency,
-          }, isQuoteMode ? {
-            timeoutMs: 5000,
-            requestTimeoutMs: 5000,
-            retries: 0,
-          } : undefined));
+      getOrder: builder.getOrder.handler(async ({ input }) =>
+        wrapHandler(service.getOrder(input))
+      ),
 
-          console.log(
-            `[printful] Tax calculation (${input.mode ?? 'quote'}) completed in ${Date.now() - startedAt}ms`,
-          );
+      confirmOrder: builder.confirmOrder.handler(async ({ input }) =>
+        wrapHandler(service.confirmOrder(input))
+      ),
 
-          const hasTax = result.tax > 0 || result.vat > 0;
+      cancelOrder: builder.cancelOrder.handler(async ({ input }) =>
+        wrapHandler(service.cancelOrder(input))
+      ),
 
-          return {
-            required: hasTax,
-            rate: result.subtotal > 0 ? result.tax / result.subtotal : 0,
-            shippingTaxable: true,
-            exempt: !hasTax,
-            taxAmount: result.tax,
-            vat: result.vat,
-          };
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+      quoteShipping: builder.quoteShipping.handler(async ({ input }) =>
+        wrapHandler(service.quoteShipping(input))
+      ),
 
-          if (isQuoteMode) {
-            console.warn(
-              `[printful] Tax calculation skipped during quote after ${Date.now() - startedAt}ms: ${errorMessage}`,
-            );
-
-            return {
-              required: false,
-              rate: 0,
-              shippingTaxable: false,
-              exempt: true,
-              taxAmount: 0,
-              vat: 0,
-            };
-          }
-
-          throw error;
-        }
-      }),
-
-      confirmOrder: builder.confirmOrder.handler(async ({ input }) => {
-        return await Effect.runPromise(service.confirmOrder(input.id));
-      }),
-
-      cancelOrder: builder.cancelOrder.handler(async ({ input }) => {
-        return await Effect.runPromise(service.cancelOrder(input.id));
-      }),
+      calculateTax: builder.calculateTax.handler(async ({ input }) =>
+        wrapHandler(service.calculateTax(input))
+      ),
     };
   },
 });
