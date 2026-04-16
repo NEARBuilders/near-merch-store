@@ -119,6 +119,15 @@ export const FeeConfigSchema = z.object({
 
 export type FeeConfig = z.infer<typeof FeeConfigSchema>;
 
+export const ProductDownloadSchema = z.object({
+  url: z.string().url(),
+  label: z.string().optional(),
+  kind: z.enum(["free", "paid"]).default("free"),
+  fileName: z.string().optional(),
+});
+
+export type ProductDownload = z.infer<typeof ProductDownloadSchema>;
+
 export const ProviderDetailsSchema = z.object({
   printful: PrintfulProviderDetailsSchema.optional(),
   lulu: LuluProviderDetailsSchema.optional(),
@@ -151,6 +160,7 @@ export const ProductMetadataSchema = z.object({
   creatorAccountId: z.string().optional(),
   fees: z.array(FeeConfigSchema).default([]),
   providerDetails: ProviderDetailsSchema.optional(),
+  downloads: z.array(ProductDownloadSchema).optional(),
   purchaseGate: PurchaseGateSchema.optional(),
   affiliate: AffiliateMetadataSchema.optional(),
 });

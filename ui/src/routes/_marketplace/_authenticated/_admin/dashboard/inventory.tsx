@@ -767,12 +767,14 @@ function MetadataSummary({ metadata }: { metadata?: ProductMetadata }) {
     0,
   );
   const totalPercentage = totalBps / 100;
+  const hasDownloads = (resolvedMetadata.downloads?.length ?? 0) > 0;
 
   if (
     resolvedMetadata.fees.length === 0 &&
     !resolvedMetadata.creatorAccountId &&
     !resolvedMetadata.purchaseGate?.pluginId &&
-    !resolvedMetadata.affiliate?.referral?.enabled
+    !resolvedMetadata.affiliate?.referral?.enabled &&
+    !hasDownloads
   ) {
     return (
       <span className="text-xs text-foreground/60 dark:text-muted-foreground">
@@ -799,6 +801,11 @@ function MetadataSummary({ metadata }: { metadata?: ProductMetadata }) {
       {resolvedMetadata.affiliate?.referral?.enabled && (
         <Badge variant="outline" className="font-normal text-xs">
           Ref {(resolvedMetadata.affiliate.referral.feeBps ?? 0) / 100}%
+        </Badge>
+      )}
+      {hasDownloads && (
+        <Badge variant="outline" className="font-normal text-xs">
+          Download
         </Badge>
       )}
     </div>
