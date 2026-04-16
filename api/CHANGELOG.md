@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+### Minor Changes
+
+- 881d65c: Add support for downloadable products with free download CTAs
+
 ## 1.4.0
 
 ### Minor Changes

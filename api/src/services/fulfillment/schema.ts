@@ -9,6 +9,20 @@ export const FulfillmentFileSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const ProviderDownloadSchema = z.object({
+  url: z.string().url(),
+  label: z.string().optional(),
+  kind: z.enum(['free', 'paid']).default('free'),
+  fileName: z.string().optional(),
+});
+
+export const ProviderMetadataSchema = z.object({
+  downloads: z.array(ProviderDownloadSchema).optional(),
+});
+
+export type ProviderDownload = z.infer<typeof ProviderDownloadSchema>;
+export type ProviderMetadata = z.infer<typeof ProviderMetadataSchema>;
+
 // ─── Provider Catalog (normalized across all providers) ───
 
 export const CatalogSlotSchema = z.object({
@@ -226,20 +240,9 @@ export const PingOutputSchema = z.object({
   timestamp: z.string().datetime(),
 });
 
-// ─── Legacy types (used by products.ts sync, will be removed) ───
+// ─── Legacy types (will be removed) ───
 
 export const FulfillmentProviderSchema = z.enum(['printful', 'gelato', 'lulu', 'manual']);
-
-export const ProviderDownloadSchema = z.object({
-  url: z.string().url(),
-  label: z.string().optional(),
-  kind: z.enum(['free', 'paid']).default('free'),
-  fileName: z.string().optional(),
-});
-
-export const ProviderMetadataSchema = z.object({
-  downloads: z.array(ProviderDownloadSchema).optional(),
-});
 
 export const ProviderVariantSchema = z.object({
   id: z.union([z.string(), z.number()]),
@@ -308,8 +311,6 @@ export type ProviderProduct = z.infer<typeof ProviderProductSchema>;
 export type ProviderVariant = z.infer<typeof ProviderVariantSchema>;
 export type FulfillmentOrderItem = z.infer<typeof FulfillmentOrderItemSchema>;
 export type FulfillmentOrderInput = z.infer<typeof CreateOrderInputSchema>;
-export type ProviderDownload = z.infer<typeof ProviderDownloadSchema>;
-export type ProviderMetadata = z.infer<typeof ProviderMetadataSchema>;
 
 // Legacy alias for gradual migration
 export type DesignFile = FulfillmentFile;
