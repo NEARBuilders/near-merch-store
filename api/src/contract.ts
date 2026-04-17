@@ -919,7 +919,97 @@ export const contract = oc.router({
     }))
     .errors({ UNAUTHORIZED }),
 
+  getProviderPlacements: oc
+    .route({
+      method: "POST",
+      path: "/admin/fulfillment/placements",
+      summary: "Get available placements for a catalog product",
+      description: "Returns the available placement slots (e.g. front, back, sleeve) for a given provider and catalog product. Provider-agnostic — routes through the fulfillment provider's implementation.",
+      tags: ["Admin", "Fulfillment"],
+    })
+    .input(z.object({
+      provider: z.enum(["printful", "lulu"]),
+      catalogProductId: z.string(),
+    }))
+    .output(z.object({
+      placements: z.array(z.object({
+        name: z.string(),
+        label: z.string().optional(),
+        required: z.boolean().default(true),
+        acceptedFormats: z.array(z.string()).optional(),
+      })),
+    }))
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
+
   // ─── Admin: Assets ───
+
+  requestAssetUpload: oc
+    .route({
+      method: "POST",
+      path: "/admin/assets/upload",
+      summary: "Request a presigned upload URL",
+      description: "Returns a presigned URL for direct upload to storage, plus an asset ID. After uploading to the presigned URL, call confirmAssetUpload to finalize the asset record.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({
+      filename: z.string().min(1),
+      contentType: z.string().default("image/png"),
+      prefix: z.string().optional(),
+    }))
+    .output(z.object({
+      presignedUrl: z.string().url(),
+      assetId: z.string(),
+      publicUrl: z.string().url(),
+      key: z.string(),
+    }))
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
+
+  confirmAssetUpload: oc
+    .route({
+      method: "POST",
+      path: "/admin/assets/upload/confirm",
+      summary: "Confirm an asset upload",
+      description: "After uploading to the presigned URL, call this to create the asset record with the storage key and public URL.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({
+      key: z.string().min(1),
+      publicUrl: z.string().url(),
+      assetId: z.string(),
+      filename: z.string().optional(),
+      contentType: z.string().optional(),
+      size: z.number().optional(),
+    }))
+    .output(z.object({
+      id: z.string(),
+      url: z.string(),
+      type: z.string(),
+      name: z.string().nullable(),
+      storageKey: z.string().nullable(),
+      size: z.number().nullable(),
+      metadata: z.record(z.string(), z.unknown()).nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    }))
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
+
+  getAssetSignedUrl: oc
+    .route({
+      method: "POST",
+      path: "/admin/assets/{id}/signed-url",
+      summary: "Get a signed URL for an asset",
+      description: "Returns a time-limited signed URL for accessing a private asset.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({
+      id: z.string(),
+      expiresIn: z.number().int().positive().max(86400).default(3600),
+    }))
+    .output(z.object({
+      url: z.string().url(),
+      expiresIn: z.number(),
+    }))
+    .errors({ NOT_FOUND, UNAUTHORIZED }),
 
   createAsset: oc
     .route({
@@ -940,6 +1030,8 @@ export const contract = oc.router({
       url: z.string(),
       type: z.string(),
       name: z.string().nullable(),
+      storageKey: z.string().nullable(),
+      size: z.number().nullable(),
       metadata: z.record(z.string(), z.unknown()).nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -965,6 +1057,8 @@ export const contract = oc.router({
         url: z.string(),
         type: z.string(),
         name: z.string().nullable(),
+        storageKey: z.string().nullable(),
+        size: z.number().nullable(),
         metadata: z.record(z.string(), z.unknown()).nullable(),
         createdAt: z.string(),
         updatedAt: z.string(),

@@ -38,9 +38,9 @@ import { Route as MarketplaceAuthenticatedAdminDashboardIndexRouteImport } from 
 import { Route as MarketplaceAuthenticatedAdminDashboardUsersRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/users'
 import { Route as MarketplaceAuthenticatedAdminDashboardProvidersRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/providers'
 import { Route as MarketplaceAuthenticatedAdminDashboardOrdersRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/orders'
+import { Route as MarketplaceAuthenticatedAdminDashboardNewProductRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/new-product'
 import { Route as MarketplaceAuthenticatedAdminDashboardInventoryRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/inventory'
 import { Route as MarketplaceAuthenticatedAdminDashboardCollectionsRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/collections'
-import { Route as MarketplaceAuthenticatedAdminDashboardNewProductRouteImport } from './routes/_marketplace/_authenticated/_admin/dashboard/new-product'
 
 const MarketplaceRoute = MarketplaceRouteImport.update({
   id: '/_marketplace',
@@ -203,6 +203,12 @@ const MarketplaceAuthenticatedAdminDashboardOrdersRoute =
     path: '/dashboard/orders',
     getParentRoute: () => MarketplaceAuthenticatedAdminRoute,
   } as any)
+const MarketplaceAuthenticatedAdminDashboardNewProductRoute =
+  MarketplaceAuthenticatedAdminDashboardNewProductRouteImport.update({
+    id: '/dashboard/new-product',
+    path: '/dashboard/new-product',
+    getParentRoute: () => MarketplaceAuthenticatedAdminRoute,
+  } as any)
 const MarketplaceAuthenticatedAdminDashboardInventoryRoute =
   MarketplaceAuthenticatedAdminDashboardInventoryRouteImport.update({
     id: '/dashboard/inventory',
@@ -215,14 +221,8 @@ const MarketplaceAuthenticatedAdminDashboardCollectionsRoute =
     path: '/dashboard/collections',
     getParentRoute: () => MarketplaceAuthenticatedAdminRoute,
   } as any)
-const MarketplaceAuthenticatedAdminDashboardNewProductRoute =
-  MarketplaceAuthenticatedAdminDashboardNewProductRouteImport.update({
-    id: '/dashboard/new-product',
-    path: '/dashboard/new-product',
-    getParentRoute: () => MarketplaceAuthenticatedAdminRoute,
-  } as any)
 
-interface FileRoutesByFullPath {
+export interface FileRoutesByFullPath {
   '/': typeof MarketplaceIndexRoute
   '/cart': typeof MarketplaceCartRoute
   '/exclusives': typeof MarketplaceExclusivesRoute
@@ -244,7 +244,7 @@ interface FileRoutesByFullPath {
   '/account/connected': typeof MarketplaceAuthenticatedAccountConnectedRoute
   '/account/orders': typeof MarketplaceAuthenticatedAccountOrdersRoute
   '/account/': typeof MarketplaceAuthenticatedAccountIndexRoute
-'/dashboard/collections': typeof MarketplaceAuthenticatedAdminDashboardCollectionsRoute
+  '/dashboard/collections': typeof MarketplaceAuthenticatedAdminDashboardCollectionsRoute
   '/dashboard/inventory': typeof MarketplaceAuthenticatedAdminDashboardInventoryRoute
   '/dashboard/new-product': typeof MarketplaceAuthenticatedAdminDashboardNewProductRoute
   '/dashboard/orders': typeof MarketplaceAuthenticatedAdminDashboardOrdersRoute
@@ -252,8 +252,7 @@ interface FileRoutesByFullPath {
   '/dashboard/users': typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
   '/dashboard/': typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
-
-interface FileRoutesByTo {
+export interface FileRoutesByTo {
   '/': typeof MarketplaceIndexRoute
   '/cart': typeof MarketplaceCartRoute
   '/exclusives': typeof MarketplaceExclusivesRoute
@@ -282,7 +281,7 @@ interface FileRoutesByTo {
   '/dashboard/users': typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
   '/dashboard': typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
-interface FileRoutesById {
+export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_marketplace': typeof MarketplaceRouteWithChildren
   '/_marketplace/_authenticated': typeof MarketplaceAuthenticatedRouteWithChildren
@@ -317,7 +316,7 @@ interface FileRoutesById {
   '/_marketplace/_authenticated/_admin/dashboard/users': typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
   '/_marketplace/_authenticated/_admin/dashboard/': typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
-interface FileRouteTypes {
+export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
@@ -413,7 +412,7 @@ interface FileRouteTypes {
     | '/_marketplace/_authenticated/_admin/dashboard/'
   fileRoutesById: FileRoutesById
 }
-interface RootRouteChildren {
+export interface RootRouteChildren {
   MarketplaceRoute: typeof MarketplaceRouteWithChildren
 }
 
@@ -622,18 +621,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketplaceAuthenticatedAdminDashboardOrdersRouteImport
       parentRoute: typeof MarketplaceAuthenticatedAdminRoute
     }
-    '/_marketplace/_authenticated/_admin/dashboard/inventory': {
-      id: '/_marketplace/_authenticated/_admin/dashboard/inventory'
-      path: '/dashboard/inventory'
-      fullPath: '/dashboard/inventory'
-      preLoaderRoute: typeof MarketplaceAuthenticatedAdminDashboardInventoryRouteImport
-      parentRoute: typeof MarketplaceAuthenticatedAdminRoute
-    }
     '/_marketplace/_authenticated/_admin/dashboard/new-product': {
       id: '/_marketplace/_authenticated/_admin/dashboard/new-product'
       path: '/dashboard/new-product'
       fullPath: '/dashboard/new-product'
       preLoaderRoute: typeof MarketplaceAuthenticatedAdminDashboardNewProductRouteImport
+      parentRoute: typeof MarketplaceAuthenticatedAdminRoute
+    }
+    '/_marketplace/_authenticated/_admin/dashboard/inventory': {
+      id: '/_marketplace/_authenticated/_admin/dashboard/inventory'
+      path: '/dashboard/inventory'
+      fullPath: '/dashboard/inventory'
+      preLoaderRoute: typeof MarketplaceAuthenticatedAdminDashboardInventoryRouteImport
       parentRoute: typeof MarketplaceAuthenticatedAdminRoute
     }
     '/_marketplace/_authenticated/_admin/dashboard/collections': {
@@ -648,20 +647,18 @@ declare module '@tanstack/react-router' {
 
 interface MarketplaceAuthenticatedAdminRouteChildren {
   MarketplaceAuthenticatedAdminDashboardCollectionsRoute: typeof MarketplaceAuthenticatedAdminDashboardCollectionsRoute
-  MarketplaceAuthenticatedAdminDashboardIndexRoute: typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
   MarketplaceAuthenticatedAdminDashboardInventoryRoute: typeof MarketplaceAuthenticatedAdminDashboardInventoryRoute
   MarketplaceAuthenticatedAdminDashboardNewProductRoute: typeof MarketplaceAuthenticatedAdminDashboardNewProductRoute
   MarketplaceAuthenticatedAdminDashboardOrdersRoute: typeof MarketplaceAuthenticatedAdminDashboardOrdersRoute
   MarketplaceAuthenticatedAdminDashboardProvidersRoute: typeof MarketplaceAuthenticatedAdminDashboardProvidersRoute
   MarketplaceAuthenticatedAdminDashboardUsersRoute: typeof MarketplaceAuthenticatedAdminDashboardUsersRoute
+  MarketplaceAuthenticatedAdminDashboardIndexRoute: typeof MarketplaceAuthenticatedAdminDashboardIndexRoute
 }
 
 const MarketplaceAuthenticatedAdminRouteChildren: MarketplaceAuthenticatedAdminRouteChildren =
   {
     MarketplaceAuthenticatedAdminDashboardCollectionsRoute:
       MarketplaceAuthenticatedAdminDashboardCollectionsRoute,
-    MarketplaceAuthenticatedAdminDashboardIndexRoute:
-      MarketplaceAuthenticatedAdminDashboardIndexRoute,
     MarketplaceAuthenticatedAdminDashboardInventoryRoute:
       MarketplaceAuthenticatedAdminDashboardInventoryRoute,
     MarketplaceAuthenticatedAdminDashboardNewProductRoute:
@@ -672,6 +669,8 @@ const MarketplaceAuthenticatedAdminRouteChildren: MarketplaceAuthenticatedAdminR
       MarketplaceAuthenticatedAdminDashboardProvidersRoute,
     MarketplaceAuthenticatedAdminDashboardUsersRoute:
       MarketplaceAuthenticatedAdminDashboardUsersRoute,
+    MarketplaceAuthenticatedAdminDashboardIndexRoute:
+      MarketplaceAuthenticatedAdminDashboardIndexRoute,
   }
 
 const MarketplaceAuthenticatedAdminRouteWithChildren =

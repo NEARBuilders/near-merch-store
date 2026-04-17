@@ -100,6 +100,8 @@ export default createPlugin({
       quoteShipping: builder.quoteShipping.handler(async ({ input }) => run(service.quoteOrder(input))),
 
       calculateTax: builder.calculateTax.handler(async ({ input }) => run(service.calculateTax(input))),
+
+      getPlacements: builder.getPlacements.handler(async ({ input }) => run(service.getPlacements(input))),
     };
   },
 });

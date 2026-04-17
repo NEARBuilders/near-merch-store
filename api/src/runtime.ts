@@ -1,6 +1,7 @@
 import { createPluginRuntime } from 'every-plugin';
 import { ContractRouterClient } from 'every-plugin/orpc';
 import { FulfillmentContract } from './services/fulfillment';
+import { StorageContract } from './services/storage/contract';
 import PrintfulPlugin from './services/fulfillment/printful';
 import LuluPlugin from './services/fulfillment/lulu';
 import type { LuluBookConfig } from './services/fulfillment/lulu/types';
@@ -12,6 +13,8 @@ import {
   LegionHolderPlugin,
   WhitelistPlugin,
 } from './services/exclusive';
+import R2Plugin from './services/storage/r2';
+import S3Plugin from './services/storage/s3';
 import { ReturnAddress } from './schema';
 
 export interface FulfillmentConfig {
@@ -48,6 +51,16 @@ export interface ExclusiveCheckConfig {
   nodeUrl: string;
 }
 
+export interface StorageConfig {
+  provider: 'r2' | 's3';
+  accessKeyId: string;
+  secretAccessKey: string;
+  bucket: string;
+  endpoint?: string;
+  publicUrl?: string;
+  region?: string;
+}
+
 export interface FulfillmentProvider {
   name: string;
   client: ContractRouterClient<typeof FulfillmentContract>
@@ -66,10 +79,17 @@ export interface ExclusiveCheckProvider {
   router: any;
 }
 
+export interface StorageProvider {
+  name: string;
+  client: ContractRouterClient<typeof StorageContract>;
+  router: any;
+}
+
 export async function createMarketplaceRuntime(
   fulfillmentConfig: FulfillmentConfig,
   paymentConfig?: PaymentConfig,
   exclusiveCheckConfig?: ExclusiveCheckConfig,
+  storageConfig?: StorageConfig,
 ): Promise<MarketplaceRuntime> {
   const runtime = createPluginRuntime({
     registry: {
@@ -79,6 +99,8 @@ export async function createMarketplaceRuntime(
       pingpay: { module: PingPayPlugin },
       'legion-holder': { module: LegionHolderPlugin },
       whitelist: { module: WhitelistPlugin },
+      r2: { module: R2Plugin },
+      s3: { module: S3Plugin },
     },
     secrets: {},
   });
@@ -86,6 +108,7 @@ export async function createMarketplaceRuntime(
   const providers: FulfillmentProvider[] = [];
   const paymentProviders: PaymentProvider[] = [];
   const exclusiveCheckProviders: ExclusiveCheckProvider[] = [];
+  const storageProviders: StorageProvider[] = [];
 
   if (fulfillmentConfig.printful?.apiKey && fulfillmentConfig.printful?.storeId) {
     try {
@@ -110,13 +133,41 @@ export async function createMarketplaceRuntime(
     }
   }
 
+  if (storageConfig) {
+    try {
+      const pluginName = storageConfig.provider === 's3' ? 's3' : 'r2';
+      const storage = await runtime.usePlugin(pluginName, {
+        variables: {
+          bucket: storageConfig.bucket,
+          ...(storageConfig.region ? { region: storageConfig.region } : {}),
+          ...(storageConfig.endpoint ? { endpoint: storageConfig.endpoint } : {}),
+          ...(storageConfig.publicUrl ? { publicUrl: storageConfig.publicUrl } : {}),
+        },
+        secrets: {
+          ACCESS_KEY_ID: storageConfig.accessKeyId,
+          SECRET_ACCESS_KEY: storageConfig.secretAccessKey,
+        },
+      });
+      storageProviders.push({
+        name: storageConfig.provider,
+        client: storage.createClient(),
+        router: storage.router,
+      });
+      console.log(`[MarketplaceRuntime] ${storageConfig.provider.toUpperCase()} storage provider initialized`);
+    } catch (error) {
+      console.error(`[MarketplaceRuntime] Failed to initialize ${storageConfig.provider.toUpperCase()} storage:`, error);
+    }
+  }
+
   return {
     providers,
     paymentProviders,
     exclusiveCheckProviders,
+    storageProviders,
     getProvider: (name: string) => providers.find((p) => p.name === name) ?? null,
     getPaymentProvider: (name: string) => paymentProviders.find((p) => p.name === name) ?? null,
     getExclusiveCheckProvider: (name: string) => exclusiveCheckProviders.find((p) => p.name === name) ?? null,
+    getStorageProvider: () => storageProviders[0] ?? null,
     shutdown: () => runtime.shutdown(),
     luluBooks: fulfillmentConfig.lulu?.books ?? [],
   } as const;
@@ -126,9 +177,11 @@ export interface MarketplaceRuntime {
   readonly providers: FulfillmentProvider[];
   readonly paymentProviders: PaymentProvider[];
   readonly exclusiveCheckProviders: ExclusiveCheckProvider[];
+  readonly storageProviders: StorageProvider[];
   readonly getProvider: (name: string) => FulfillmentProvider | null;
   readonly getPaymentProvider: (name: string) => PaymentProvider | null;
   readonly getExclusiveCheckProvider: (name: string) => ExclusiveCheckProvider | null;
+  readonly getStorageProvider: () => StorageProvider | null;
   readonly shutdown: () => Promise<void>;
   readonly luluBooks: LuluBookConfig[];
 }

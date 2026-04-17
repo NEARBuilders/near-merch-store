@@ -8,6 +8,8 @@ export interface Asset {
   url: string;
   type: string;
   name: string | null;
+  storageKey: string | null;
+  size: number | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
@@ -27,6 +29,8 @@ export class AssetStore extends Context.Tag("AssetStore")<
       url: string;
       type: string;
       name?: string;
+      storageKey?: string;
+      size?: number;
       metadata?: Record<string, unknown>;
     }) => Effect.Effect<Asset, Error>;
     readonly update: (
@@ -34,6 +38,8 @@ export class AssetStore extends Context.Tag("AssetStore")<
       data: {
         url?: string;
         name?: string;
+        storageKey?: string;
+        size?: number;
         metadata?: Record<string, unknown>;
       },
     ) => Effect.Effect<Asset | null, Error>;
@@ -51,6 +57,8 @@ export const AssetStoreLive = Layer.effect(
       url: row.url,
       type: row.type,
       name: row.name || null,
+      storageKey: row.storageKey || null,
+      size: row.size ?? null,
       metadata: row.metadata || null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -105,6 +113,8 @@ export const AssetStoreLive = Layer.effect(
               url: data.url,
               type: data.type,
               name: data.name || null,
+              storageKey: data.storageKey || null,
+              size: data.size ?? null,
               metadata: data.metadata || null,
               createdAt: now,
               updatedAt: now,
@@ -133,6 +143,8 @@ export const AssetStoreLive = Layer.effect(
               .set({
                 ...(data.url !== undefined ? { url: data.url } : {}),
                 ...(data.name !== undefined ? { name: data.name } : {}),
+                ...(data.storageKey !== undefined ? { storageKey: data.storageKey } : {}),
+                ...(data.size !== undefined ? { size: data.size } : {}),
                 ...(data.metadata !== undefined ? { metadata: data.metadata } : {}),
                 updatedAt: now,
               })

@@ -86,7 +86,12 @@
       "proxy": "https://nearmerch.com",
       "variables": {
         "network": "mainnet",
-        "contractId": "social.near"
+        "contractId": "social.near",
+        "storageProvider": "",
+        "storageBucket": "",
+        "storageEndpoint": "",
+        "storagePublicUrl": "",
+        "storageRegion": "us-east-1"
       },
       "secrets": [
         "API_DATABASE_URL",
@@ -99,7 +104,9 @@
         "PING_API_KEY",
         "PING_WEBHOOK_SECRET",
         "LULU_CLIENT_KEY",
-        "LULU_CLIENT_SECRET"
+        "LULU_CLIENT_SECRET",
+        "ACCESS_KEY_ID",
+        "SECRET_ACCESS_KEY"
       ],
       "template": "nearbuilders/near-merch-store/api",
       "files": [

@@ -1,11 +1,12 @@
 import { createORPCClient, onError } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
+import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { contract } from "../../../api/src/contract";
 
-type ApiContract = typeof contract;
-type ApiClient = ContractRouterClient<ApiContract>;
+export type ApiContract = typeof contract;
+export type ApiClient = ContractRouterClient<ApiContract>;
 
 /**
  * IMPORTANT:
@@ -19,6 +20,28 @@ type ApiClient = ContractRouterClient<ApiContract>;
 declare global {
   var $apiClient: ApiClient | undefined;
 }
+
+export const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: () => { },
+  }),
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      retry: (failureCount, error) => {
+        if (error && typeof error === "object" && "message" in error) {
+          const message = String(error.message).toLowerCase();
+          if (message.includes("fetch") || message.includes("network")) {
+            return false;
+          }
+        }
+        return failureCount < 2;
+      },
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function createApiLink() {
   return new RPCLink({
@@ -71,13 +94,10 @@ function getActiveApiClient(): ApiClient {
 
 export const apiClient: ApiClient = new Proxy({} as ApiClient, {
   get(_target, prop, _receiver) {
-    // Prevent await/apiClient from treating this as a thenable
     if (prop === "then") return undefined;
     const client = getActiveApiClient() as unknown as Record<string, unknown>;
     const value = client[prop as unknown as string];
     if (typeof value === "function") {
-      // NOTE: Do NOT call .bind() here.
-      // oRPC's client is a Proxy; accessing `.bind` can be interpreted as an RPC path segment.
       return (...args: unknown[]) => (value as (...a: unknown[]) => unknown)(...args);
     }
     return value;

@@ -498,6 +498,15 @@ export class LuluService {
     return Effect.succeed({ status: 'unsupported' as const, images: [] });
   }
 
+  getPlacements(_input: { providerConfig: Record<string, unknown> }) {
+    return Effect.succeed({
+      placements: [
+        { name: 'cover', label: 'Cover', required: true, acceptedFormats: ['pdf'] },
+        { name: 'interior', label: 'Interior', required: true, acceptedFormats: ['pdf'] },
+      ],
+    });
+  }
+
   ping() {
     return Effect.tryPromise({
       try: async () => {

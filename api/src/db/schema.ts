@@ -29,6 +29,8 @@ export const assets = pgTable(
     url: text("url").notNull(),
     type: text("type").notNull(),
     name: text("name"),
+    storageKey: text("storage_key"),
+    size: integer("size"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
@@ -40,6 +42,7 @@ export const assets = pgTable(
   (table) => [
     index("assets_type_idx").on(table.type),
     index("assets_url_idx").on(table.url),
+    index("assets_storage_key_idx").on(table.storageKey),
   ],
 );
 

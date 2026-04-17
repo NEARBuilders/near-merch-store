@@ -28,6 +28,7 @@ import type {
   ProviderCatalogProduct,
   ProviderCatalogVariant,
   ProviderCatalogPrice,
+  GetPlacementsOutput,
   ShippingQuoteInput,
   ShippingQuoteOutput,
   TaxQuoteInput,
@@ -194,6 +195,46 @@ export class PrintfulService {
         provider: 'printful',
         cause: e,
       }),
+    });
+  }
+
+  getPlacements(input: { providerConfig: Record<string, unknown> }): Effect.Effect<GetPlacementsOutput, FulfillmentError> {
+    const config = input.providerConfig as { catalogProductId?: string | number };
+    const productId = config.catalogProductId
+      ? parseInt(String(config.catalogProductId).replace('printful-', ''), 10)
+      : 0;
+
+    if (!productId) {
+      return Effect.succeed({ placements: [] });
+    }
+
+    const knownPlacements: Record<string, { label?: string; required?: boolean; acceptedFormats?: string[] }> = {
+      front: { label: 'Front', acceptedFormats: ['png', 'jpg', 'svg'] },
+      back: { label: 'Back', acceptedFormats: ['png', 'jpg', 'svg'] },
+      left: { label: 'Left', acceptedFormats: ['png', 'jpg', 'svg'] },
+      right: { label: 'Right', acceptedFormats: ['png', 'jpg', 'svg'] },
+      front_large: { label: 'Front (Large)', acceptedFormats: ['png', 'jpg', 'svg'] },
+      back_large: { label: 'Back (Large)', acceptedFormats: ['png', 'jpg', 'svg'] },
+      label_outside: { label: 'Label (Outside)', acceptedFormats: ['png', 'jpg', 'svg'] },
+      sleeve_left: { label: 'Left Sleeve', acceptedFormats: ['png', 'jpg', 'svg'] },
+      sleeve_right: { label: 'Right Sleeve', acceptedFormats: ['png', 'jpg', 'svg'] },
+      embroidery_front: { label: 'Embroidery (Front)', acceptedFormats: ['png', 'jpg'] },
+      embroidery_back: { label: 'Embroidery (Back)', acceptedFormats: ['png', 'jpg'] },
+    };
+
+    return Effect.gen(this, function* () {
+      const productResult = yield* this.getCatalogProduct({ id: `printful-${productId}` });
+      const product = productResult.product as any;
+      const placements: string[] = product.placements || [];
+
+      return {
+        placements: placements.map((name: string) => ({
+          name,
+          label: knownPlacements[name]?.label,
+          required: false,
+          acceptedFormats: knownPlacements[name]?.acceptedFormats,
+        })),
+      };
     });
   }
 

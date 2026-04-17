@@ -9,7 +9,10 @@ export class AssetService extends Context.Tag('AssetService')<
       url: string;
       type: string;
       name?: string;
+      storageKey?: string;
+      size?: number;
       metadata?: Record<string, unknown>;
+      id?: string;
     }) => Effect.Effect<Asset, Error>;
     readonly get: (id: string) => Effect.Effect<Asset, Error>;
     readonly list: (options?: {
@@ -22,6 +25,8 @@ export class AssetService extends Context.Tag('AssetService')<
       data: {
         url?: string;
         name?: string;
+        storageKey?: string;
+        size?: number;
         metadata?: Record<string, unknown>;
       },
     ) => Effect.Effect<Asset | null, Error>;
@@ -37,12 +42,14 @@ export const AssetServiceLive = Layer.effect(
     return {
       create: (input) =>
         Effect.gen(function* () {
-          const id = generateProductId();
+          const id = input.id || generateProductId();
           return yield* store.create({
             id,
             url: input.url,
             type: input.type,
             name: input.name,
+            storageKey: input.storageKey,
+            size: input.size,
             metadata: input.metadata,
           });
         }),

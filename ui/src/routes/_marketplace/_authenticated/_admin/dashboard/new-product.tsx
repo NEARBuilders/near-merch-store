@@ -1,10 +1,11 @@
 // @ts-nocheck
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
+  ImagePlus,
   Loader2,
   Package,
   Search,
@@ -22,8 +23,13 @@ import {
   useCatalogVariants,
   useAssets,
   useCreateAsset,
+  useRequestAssetUpload,
+  useConfirmAssetUpload,
+  useGetPlacements,
   useBuildProduct,
+  useGenerateProductMockups,
 } from "@/integrations/api/admin";
+import { toast } from "sonner";
 
 export const Route = createFileRoute(
   "/_marketplace/_authenticated/_admin/dashboard/new-product" as const,
@@ -31,12 +37,12 @@ export const Route = createFileRoute(
   component: NewProductPage,
 });
 
-type Step = "provider" | "catalog" | "assets" | "variants" | "details";
+type Step = "provider" | "catalog" | "design" | "variants" | "details";
 
 const STEPS: { id: Step; label: string }[] = [
   { id: "provider", label: "Provider" },
   { id: "catalog", label: "Catalog" },
-  { id: "assets", label: "Assets" },
+  { id: "design", label: "Design" },
   { id: "variants", label: "Variants" },
   { id: "details", label: "Details" },
 ];
@@ -44,7 +50,7 @@ const STEPS: { id: Step; label: string }[] = [
 const STEP_INDEX: Record<Step, number> = {
   provider: 0,
   catalog: 1,
-  assets: 2,
+  design: 2,
   variants: 3,
   details: 4,
 };
@@ -52,7 +58,7 @@ const STEP_INDEX: Record<Step, number> = {
 function NewProductPage() {
   const navigate = useNavigate();
   const buildMutation = useBuildProduct();
-  const createAssetMutation = useCreateAsset();
+  const mockupMutation = useGenerateProductMockups();
 
   const [step, setStep] = useState<Step>("provider");
   const [providerName, setProviderName] = useState<string>("");
@@ -68,8 +74,6 @@ function NewProductPage() {
   const [productDescription, setProductDescription] = useState("");
   const [productImage, setProductImage] = useState("");
   const [priceOverride, setPriceOverride] = useState<string>("");
-  const [assetUrlInput, setAssetUrlInput] = useState("");
-  const [assetTypeInput, setAssetTypeInput] = useState("image");
 
   const currentStepIndex = STEP_INDEX[step];
 
@@ -89,7 +93,7 @@ function NewProductPage() {
         return !!providerName;
       case "catalog":
         return !!catalogProductId;
-      case "assets":
+      case "design":
         return files.length > 0;
       case "variants":
         return selectedVariantIds.size > 0;
@@ -128,26 +132,22 @@ function NewProductPage() {
         currency: "USD",
       },
       {
-        onSuccess: () => {
+        onSuccess: (product) => {
+          if (product?.id) {
+            mockupMutation.mutate(
+              { id: product.id },
+              {
+                onSuccess: () => {
+                  toast.info("Mockups are being generated in the background");
+                },
+                onError: () => {},
+              },
+            );
+          }
           navigate({ to: "/dashboard/inventory" });
         },
       },
     );
-  };
-
-  const handleAddAsset = async () => {
-    if (!assetUrlInput.trim()) return;
-    try {
-      const result = await createAssetMutation.mutateAsync({
-        url: assetUrlInput.trim(),
-        type: assetTypeInput,
-      });
-      setFiles((prev) => [
-        ...prev,
-        { assetId: result.id, url: result.url, slot: undefined },
-      ]);
-      setAssetUrlInput("");
-    } catch {}
   };
 
   return (
@@ -170,7 +170,6 @@ function NewProductPage() {
         </div>
       </div>
 
-      {/* Step indicator */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
         {STEPS.map((s, i) => {
           const isActive = s.id === step;
@@ -203,7 +202,6 @@ function NewProductPage() {
         })}
       </div>
 
-      {/* Step content */}
       <div className="rounded-2xl bg-background border border-border/60 p-6">
         {step === "provider" && (
           <ProviderStep providerName={providerName} onSelect={setProviderName} />
@@ -217,23 +215,12 @@ function NewProductPage() {
             onSearchChange={setCatalogSearch}
           />
         )}
-        {step === "assets" && (
-          <AssetsStep
+        {step === "design" && (
+          <DesignStep
+            providerName={providerName}
+            catalogProductId={catalogProductId}
             files={files}
-            assetUrlInput={assetUrlInput}
-            assetTypeInput={assetTypeInput}
-            onAssetUrlChange={setAssetUrlInput}
-            onAssetTypeChange={setAssetTypeInput}
-            onAddAsset={handleAddAsset}
-            onRemoveAsset={(idx) =>
-              setFiles((prev) => prev.filter((_, i) => i !== idx))
-            }
-            onSlotChange={(idx, slot) =>
-              setFiles((prev) =>
-                prev.map((f, i) => (i === idx ? { ...f, slot } : f)),
-              )
-            }
-            isCreating={createAssetMutation.isPending}
+            onFilesChange={setFiles}
           />
         )}
         {step === "variants" && (
@@ -267,7 +254,6 @@ function NewProductPage() {
         )}
       </div>
 
-      {/* Navigation */}
       <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={goBack} disabled={currentStepIndex === 0}>
           <ArrowLeft className="size-4 mr-2" />
@@ -443,49 +429,177 @@ function CatalogStep({
   );
 }
 
-function AssetsStep({
+function DesignStep({
+  providerName,
+  catalogProductId,
   files,
-  assetUrlInput,
-  assetTypeInput,
-  onAssetUrlChange,
-  onAssetTypeChange,
-  onAddAsset,
-  onRemoveAsset,
-  onSlotChange,
-  isCreating,
+  onFilesChange,
 }: {
+  providerName: string;
+  catalogProductId: string;
   files: Array<{ assetId: string; url: string; slot?: string }>;
-  assetUrlInput: string;
-  assetTypeInput: string;
-  onAssetUrlChange: (v: string) => void;
-  onAssetTypeChange: (v: string) => void;
-  onAddAsset: () => void;
-  onRemoveAsset: (idx: number) => void;
-  onSlotChange: (idx: number, slot: string) => void;
-  isCreating: boolean;
+  onFilesChange: (files: Array<{ assetId: string; url: string; slot?: string }>) => void;
 }) {
-  const { data: assetsData } = useAssets({ limit: 50 });
+  const { data: assetsData } = useAssets({ limit: 100 });
+  const createAssetMutation = useCreateAsset();
+  const requestUploadMutation = useRequestAssetUpload();
+  const confirmUploadMutation = useConfirmAssetUpload();
+  const { data: placementsData } = useGetPlacements(providerName, catalogProductId, {
+    enabled: !!providerName && !!catalogProductId,
+  });
+  const [assetUrlInput, setAssetUrlInput] = useState("");
+  const [assetTypeInput, setAssetTypeInput] = useState("image");
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const existingAssets = assetsData?.assets ?? [];
+  const placements = placementsData?.placements ?? [];
+
+  const handleAddAssetByUrl = async () => {
+    if (!assetUrlInput.trim()) return;
+    try {
+      const result = await createAssetMutation.mutateAsync({
+        url: assetUrlInput.trim(),
+        type: assetTypeInput,
+      });
+      onFilesChange([...files, { assetId: result.id, url: result.url, slot: undefined }]);
+      setAssetUrlInput("");
+    } catch {}
+  };
+
+  const handleFileUpload = async (fileList: FileList | File[]) => {
+    const filesToUpload = Array.from(fileList);
+    for (const file of filesToUpload) {
+      const fileId = `uploading-${Date.now()}-${file.name}`;
+      setUploadingFiles((prev) => new Set(prev).add(fileId));
+      try {
+        const uploadRequest = await requestUploadMutation.mutateAsync({
+          filename: file.name,
+          contentType: file.type || "image/png",
+          prefix: "assets",
+        });
+
+        await fetch(uploadRequest.presignedUrl, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type || "image/png" },
+        });
+
+        const asset = await confirmUploadMutation.mutateAsync({
+          key: uploadRequest.key,
+          publicUrl: uploadRequest.publicUrl,
+          assetId: uploadRequest.assetId,
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+        });
+
+        onFilesChange([
+          ...files,
+          { assetId: asset.id, url: asset.url, slot: undefined },
+        ]);
+      } catch (error) {
+        toast.error(`Failed to upload ${file.name}`, {
+          description: error instanceof Error ? error.message : "Upload failed",
+        });
+      } finally {
+        setUploadingFiles((prev) => {
+          const next = new Set(prev);
+          next.delete(fileId);
+          return next;
+        });
+      }
+    }
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) {
+      handleFileUpload(e.dataTransfer.files);
+    }
+  }, [files]);
+
+  const handleToggleExistingAsset = (asset: { id: string; url: string; type: string }) => {
+    const isAlreadyAdded = files.some((f) => f.assetId === asset.id);
+    if (isAlreadyAdded) {
+      onFilesChange(files.filter((f) => f.assetId !== asset.id));
+    } else {
+      onFilesChange([...files, { assetId: asset.id, url: asset.url, slot: undefined }]);
+    }
+  };
+
+  const handleSlotChange = (idx: number, slot: string) => {
+    onFilesChange(files.map((f, i) => (i === idx ? { ...f, slot } : f)));
+  };
+
+  const handleRemoveFile = (idx: number) => {
+    onFilesChange(files.filter((_, i) => i !== idx));
+  };
+
+  const catalogProduct = useCatalogProduct(providerName, catalogProductId);
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Add Assets</h3>
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold">Design & Assets</h3>
       <p className="text-sm text-foreground/70 dark:text-muted-foreground">
-        Upload or select design assets that will be applied to the product. For Printful, use slot names like &quot;default&quot;, &quot;back&quot;, etc.
+        Upload or select design assets and assign them to placement slots on your product.
       </p>
 
+      {/* Upload area */}
+      <div className="rounded-xl border border-border/60 p-4 space-y-3">
+        <Label className="text-sm font-medium">Upload Files</Label>
+        <div
+          className={cn(
+            "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
+            dragOver
+              ? "border-[#00EC97] bg-[#00EC97]/5"
+              : "border-border/60 hover:border-[#00EC97]/40",
+          )}
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+        >
+          <ImagePlus className="size-8 mx-auto mb-2 text-foreground/40" />
+          <p className="text-sm text-foreground/70">Drop files here or click to browse</p>
+          <p className="text-xs text-foreground/50 mt-1">PNG, JPG, SVG, PDF</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.pdf,.svg"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                handleFileUpload(e.target.files);
+                e.target.value = "";
+              }
+            }}
+          />
+        </div>
+        {(requestUploadMutation.isPending || confirmUploadMutation.isPending) && (
+          <div className="flex items-center gap-2 text-sm text-[#00EC97]">
+            <Loader2 className="size-4 animate-spin" />
+            Uploading...
+          </div>
+        )}
+      </div>
+
+      {/* Add by URL */}
       <div className="rounded-xl border border-border/60 p-4 space-y-3">
         <Label className="text-sm font-medium">Add by URL</Label>
         <div className="flex gap-2">
           <Input
             placeholder="https://example.com/design.png"
             value={assetUrlInput}
-            onChange={(e) => onAssetUrlChange(e.target.value)}
+            onChange={(e) => setAssetUrlInput(e.target.value)}
             className="flex-1 bg-background/60 border border-border/60 rounded-lg"
           />
           <select
             value={assetTypeInput}
-            onChange={(e) => onAssetTypeChange(e.target.value)}
+            onChange={(e) => setAssetTypeInput(e.target.value)}
             className="h-9 rounded-lg border border-border/60 bg-background/60 px-3 text-sm"
           >
             <option value="image">Image</option>
@@ -493,39 +607,56 @@ function AssetsStep({
           </select>
           <Button
             type="button"
-            onClick={onAddAsset}
-            disabled={!assetUrlInput.trim() || isCreating}
+            onClick={handleAddAssetByUrl}
+            disabled={!assetUrlInput.trim() || createAssetMutation.isPending}
             className="bg-[#00EC97] text-black hover:bg-[#00d97f]"
           >
-            {isCreating ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            {createAssetMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
             Add
           </Button>
         </div>
       </div>
 
+      {/* Existing assets grid */}
       {existingAssets.length > 0 && (
         <div className="rounded-xl border border-border/60 p-4 space-y-3">
-          <Label className="text-sm font-medium">Use Existing Asset</Label>
-          <div className="grid gap-2 max-h-48 overflow-y-auto">
+          <Label className="text-sm font-medium">Existing Assets</Label>
+          <div className="grid grid-cols-4 md:grid-cols-6 gap-3 max-h-64 overflow-y-auto">
             {existingAssets.map((asset) => {
-              const alreadyAdded = files.some((f) => f.assetId === asset.id);
+              const isAdded = files.some((f) => f.assetId === asset.id);
               return (
                 <button
                   key={asset.id}
                   type="button"
-                  disabled={alreadyAdded}
+                  onClick={() => handleToggleExistingAsset(asset)}
                   className={cn(
-                    "flex items-center gap-2 rounded-lg border p-2 text-left text-sm transition-colors",
-                    alreadyAdded
-                      ? "border-[#00EC97]/40 bg-[#00EC97]/5 opacity-60 cursor-not-allowed"
+                    "relative group aspect-square rounded-lg border-2 overflow-hidden transition-all",
+                    isAdded
+                      ? "border-[#00EC97] ring-2 ring-[#00EC97]/30"
                       : "border-border/60 hover:border-[#00EC97]/40",
                   )}
                 >
-                  {asset.url && (
-                    <img src={asset.url} alt={asset.name || "Asset"} className="size-8 rounded object-cover bg-muted" />
+                  {asset.type === "image" ? (
+                    <img
+                      src={asset.url}
+                      alt={asset.name || "Asset"}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <div className="size-full bg-muted flex items-center justify-center">
+                      <Package className="size-6 text-foreground/40" />
+                    </div>
                   )}
-                  <span className="truncate flex-1">{asset.name || asset.url}</span>
-                  <Badge variant="outline" className="font-normal text-xs">{asset.type}</Badge>
+                  {isAdded && (
+                    <div className="absolute top-1 right-1 size-5 rounded-full bg-[#00EC97] text-black flex items-center justify-center">
+                      <Check className="size-3" />
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="text-[10px] text-white truncate">
+                      {asset.name || asset.url.split("/").pop()}
+                    </p>
+                  </div>
                 </button>
               );
             })}
@@ -533,28 +664,84 @@ function AssetsStep({
         </div>
       )}
 
+      {/* Selected files with placement editor */}
       {files.length > 0 && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Selected Files ({files.length})</Label>
+        <div className="space-y-3">
+          <Label className="text-sm font-medium">
+            Selected Files ({files.length}) — Assign to Placement Slots
+          </Label>
           <div className="space-y-2">
             {files.map((f, idx) => (
-              <div key={f.assetId} className="flex items-center gap-2 rounded-lg border border-border/60 p-2">
-                <img src={f.url} alt="" className="size-10 rounded object-cover bg-muted" />
+              <div key={f.assetId} className="flex items-center gap-3 rounded-lg border border-border/60 p-3">
+                <img src={f.url} alt="" className="size-12 rounded object-cover bg-muted shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs truncate text-foreground/80">{f.url}</p>
-                  <Input
-                    placeholder="Slot (e.g. default, back)"
-                    value={f.slot || ""}
-                    onChange={(e) => onSlotChange(idx, e.target.value)}
-                    className="h-6 text-xs bg-background/60 border border-border/60 rounded"
-                  />
+                  <p className="text-xs truncate text-foreground/80 mb-1">
+                    {f.url.split("/").pop()}
+                  </p>
+                  {placements.length > 0 ? (
+                    <select
+                      value={f.slot || ""}
+                      onChange={(e) => handleSlotChange(idx, e.target.value)}
+                      className="h-7 rounded border border-border/60 bg-background/60 px-2 text-xs w-full"
+                    >
+                      <option value="">Select placement…</option>
+                      {placements.map((p) => (
+                        <option key={p.name} value={p.name}>
+                          {p.label || p.name}
+                          {p.required ? " *" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      placeholder="Slot (e.g. default, front, back)"
+                      value={f.slot || ""}
+                      onChange={(e) => handleSlotChange(idx, e.target.value)}
+                      className="h-7 text-xs bg-background/60 border border-border/60 rounded"
+                    />
+                  )}
                 </div>
-                <button type="button" onClick={() => onRemoveAsset(idx)} className="text-foreground/50 hover:text-red-500 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => handleRemoveFile(idx)}
+                  className="text-foreground/50 hover:text-red-500 transition-colors shrink-0"
+                >
                   <X className="size-4" />
                 </button>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Quick preview: placement map on catalog product */}
+      {files.length > 0 && catalogProduct?.data?.product?.image && (
+        <div className="rounded-xl border border-border/60 p-4 space-y-2">
+          <Label className="text-sm font-medium">Placement Preview</Label>
+          <div className="relative inline-block">
+            <img
+              src={catalogProduct.data.product.image}
+              alt="Product preview"
+              className="rounded-lg max-h-48 object-contain"
+            />
+            {files.map((f, idx) =>
+              f.slot ? (
+                <div
+                  key={f.assetId}
+                  className="absolute bg-[#00EC97]/80 text-black text-[10px] px-1.5 py-0.5 rounded font-medium"
+                  style={{
+                    top: `${10 + idx * 20}%`,
+                    left: `${5 + idx * 10}%`,
+                  }}
+                >
+                  {f.slot}
+                </div>
+              ) : null,
+            )}
+          </div>
+          <p className="text-xs text-foreground/50">
+            Final mockups will be generated after product creation based on assigned placements.
+          </p>
         </div>
       )}
     </div>

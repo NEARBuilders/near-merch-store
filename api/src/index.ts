@@ -48,6 +48,11 @@ export default createPlugin({
     returnAddress: ReturnAddressSchema.optional(),
     luluEnvironment: z.enum(['sandbox', 'production']).default('production'),
     luluBooks: z.array(LuluBookConfigSchema).default([DEFAULT_LULU_BOOK]),
+    storageProvider: z.enum(["r2", "s3"]).optional(),
+    storageBucket: z.string().optional(),
+    storageEndpoint: z.string().optional(),
+    storagePublicUrl: z.string().optional(),
+    storageRegion: z.string().default("us-east-1"),
   }),
 
   secrets: z.object({
@@ -62,6 +67,8 @@ export default createPlugin({
     LULU_CLIENT_SECRET: z.string().optional(),
     PING_API_KEY: z.string().optional(),
     PING_WEBHOOK_SECRET: z.string().optional(),
+    ACCESS_KEY_ID: z.string().optional(),
+    SECRET_ACCESS_KEY: z.string().optional(),
     API_DATABASE_URL: z.string().default("file:./marketplace.db"),
     API_DATABASE_AUTH_TOKEN: z.string().optional(),
   }),
@@ -135,6 +142,17 @@ export default createPlugin({
           {
             nodeUrl: nearNodeUrl,
           },
+          config.variables.storageProvider && config.secrets.ACCESS_KEY_ID && config.secrets.SECRET_ACCESS_KEY && config.variables.storageBucket
+            ? {
+                provider: config.variables.storageProvider as 'r2' | 's3',
+                accessKeyId: config.secrets.ACCESS_KEY_ID,
+                secretAccessKey: config.secrets.SECRET_ACCESS_KEY,
+                bucket: config.variables.storageBucket,
+                endpoint: config.variables.storageEndpoint,
+                publicUrl: config.variables.storagePublicUrl,
+                region: config.variables.storageRegion,
+              }
+            : undefined,
         ),
       );
 
@@ -2186,7 +2204,95 @@ export default createPlugin({
           return await provider.client.getCatalogProductVariants({ id: input.id });
         }),
 
+      getProviderPlacements: builder.getProviderPlacements
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const provider = runtime.getProvider(input.provider);
+          if (!provider) {
+            throw new ORPCError('NOT_FOUND', {
+              message: `Provider ${input.provider} not configured`,
+            });
+          }
+          try {
+            const result = await provider.client.getPlacements({ providerConfig: { catalogProductId: input.catalogProductId } });
+            return { placements: result.placements };
+          } catch {
+            return { placements: [] };
+          }
+        }),
+
       // ─── Admin: Assets ───
+
+      requestAssetUpload: builder.requestAssetUpload
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const storageProvider = runtime.getStorageProvider();
+          if (!storageProvider) {
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: 'Storage provider not configured',
+            });
+          }
+          return await storageProvider.client.requestUpload(input);
+        }),
+
+      confirmAssetUpload: builder.confirmAssetUpload
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const service = yield* AssetService;
+              const contentType = input.contentType || 'image/png';
+              const assetType = contentType.startsWith('image/') ? 'image' : contentType === 'application/pdf' ? 'pdf' : 'file';
+              return yield* service.create({
+                id: input.assetId,
+                url: input.publicUrl,
+                type: assetType,
+                name: input.filename,
+                storageKey: input.key,
+                size: input.size,
+              });
+            }),
+          );
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+          return exit.value;
+        }),
+
+      getAssetSignedUrl: builder.getAssetSignedUrl
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const service = yield* AssetService;
+              const asset = yield* service.get(input.id);
+              if (!asset) {
+                return yield* Effect.fail(new Error('Asset not found'));
+              }
+              if (!asset.storageKey) {
+                return yield* Effect.fail(new Error('Asset has no storage key'));
+              }
+              const storageProvider = runtime.getStorageProvider();
+              if (!storageProvider) {
+                return yield* Effect.fail(new Error('Storage provider not configured'));
+              }
+              const storageKey = asset.storageKey;
+              return yield* Effect.tryPromise(async () =>
+                storageProvider.client.getSignedUrl({ key: storageKey, expiresIn: input.expiresIn ?? 3600 })
+              );
+            }),
+          );
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            throw new ORPCError('NOT_FOUND', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+          return exit.value;
+        }),
 
       createAsset: builder.createAsset
         .use(requireAdmin)

@@ -133,9 +133,11 @@ export default createPlugin({
         wrapHandler(service.quoteShipping(input))
       ),
 
-      calculateTax: builder.calculateTax.handler(async ({ input }) =>
-        wrapHandler(service.calculateTax(input))
-      ),
+calculateTax: builder.calculateTax.handler(async ({ input }) =>
+        wrapHandler(service.calculateTax(input))),
+
+      getPlacements: builder.getPlacements.handler(async ({ input }) =>
+        wrapHandler(service.getPlacements(input))),
     };
   },
 });

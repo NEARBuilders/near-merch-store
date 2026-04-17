@@ -232,6 +232,16 @@ export const TaxQuoteOutputSchema = z.object({
   vat: z.number().optional(),
 });
 
+// ─── Placements ───
+
+export const GetPlacementsInputSchema = z.object({
+  providerConfig: z.record(z.string(), z.unknown()),
+});
+
+export const GetPlacementsOutputSchema = z.object({
+  placements: z.array(CatalogSlotSchema),
+});
+
 // ─── Ping ───
 
 export const PingOutputSchema = z.object({
@@ -311,6 +321,9 @@ export type ProviderProduct = z.infer<typeof ProviderProductSchema>;
 export type ProviderVariant = z.infer<typeof ProviderVariantSchema>;
 export type FulfillmentOrderItem = z.infer<typeof FulfillmentOrderItemSchema>;
 export type FulfillmentOrderInput = z.infer<typeof CreateOrderInputSchema>;
+
+export type GetPlacementsInput = z.infer<typeof GetPlacementsInputSchema>;
+export type GetPlacementsOutput = z.infer<typeof GetPlacementsOutputSchema>;
 
 // Legacy alias for gradual migration
 export type DesignFile = FulfillmentFile;

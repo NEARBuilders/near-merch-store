@@ -17,6 +17,8 @@ import {
   ShippingQuoteOutputSchema,
   TaxQuoteInputSchema,
   TaxQuoteOutputSchema,
+  GetPlacementsInputSchema,
+  GetPlacementsOutputSchema,
 } from './schema';
 
 export const FulfillmentContract = oc.router({
@@ -83,6 +85,11 @@ export const FulfillmentContract = oc.router({
     .route({ method: 'POST', path: '/tax/calculate' })
     .input(TaxQuoteInputSchema)
     .output(TaxQuoteOutputSchema),
+
+  getPlacements: oc
+    .route({ method: 'POST', path: '/placements' })
+    .input(GetPlacementsInputSchema)
+    .output(GetPlacementsOutputSchema),
 });
 
 export type FulfillmentContractType = typeof FulfillmentContract;
