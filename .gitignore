@@ -311,3 +311,6 @@ test-results/
 .auth/
 
 .bos
+
+# Database backups
+backups/

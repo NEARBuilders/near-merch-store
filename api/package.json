@@ -49,6 +49,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:backup": "bash scripts/db-backup.sh",
+    "db:restore": "bash scripts/db-restore.sh",
+    "db:verify-migration": "bash scripts/db-verify-migration.sh",
     "deploy": "DEPLOY=true rspack build"
   }
 }
