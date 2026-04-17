@@ -44,6 +44,8 @@ export interface PaymentConfig {
   ping?: {
     apiKey?: string;
     webhookSecret?: string;
+    recipientAddress?: string;
+    baseUrl?: string;
   };
 }
 
@@ -156,6 +158,49 @@ export async function createMarketplaceRuntime(
       console.log(`[MarketplaceRuntime] ${storageConfig.provider.toUpperCase()} storage provider initialized`);
     } catch (error) {
       console.error(`[MarketplaceRuntime] Failed to initialize ${storageConfig.provider.toUpperCase()} storage:`, error);
+    }
+  }
+
+  if (paymentConfig?.ping) {
+    try {
+      const pingpay = await runtime.usePlugin('pingpay', {
+        variables: {
+          ...(paymentConfig.ping.recipientAddress ? { recipientAddress: paymentConfig.ping.recipientAddress } : {}),
+          ...(paymentConfig.ping.baseUrl ? { baseUrl: paymentConfig.ping.baseUrl } : {}),
+        },
+        secrets: {
+          PING_API_KEY: paymentConfig.ping.apiKey ?? '',
+          PING_WEBHOOK_SECRET: paymentConfig.ping.webhookSecret ?? '',
+        },
+      });
+      paymentProviders.push({
+        name: 'pingpay',
+        client: pingpay.createClient(),
+        router: pingpay.router,
+      });
+      console.log('[MarketplaceRuntime] PingPay provider initialized');
+    } catch (error) {
+      console.error('[MarketplaceRuntime] Failed to initialize PingPay:', error);
+    }
+  }
+
+  if (paymentConfig?.stripe?.secretKey && paymentConfig?.stripe?.webhookSecret) {
+    try {
+      const stripe = await runtime.usePlugin('stripe', {
+        variables: {},
+        secrets: {
+          STRIPE_SECRET_KEY: paymentConfig.stripe.secretKey,
+          STRIPE_WEBHOOK_SECRET: paymentConfig.stripe.webhookSecret,
+        },
+      });
+      paymentProviders.push({
+        name: 'stripe',
+        client: stripe.createClient(),
+        router: stripe.router,
+      });
+      console.log('[MarketplaceRuntime] Stripe provider initialized');
+    } catch (error) {
+      console.error('[MarketplaceRuntime] Failed to initialize Stripe:', error);
     }
   }
 
