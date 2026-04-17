@@ -2,7 +2,7 @@ import { Route as RootRoute } from "@/routes/__root";
 
 const ABSOLUTE_URL_PATTERN = /^[a-zA-Z][a-zA-Z\d+.-]*:/;
 
-export function resolveAssetUrl(
+function resolveAssetUrl(
   assetPath: string | undefined,
   assetsUrl?: string,
 ): string | undefined {

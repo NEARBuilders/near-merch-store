@@ -275,7 +275,7 @@ function VerticalProductLayout({
   
   const displayImage =
     variantImages[0]?.url ||
-    product.variants?.[0]?.fulfillmentConfig?.designFiles?.[0]?.url ||
+    product.variants?.[0]?.fulfillmentConfig?.files?.[0]?.url ||
     product.images?.find((img) => img.type !== "mockup" && img.type !== "detail")?.url;
 
   const titleSize =
@@ -558,7 +558,7 @@ function HorizontalProductLayout({
   
   const displayImage = imageOverride ||
     variantImages[0]?.url ||
-    product.variants?.[0]?.fulfillmentConfig?.designFiles?.[0]?.url ||
+    product.variants?.[0]?.fulfillmentConfig?.files?.[0]?.url ||
     product.images?.find((img) => img.type !== "mockup" && img.type !== "detail")?.url;
 
   return (

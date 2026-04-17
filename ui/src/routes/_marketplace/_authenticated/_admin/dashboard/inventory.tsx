@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Fragment, useState, useEffect, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import {
@@ -25,7 +25,6 @@ import {
   Star,
   X,
   Plus,
-  XCircle,
   ChevronDown,
   GripVertical,
   ArrowUp,
@@ -35,16 +34,11 @@ import { ProductTitleCell } from "@/components/admin/product-title-cell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
   useProducts,
   useCategories,
   useProductTypes,
-  useSyncStatus,
-  useSyncProducts,
-  useSyncProgressSubscription,
-  useCancelSync,
   useUpdateProductCategories,
   useUpdateProductListing,
   useUpdateProductTags,
@@ -934,41 +928,7 @@ function ExpandedProductPanel({
 }
 
 // Helper functions for time and date formatting
-function formatDate(timestamp: number | null): string {
-  if (!timestamp) return "N/A";
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  }).format(new Date(timestamp));
-}
-
-function formatDuration(seconds: number): string {
-  if (seconds < 0) return "0:00";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
-
-function getProductRecencyTime(product: Product): number {
-  const timestamp = product.lastSyncedAt ?? product.createdAt;
-  const parsed = timestamp ? new Date(timestamp).getTime() : 0;
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
 function InventoryManagement() {
-  const [syncCancelledAt, setSyncCancelledAt] = useState<number | null>(null);
-
-  // Derived sync state - use server status only (not mutation pending)
-  const wasCancelledRecently =
-    syncCancelledAt && Date.now() - syncCancelledAt < 3000;
-
-  // Get sync status first to determine if we should poll
-  const { data: syncStatusData } = useSyncStatus();
-  const isRunning =
-    syncStatusData?.status === "running" && !wasCancelledRecently;
-
-  // Main products query with dynamic polling based on sync status
   const {
     data: productsData,
     isLoading,
@@ -977,13 +937,9 @@ function InventoryManagement() {
   } = useProducts({
     limit: 500,
     includeUnlisted: true,
-    refetchInterval: isRunning ? 3000 : false, // Poll every 3s during sync
-    refetchOnWindowFocus: isRunning, // Refetch when window regains focus during sync
   });
   const products = productsData?.products || [];
 
-  const syncMutation = useSyncProducts();
-  const cancelSyncMutation = useCancelSync();
   const updateListingMutation = useUpdateProductListing();
   const updateCategoriesMutation = useUpdateProductCategories();
   const updateTagsMutation = useUpdateProductTags();
@@ -998,183 +954,27 @@ function InventoryManagement() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [showErrorDetails, setShowErrorDetails] = useState(false);
-  const [showSuccessDetails, setShowSuccessDetails] = useState(false);
-  // Track current sync progress for display
-  const [syncProgress, setSyncProgress] = useState<{
-    synced: number;
-    failed: number;
-    total: number;
-  } | null>(null);
-  const [newlySyncedProductIds, setNewlySyncedProductIds] = useState<string[]>(
-    [],
-  );
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
-  const [isTrackingSyncNewItems, setIsTrackingSyncNewItems] = useState(false);
-  const previousProductIdsRef = useRef<Set<string> | null>(null);
-
-  // Subscribe to real-time progress updates
-  const { events: progressEvents, finalEvent: progressFinalEvent } =
-    useSyncProgressSubscription(isRunning);
-
-  // Update progress display from events
-  useEffect(() => {
-    if (progressEvents.length > 0) {
-      const lastEvent = progressEvents[progressEvents.length - 1];
-      const totalSynced = lastEvent.totalSynced ?? 0;
-      const totalFailed = lastEvent.totalFailed ?? 0;
-      // Estimate total from providers or use a reasonable guess
-      let estimatedTotal = 0;
-      Object.values(lastEvent.providers || {}).forEach((p: any) => {
-        estimatedTotal += p.total || 0;
-      });
-      // If we don't have a total yet, use synced + failed + buffer
-      if (estimatedTotal === 0) {
-        estimatedTotal = Math.max(
-          totalSynced + totalFailed + 10,
-          products.length,
-        );
-      }
-      setSyncProgress({
-        synced: totalSynced,
-        failed: totalFailed,
-        total: estimatedTotal,
-      });
-    }
-  }, [progressEvents, products.length]);
-
-  useEffect(() => {
-    const currentProductIds = new Set(products.map((product) => product.id));
-
-    if (previousProductIdsRef.current == null) {
-      previousProductIdsRef.current = currentProductIds;
-      return;
-    }
-
-    if (isTrackingSyncNewItems) {
-      const nextNewIds = products
-        .filter((product) => !previousProductIdsRef.current?.has(product.id))
-        .map((product) => product.id);
-
-      if (nextNewIds.length > 0) {
-        setNewlySyncedProductIds((currentIds) =>
-          Array.from(new Set([...nextNewIds, ...currentIds])),
-        );
-      }
-    }
-
-    previousProductIdsRef.current = currentProductIds;
-  }, [products, isTrackingSyncNewItems]);
-
-  const hasError =
-    syncStatusData?.status === "error" ||
-    progressFinalEvent?.status === "error";
-  const hasTerminalProgress = progressFinalEvent != null;
-  const showSyncStatus =
-    isRunning ||
-    hasTerminalProgress ||
-    hasError ||
-    syncStatusData?.lastSuccessAt;
-
-  // Build progress data from subscription
-  const syncProgressData = {
-    events: progressEvents,
-    finalEvent: progressFinalEvent,
-  };
-
-  useEffect(() => {
-    if (isTrackingSyncNewItems && !isRunning && !syncMutation.isPending) {
-      setIsTrackingSyncNewItems(false);
-    }
-  }, [isTrackingSyncNewItems, isRunning, syncMutation.isPending]);
-
-  const newlySyncedProductIdSet = useMemo(
-    () => new Set(newlySyncedProductIds),
-    [newlySyncedProductIds],
-  );
 
   const tableData = useMemo(() => {
-    if (sorting.length > 0 || newlySyncedProductIdSet.size === 0) {
-      if (sorting.length > 0) {
-        return products;
-      }
-
-      return [...products].sort((a, b) => {
-        const recencyDiff = getProductRecencyTime(b) - getProductRecencyTime(a);
-
-        if (recencyDiff !== 0) {
-          return recencyDiff;
-        }
-
-        return a.title.localeCompare(b.title);
-      });
+    if (sorting.length > 0) {
+      return products;
     }
 
     return [...products].sort((a, b) => {
-      const aIsNew = newlySyncedProductIdSet.has(a.id);
-      const bIsNew = newlySyncedProductIdSet.has(b.id);
-
-      if (aIsNew !== bIsNew) {
-        return aIsNew ? -1 : 1;
-      }
-
-      const recencyDiff = getProductRecencyTime(b) - getProductRecencyTime(a);
-
-      if (recencyDiff !== 0) {
-        return recencyDiff;
-      }
-
+      const aTime = a.lastSyncedAt ?? a.createdAt;
+      const bTime = b.lastSyncedAt ?? b.createdAt;
+      const aParsed = aTime ? new Date(aTime).getTime() : 0;
+      const bParsed = bTime ? new Date(bTime).getTime() : 0;
+      const recencyDiff = bParsed - aParsed;
+      if (recencyDiff !== 0) return recencyDiff;
       return a.title.localeCompare(b.title);
     });
-  }, [products, sorting.length, newlySyncedProductIdSet]);
-
-  const handleSync = () => {
-    setSyncCancelledAt(null); // Reset cancel state on new sync
-    previousProductIdsRef.current = new Set(products.map((product) => product.id));
-    setNewlySyncedProductIds([]);
-    setIsTrackingSyncNewItems(true);
-    syncMutation.mutate(undefined);
-  };
-
-  const handleCancelSync = () => {
-    setSyncCancelledAt(Date.now());
-    setIsTrackingSyncNewItems(false);
-    cancelSyncMutation.mutate(undefined, {
-      onSettled: () => {
-        // Clear cancel state after 2 seconds to allow state to settle
-        setTimeout(() => setSyncCancelledAt(null), 2000);
-      },
-    });
-  };
+  }, [products, sorting.length]);
 
   const handleToggleListing = (productId: string, currentlyListed: boolean) => {
     updateListingMutation.mutate({ id: productId, listed: !currentlyListed });
   };
-
-  // Live timer for sync duration
-  const [syncDuration, setSyncDuration] = useState(0);
-
-  useEffect(() => {
-    if (!isRunning) {
-      setSyncDuration(0);
-      return;
-    }
-
-    const startedAt = syncStatusData?.syncStartedAt;
-    if (!startedAt) {
-      setSyncDuration(0);
-      return;
-    }
-
-    const updateDuration = () => {
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      setSyncDuration(elapsed);
-    };
-
-    updateDuration();
-    const interval = setInterval(updateDuration, 1000);
-    return () => clearInterval(interval);
-  }, [isRunning, syncStatusData?.syncStartedAt]);
 
   const columns: ColumnDef<Product>[] = [
     {
@@ -1245,21 +1045,14 @@ function InventoryManagement() {
         </Button>
       ),
       cell: ({ row }) => {
-        const isNewProduct = newlySyncedProductIdSet.has(row.original.id);
-
-        return (
-          <div className="space-y-1.5">
-            <ProductTitleCell product={row.original} />
-            {isNewProduct && (
-              <Badge className="w-fit border-[#00EC97]/40 bg-[#00EC97]/10 text-[#00EC97] hover:bg-[#00EC97]/10">
-                New
-              </Badge>
-            )}
-          </div>
-        );
+          return (
+            <div className="space-y-1.5">
+              <ProductTitleCell product={row.original} />
+            </div>
+          );
+        },
+        size: 200,
       },
-      size: 200,
-    },
     {
       id: "listed",
       accessorKey: "listed",
@@ -1568,32 +1361,13 @@ function InventoryManagement() {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap shrink-0">
-          {isRunning ? (
-            <button
-              type="button"
-              onClick={handleCancelSync}
-              disabled={cancelSyncMutation.isPending}
-              className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-red-500/60 text-red-500 flex items-center justify-center font-semibold text-sm hover:bg-red-500/10 transition-colors disabled:opacity-50"
-            >
-              <XCircle className="size-4 mr-2" />
-              Cancel Sync
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSync}
-              disabled={syncMutation.isPending}
-              className="px-6 py-3 rounded-lg bg-background/60 backdrop-blur-sm border border-border/60 text-foreground flex items-center justify-center font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors disabled:opacity-50"
-            >
-              <RefreshCw
-                className={cn(
-                  "size-4 mr-2",
-                  syncMutation.isPending && "animate-spin",
-                )}
-              />
-              {syncMutation.isPending ? "Starting..." : "Sync Products"}
-            </button>
-          )}
+          <Link
+            to="/dashboard/new-product"
+            className="px-6 py-3 rounded-lg bg-[#00EC97] text-black flex items-center justify-center font-semibold text-sm hover:bg-[#00d97f] transition-colors"
+          >
+            <Plus className="size-4 mr-2" />
+            Create Product
+          </Link>
           <button
             type="button"
             onClick={() => refetch()}
@@ -1608,216 +1382,6 @@ function InventoryManagement() {
         </div>
       </div>
 
-      {/* Sync Status Block */}
-      {showSyncStatus && (
-        <Card
-          className={cn(
-            "rounded-2xl border p-4",
-            isRunning && "border-[#3d7fff]/60 bg-background/60",
-            hasError && "border-red-500/60 bg-background/60",
-            !isRunning &&
-              !hasError &&
-              syncStatusData?.lastSuccessAt &&
-              "border-[#00EC97]/60 bg-background/60",
-          )}
-        >
-          {/* Running View */}
-          {isRunning && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <RefreshCw className="size-4 animate-spin text-[#3d7fff]" />
-                <span className="text-[#3d7fff] font-medium">
-                  {syncProgress
-                    ? `Synced ${syncProgress.synced} of ~${syncProgress.total} products...`
-                    : "Syncing products..."}
-                </span>
-                {syncDuration > 0 && (
-                  <span className="text-[#3d7fff]/70">
-                    ({formatDuration(syncDuration)})
-                  </span>
-                )}
-              </div>
-
-              {/* Progress bar */}
-              {syncProgress && syncProgress.total > 0 && (
-                <div className="space-y-1">
-                  <div className="h-2 bg-background/60 rounded-full overflow-hidden border border-border/40">
-                    <div
-                      className="h-full bg-[#3d7fff] transition-all duration-500 ease-out"
-                      style={{
-                        width: `${Math.min((syncProgress.synced / syncProgress.total) * 100, 100)}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-[#3d7fff]/70">
-                    <span>{syncProgress.synced} synced</span>
-                    {syncProgress.failed > 0 && (
-                      <span className="text-yellow-500">
-                        {syncProgress.failed} failed
-                      </span>
-                    )}
-                    <span>{products.length} in inventory</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Provider status */}
-              {progressEvents.length > 0 && (
-                <div className="text-xs text-[#3d7fff]/60 space-y-1">
-                  {Object.entries(
-                    progressEvents[progressEvents.length - 1]?.providers || {},
-                  ).map(([name, provider]: [string, any]) => (
-                    <div key={name} className="flex items-center gap-2">
-                      <span className="capitalize">{name}:</span>
-                      <span>{provider.synced} synced</span>
-                      {provider.failed > 0 && (
-                        <span className="text-yellow-500/80">
-                          ({provider.failed} failed)
-                        </span>
-                      )}
-                      {provider.phase && (
-                        <span className="text-[#3d7fff]/40">
-                          - {provider.phase.replace(/_/g, " ")}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Error View */}
-          {hasError && (
-            <div className="space-y-3">
-              <div className="flex items-start gap-2">
-                <XCircle className="size-5 text-red-500 mt-0.5" />
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium text-red-500">
-                    Sync failed
-                  </p>
-                  <p className="text-sm text-red-500/80">
-                    {syncStatusData?.errorMessage ||
-                      syncProgressData?.finalEvent?.message ||
-                      "Unknown error"}
-                  </p>
-                </div>
-              </div>
-              {syncStatusData?.errorData && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setShowErrorDetails(!showErrorDetails)}
-                    className="flex items-center gap-1.5 text-xs text-red-500/70 hover:text-red-500 transition-colors"
-                  >
-                    <span>{showErrorDetails ? "Hide" : "Show"} details</span>
-                    <ChevronDown
-                      className={cn(
-                        "size-3.5 transition-transform",
-                        showErrorDetails && "rotate-180",
-                      )}
-                    />
-                  </button>
-                  {showErrorDetails && (
-                    <div className="bg-background/50 rounded-lg p-3 border border-red-500/20">
-                      <pre className="text-xs text-red-500/70 whitespace-pre-wrap font-mono">
-                        {JSON.stringify(syncStatusData.errorData, null, 2)}
-                      </pre>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Success View */}
-          {!isRunning && !hasError && syncStatusData?.lastSuccessAt && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-[#00EC97] font-medium">
-                    Last synced:
-                  </span>
-                  <span className="text-[#00EC97]/70">
-                    {formatDate(syncStatusData.lastSuccessAt)}
-                  </span>
-                </div>
-                {syncProgressData?.finalEvent?.status === "completed" && (
-                  <button
-                    type="button"
-                    onClick={() => setShowSuccessDetails(!showSuccessDetails)}
-                    className="flex items-center gap-1.5 text-xs text-[#00EC97]/70 hover:text-[#00EC97] transition-colors"
-                  >
-                    <span>{showSuccessDetails ? "Hide" : "Show"} details</span>
-                    <ChevronDown
-                      className={cn(
-                        "size-3.5 transition-transform",
-                        showSuccessDetails && "rotate-180",
-                      )}
-                    />
-                  </button>
-                )}
-              </div>
-
-              {showSuccessDetails &&
-                syncProgressData?.finalEvent?.status === "completed" && (
-                  <div className="bg-background/50 rounded-lg p-3 border border-[#00EC97]/20 space-y-2">
-                    <div className="text-xs text-foreground/70 space-y-1">
-                      <div className="flex justify-between">
-                        <span>Products synced:</span>
-                        <span className="font-medium text-[#00EC97]">
-                          {syncProgressData.finalEvent.totalSynced}
-                        </span>
-                      </div>
-                      {syncProgressData.finalEvent.totalFailed > 0 && (
-                        <div className="flex justify-between">
-                          <span>Failed:</span>
-                          <span className="font-medium text-yellow-500">
-                            {syncProgressData.finalEvent.totalFailed}
-                          </span>
-                        </div>
-                      )}
-                      {syncProgressData.finalEvent.totalRemoved > 0 && (
-                        <div className="flex justify-between">
-                          <span>Removed:</span>
-                          <span className="font-medium text-foreground/50">
-                            {syncProgressData.finalEvent.totalRemoved}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {Object.keys(syncProgressData.finalEvent.providers).length >
-                      0 && (
-                      <details className="text-xs">
-                        <summary className="cursor-pointer text-foreground/50 hover:text-foreground/70 transition-colors">
-                          Provider details
-                        </summary>
-                        <div className="mt-2 space-y-1 pl-2 border-l-2 border-border/40">
-                          {Object.entries(
-                            syncProgressData.finalEvent.providers,
-                          ).map(([name, p]) => (
-                            <div
-                              key={name}
-                              className="flex justify-between text-foreground/70"
-                            >
-                              <span className="capitalize">{name}</span>
-                              <span>
-                                {p.synced} synced
-                                {p.failed > 0 && `, ${p.failed} failed`}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </details>
-                    )}
-                  </div>
-                )}
-            </div>
-          )}
-        </Card>
-      )}
-
       {/* Search Block */}
       <div className="rounded-2xl bg-background border border-border/60 px-6 py-4">
         <div className="relative">
@@ -1831,23 +1395,8 @@ function InventoryManagement() {
         </div>
         {sorting.length === 0 && (
           <p className="mt-3 text-xs text-foreground/60 dark:text-muted-foreground">
-            Default order shows the most recently synced or added products first.
+            Default order shows the most recently updated products first.
           </p>
-        )}
-        {newlySyncedProductIds.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-            <Badge className="border-[#00EC97]/40 bg-[#00EC97]/10 text-[#00EC97] hover:bg-[#00EC97]/10">
-              {newlySyncedProductIds.length} new item
-              {newlySyncedProductIds.length === 1 ? "" : "s"} pinned to top
-            </Badge>
-            <button
-              type="button"
-              onClick={() => setNewlySyncedProductIds([])}
-              className="text-foreground/60 transition-colors hover:text-foreground"
-            >
-              Clear highlights
-            </button>
-          </div>
         )}
       </div>
 
@@ -1894,9 +1443,7 @@ function InventoryManagement() {
                       <tr
                         className={cn(
                           "group transition-colors",
-                          newlySyncedProductIdSet.has(row.original.id)
-                            ? "bg-[#00EC97]/5 hover:bg-[#00EC97]/10"
-                            : "hover:bg-background/40",
+                          "hover:bg-background/40",
                         )}
                       >
                         {row.getVisibleCells().map((cell) => (
@@ -1968,7 +1515,6 @@ function InventoryManagement() {
             table.getRowModel().rows.map((row) => {
               const product = row.original;
               const isListed = product.listed !== false;
-              const isNewProduct = newlySyncedProductIdSet.has(product.id);
               const isExpanded = expandedProductId === product.id;
 
               return (
@@ -1976,9 +1522,7 @@ function InventoryManagement() {
                   key={row.id}
                   className={cn(
                     "p-4 space-y-3 transition-colors max-w-full overflow-x-hidden",
-                    isNewProduct
-                      ? "bg-[#00EC97]/5 hover:bg-[#00EC97]/10"
-                      : "hover:bg-background/40",
+                    "hover:bg-background/40",
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -2030,11 +1574,6 @@ function InventoryManagement() {
                         </Button>
                       </div>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {isNewProduct && (
-                          <Badge className="border-[#00EC97]/40 bg-[#00EC97]/10 text-[#00EC97] hover:bg-[#00EC97]/10">
-                            New
-                          </Badge>
-                        )}
                         {product.collections &&
                           product.collections.length > 0 && (
                             <Badge

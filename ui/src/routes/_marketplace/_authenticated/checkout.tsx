@@ -1032,7 +1032,7 @@ function CheckoutPage() {
                     ) || [];
                     const displayImage = 
                       variantImages[0]?.url ||
-                      item.product.variants?.[0]?.fulfillmentConfig?.designFiles?.[0]?.url ||
+                      item.product.variants?.[0]?.fulfillmentConfig?.files?.[0]?.url ||
                       item.product.images?.find((img) => img.type !== "mockup" && img.type !== "detail")?.url;
                     
                     return (

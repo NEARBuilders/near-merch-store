@@ -30,7 +30,6 @@ export const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
       retry: (failureCount, error) => {
-        // this needs better parity with the api behavior (oRPC Error and Effect)
         if (error && typeof error === "object" && "message" in error) {
           const message = String(error.message).toLowerCase();
           if (message.includes("fetch") || message.includes("network")) {
@@ -95,13 +94,10 @@ function getActiveApiClient(): ApiClient {
 
 export const apiClient: ApiClient = new Proxy({} as ApiClient, {
   get(_target, prop, _receiver) {
-    // Prevent await/apiClient from treating this as a thenable
     if (prop === "then") return undefined;
     const client = getActiveApiClient() as unknown as Record<string, unknown>;
     const value = client[prop as unknown as string];
     if (typeof value === "function") {
-      // NOTE: Do NOT call .bind() here.
-      // oRPC's client is a Proxy; accessing `.bind` can be interpreted as an RPC path segment.
       return (...args: unknown[]) => (value as (...a: unknown[]) => unknown)(...args);
     }
     return value;

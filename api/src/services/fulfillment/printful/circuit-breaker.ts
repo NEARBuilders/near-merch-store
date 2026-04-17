@@ -128,7 +128,6 @@ export class CircuitBreaker {
  * Pre-configured circuit breakers for different Printful APIs
  */
 export const printfulCircuitBreakers = {
-  v1: new CircuitBreaker('PrintfulV1', 5, 60000, 3),
   v2: new CircuitBreaker('PrintfulV2', 5, 60000, 3),
   catalog: new CircuitBreaker('PrintfulCatalog', 10, 30000, 5),
 };

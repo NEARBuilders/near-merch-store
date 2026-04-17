@@ -57,6 +57,13 @@
       "when": 1773682282296,
       "tag": "0007_stormy_roughhouse",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776376476754,
+      "tag": "0008_old_vanisher",
+      "breakpoints": true
     }
   ]
 }

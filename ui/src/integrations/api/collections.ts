@@ -51,13 +51,6 @@ export function useCarouselCollections() {
   });
 }
 
-export function useSuspenseCarouselCollections() {
-  return useSuspenseQuery({
-    queryKey: collectionKeys.carousel(),
-    queryFn: () => apiClient.getCarouselCollections(),
-  });
-}
-
 export function useUpdateCollection() {
   const qc = useQueryClient();
   return useMutation({

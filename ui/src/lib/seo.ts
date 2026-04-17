@@ -1,7 +1,7 @@
 import type { Collection, Product } from '@/integrations/api';
 
 export const SITE_NAME = 'NEAR Merch Store';
-export const SITE_HANDLE = '@nearmerch';
+const SITE_HANDLE = '@nearmerch';
 export const DEFAULT_DESCRIPTION = 'Shop exclusive NEAR Protocol merchandise - Official blockchain apparel, accessories, and collectibles for the NEAR ecosystem';
 
 type SeoHeadInput = {
@@ -15,12 +15,12 @@ type SeoHeadInput = {
   robots?: string;
 };
 
-export function normalizeText(value?: string | null, fallback = '') {
+function normalizeText(value?: string | null, fallback = '') {
   if (!value) return fallback;
   return value.replace(/\s+/g, ' ').trim() || fallback;
 }
 
-export function truncateText(value: string, maxLength: number) {
+function truncateText(value: string, maxLength: number) {
   if (value.length <= maxLength) return value;
   return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}...`;
 }

@@ -32,35 +32,6 @@ import {
   GetOrderAuditLogOutputSchema,
 } from "./schema";
 
-const ProviderProgressSchema = z.object({
-  status: z.enum(["idle", "fetching", "syncing", "completed", "error"]),
-  phase: z.enum([
-    "init",
-    "fetch_products",
-    "fetch_details",
-    "sync_to_db",
-    "cleanup",
-  ]),
-  total: z.number(),
-  synced: z.number(),
-  failed: z.number(),
-  currentProduct: z.string().nullable().optional(),
-  message: z.string().nullable().optional(),
-});
-
-const SyncProgressEventSchema = z.object({
-  status: z.enum(["idle", "syncing", "completed", "error"]),
-  providers: z.record(z.string(), ProviderProgressSchema),
-  totalSynced: z.number(),
-  totalFailed: z.number(),
-  totalRemoved: z.number(),
-  timestamp: z.number(),
-  message: z.string().nullable().optional(),
-});
-
-export type ProviderProgress = z.infer<typeof ProviderProgressSchema>;
-export type SyncProgress = z.infer<typeof SyncProgressEventSchema>;
-
 export const contract = oc.router({
   ping: oc
     .route({
@@ -437,17 +408,6 @@ export const contract = oc.router({
     .input(z.unknown())
     .output(WebhookResponseSchema),
 
-  gelatoWebhook: oc
-    .route({
-      method: "POST",
-      path: "/webhooks/gelato",
-      summary: "Gelato webhook",
-      description: "Handles Gelato webhook events for order status updates.",
-      tags: ["Webhooks"],
-    })
-    .input(z.unknown())
-    .output(WebhookResponseSchema),
-
   luluWebhook: oc
     .route({
       method: 'POST',
@@ -469,98 +429,6 @@ export const contract = oc.router({
     })
     .input(z.unknown())
     .output(WebhookResponseSchema),
-
-  sync: oc
-    .route({
-      method: "POST",
-      path: "/sync",
-      summary: "Sync products from fulfillment providers",
-      description:
-        "Triggers background sync from configured providers. Returns immediately with sync status. " +
-        "Use subscribeSyncProgress SSE endpoint to track progress in real-time. " +
-        "Enforces single sync at a time (mutual exclusion).",
-      tags: ["Sync"],
-    })
-    .output(
-      z.object({
-        status: z.enum(["started", "already_running"]),
-        syncStartedAt: z.string().datetime().describe("ISO 8601 timestamp"),
-        message: z.string().describe("Human-readable status"),
-      }),
-    )
-    .errors({
-      SYNC_IN_PROGRESS: {
-        status: 409,
-        message: "Sync is already in progress. Only one sync can run at a time",
-        data: z.object({
-          syncStartedAt: z
-            .string()
-            .datetime()
-            .describe("When previous sync started"),
-          duration: z
-            .number()
-            .describe("How long it has been running (seconds)"),
-        }),
-      },
-    }),
-
-  cancelSync: oc
-    .route({
-      method: "POST",
-      path: "/sync/cancel",
-      summary: "Cancel active sync",
-      description:
-        "Interrupts an in-progress sync and resets to idle state. " +
-        "Useful for recovering from stuck or stale sync operations.",
-      tags: ["Sync"],
-    })
-    .output(
-      z.object({
-        success: z.boolean().describe("Whether a sync was cancelled"),
-        message: z.string().describe("Human-readable result"),
-      }),
-    ),
-
-  getSyncStatus: oc
-    .route({
-      method: "GET",
-      path: "/sync-status",
-      summary: "Get sync status",
-      description:
-        "Returns current sync status. Auto-detects stale syncs (>5min) and returns error state. " +
-        "Includes error context and timestamps.",
-      tags: ["Sync"],
-    })
-    .output(
-      z.object({
-        status: z.enum(["idle", "running", "error"]),
-        lastSuccessAt: z
-          .number()
-          .nullable()
-          .describe("Last successful sync (epoch ms)"),
-        lastErrorAt: z.number().nullable().describe("Last error timestamp"),
-        errorMessage: z.string().nullable().describe("Latest error message"),
-        syncStartedAt: z
-          .number()
-          .nullable()
-          .describe("Current sync start (epoch ms)"),
-        updatedAt: z.number().describe("Last status update time"),
-        errorData: z
-          .record(z.string(), z.any())
-          .nullable()
-          .describe("Full error context"),
-      }),
-    ),
-
-  subscribeSyncProgress: oc
-    .route({
-      method: "GET",
-      path: "/sync/progress",
-      summary: "Subscribe to sync progress",
-      description: "SSE endpoint streaming real-time sync progress updates.",
-      tags: ["Sync"],
-    })
-    .output(eventIterator(SyncProgressEventSchema)),
 
   updateProductListing: oc
     .route({
@@ -940,4 +808,350 @@ export const contract = oc.router({
     })
     .input(z.object({ slug: z.string() }))
     .output(z.object({ success: z.boolean() })),
+
+  // ─── Admin: Catalog Browsing ───
+
+  browseProviderCatalog: oc
+    .route({
+      method: "GET",
+      path: "/admin/catalog",
+      summary: "Browse provider catalog",
+      description: "Browses the catalog of a fulfillment provider (blanks/products).",
+      tags: ["Admin", "Catalog"],
+    })
+    .input(z.object({
+      provider: z.enum(["printful", "lulu"]),
+      limit: z.number().int().positive().max(100).default(50),
+      offset: z.number().int().min(0).default(0),
+    }))
+    .output(z.object({
+      products: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        brand: z.string().nullable().optional(),
+        model: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
+        image: z.string().nullable().optional(),
+        providerName: z.string(),
+        slots: z.array(z.object({
+          name: z.string(),
+          label: z.string().optional(),
+          required: z.boolean().optional(),
+          acceptedFormats: z.array(z.string()).optional(),
+        })).optional(),
+        variants: z.array(z.object({
+          id: z.string(),
+          name: z.string(),
+          size: z.string().nullable().optional(),
+          color: z.string().nullable().optional(),
+          colorCode: z.string().nullable().optional(),
+          image: z.string().nullable().optional(),
+          providerRef: z.string(),
+          price: z.object({
+            wholesale: z.number().optional(),
+            retail: z.number().optional(),
+            currency: z.string().optional(),
+          }).nullable().optional(),
+        })).optional(),
+      })),
+      total: z.number(),
+    }))
+    .errors({ UNAUTHORIZED }),
+
+  getProviderCatalogProduct: oc
+    .route({
+      method: "GET",
+      path: "/admin/catalog/{provider}/{id}",
+      summary: "Get provider catalog product",
+      description: "Gets details for a specific catalog product from a provider.",
+      tags: ["Admin", "Catalog"],
+    })
+    .input(z.object({
+      provider: z.enum(["printful", "lulu"]),
+      id: z.string(),
+    }))
+    .output(z.object({
+      product: z.object({
+        id: z.string(),
+        name: z.string(),
+        brand: z.string().nullable().optional(),
+        model: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
+        image: z.string().nullable().optional(),
+        providerName: z.string(),
+        slots: z.array(z.object({
+          name: z.string(),
+          label: z.string().optional(),
+          required: z.boolean().optional(),
+          acceptedFormats: z.array(z.string()).optional(),
+        })).optional(),
+      }),
+    }))
+    .errors({ NOT_FOUND, UNAUTHORIZED }),
+
+  getProviderCatalogVariants: oc
+    .route({
+      method: "GET",
+      path: "/admin/catalog/{provider}/{id}/variants",
+      summary: "Get provider catalog product variants",
+      description: "Gets variants for a specific catalog product from a provider.",
+      tags: ["Admin", "Catalog"],
+    })
+    .input(z.object({
+      provider: z.enum(["printful", "lulu"]),
+      id: z.string(),
+    }))
+    .output(z.object({
+      variants: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        size: z.string().nullable().optional(),
+        color: z.string().nullable().optional(),
+        colorCode: z.string().nullable().optional(),
+        image: z.string().nullable().optional(),
+        providerRef: z.string(),
+        price: z.object({
+          wholesale: z.number().optional(),
+          retail: z.number().optional(),
+          currency: z.string().optional(),
+        }).nullable().optional(),
+      })),
+    }))
+    .errors({ UNAUTHORIZED }),
+
+  getProviderPlacements: oc
+    .route({
+      method: "POST",
+      path: "/admin/fulfillment/placements",
+      summary: "Get available placements for a catalog product",
+      description: "Returns the available placement slots (e.g. front, back, sleeve) for a given provider and catalog product. Provider-agnostic — routes through the fulfillment provider's implementation.",
+      tags: ["Admin", "Fulfillment"],
+    })
+    .input(z.object({
+      provider: z.enum(["printful", "lulu"]),
+      catalogProductId: z.string(),
+    }))
+    .output(z.object({
+      placements: z.array(z.object({
+        name: z.string(),
+        label: z.string().optional(),
+        required: z.boolean().default(true),
+        acceptedFormats: z.array(z.string()).optional(),
+      })),
+    }))
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
+
+  // ─── Admin: Assets ───
+
+  requestAssetUpload: oc
+    .route({
+      method: "POST",
+      path: "/admin/assets/upload",
+      summary: "Request a presigned upload URL",
+      description: "Returns a presigned URL for direct upload to storage, plus an asset ID. After uploading to the presigned URL, call confirmAssetUpload to finalize the asset record.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({
+      filename: z.string().min(1),
+      contentType: z.string().default("image/png"),
+      prefix: z.string().optional(),
+    }))
+    .output(z.object({
+      presignedUrl: z.string().url(),
+      assetId: z.string(),
+      publicUrl: z.string().url(),
+      key: z.string(),
+    }))
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
+
+  confirmAssetUpload: oc
+    .route({
+      method: "POST",
+      path: "/admin/assets/upload/confirm",
+      summary: "Confirm an asset upload",
+      description: "After uploading to the presigned URL, call this to create the asset record with the storage key and public URL.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({
+      key: z.string().min(1),
+      publicUrl: z.string().url(),
+      assetId: z.string(),
+      filename: z.string().optional(),
+      contentType: z.string().optional(),
+      size: z.number().optional(),
+    }))
+    .output(z.object({
+      id: z.string(),
+      url: z.string(),
+      type: z.string(),
+      name: z.string().nullable(),
+      storageKey: z.string().nullable(),
+      size: z.number().nullable(),
+      metadata: z.record(z.string(), z.unknown()).nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    }))
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
+
+  getAssetSignedUrl: oc
+    .route({
+      method: "POST",
+      path: "/admin/assets/{id}/signed-url",
+      summary: "Get a signed URL for an asset",
+      description: "Returns a time-limited signed URL for accessing a private asset.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({
+      id: z.string(),
+      expiresIn: z.number().int().positive().max(86400).default(3600),
+    }))
+    .output(z.object({
+      url: z.string().url(),
+      expiresIn: z.number(),
+    }))
+    .errors({ NOT_FOUND, UNAUTHORIZED }),
+
+  createAsset: oc
+    .route({
+      method: "POST",
+      path: "/admin/assets",
+      summary: "Create an asset",
+      description: "Creates a new asset record with a URL.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({
+      url: z.string().url(),
+      type: z.string(),
+      name: z.string().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }))
+    .output(z.object({
+      id: z.string(),
+      url: z.string(),
+      type: z.string(),
+      name: z.string().nullable(),
+      storageKey: z.string().nullable(),
+      size: z.number().nullable(),
+      metadata: z.record(z.string(), z.unknown()).nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    }))
+    .errors({ UNAUTHORIZED }),
+
+  listAssets: oc
+    .route({
+      method: "GET",
+      path: "/admin/assets",
+      summary: "List assets",
+      description: "Lists all assets with optional type filter.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({
+      type: z.string().optional(),
+      limit: z.number().int().positive().max(100).default(50),
+      offset: z.number().int().min(0).default(0),
+    }))
+    .output(z.object({
+      assets: z.array(z.object({
+        id: z.string(),
+        url: z.string(),
+        type: z.string(),
+        name: z.string().nullable(),
+        storageKey: z.string().nullable(),
+        size: z.number().nullable(),
+        metadata: z.record(z.string(), z.unknown()).nullable(),
+        createdAt: z.string(),
+        updatedAt: z.string(),
+      })),
+      total: z.number(),
+    }))
+    .errors({ UNAUTHORIZED }),
+
+  deleteAsset: oc
+    .route({
+      method: "DELETE",
+      path: "/admin/assets/{id}",
+      summary: "Delete an asset",
+      description: "Deletes an asset by ID.",
+      tags: ["Admin", "Assets"],
+    })
+    .input(z.object({ id: z.string() }))
+    .output(z.object({ success: z.boolean() }))
+    .errors({ UNAUTHORIZED }),
+
+  // ─── Admin: Migration ───
+
+  migrate: oc
+    .route({
+      method: "POST",
+      path: "/admin/migrate",
+      summary: "Migrate legacy fulfillment config",
+      description: "Migrates old-format fulfillment_config on product variants to the new shape, creates asset records, and seeds Lulu books.",
+      tags: ["Admin", "Migration"],
+    })
+    .output(z.object({
+      variantsMigrated: z.number(),
+      variantsSkipped: z.number(),
+      assetsCreated: z.number(),
+      luluBooksSeeded: z.number(),
+      errors: z.array(z.object({
+        productId: z.string().optional(),
+        variantId: z.string().optional(),
+        error: z.string(),
+      })),
+    }))
+    .errors({ UNAUTHORIZED }),
+
+  // ─── Admin: Product Builder ───
+
+  buildProduct: oc
+    .route({
+      method: "POST",
+      path: "/admin/products/build",
+      summary: "Build a product",
+      description: "Creates a product with the given variants, files, and provider config. Caller constructs providerConfig per variant (opaque to the builder).",
+      tags: ["Admin", "Products"],
+    })
+    .input(z.object({
+      name: z.string(),
+      description: z.string().optional(),
+      providerName: z.string(),
+      image: z.string().optional(),
+      variants: z.array(z.object({
+        name: z.string(),
+        variantRef: z.string(),
+        providerConfig: z.record(z.string(), z.unknown()),
+        attributes: z.array(z.object({ name: z.string(), value: z.string() })).optional(),
+        price: z.number().optional(),
+        currency: z.string().optional(),
+        sku: z.string().optional(),
+      })).min(1),
+      files: z.array(z.object({
+        assetId: z.string(),
+        url: z.string(),
+        slot: z.string().optional(),
+        metadata: z.record(z.string(), z.unknown()).optional(),
+      })),
+      assetId: z.string().optional(),
+      priceOverride: z.number().optional(),
+      currency: z.string().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }))
+    .output(ProductSchema)
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
+
+  generateProductMockups: oc
+    .route({
+      method: "POST",
+      path: "/admin/products/{id}/mockups",
+      summary: "Generate mockups for a product",
+      description: "Triggers mockup generation for an existing product.",
+      tags: ["Admin", "Products"],
+    })
+    .input(z.object({
+      id: z.string(),
+      styleIds: z.array(z.number()).optional(),
+    }))
+    .output(ProductSchema)
+    .errors({ NOT_FOUND, UNAUTHORIZED }),
 });

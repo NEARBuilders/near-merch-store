@@ -19,7 +19,7 @@ function createAuthClient() {
 
 let _authClient: ReturnType<typeof createAuthClient> | undefined;
 
-export function getAuthClient() {
+function getAuthClient() {
   if (_authClient === undefined) {
     _authClient = createAuthClient();
   }

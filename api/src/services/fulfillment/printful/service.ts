@@ -12,30 +12,36 @@ import {
 import type { PrintfulWebhookEventType, ProductImage } from '../../../schema';
 import { FulfillmentError } from '../errors';
 import type {
+  BrowseCatalogOutput,
+  CatalogProductDetailOutput,
+  CatalogVariantsOutput,
+  CreateOrderInput,
+  DesignFile,
   FulfillmentOrder,
-  FulfillmentOrderInput,
   FulfillmentOrderStatus,
-  ProviderDetails,
-  ProviderProduct,
-  ProviderVariant,
+  GenerateMockupsInput,
+  GenerateMockupsOutput,
+  GetMockupResultOutput,
+  MockupImage,
+  OrderResult,
+  PingOutput,
+  ProviderCatalogProduct,
+  ProviderCatalogVariant,
+  ProviderCatalogPrice,
+  GetPlacementsOutput,
   ShippingQuoteInput,
-  ShippingQuoteOutput
+  ShippingQuoteOutput,
+  TaxQuoteInput,
+  TaxQuoteOutput,
+  VariantPriceOutput,
 } from '../schema';
 import { PrintfulClient } from './client';
-import {
-  extractDesignFiles,
-  type MockupResult,
-  type MockupStyleInfo,
-  type MockupTaskResult,
-  type PrintfulSyncProduct,
-  type PrintfulSyncVariant
-} from './types';
+import type { MockupStyleInfo } from './types';
 
 export class PrintfulService {
   private client: PrintfulClient;
   private apiKey: string;
   private storeId: string;
-  private catalogVariantCache = new Map<number, Variant>();
 
   constructor(apiKey: string, storeId: string, baseUrl = 'https://api.printful.com') {
     this.client = new PrintfulClient(apiKey, storeId, baseUrl);
@@ -43,530 +49,325 @@ export class PrintfulService {
     this.storeId = storeId;
   }
 
-  clearCache() {
-    this.catalogVariantCache.clear();
-  }
+  // ─── Provider Health ───
 
-  getSyncProducts(limit = 20, offset = 0) {
-    return Effect.tryPromise({
-      try: () => this.client.getSyncProducts(limit, offset),
-      catch: (e) => new Error(`Failed to fetch Printful products: ${e instanceof Error ? e.message : String(e)}`),
-    });
-  }
-
-  getSyncProduct(id: number | string) {
-    return Effect.tryPromise({
-      try: () => this.client.getSyncProduct(id),
-      catch: (e) => new Error(`Failed to fetch Printful product: ${e instanceof Error ? e.message : String(e)}`),
-    });
-  }
-
-  getProducts(options: { limit?: number; offset?: number } = {}) {
-    return Effect.gen(this, function* () {
-      const PAGE_SIZE = 100; // Larger page size for listing
-      const DETAIL_CONCURRENCY = 4; // Concurrent product detail fetches
-      const VARIANT_CONCURRENCY = 6; // Concurrent catalog variant fetches
-
-      // Phase 1: List all sync products
-      console.log('[PrintfulService] Phase 1: Listing sync products...');
-      let allSyncProducts: PrintfulSyncProduct[] = [];
-      let offset = 0;
-      let totalProducts = 0;
-      let pageCount = 0;
-
-      while (true) {
-        pageCount++;
-        const result = yield* this.getSyncProducts(PAGE_SIZE, offset);
-        allSyncProducts = [...allSyncProducts, ...result.sync_products];
-        totalProducts = result.paging.total;
-        
-        if (allSyncProducts.length >= totalProducts) break;
-        offset += PAGE_SIZE;
-        
-        // Safety limit
-        if (pageCount >= 100) {
-          console.warn('[PrintfulService] Reached max page limit (100), stopping pagination');
-          break;
-        }
-      }
-      console.log(`[PrintfulService] Phase 1 complete: Listed ${allSyncProducts.length} sync products`);
-
-      // Apply pagination options
-      const start = options.offset || 0;
-      const end = options.limit ? start + options.limit : allSyncProducts.length;
-      const paginatedProducts = allSyncProducts.slice(start, end);
-
-      // Phase 2: Fetch product details with bounded concurrency
-      console.log(`[PrintfulService] Phase 2: Fetching details for ${paginatedProducts.length} products (concurrency: ${DETAIL_CONCURRENCY})...`);
-      
-      const products: ProviderProduct[] = [];
-      const failed: Array<{ id: string; error: string }> = [];
-      let processedCount = 0;
-
-      const fetchProduct = (syncProduct: PrintfulSyncProduct) =>
-        Effect.gen(this, function* () {
-          const detail = yield* this.getSyncProduct(syncProduct.id).pipe(
-            Effect.retry({
-              times: 2,
-              schedule: Schedule.exponential('500 millis'),
-            }),
-            Effect.catchAll((e) => Effect.succeed({ error: e, id: syncProduct.id }))
-          );
-
-          if ('error' in detail) {
-            return { error: detail.error, id: syncProduct.id };
-          }
-
-          // Phase 3: Enrich with catalog variants using optimized V2 batch API
-          const catalogVariantIds = detail.sync_variants.map((v) => v.variant_id).filter(Boolean);
-          
-          // Use batch V2 API for better performance
-          const catalogVariants = yield* this.getCatalogVariantsV2(catalogVariantIds, VARIANT_CONCURRENCY);
-
-          // Phase 4: Fetch catalog product details for provider facts
-          const catalogProductId = detail.sync_variants[0]?.product?.product_id;
-          let catalogProduct = null;
-          if (catalogProductId) {
-            catalogProduct = yield* this.getCatalogProduct(catalogProductId);
-          }
-
-          return this.transformProduct(detail.sync_product, detail.sync_variants, catalogVariants, catalogProduct);
-        });
-
-      // Process products in batches with bounded concurrency
-      const results = yield* Effect.all(
-        paginatedProducts.map((p) => fetchProduct(p)),
-        { concurrency: DETAIL_CONCURRENCY }
-      );
-
-      for (const result of results) {
-        processedCount++;
-        if ('error' in result) {
-          failed.push({ id: String(result.id), error: String(result.error) });
-        } else {
-          products.push(result as ProviderProduct);
-        }
-        
-        // Log progress every 10 products
-        if (processedCount % 10 === 0 || processedCount === paginatedProducts.length) {
-          console.log(`[PrintfulService] Phase 2 progress: ${processedCount}/${paginatedProducts.length} products processed`);
-        }
-      }
-
-      console.log(`[PrintfulService] Phase 2 complete: ${products.length} products ready, ${failed.length} failed`);
-      
-      return { products, total: totalProducts, failed };
-    });
-  }
-
-  getProduct(id: string) {
-    return Effect.gen(this, function* () {
-      const numericId = parseInt(id.replace('printful-', ''), 10);
-      const { sync_product, sync_variants } = yield* this.getSyncProduct(numericId);
-      const catalogVariantIds = sync_variants.map(v => v.variant_id).filter(Boolean);
-      const catalogVariants = yield* this.getCatalogVariants(catalogVariantIds);
-      
-      const catalogProductId = sync_variants[0]?.product?.product_id;
-      let catalogProduct = null;
-      if (catalogProductId) {
-        catalogProduct = yield* this.getCatalogProduct(catalogProductId);
-      }
-      
-      return { product: this.transformProduct(sync_product, sync_variants, catalogVariants, catalogProduct) };
-    });
-  }
-
-  getCatalogVariant(variantId: number) {
-    return Effect.gen(this, function* () {
-      // Use new V2 method with standard strategy
-      const variant = yield* Effect.tryPromise({
-        try: () => this.client.getCatalogVariantV2(variantId, 'standard'),
-        catch: (error) => {
-          if (error instanceof FulfillmentError) {
-            return error;
-          }
-          return FulfillmentError.fromHttpStatus(
-            500,
-            'printful',
-            error instanceof Error ? error.message : String(error),
-            error
-          );
-        },
-      }).pipe(
-        Effect.retry({
-          times: 2, // Reduced from 5 to 2
-          schedule: Schedule.exponential('500 millis'), // Faster retry
-          while: (error) => error instanceof FulfillmentError && error.code === 'RATE_LIMIT',
-        }),
-        Effect.catchAll(() => Effect.succeed(null))
-      );
-
-      return variant;
-    });
-  }
-
-  /**
-   * Best-effort catalog variant fetch using V2 API - fast timeout, no retries
-   * Used for bulk enrichment during sync where partial data is acceptable
-   */
-  getCatalogVariantBestEffort(variantId: number) {
-    return Effect.gen(this, function* () {
-      // Use new V2 method with bestEffort strategy (no retries, 3s timeout)
-      const variant = yield* Effect.tryPromise({
-        try: () => this.client.getCatalogVariantV2(variantId, 'bestEffort'),
-        catch: () => null, // Fail soft - return null on any error
-      });
-
-      return variant;
-    });
-  }
-
-  /**
-   * Batch fetch catalog variants using V2 API with optimized concurrency
-   * This is the preferred method for bulk operations
-   */
-  getCatalogVariantsV2(variantIds: number[], concurrency = 6) {
-    return Effect.gen(this, function* () {
-      const results = yield* Effect.tryPromise({
-        try: () => this.client.getCatalogVariantsV2(variantIds, concurrency),
-        catch: () => new Map<number, Variant>(),
-      });
-
-      return results;
-    });
-  }
-
-  getCatalogVariants(variantIds: number[]) {
-    return Effect.gen(this, function* () {
-      const map = new Map<number, Variant>();
-      for (const id of variantIds) {
-        const variant = yield* this.getCatalogVariant(id);
-        if (variant) map.set(id, variant);
-      }
-      return map;
-    });
-  }
-
-  getCatalogProduct(productId: number) {
-    return Effect.tryPromise({
-      try: () => this.client.getCatalogProduct(productId),
-      catch: (e) => new Error(`Failed to fetch catalog product ${productId}: ${e instanceof Error ? e.message : String(e)}`),
-    });
-  }
-
-  private transformProduct(
-    syncProduct: PrintfulSyncProduct,
-    syncVariants: PrintfulSyncVariant[],
-    catalogVariants: Map<number, Variant>,
-    catalogProduct?: {
-      brand?: string;
-      model?: string;
-      description?: string;
-      techniques?: string[];
-      placements?: string[];
-    } | null
-  ): ProviderProduct {
-    const providerDetails: ProviderDetails | undefined = catalogProduct ? {
-      printful: {
-        brand: catalogProduct.brand,
-        model: catalogProduct.model,
-        description: catalogProduct.description,
-        techniques: catalogProduct.techniques,
-        placements: catalogProduct.placements,
-        gsm: catalogProduct.description ? this.extractGsm(catalogProduct.description) : undefined,
-        material: undefined,
-      },
-    } : undefined;
-
-    return {
-      id: syncProduct.id,
-      sourceId: syncProduct.id,
-      name: syncProduct.name,
-      thumbnailUrl: syncProduct.thumbnail_url ?? undefined,
-      variants: syncVariants.map(v => this.transformVariant(v, syncProduct.name, catalogVariants.get(v.variant_id))),
-      providerDetails,
-    };
-  }
-
-  private extractGsm(description: string | undefined): number | undefined {
-    if (!description) return undefined;
-    const gsmMatch = description.match(/(\d+(?:\.\d+)?)\s*g\/m²/i);
-    if (gsmMatch && gsmMatch[1]) {
-      return parseFloat(gsmMatch[1]);
-    }
-    const ozMatch = description.match(/(\d+(?:\.\d+)?)\s*oz\/yd²/i);
-    if (ozMatch && ozMatch[1]) {
-      return Math.round(parseFloat(ozMatch[1]) * 33.906);
-    }
-    return undefined;
-  }
-
-  private transformVariant(
-    variant: PrintfulSyncVariant,
-    productName: string,
-    catalogVariant?: Variant
-  ): ProviderVariant {
-    const files = variant.files?.map(f => ({
-      id: f.id,
-      type: f.type,
-      url: f.url,
-      previewUrl: f.preview_url,
-    }));
-
-    return {
-      id: variant.id,
-      externalId: variant.external_id,
-      name: variant.name || productName,
-      retailPrice: variant.retail_price ? parseFloat(variant.retail_price) : 0,
-      currency: variant.currency || 'USD',
-      size: catalogVariant?.size,
-      color: catalogVariant?.color ?? undefined,
-      colorCode: catalogVariant?.color_code ?? undefined,
-      catalogVariantId: variant.variant_id,
-      catalogProductId: variant.product.product_id,
-      files,
-      designFiles: extractDesignFiles(files),
-    };
-  }
-
-  calculateShippingRates(params: {
-    recipient: {
-      countryCode: string;
-      stateCode?: string;
-      city?: string;
-      zip?: string;
-    };
-    items: Array<{ variantId: number; quantity: number }>;
-    currency?: string;
-  }) {
-    return Effect.gen(this, function* () {
-      const response = yield* Effect.tryPromise({
-        try: async () => {
-          const res = await fetch('https://api.printful.com/v2/shipping-rates', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${this.apiKey}`,
-              'X-PF-Store-Id': this.storeId,
-            },
-            body: JSON.stringify({
-              recipient: {
-                country_code: params.recipient.countryCode,
-                state_code: params.recipient.stateCode === "" ? null : params.recipient.stateCode,
-                city: params.recipient.city,
-                zip: params.recipient.zip,
-              },
-              order_items: params.items.map(item => ({
-                source: 'catalog',
-                catalog_variant_id: item.variantId,
-                quantity: item.quantity,
-              })),
-              currency: params.currency || 'USD',
-            }),
-          });
-
-          return res;
-        },
-        catch: (error) => {
-          if (error instanceof FulfillmentError) {
-            return error;
-          }
-          return new FulfillmentError({
-            message: `Failed to calculate shipping rates: ${error instanceof Error ? error.message : String(error)}`,
-            code: 'UNKNOWN',
-            provider: 'printful',
-            cause: error,
-          });
-        },
-      }).pipe(
-        Effect.retry({
-          times: 3,
-          schedule: Schedule.exponential('100 millis'),
-          while: (error) => error instanceof FulfillmentError && error.isRetryable,
-        })
-      );
-
-      if (response instanceof FulfillmentError) {
-        return yield* Effect.fail(response);
-      }
-
-      if (!response.ok) {
-        const errorResult = yield* Effect.tryPromise({
-          try: async () => {
-            let errorMessage = `Printful API returned ${response.status}`;
-            
-            try {
-              const errorData = await response.json() as { 
-                error?: { message?: string; code?: string }; 
-                message?: string;
-              };
-              
-              if (errorData.error?.message) {
-                errorMessage = errorData.error.message;
-              } else if (errorData.message) {
-                errorMessage = errorData.message;
-              }
-            } catch {
-              const errorText = await response.text();
-              if (errorText) {
-                errorMessage = `${errorMessage}: ${errorText.substring(0, 200)}`;
-              }
-            }
-            
-            return FulfillmentError.fromHttpStatus(response.status, 'printful', errorMessage);
-          },
-          catch: () => FulfillmentError.fromHttpStatus(response.status, 'printful', `Printful API returned ${response.status}`),
-        });
-
-        return yield* Effect.fail(errorResult);
-      }
-
-      const data = yield* Effect.tryPromise({
-        try: () => response.json() as Promise<{ data: Array<{
-          shipping: string;
-          shipping_method_name: string;
-          rate: string;
-          currency: string;
-          min_delivery_days?: number;
-          max_delivery_days?: number;
-          min_delivery_date?: string;
-          max_delivery_date?: string;
-        }> }>,
-        catch: (error) => new FulfillmentError({
-          message: `Failed to parse shipping rates response: ${error instanceof Error ? error.message : String(error)}`,
-          code: 'UNKNOWN',
-          provider: 'printful',
-          cause: error,
-        }),
-      });
-
-      const transformedResult = {
-        rates: (data.data || []).map(rate => ({
-          id: rate.shipping,
-          name: rate.shipping_method_name,
-          rate: parseFloat(rate.rate),
-          currency: rate.currency,
-          minDeliveryDays: rate.min_delivery_days,
-          maxDeliveryDays: rate.max_delivery_days,
-          minDeliveryDate: rate.min_delivery_date,
-          maxDeliveryDate: rate.max_delivery_date,
-        })),
-        currency: params.currency || 'USD',
-      };
-
-      return transformedResult;
-    });
-  }
-
-  quoteOrder(input: ShippingQuoteInput): Effect.Effect<ShippingQuoteOutput, Error> {
-    return Effect.gen(this, function* () {
-      const items = input.items
-        .filter(item => item.variantId)
-        .map(item => ({
-          variantId: item.variantId!,
-          quantity: item.quantity,
-        }));
-
-      if (items.length === 0) {
-        return {
-          rates: [],
-          currency: input.currency || 'USD',
-        };
-      }
-
-      const result = yield* this.calculateShippingRates({
-        recipient: {
-          countryCode: input.recipient.countryCode,
-          stateCode: input.recipient.stateCode,
-          city: input.recipient.city,
-          zip: input.recipient.zip,
-        },
-        items,
-        currency: input.currency,
-      });
-
-      return result;
-    });
-  }
-
-  estimateOrder(params: {
-    recipient: {
-      countryCode: string;
-      zip: string;
-      stateCode?: string;
-    };
-    items: Array<{
-      catalogVariantId: number;
-      quantity: number;
-      designFiles?: Array<{ placement: string; url: string }>;
-    }>;
-    currency?: string;
-  }, options?: {
-    timeoutMs?: number;
-    requestTimeoutMs?: number;
-    retries?: number;
-  }): Effect.Effect<{
-    subtotal: number;
-    shipping: number;
-    tax: number;
-    vat: number;
-    total: number;
-    currency: string;
-  }, Error> {
+  ping(): Effect.Effect<PingOutput, FulfillmentError> {
     return Effect.tryPromise({
       try: async () => {
-        const result = await this.client.estimateOrder({
-          recipient: {
-            country_code: params.recipient.countryCode,
-            zip: params.recipient.zip,
-            state_code: params.recipient.stateCode || undefined,
-          },
-          items: params.items.map(item => ({
-            catalog_variant_id: item.catalogVariantId,
-            quantity: item.quantity,
-            designFiles: item.designFiles,
-          })),
-          currency: params.currency || 'USD',
-          timeoutMs: options?.timeoutMs,
-          requestTimeoutMs: options?.requestTimeoutMs,
-          retries: options?.retries,
-        });
-
-        return result;
+        const response = await this.client.storesV2.getStores();
+        if (!response) throw new Error('No stores returned');
+        return {
+          provider: 'printful',
+          status: 'ok' as const,
+          timestamp: new Date().toISOString(),
+        };
       },
-      catch: (e) => new Error(`Failed to estimate order: ${e instanceof Error ? e.message : String(e)}`),
-    }).pipe(
-      Effect.retry({
-        times: options?.retries ?? 3,
-        schedule: Schedule.exponential(100),
-      })
-    );
-  }
-
-  confirmOrder(orderId: string) {
-    return Effect.gen(this, function* () {
-      yield* Effect.tryPromise({
-        try: () => this.client.confirmOrder(parseInt(orderId, 10)),
-        catch: (e) => new Error(`Failed to confirm Printful order: ${e instanceof Error ? e.message : String(e)}`),
-      });
-      
-      const { order } = yield* this.getOrder(orderId);
-      return { id: orderId, status: order.status };
+      catch: (e) => new FulfillmentError({
+        message: `Printful connection test failed: ${e instanceof Error ? e.message : String(e)}`,
+        code: 'SERVICE_UNAVAILABLE',
+        provider: 'printful',
+        cause: e,
+      }),
     });
   }
 
-  cancelOrder(orderId: string) {
-    return Effect.gen(this, function* () {
-      yield* Effect.tryPromise({
-        try: () => this.client.cancelOrder(parseInt(orderId, 10)),
-        catch: (e) => new Error(`Failed to cancel Printful order: ${e instanceof Error ? e.message : String(e)}`),
-      });
-      
-      return { id: orderId, status: 'cancelled' };
+  // ─── Catalog ───
+
+  private normalizeVariant(variant: Variant): ProviderCatalogVariant {
+    return {
+      id: `printful-${variant.id}`,
+      name: variant.name || '',
+      size: variant.size || null,
+      color: variant.color || null,
+      colorCode: variant.color_code || null,
+      image: variant.image || null,
+      providerRef: String(variant.id),
+    };
+  }
+
+  private normalizeProduct(product: {
+    id: number;
+    name: string;
+    brand?: string;
+    model?: string;
+    description?: string;
+    image?: string;
+    techniques?: string[];
+    placements?: string[];
+    variants_count?: number;
+  }): ProviderCatalogProduct {
+    return {
+      id: `printful-${product.id}`,
+      name: product.name,
+      brand: product.brand ?? null,
+      model: product.model ?? null,
+      description: null,
+      image: product.image ?? null,
+      providerName: 'printful',
+    };
+  }
+
+  browseCatalog(input: { limit?: number; offset?: number }): Effect.Effect<BrowseCatalogOutput, FulfillmentError> {
+    return Effect.tryPromise({
+      try: async () => {
+        const result = await this.client.browseCatalog(input.limit || 50, input.offset || 0);
+        return {
+          products: result.products.map(p => this.normalizeProduct(p)),
+          total: result.total,
+        };
+      },
+      catch: (e) => new FulfillmentError({
+        message: `Failed to browse Printful catalog: ${e instanceof Error ? e.message : String(e)}`,
+        code: 'UNKNOWN',
+        provider: 'printful',
+        cause: e,
+      }),
     });
   }
 
-  createOrder(input: FulfillmentOrderInput, confirm = false) {
+  getCatalogProduct(input: { id: string }): Effect.Effect<CatalogProductDetailOutput, FulfillmentError> {
+    return Effect.tryPromise({
+      try: async () => {
+        const providerRef = input.id.replace('printful-', '');
+        const product = await this.client.getCatalogProduct(parseInt(providerRef, 10));
+        if (!product) throw new FulfillmentError({
+          message: `Catalog product ${input.id} not found`,
+          code: 'NOT_FOUND',
+          provider: 'printful',
+        });
+        return {
+          product: {
+            id: `printful-${product.id}`,
+            name: product.name,
+            brand: product.brand ?? null,
+            model: product.model ?? null,
+            description: product.description ?? null,
+            image: product.image ?? null,
+            providerRef: String(product.id),
+            providerName: 'printful',
+            techniques: product.techniques,
+            placements: product.placements,
+          },
+        };
+      },
+      catch: (e) => {
+        if (e instanceof FulfillmentError) return e;
+        return new FulfillmentError({
+          message: `Failed to get Printful catalog product: ${e instanceof Error ? e.message : String(e)}`,
+          code: 'UNKNOWN',
+          provider: 'printful',
+          cause: e,
+        });
+      },
+    });
+  }
+
+  getCatalogProductVariants(input: { id: string }): Effect.Effect<CatalogVariantsOutput, FulfillmentError> {
+    return Effect.tryPromise({
+      try: async () => {
+        const providerRef = input.id.replace('printful-', '');
+        const variants = await this.client.getCatalogProductVariants(parseInt(providerRef, 10));
+        return {
+          variants: variants.map(v => this.normalizeVariant(v)),
+        };
+      },
+      catch: (e) => new FulfillmentError({
+        message: `Failed to get Printful catalog variants: ${e instanceof Error ? e.message : String(e)}`,
+        code: 'UNKNOWN',
+        provider: 'printful',
+        cause: e,
+      }),
+    });
+  }
+
+  getVariantPrice(input: { id: string }): Effect.Effect<VariantPriceOutput, FulfillmentError> {
+    return Effect.tryPromise({
+      try: async () => {
+        const providerRef = input.id.replace('printful-', '');
+        const price = await this.client.getVariantPrice(parseInt(providerRef, 10));
+        return {
+          price: price ? { wholesale: price.wholesale, retail: price.retail, currency: price.currency } : null,
+        };
+      },
+      catch: (e) => new FulfillmentError({
+        message: `Failed to get Printful variant price: ${e instanceof Error ? e.message : String(e)}`,
+        code: 'UNKNOWN',
+        provider: 'printful',
+        cause: e,
+      }),
+    });
+  }
+
+  getPlacements(input: { providerConfig: Record<string, unknown> }): Effect.Effect<GetPlacementsOutput, FulfillmentError> {
+    const config = input.providerConfig as { catalogProductId?: string | number };
+    const productId = config.catalogProductId
+      ? parseInt(String(config.catalogProductId).replace('printful-', ''), 10)
+      : 0;
+
+    if (!productId) {
+      return Effect.succeed({ placements: [] });
+    }
+
+    const knownPlacements: Record<string, { label?: string; required?: boolean; acceptedFormats?: string[] }> = {
+      front: { label: 'Front', acceptedFormats: ['png', 'jpg', 'svg'] },
+      back: { label: 'Back', acceptedFormats: ['png', 'jpg', 'svg'] },
+      left: { label: 'Left', acceptedFormats: ['png', 'jpg', 'svg'] },
+      right: { label: 'Right', acceptedFormats: ['png', 'jpg', 'svg'] },
+      front_large: { label: 'Front (Large)', acceptedFormats: ['png', 'jpg', 'svg'] },
+      back_large: { label: 'Back (Large)', acceptedFormats: ['png', 'jpg', 'svg'] },
+      label_outside: { label: 'Label (Outside)', acceptedFormats: ['png', 'jpg', 'svg'] },
+      sleeve_left: { label: 'Left Sleeve', acceptedFormats: ['png', 'jpg', 'svg'] },
+      sleeve_right: { label: 'Right Sleeve', acceptedFormats: ['png', 'jpg', 'svg'] },
+      embroidery_front: { label: 'Embroidery (Front)', acceptedFormats: ['png', 'jpg'] },
+      embroidery_back: { label: 'Embroidery (Back)', acceptedFormats: ['png', 'jpg'] },
+    };
+
+    return Effect.gen(this, function* () {
+      const productResult = yield* this.getCatalogProduct({ id: `printful-${productId}` });
+      const product = productResult.product as any;
+      const placements: string[] = product.placements || [];
+
+      return {
+        placements: placements.map((name: string) => ({
+          name,
+          label: knownPlacements[name]?.label,
+          required: false,
+          acceptedFormats: knownPlacements[name]?.acceptedFormats,
+        })),
+      };
+    });
+  }
+
+  // ─── Mockups ───
+
+  generateMockups(input: GenerateMockupsInput): Effect.Effect<GenerateMockupsOutput, FulfillmentError> {
+    return Effect.gen(this, function* () {
+      const config = input.providerConfig as { catalogProductId?: number };
+      const productId = config.catalogProductId || 0;
+      const variantIds = (input.variantRefs || [])
+        .map(ref => parseInt(ref.replace('printful-', ''), 10))
+        .filter(id => !isNaN(id));
+
+      if (variantIds.length === 0) {
+        return { status: 'unsupported', images: [] };
+      }
+
+      const placements = input.files.map((f: any) => ({
+        placement: f.slot,
+        technique: (f.metadata?.technique as any) || TechniqueEnum.DTG,
+        layers: [{ type: 'file' as const, url: f.url }],
+      }));
+
+      const payload = {
+        format: input.format === 'png' ? MockupTaskCreation.format.PNG : MockupTaskCreation.format.JPG,
+        products: [{
+          source: 'catalog' as const,
+          mockup_style_ids: input.mockupStyleIds || [],
+          catalog_product_id: productId,
+          catalog_variant_ids: variantIds,
+          placements,
+        }],
+      };
+
+      const response = yield* Effect.tryPromise({
+        try: async () => {
+          const result = await this.client.mockupGeneratorV2.createMockupGeneratorTasks(this.storeId, payload);
+          const tasks = (result?.data ?? []) as Array<{ id?: number }>;
+          return String(tasks[0]?.id || '');
+        },
+        catch: (e) => new FulfillmentError({
+          message: `Failed to generate mockups: ${e instanceof Error ? e.message : String(e)}`,
+          code: 'UNKNOWN',
+          provider: 'printful',
+          cause: e,
+        }),
+      });
+
+      const taskId = response;
+
+      // Poll internally for up to 60 seconds
+      const startTime = Date.now();
+      const maxWaitMs = 60000;
+      while (Date.now() - startTime < maxWaitMs) {
+        const result = yield* this.getMockupResult(taskId);
+        if (result.status === 'completed') {
+          return { status: 'completed', images: result.images };
+        }
+        if (result.status === 'failed') {
+          return { status: 'unsupported', images: [] };
+        }
+        yield* Effect.sleep('2000 millis');
+      }
+
+      return { status: 'pending', images: [], taskId };
+    });
+  }
+
+  getMockupResult(taskId: string): Effect.Effect<GetMockupResultOutput, FulfillmentError> {
+    return Effect.tryPromise({
+      try: async () => {
+        const response = await this.client.mockupGeneratorV2.getMockupGeneratorTasks([taskId]);
+        const tasks = (response?.data ?? []) as MockupGeneratorTask[];
+        const task = tasks[0];
+        if (!task) return { status: 'failed' as const, images: [], error: 'Task not found' };
+
+        if (task.status === MockupGeneratorTask.status.COMPLETED) {
+          const images: MockupImage[] = [];
+          for (const variantMockup of task.catalog_variant_mockups) {
+            for (const mockup of variantMockup.mockups) {
+              images.push({
+                variantRef: `printful-${variantMockup.catalog_variant_id}`,
+                slot: mockup.placement,
+                imageUrl: mockup.mockup_url,
+                styleId: String(mockup.style_id),
+              });
+            }
+          }
+          return { status: 'completed' as const, images };
+        }
+
+        if (task.status === MockupGeneratorTask.status.FAILED) {
+          return { status: 'failed' as const, images: [], error: task.failure_reasons.map(e => e.detail).join(', ') };
+        }
+
+        return { status: 'pending' as const, images: [] };
+      },
+      catch: (e) => new FulfillmentError({
+        message: `Failed to get mockup result: ${e instanceof Error ? e.message : String(e)}`,
+        code: 'UNKNOWN',
+        provider: 'printful',
+        cause: e,
+      }),
+    });
+  }
+
+  getMockupStyles(productId: number): Effect.Effect<{ styles: MockupStyleInfo[] }, Error> {
+    return Effect.tryPromise({
+      try: async () => {
+        const response = await this.client.catalogV2.retrieveMockupStylesByProductId(productId);
+        const placements = (response?.data ?? []) as MockupStyles[];
+        const styles: MockupStyleInfo[] = [];
+        for (const placementStyle of placements) {
+          for (const mockupStyle of placementStyle.mockup_styles ?? []) {
+            styles.push({
+              id: String(mockupStyle.id ?? 0),
+              name: `${mockupStyle.category_name} - ${mockupStyle.view_name}`,
+              category: mockupStyle.category_name,
+              placement: placementStyle.placement,
+              technique: placementStyle.technique,
+              viewName: mockupStyle.view_name,
+            });
+          }
+        }
+        return { styles };
+      },
+      catch: (e) => new Error(`Failed to get mockup styles: ${e instanceof Error ? e.message : String(e)}`),
+    });
+  }
+
+  // ─── Orders ───
+
+  createOrder(input: CreateOrderInput): Effect.Effect<OrderResult, FulfillmentError> {
     return Effect.tryPromise({
       try: async () => {
         const recipient: Address = {
@@ -583,33 +384,58 @@ export class PrintfulService {
           tax_number: input.recipient.taxId,
         };
 
-        const items = input.items.map(item => {
-          if (!item.externalVariantId) {
-            throw new Error('Missing externalVariantId for Printful order item');
+        const orderItems = input.items.map(item => {
+          const config = item.providerConfig as {
+            catalogVariantId?: number;
+            catalogProductId?: number;
+          };
+          const catalogVariantId = config?.catalogVariantId;
+          if (!catalogVariantId) {
+            throw new FulfillmentError({
+              message: 'Missing catalogVariantId in providerConfig',
+              code: 'INVALID_REQUEST',
+              provider: 'printful',
+            });
           }
+
+          const placements = (item.files || []).map((df: any) => ({
+            placement: df.slot,
+            technique: (df.metadata?.technique as any) || 'dtg',
+            layers: [{ type: 'file' as const, url: df.url }],
+          }));
+
           return {
-            sync_variant_id: parseInt(item.externalVariantId, 10),
+            source: 'catalog' as const,
+            catalog_variant_id: catalogVariantId,
             quantity: item.quantity,
+            placements,
           };
         });
 
-        const result = await this.client.createOrderV1({
+        const result = await this.client.createOrder({
           external_id: input.externalId,
           recipient,
-          items,
+          order_items: orderItems as any,
         });
-        
-        if (confirm) await this.client.confirmOrder(result.id);
+
         return { id: String(result.id), status: result.status };
       },
-      catch: (e) => new Error(`Printful order failed: ${e instanceof Error ? e.message : String(e)}`),
+      catch: (e) => {
+        if (e instanceof FulfillmentError) return e;
+        return new FulfillmentError({
+          message: `Printful order failed: ${e instanceof Error ? e.message : String(e)}`,
+          code: 'UNKNOWN',
+          provider: 'printful',
+          cause: e,
+        });
+      },
     });
   }
 
-  getOrder(id: string) {
+  getOrder(input: { id: string }): Effect.Effect<{ order: FulfillmentOrder }, FulfillmentError> {
     return Effect.tryPromise({
       try: async () => {
-        const data = await this.client.getOrder(id);
+        const data = await this.client.getOrder(input.id);
         const order: FulfillmentOrder = {
           id: String(data.id),
           externalId: data.external_id ?? undefined,
@@ -629,9 +455,172 @@ export class PrintfulService {
         };
         return { order };
       },
-      catch: (e) => new Error(`Failed to get Printful order: ${e instanceof Error ? e.message : String(e)}`),
+      catch: (e) => new FulfillmentError({
+        message: `Failed to get Printful order: ${e instanceof Error ? e.message : String(e)}`,
+        code: 'UNKNOWN',
+        provider: 'printful',
+        cause: e,
+      }),
     });
   }
+
+  confirmOrder(input: { id: string }): Effect.Effect<OrderResult, FulfillmentError> {
+    return Effect.gen(this, function* () {
+      yield* Effect.tryPromise({
+        try: () => this.client.confirmOrder(input.id),
+        catch: (e) => new FulfillmentError({
+          message: `Failed to confirm Printful order: ${e instanceof Error ? e.message : String(e)}`,
+          code: 'UNKNOWN',
+          provider: 'printful',
+          cause: e,
+        }),
+      });
+
+      const { order } = yield* this.getOrder(input);
+      return { id: input.id, status: order.status };
+    });
+  }
+
+  cancelOrder(input: { id: string }): Effect.Effect<OrderResult, FulfillmentError> {
+    return Effect.gen(this, function* () {
+      yield* Effect.tryPromise({
+        try: () => this.client.deleteOrder(input.id),
+        catch: (e) => new FulfillmentError({
+          message: `Failed to cancel Printful order: ${e instanceof Error ? e.message : String(e)}`,
+          code: 'ORDER_NOT_CANCELLABLE',
+          provider: 'printful',
+          cause: e,
+        }),
+      });
+      return { id: input.id, status: 'cancelled' };
+    });
+  }
+
+  // ─── Shipping & Tax ───
+
+  quoteShipping(input: ShippingQuoteInput): Effect.Effect<ShippingQuoteOutput, FulfillmentError> {
+    return Effect.gen(this, function* () {
+      const items = input.items
+        .map(item => {
+          const config = item.providerConfig as { catalogVariantId?: number };
+          if (!config?.catalogVariantId) return null;
+          return { catalog_variant_id: config.catalogVariantId, quantity: item.quantity };
+        })
+        .filter(Boolean) as Array<{ catalog_variant_id: number; quantity: number }>;
+
+      if (items.length === 0) {
+        return { rates: [], currency: input.currency || 'USD' };
+      }
+
+      const result = yield* Effect.tryPromise({
+        try: () => this.client.calculateShippingRates({
+          recipient: {
+            country_code: input.recipient.countryCode,
+            state_code: input.recipient.stateCode || undefined,
+            city: input.recipient.city,
+            zip: input.recipient.zip,
+          },
+          items,
+          currency: input.currency,
+        }),
+        catch: (e) => new FulfillmentError({
+          message: `Failed to calculate shipping rates: ${e instanceof Error ? e.message : String(e)}`,
+          code: 'UNKNOWN',
+          provider: 'printful',
+          cause: e,
+        }),
+      });
+
+      return {
+        rates: (result || []).map(rate => ({
+          id: rate.shipping,
+          name: rate.shipping_method_name,
+          rate: parseFloat(rate.rate),
+          currency: rate.currency,
+          minDeliveryDays: rate.min_delivery_days,
+          maxDeliveryDays: rate.max_delivery_days,
+          minDeliveryDate: rate.min_delivery_date,
+          maxDeliveryDate: rate.max_delivery_date,
+        })),
+        currency: input.currency || 'USD',
+      };
+    });
+  }
+
+  calculateTax(input: TaxQuoteInput): Effect.Effect<TaxQuoteOutput, FulfillmentError> {
+    const isQuoteMode = input.mode !== 'checkout';
+    const startedAt = Date.now();
+
+    return Effect.gen(this, function* () {
+      const items = input.items
+        .map(item => {
+          const config = item.providerConfig as { catalogVariantId?: number };
+          if (!config?.catalogVariantId) return null;
+          return {
+            catalogVariantId: config.catalogVariantId,
+            quantity: item.quantity,
+            designFiles: item.files,
+          };
+        })
+        .filter(Boolean) as Array<{
+          catalogVariantId: number;
+          quantity: number;
+          designFiles?: DesignFile[];
+        }>;
+
+      if (items.length === 0) {
+        return { required: false, rate: 0, shippingTaxable: false, exempt: true, taxAmount: 0, vat: 0 };
+      }
+
+      try {
+        const result = yield* Effect.tryPromise({
+          try: () => this.client.estimateOrder({
+            recipient: {
+              country_code: input.recipient.countryCode,
+              zip: input.recipient.zip,
+              state_code: input.recipient.stateCode || undefined,
+            },
+            items: items.map(item => ({
+              catalog_variant_id: item.catalogVariantId,
+              quantity: item.quantity,
+              designFiles: item.designFiles?.map((df: any) => ({ placement: df.slot, url: df.url })),
+            })),
+            currency: input.currency || 'USD',
+            ...(isQuoteMode ? { timeoutMs: 5000, requestTimeoutMs: 5000, retries: 0 } : {}),
+          }),
+          catch: (e) => {
+            if (e instanceof FulfillmentError) return e;
+            return new FulfillmentError({
+              message: `Tax calculation failed: ${e instanceof Error ? e.message : String(e)}`,
+              code: 'UNKNOWN',
+              provider: 'printful',
+              cause: e,
+            });
+          },
+        });
+
+        console.log(`[printful] Tax calculation (${input.mode ?? 'quote'}) completed in ${Date.now() - startedAt}ms`);
+
+        const hasTax = result.tax > 0 || result.vat > 0;
+        return {
+          required: hasTax,
+          rate: result.subtotal > 0 ? result.tax / result.subtotal : 0,
+          shippingTaxable: true,
+          exempt: !hasTax,
+          taxAmount: result.tax,
+          vat: result.vat,
+        };
+      } catch (error) {
+        if (isQuoteMode) {
+          console.warn(`[printful] Tax calculation skipped during quote after ${Date.now() - startedAt}ms: ${error instanceof Error ? error.message : String(error)}`);
+          return { required: false, rate: 0, shippingTaxable: false, exempt: true, taxAmount: 0, vat: 0 };
+        }
+        throw error;
+      }
+    });
+  }
+
+  // ─── Order Shipments (internal, not in contract) ───
 
   getOrderShipments(orderId: string) {
     return Effect.tryPromise({
@@ -660,25 +649,7 @@ export class PrintfulService {
     });
   }
 
-  getOrderWithShipments(id: string) {
-    return Effect.gen(this, function* () {
-      const { order } = yield* this.getOrder(id);
-      const { shipments } = yield* this.getOrderShipments(id);
-      return {
-        order: {
-          ...order,
-          shipments: shipments.map(s => ({
-            id: s.id,
-            carrier: s.carrier,
-            service: s.service,
-            trackingNumber: s.trackingNumber,
-            trackingUrl: s.trackingUrl,
-            status: s.status,
-          })),
-        },
-      };
-    });
-  }
+  // ─── Webhooks (internal, not in contract) ───
 
   verifyWebhookSignature(body: string, signature: string, webhookSecret: string) {
     return Effect.sync(() => {
@@ -701,13 +672,11 @@ export class PrintfulService {
     return Effect.tryPromise({
       try: async () => {
         const eventConfigs = params.events.map(type => ({ type }));
-
         const result = await this.client.configureWebhooks({
           defaultUrl: params.defaultUrl,
           events: eventConfigs,
           expiresAt: params.expiresAt,
         });
-
         return {
           webhookUrl: result.defaultUrl,
           expiresAt: result.expiresAt ? new Date(result.expiresAt).getTime() : null,
@@ -734,11 +703,7 @@ export class PrintfulService {
     return Effect.tryPromise({
       try: async () => {
         const result = await this.client.getWebhookConfig();
-
-        if (!result) {
-          return null;
-        }
-
+        if (!result) return null;
         return {
           webhookUrl: result.defaultUrl,
           expiresAt: result.expiresAt ? new Date(result.expiresAt).getTime() : null,
@@ -750,173 +715,18 @@ export class PrintfulService {
     });
   }
 
-  ping() {
-    return Effect.tryPromise({
-      try: async () => {
-        const response = await fetch('https://api.printful.com/v2/stores', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'X-PF-Store-Id': this.storeId,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Printful API returned ${response.status}`);
-        }
-
-        return {
-          success: true,
-          timestamp: new Date().toISOString(),
-        };
-      },
-      catch: (e) => new Error(`Printful connection test failed: ${e instanceof Error ? e.message : String(e)}`),
-    });
-  }
-
-  getMockupStyles(productId: number) {
-    return Effect.tryPromise({
-      try: async () => {
-        const response = await this.client.catalogV2.retrieveMockupStylesByProductId(productId);
-        const placements = (response?.data ?? []) as MockupStyles[];
-
-        const styles: MockupStyleInfo[] = [];
-        for (const placementStyle of placements) {
-          for (const mockupStyle of placementStyle.mockup_styles ?? []) {
-            styles.push({
-              id: String(mockupStyle.id ?? 0),
-              name: `${mockupStyle.category_name} - ${mockupStyle.view_name}`,
-              category: mockupStyle.category_name,
-              placement: placementStyle.placement,
-              technique: placementStyle.technique,
-              viewName: mockupStyle.view_name,
-            });
-          }
-        }
-
-        return { styles };
-      },
-      catch: (e) => new Error(`Failed to get mockup styles: ${e instanceof Error ? e.message : String(e)}`),
-    });
-  }
-
-  generateMockups(params: {
-    productId: number;
-    variantIds: number[];
-    files: Array<{ placement: string; imageUrl: string; technique?: string }>;
-    mockupStyleIds?: number[];
-    format?: 'jpg' | 'png';
-  }) {
-    return Effect.tryPromise({
-      try: async () => {
-        const placements = params.files.map((f) => ({
-          placement: f.placement,
-          technique: f.technique || TechniqueEnum.DTG,
-          layers: [{ type: 'file', url: f.imageUrl }],
-        }));
-
-        const payload = {
-          format: params.format === 'png' ? MockupTaskCreation.format.PNG : MockupTaskCreation.format.JPG,
-          products: [{
-            source: 'catalog' as const,
-            mockup_style_ids: params.mockupStyleIds || [],
-            catalog_product_id: params.productId,
-            catalog_variant_ids: params.variantIds,
-            placements,
-          }],
-        };
-
-        const response = await this.client.mockupGeneratorV2.createMockupGeneratorTasks(this.storeId, payload);
-        const tasks = (response?.data ?? []) as Array<{ id?: number }>;
-        return { taskId: String(tasks[0]?.id || '') };
-      },
-      catch: (e) => new Error(`Failed to generate mockups: ${e instanceof Error ? e.message : String(e)}`),
-    });
-  }
-
-  getMockupResult(taskId: string) {
-    return Effect.tryPromise({
-      try: async () => {
-        const response = await this.client.mockupGeneratorV2.getMockupGeneratorTasks([taskId]);
-        const tasks = (response?.data ?? []) as MockupGeneratorTask[];
-        const task = tasks[0];
-
-        if (!task) return { status: 'failed' as const, mockups: [] };
-
-        if (task.status === MockupGeneratorTask.status.COMPLETED) {
-          const mockups: MockupResult[] = [];
-          for (const variantMockup of task.catalog_variant_mockups) {
-            for (const mockup of variantMockup.mockups) {
-              mockups.push({
-                variantId: variantMockup.catalog_variant_id,
-                placement: mockup.placement,
-                style: String(mockup.style_id),
-                imageUrl: mockup.mockup_url,
-              });
-            }
-          }
-          return { status: 'completed' as const, mockups };
-        }
-
-        if (task.status === MockupGeneratorTask.status.FAILED) {
-          return { status: 'failed' as const, mockups: [], error: task.failure_reasons.map(e => e.detail).join(', ') };
-        }
-
-        return { status: 'pending' as const, mockups: [] };
-      },
-      catch: (e) => new Error(`Failed to get mockup result: ${e instanceof Error ? e.message : String(e)}`),
-    });
-  }
-
-  pollMockupTask(taskId: string, maxAttempts = 30, intervalMs = 2000): Effect.Effect<MockupTaskResult, Error> {
-    return Effect.gen(this, function* () {
-      let attempts = 0;
-      while (attempts < maxAttempts) {
-        const result = yield* this.getMockupResult(taskId);
-        if (result.status === 'completed') return result;
-        if (result.status === 'failed') return yield* Effect.fail(new Error(`Mockup generation failed: ${result.error}`));
-        yield* Effect.sleep(`${intervalMs} millis`);
-        attempts++;
-      }
-      return yield* Effect.fail(new Error(`Mockup generation timed out for task ${taskId}`));
-    });
-  }
-
-  generateAndWaitForMockups(params: {
-    productId: number;
-    variantIds: number[];
-    files: Array<{ placement: string; imageUrl: string; technique?: string }>;
-    mockupStyleIds?: number[];
-    format?: 'jpg' | 'png';
-  }): Effect.Effect<MockupTaskResult, Error> {
-    return Effect.gen(this, function* () {
-      const { taskId } = yield* this.generateMockups(params);
-      return yield* this.pollMockupTask(taskId);
-    });
-  }
-
-  static groupVariantsByColor(variants: ProviderVariant[]): Map<string, ProviderVariant[]> {
-    const map = new Map<string, ProviderVariant[]>();
-    for (const v of variants) {
-      const key = v.colorCode || v.color || 'default';
-      const group = map.get(key) || [];
-      group.push(v);
-      map.set(key, group);
-    }
-    return map;
-  }
+  // ─── Mockup Generation Helpers (internal) ───
 
   generateMockupsForProduct(params: {
     catalogProductId: number;
-    variants: ProviderVariant[];
+    variantIds: number[];
     designFiles: Array<{ placement: string; url: string }>;
     mockupStyleIds?: number[];
     format?: 'jpg' | 'png';
   }): Effect.Effect<ProductImage[], Error> {
     return Effect.gen(this, function* () {
       if (params.designFiles.length === 0) return [];
-
-      const colorGroups = PrintfulService.groupVariantsByColor(params.variants);
+      if (params.variantIds.length === 0) return [];
 
       let styleIds = params.mockupStyleIds || [];
       if (styleIds.length === 0) {
@@ -924,40 +734,34 @@ export class PrintfulService {
         const relevant = styles.filter(s => s.category === 'Flat' || s.category === 'Lifestyle' || s.category === "Men's");
         styleIds = relevant.slice(0, 2).map(s => parseInt(s.id, 10));
       }
-
       if (styleIds.length === 0) return [];
 
       const images: ProductImage[] = [];
       let order = 1;
 
-      for (const [colorKey, colorVariants] of colorGroups) {
-        const rep = colorVariants[0];
-        if (!rep?.catalogVariantId) continue;
-
-        const variantIds = colorVariants.map(v => `printful-variant-${v.id}`).filter(Boolean);
-
+      for (const variantId of params.variantIds) {
         try {
-          const result = yield* this.generateAndWaitForMockups({
-            productId: params.catalogProductId,
-            variantIds: [rep.catalogVariantId],
-            files: params.designFiles.map(df => ({ placement: df.placement, imageUrl: df.url, technique: 'dtg' })),
+          const mockupResult = yield* this.generateMockups({
+            providerConfig: { catalogProductId: params.catalogProductId },
+            files: params.designFiles.map(df => ({ assetId: `asset-${df.placement}`, url: df.url, slot: df.placement, metadata: { technique: 'dtg' } })),
+            variantRefs: [String(variantId)],
             mockupStyleIds: styleIds,
             format: params.format || 'jpg',
           });
 
-          for (const mockup of result.mockups) {
+          for (const img of mockupResult.images) {
             images.push({
-              id: `mockup-${mockup.style}-${colorKey}-${mockup.placement}`,
-              url: mockup.imageUrl,
+              id: `mockup-${img.styleId || 'default'}-${variantId}-${img.slot}`,
+              url: img.imageUrl,
               type: 'mockup',
-              placement: mockup.placement,
-              style: mockup.style,
-              variantIds,
+              placement: img.slot,
+              style: img.styleId,
+              variantIds: [`printful-variant-${variantId}`],
               order: order++,
             });
           }
         } catch (error) {
-          console.error(`Mockup generation failed for color ${colorKey}:`, error);
+          console.error(`Mockup generation failed for variant ${variantId}:`, error);
         }
       }
 
