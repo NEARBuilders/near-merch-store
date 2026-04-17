@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DB_HOST="${DB_HOST:-localhost}"
-DB_PORT="${DB_PORT:-5433}"
+DB_CONTAINER="${DB_CONTAINER:-nearmerchcom-api-db-1}"
 DB_USER="${DB_USER:-postgres}"
 DB_NAME="${DB_NAME:-api}"
 
-PSQL="PGPASSWORD=${DB_PASSWORD:-postgres} psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME"
+PSQL="docker exec $DB_CONTAINER psql -U $DB_USER -d $DB_NAME"
 
 echo "=== Migration Verification ==="
-echo "Database: postgres://${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+echo "Container: $DB_CONTAINER"
+echo "Database: $DB_NAME"
 echo ""
 
 echo "--- 1. Schema: assets table exists? ---"
@@ -25,7 +25,7 @@ $PSQL -c "SELECT count(*) as old_format_count FROM product_variants WHERE fulfil
 
 echo ""
 echo "--- 4. Data: New-format fulfillment_config samples ---"
-$PSQL -c "SELECT id, product_id, jsonb_pretty(fulfillment_config) as config FROM product_variants WHERE fulfillment_config IS NOT NULL AND fulfillment_config::text LIKE '%providerName%' LIMIT 3;" 2>/dev/null
+$PSQL -c "SELECT id, product_id, jsonb_pretty(fulfillment_config) as config FROM product_variants WHERE fulfillment_config IS NOT NULL AND fulfillment_config::text LIKE '%providerName%' LIMIT 2;" 2>/dev/null
 
 echo ""
 echo "--- 5. Data: assets count ---"

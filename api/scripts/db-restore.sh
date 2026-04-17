@@ -5,12 +5,11 @@ if [ $# -lt 1 ]; then
   echo "Usage: bun run db:restore <backup_file>"
   echo ""
   echo "Available backups:"
-  ls -1t "$(dirname "$0")/../backups/"*.dump 2>/dev/null || echo "  No backups found"
+  ls -1t "$(cd "$(dirname "$0")" && pwd)/../backups/"*.dump 2>/dev/null || echo "  No backups found"
   exit 1
 fi
 
-DB_HOST="${DB_HOST:-localhost}"
-DB_PORT="${DB_PORT:-5433}"
+DB_CONTAINER="${DB_CONTAINER:-nearmerchcom-api-db-1}"
 DB_USER="${DB_USER:-postgres}"
 DB_NAME="${DB_NAME:-api}"
 BACKUP_FILE="$1"
@@ -20,8 +19,11 @@ if [ ! -f "$BACKUP_FILE" ]; then
   exit 1
 fi
 
-echo "WARNING: This will DROP existing tables and restore from backup."
-echo "Target: postgres://${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+ABS_BACKUP_FILE="$(cd "$(dirname "$BACKUP_FILE")" && pwd)/$(basename "$BACKUP_FILE")"
+
+echo "WARNING: This will DROP existing data and restore from backup."
+echo "Container: $DB_CONTAINER"
+echo "Database: $DB_NAME"
 echo "Backup: $BACKUP_FILE"
 echo ""
 read -p "Continue? [y/N] " -r
@@ -31,24 +33,24 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
   exit 0
 fi
 
-echo "Dropping existing tables..."
-PGPASSWORD="${DB_PASSWORD:-postgres}" psql \
-  -h "$DB_HOST" \
-  -p "$DB_PORT" \
-  -U "$DB_USER" \
-  -d "$DB_NAME" \
+echo "Dropping existing schema..."
+docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" \
   -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" 2>/dev/null || true
 
+echo "Copying backup into container..."
+docker cp "$ABS_BACKUP_FILE" "$DB_CONTAINER:/tmp/restore.dump"
+
 echo "Restoring from backup..."
-PGPASSWORD="${DB_PASSWORD:-postgres}" pg_restore \
-  -h "$DB_HOST" \
-  -p "$DB_PORT" \
+docker exec "$DB_CONTAINER" pg_restore \
   -U "$DB_USER" \
   -d "$DB_NAME" \
   --no-owner \
   --no-privileges \
-  "$BACKUP_FILE"
+  /tmp/restore.dump
+
+echo "Cleaning up..."
+docker exec "$DB_CONTAINER" rm /tmp/restore.dump
 
 echo ""
 echo "Restore complete."
-echo "Run 'bun run db:migrate' to re-apply drizzle migrations if needed."
+echo "Run 'cd api && bun run db:migrate' to re-apply drizzle migrations if needed."
