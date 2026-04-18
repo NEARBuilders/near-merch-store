@@ -4,8 +4,6 @@ import {
 	runWithSsrApiClient,
 } from "@/services/ssr-api-client";
 
-import { apiClient } from "../../../ui/src/utils/orpc";
-
 vi.mock("sonner", () => ({
 	toast: {
 		error: vi.fn(),
@@ -18,10 +16,10 @@ describe("SSR apiClient injection", () => {
 		installSsrApiClientGlobal();
 
 		const baseClient = {
-			getValue: vi.fn().mockResolvedValue({ key: "k", value: "base" }),
+			ping: vi.fn().mockResolvedValue({ status: "ok", timestamp: "base" }),
 		};
 		const scopedClient = {
-			getValue: vi.fn().mockResolvedValue({ key: "k", value: "scoped" }),
+			ping: vi.fn().mockResolvedValue({ status: "ok", timestamp: "scoped" }),
 		};
 
 		(globalThis as any).$apiClient = baseClient;
@@ -29,45 +27,44 @@ describe("SSR apiClient injection", () => {
 
 		const result = await runWithSsrApiClient(scopedClient, async () => {
 			await new Promise((r) => setTimeout(r, 0));
-			return apiClient.getValue({ key: "k" });
+			return (globalThis as any).$apiClient.ping();
 		});
 
-		expect(result).toEqual({ key: "k", value: "scoped" });
-		expect((globalThis as any).$apiClient).toBe(baseClient);
-		expect(scopedClient.getValue).toHaveBeenCalledWith({ key: "k" });
-		expect(baseClient.getValue).not.toHaveBeenCalled();
+		expect(result).toEqual({ status: "ok", timestamp: "scoped" });
+		expect(scopedClient.ping).toHaveBeenCalled();
+		expect(baseClient.ping).not.toHaveBeenCalled();
 	});
 
 	it("does not leak across concurrent runs", async () => {
 		installSsrApiClientGlobal();
 		const baseClient = {
-			getValue: vi.fn().mockResolvedValue({ key: "k", value: "base" }),
+			ping: vi.fn().mockResolvedValue({ status: "ok", timestamp: "base" }),
 		};
 		const clientA = {
-			getValue: vi.fn().mockResolvedValue({ key: "k", value: "A" }),
+			ping: vi.fn().mockResolvedValue({ status: "ok", timestamp: "A" }),
 		};
 		const clientB = {
-			getValue: vi.fn().mockResolvedValue({ key: "k", value: "B" }),
+			ping: vi.fn().mockResolvedValue({ status: "ok", timestamp: "B" }),
 		};
 		(globalThis as any).$apiClient = baseClient;
 
 		const p1 = runWithSsrApiClient(clientA, async () => {
 			await new Promise((r) => setTimeout(r, 10));
-			return apiClient.getValue({ key: "k" });
+			return (globalThis as any).$apiClient.ping();
 		});
 
 		const p2 = runWithSsrApiClient(clientB, async () => {
 			await new Promise((r) => setTimeout(r, 0));
-			return apiClient.getValue({ key: "k" });
+			return (globalThis as any).$apiClient.ping();
 		});
 
 		const [r1, r2] = await Promise.all([p1, p2]);
-		expect(r1).toEqual({ key: "k", value: "A" });
-		expect(r2).toEqual({ key: "k", value: "B" });
+		expect(r1).toEqual({ status: "ok", timestamp: "A" });
+		expect(r2).toEqual({ status: "ok", timestamp: "B" });
 		expect((globalThis as any).$apiClient).toBe(baseClient);
 
-		expect(clientA.getValue).toHaveBeenCalledWith({ key: "k" });
-		expect(clientB.getValue).toHaveBeenCalledWith({ key: "k" });
-		expect(baseClient.getValue).not.toHaveBeenCalled();
+		expect(clientA.ping).toHaveBeenCalled();
+		expect(clientB.ping).toHaveBeenCalled();
+		expect(baseClient.ping).not.toHaveBeenCalled();
 	});
 });

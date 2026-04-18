@@ -87,10 +87,6 @@
       "variables": {
         "network": "mainnet",
         "contractId": "social.near",
-        "storageProvider": "",
-        "storageBucket": "",
-        "storageEndpoint": "",
-        "storagePublicUrl": "",
         "storageRegion": "us-east-1"
       },
       "secrets": [

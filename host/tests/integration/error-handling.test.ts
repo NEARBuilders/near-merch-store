@@ -1,21 +1,5 @@
-import { Effect } from "every-plugin/effect";
 import { loadConfig as loadBosConfig } from "everything-dev/config";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { loadRouterModule } from "@/services/federation.server";
-import type { RouterModule } from "@/types";
-
-async function consumeStream(stream: ReadableStream): Promise<string> {
-	const reader = stream.getReader();
-	const decoder = new TextDecoder();
-	let html = "";
-	while (true) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		html += decoder.decode(value, { stream: true });
-	}
-	html += decoder.decode();
-	return html;
-}
 
 interface ORPCErrorResponse {
 	code: string;
@@ -24,88 +8,20 @@ interface ORPCErrorResponse {
 	data?: Record<string, unknown>;
 }
 
-const parseORPCError = async (
-	response: Response,
-): Promise<ORPCErrorResponse | null> => {
-	try {
-		const json = await response.json();
-		if (json && typeof json === "object" && "code" in json) {
-			return json as ORPCErrorResponse;
-		}
-		if (json && typeof json === "object" && "error" in json) {
-			return json.error as ORPCErrorResponse;
-		}
-		return json;
-	} catch {
-		return null;
-	}
-};
-
-	describe("Error Propagation & Formatting", () => {
-		let routerModule: RouterModule;
-		let config: any;
-
+describe("Error Propagation & Formatting", () => {
 	const createMockApiClient = () => ({
-		// Marketplace SSR prefetch
-		getFeaturedProducts: vi.fn().mockResolvedValue({ products: [] }),
-		getProducts: vi.fn().mockResolvedValue({ products: [] }),
-		getCarouselCollections: vi.fn().mockResolvedValue({ collections: [] }),
-		getProductTypes: vi.fn().mockResolvedValue({ productTypes: [] }),
-
-		// Product route SSR
-		getProduct: vi.fn().mockImplementation(({ id }: { id: string }) =>
-			Promise.resolve({
-				product: {
-					id,
-					slug: id,
-					title: `Test Product ${id}`,
-					description: `Description for ${id}`,
-					price: 10,
-					images: [{ url: "https://example.com/img.png" }],
-					variants: [],
-					options: [],
-					collections: [],
-				},
-			}),
-		),
-
-		getValue: vi.fn().mockImplementation(({ key }: { key: string }) =>
-			Promise.resolve({
-				key,
-				value: `test-value-for-${key}`,
-				updatedAt: new Date().toISOString(),
-			}),
-		),
-		setValue: vi
-			.fn()
-			.mockResolvedValue({ key: "test", value: "value", created: true }),
-		protected: vi.fn().mockResolvedValue({
-			message: "Protected data",
-			accountId: "test.near",
-			timestamp: new Date().toISOString(),
-		}),
-		listKeys: vi.fn().mockResolvedValue({ keys: [], total: 0, hasMore: false }),
-		deleteKey: vi.fn().mockResolvedValue({ key: "test", deleted: true }),
-		ping: vi
-			.fn()
-			.mockResolvedValue({ status: "ok", timestamp: new Date().toISOString() }),
+		ping: vi.fn().mockResolvedValue({ status: "ok", timestamp: new Date().toISOString() }),
 	});
 
 	let mockApiClient: ReturnType<typeof createMockApiClient>;
 
 	beforeAll(async () => {
 		mockApiClient = createMockApiClient();
-		globalThis.$apiClient = mockApiClient;
+		globalThis.$apiClient = mockApiClient as any;
 		const loadedConfig = await loadBosConfig();
 		if (!loadedConfig) {
 			throw new Error("Failed to load config for error handling tests");
 		}
-		config = loadedConfig.runtime;
-		const uiUrl = process.env.BOS_UI_URL;
-		const uiSsrUrl = process.env.BOS_UI_SSR_URL ?? uiUrl;
-		if (uiUrl) config.ui.url = uiUrl;
-		if (uiSsrUrl) config.ui.ssrUrl = uiSsrUrl;
-		routerModule = await Effect.runPromise(loadRouterModule(config));
 	});
 
 	afterAll(() => {
@@ -113,15 +29,15 @@ const parseORPCError = async (
 	});
 
 	describe("UNAUTHORIZED Error Flow", () => {
-		it("returns 401 when calling protected endpoint without authentication context", async () => {
-			mockApiClient.protected.mockRejectedValueOnce({
+		it("returns 401 when calling ping endpoint without authentication context", async () => {
+			mockApiClient.ping.mockRejectedValueOnce({
 				code: "UNAUTHORIZED",
 				status: 401,
 				message: "Auth required",
 				data: { apiKeyProvided: false },
 			});
 
-			await expect(mockApiClient.protected()).rejects.toMatchObject({
+			await expect(mockApiClient.ping()).rejects.toMatchObject({
 				code: "UNAUTHORIZED",
 				status: 401,
 				message: "Auth required",
@@ -135,10 +51,10 @@ const parseORPCError = async (
 				message: "Auth required",
 				data: { apiKeyProvided: false },
 			};
-			mockApiClient.listKeys.mockRejectedValueOnce(unauthorizedError);
+			mockApiClient.ping.mockRejectedValueOnce(unauthorizedError);
 
 			try {
-				await mockApiClient.listKeys({ limit: 10 });
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (error) {
 				expect(error).toMatchObject({
@@ -154,10 +70,10 @@ const parseORPCError = async (
 				status: 401,
 				message: "Auth required",
 			};
-			mockApiClient.getValue.mockRejectedValueOnce(error);
+			mockApiClient.ping.mockRejectedValueOnce(error);
 
 			try {
-				await mockApiClient.getValue({ key: "test-key" });
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (e) {
 				const err = e as ORPCErrorResponse;
@@ -172,19 +88,19 @@ const parseORPCError = async (
 			const notFoundError = {
 				code: "NOT_FOUND",
 				status: 404,
-				message: "Key not found",
-				data: { resource: "kv", resourceId: "non-existent-key" },
+				message: "Resource not found",
+				data: { resource: "product", resourceId: "non-existent-id" },
 			};
-			mockApiClient.getValue.mockRejectedValueOnce(notFoundError);
+			mockApiClient.ping.mockRejectedValueOnce(notFoundError);
 
 			try {
-				await mockApiClient.getValue({ key: "non-existent-key" });
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (error) {
 				expect(error).toMatchObject({
 					code: "NOT_FOUND",
 					status: 404,
-					message: "Key not found",
+					message: "Resource not found",
 				});
 			}
 		});
@@ -193,53 +109,53 @@ const parseORPCError = async (
 			const notFoundError = {
 				code: "NOT_FOUND",
 				status: 404,
-				message: "Key not found",
-				data: { resource: "kv", resourceId: "specific-key-123" },
+				message: "Resource not found",
+				data: { resource: "product", resourceId: "specific-id-123" },
 			};
-			mockApiClient.getValue.mockRejectedValueOnce(notFoundError);
+			mockApiClient.ping.mockRejectedValueOnce(notFoundError);
 
 			try {
-				await mockApiClient.getValue({ key: "specific-key-123" });
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (e) {
 				const error = e as ORPCErrorResponse;
 				expect(error.data).toBeDefined();
-				expect(error.data?.resource).toBe("kv");
-				expect(error.data?.resourceId).toBe("specific-key-123");
+				expect(error.data?.resource).toBe("product");
+				expect(error.data?.resourceId).toBe("specific-id-123");
 			}
 		});
 
-		it("NOT_FOUND error on deleteKey includes proper data", async () => {
+		it("NOT_FOUND error on ping includes proper data", async () => {
 			const notFoundError = {
 				code: "NOT_FOUND",
 				status: 404,
-				message: "Key not found",
-				data: { resource: "kv", resourceId: "deleted-key" },
+				message: "Resource not found",
+				data: { resource: "product", resourceId: "deleted-id" },
 			};
-			mockApiClient.deleteKey.mockRejectedValueOnce(notFoundError);
+			mockApiClient.ping.mockRejectedValueOnce(notFoundError);
 
 			try {
-				await mockApiClient.deleteKey({ key: "deleted-key" });
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (e) {
 				const error = e as ORPCErrorResponse;
 				expect(error.code).toBe("NOT_FOUND");
 				expect(error.status).toBe(404);
-				expect(error.data?.resourceId).toBe("deleted-key");
+				expect(error.data?.resourceId).toBe("deleted-id");
 			}
 		});
 	});
 
 	describe("Error Status Code Preservation", () => {
 		it("UNAUTHORIZED always has status 401", async () => {
-			mockApiClient.protected.mockRejectedValueOnce({
+			mockApiClient.ping.mockRejectedValueOnce({
 				code: "UNAUTHORIZED",
 				status: 401,
 				message: "Unauthorized access",
 			});
 
 			try {
-				await mockApiClient.protected();
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (e) {
 				const error = e as ORPCErrorResponse;
@@ -248,14 +164,14 @@ const parseORPCError = async (
 		});
 
 		it("NOT_FOUND always has status 404", async () => {
-			mockApiClient.getValue.mockRejectedValueOnce({
+			mockApiClient.ping.mockRejectedValueOnce({
 				code: "NOT_FOUND",
 				status: 404,
 				message: "Resource not found",
 			});
 
 			try {
-				await mockApiClient.getValue({ key: "any-key" });
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (e) {
 				const error = e as ORPCErrorResponse;
@@ -264,7 +180,7 @@ const parseORPCError = async (
 		});
 
 		it("FORBIDDEN has status 403", async () => {
-			mockApiClient.setValue.mockRejectedValueOnce({
+			mockApiClient.ping.mockRejectedValueOnce({
 				code: "FORBIDDEN",
 				status: 403,
 				message: "Access denied",
@@ -272,7 +188,7 @@ const parseORPCError = async (
 			});
 
 			try {
-				await mockApiClient.setValue({ key: "test", value: "value" });
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (e) {
 				const error = e as ORPCErrorResponse;
@@ -289,60 +205,55 @@ const parseORPCError = async (
 		});
 
 		it("SSR client handles errors without needing absolute URL", async () => {
-			mockApiClient.getValue.mockRejectedValueOnce({
+			mockApiClient.ping.mockRejectedValueOnce({
 				code: "NOT_FOUND",
 				status: 404,
-				message: "Key not found",
-				data: { resource: "kv", resourceId: "ssr-test-key" },
+				message: "Resource not found",
+				data: { resource: "product", resourceId: "ssr-test-id" },
 			});
 
 			try {
-				await mockApiClient.getValue({ key: "ssr-test-key" });
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (e) {
 				const error = e as ORPCErrorResponse;
 				expect(error.code).toBe("NOT_FOUND");
 			}
 		});
-
-		// NOTE: The current demo UI does not include a public product SSR route.
 	});
 
 	describe("Error Message Preservation", () => {
 		it("uses API handler's standardized NOT_FOUND message with error data", async () => {
-			const standardMessage = "Key not found";
+			const standardMessage = "Resource not found";
 			const errorPayload = {
 				code: "NOT_FOUND",
 				status: 404,
 				message: standardMessage,
-				data: { resource: "kv", resourceId: "custom-key" },
+				data: { resource: "product", resourceId: "custom-id" },
 			};
 
-			const originalGetValue = mockApiClient.getValue;
-			mockApiClient.getValue = vi.fn().mockRejectedValue(errorPayload);
+			mockApiClient.ping.mockRejectedValueOnce(errorPayload);
 
 			try {
-				await mockApiClient.getValue({ key: "custom-key" });
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (e) {
 				const error = e as ORPCErrorResponse;
 				expect(error.message).toBe(standardMessage);
-				expect(error.data?.resourceId).toBe("custom-key");
-			} finally {
-				mockApiClient.getValue = originalGetValue;
+				expect(error.data?.resourceId).toBe("custom-id");
 			}
 		});
 
 		it("preserves UNAUTHORIZED message", async () => {
 			const authMessage = "Auth required";
-			mockApiClient.protected.mockRejectedValueOnce({
+			mockApiClient.ping.mockRejectedValueOnce({
 				code: "UNAUTHORIZED",
 				status: 401,
 				message: authMessage,
 			});
 
 			try {
-				await mockApiClient.protected();
+				await mockApiClient.ping();
 				expect.fail("Should have thrown");
 			} catch (e) {
 				const error = e as ORPCErrorResponse;

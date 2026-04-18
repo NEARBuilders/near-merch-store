@@ -26,6 +26,14 @@ function secretsFromEnv(keys: string[]): Record<string, string> {
   return out;
 }
 
+function stripEmptyStrings<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== "") result[key] = value;
+  }
+  return result;
+}
+
 const unavailableResult = (
   pluginName: string | null,
   error: string | null,
@@ -35,6 +43,17 @@ const unavailableResult = (
   api: null,
   status: { available: false, pluginName, error, errorDetails },
 });
+
+function extractErrorMessage(error: unknown): string {
+		if (error instanceof Error) return error.message;
+		if (error && typeof error === "object") {
+			if ("message" in error && typeof error.message === "string" && error.message) return error.message;
+			if ("cause" in error && error.cause instanceof Error) return error.cause.message;
+			if ("_tag" in error && typeof error._tag === "string") return `Plugin error: ${error._tag}`;
+			try { return JSON.stringify(error); } catch { /* fall through */ }
+		}
+		return String(error) || "Unknown error";
+	}
 
 export const initializePlugins = Effect.gen(function* () {
   const config: RuntimeConfig = yield* ConfigService;
@@ -66,7 +85,7 @@ export const initializePlugins = Effect.gen(function* () {
       });
 
       const secrets = pluginConfig.secrets ? secretsFromEnv(pluginConfig.secrets) : {};
-      const variables = pluginConfig.variables ?? {};
+      const variables = stripEmptyStrings(pluginConfig.variables ?? {});
 
       const api = await runtime.usePlugin(pluginName, {
         // @ts-expect-error no plugin types loaded
@@ -99,16 +118,17 @@ export const initializePlugins = Effect.gen(function* () {
   Effect.catchAll((error) => {
     const pluginName = error instanceof PluginError ? error.pluginName : null;
     const pluginUrl = error instanceof PluginError ? error.pluginUrl : null;
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = extractErrorMessage(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
+    const causeMessage = error instanceof PluginError && error.cause ? ` | Caused by: ${extractErrorMessage(error.cause)}` : "";
 
     console.error("[Plugins] ❌ Failed to initialize plugin");
     console.error(`[Plugins] Plugin: ${pluginName}`);
     console.error(`[Plugins] URL: ${pluginUrl}`);
-    console.error(`[Plugins] Error: ${errorMessage}`);
+    console.error(`[Plugins] Error: ${errorMessage}${causeMessage}`);
     console.warn("[Plugins] Server will continue without plugin functionality");
 
-    return Effect.succeed(unavailableResult(pluginName ?? null, errorMessage, errorStack ?? null));
+    return Effect.succeed(unavailableResult(pluginName ?? null, `${errorMessage}${causeMessage}`, errorStack ?? null));
   })
 );
 

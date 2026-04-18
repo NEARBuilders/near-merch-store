@@ -252,7 +252,7 @@ export const PingOutputSchema = z.object({
 
 // ─── Legacy types (will be removed) ───
 
-export const FulfillmentProviderSchema = z.enum(['printful', 'gelato', 'lulu', 'manual']);
+export const FulfillmentProviderSchema = z.enum(['printful', 'lulu', 'manual']);
 
 export const ProviderVariantSchema = z.object({
   id: z.union([z.string(), z.number()]),

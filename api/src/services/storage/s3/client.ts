@@ -1,15 +1,9 @@
-import {
-  S3Client as S3ClientImpl,
-  PutObjectCommand,
-  DeleteObjectCommand,
-  HeadObjectCommand,
-  GetObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { AwsClient } from 'aws4fetch';
 
 export class S3StorageClient {
-  private client: S3ClientImpl;
+  private client: AwsClient;
   private bucket: string;
+  private endpoint: string;
   private publicUrl: string;
 
   constructor(config: {
@@ -20,54 +14,55 @@ export class S3StorageClient {
     endpoint?: string;
     publicUrl?: string;
   }) {
-    this.client = new S3ClientImpl({
+    const endpoint = config.endpoint || `https://s3.${config.region}.amazonaws.com`;
+    this.client = new AwsClient({
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+      service: 's3',
       region: config.region,
-      endpoint: config.endpoint,
-      credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-      },
     });
     this.bucket = config.bucket;
+    this.endpoint = endpoint;
     this.publicUrl = config.publicUrl || `https://${config.bucket}.s3.${config.region}.amazonaws.com`;
   }
 
   async generatePresignedPutUrl(key: string, contentType: string, expiresIn = 3600): Promise<string> {
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: key,
-      ContentType: contentType,
+    const url = `${this.endpoint}/${this.bucket}/${key}`;
+    const signed = await this.client.sign(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+      aws: { signQuery: true, allHeaders: true, expires: expiresIn } as Parameters<typeof this.client.sign>[1] extends { aws?: infer A } ? A : never,
     });
-    return getSignedUrl(this.client, command, { expiresIn });
+    return signed.url;
   }
 
   async generatePresignedGetUrl(key: string, expiresIn = 3600): Promise<string> {
-    const command = new GetObjectCommand({
-      Bucket: this.bucket,
-      Key: key,
+    const url = `${this.endpoint}/${this.bucket}/${key}`;
+    const signed = await this.client.sign(url, {
+      aws: { signQuery: true, expires: expiresIn } as Parameters<typeof this.client.sign>[1] extends { aws?: infer A } ? A : never,
     });
-    return getSignedUrl(this.client, command, { expiresIn });
+    return signed.url;
   }
 
   async deleteObject(key: string): Promise<void> {
-    const command = new DeleteObjectCommand({
-      Bucket: this.bucket,
-      Key: key,
-    });
-    await this.client.send(command);
+    const url = `${this.endpoint}/${this.bucket}/${key}`;
+    const response = await this.client.fetch(url, { method: 'DELETE' });
+    if (!response.ok && response.status !== 204) {
+      throw new Error(`Failed to delete object: ${response.status} ${await response.text()}`);
+    }
   }
 
   async headObject(key: string): Promise<{ size: number; contentType?: string; lastModified?: Date } | null> {
     try {
-      const command = new HeadObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-      });
-      const response = await this.client.send(command);
+      const url = `${this.endpoint}/${this.bucket}/${key}`;
+      const response = await this.client.fetch(url, { method: 'HEAD' });
+      if (!response.ok) return null;
       return {
-        size: response.ContentLength ?? 0,
-        contentType: response.ContentType,
-        lastModified: response.LastModified,
+        size: parseInt(response.headers.get('content-length') ?? '0', 10),
+        contentType: response.headers.get('content-type') ?? undefined,
+        lastModified: response.headers.get('last-modified')
+          ? new Date(response.headers.get('last-modified')!)
+          : undefined,
       };
     } catch {
       return null;

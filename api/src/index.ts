@@ -58,8 +58,6 @@ export default createPlugin({
   secrets: z.object({
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
-    GELATO_API_KEY: z.string().optional(),
-    GELATO_WEBHOOK_SECRET: z.string().optional(),
     PRINTFUL_API_KEY: z.string().optional(),
     PRINTFUL_STORE_ID: z.string().optional(),
     PRINTFUL_WEBHOOK_SECRET: z.string().optional(),
