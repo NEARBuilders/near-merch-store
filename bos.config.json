@@ -48,7 +48,7 @@
   "app": {
     "host": {
       "development": "http://localhost:3000",
-      "production": "https://elliot-braem-2699-host-near-merch-store-nearbuild-5b1d5d3b4-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-2708-host-near-merch-store-nearbuild-edcee0316-ze.zephyrcloud.app",
       "secrets": [
         "HOST_DATABASE_URL",
         "HOST_DATABASE_AUTH_TOKEN",
@@ -67,7 +67,7 @@
     "ui": {
       "name": "ui",
       "development": "http://localhost:3002",
-      "production": "https://elliot-braem-2697-ui-near-merch-store-nearbuilder-a1725f4c4-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-2701-ui-near-merch-store-nearbuilder-89b707645-ze.zephyrcloud.app",
       "exposes": {
         "./Router": "./src/router.tsx",
         "./Hydrate": "./src/hydrate.tsx",
@@ -77,12 +77,12 @@
         "./hooks": "./src/hooks/index.ts",
         "./types": "./src/types/index.ts"
       },
-      "ssr": "https://elliot-braem-2698-ui-near-merch-store-nearbuilder-c67501941-ze.zephyrcloud.app"
+      "ssr": "https://elliot-braem-2702-ui-near-merch-store-nearbuilder-636c19856-ze.zephyrcloud.app"
     },
     "api": {
       "name": "api",
       "development": "http://localhost:3014",
-      "production": "https://elliot-braem-2700-api-near-merch-store-nearbuilde-e63f4e9d7-ze.zephyrcloud.app",
+      "production": "https://elliot-braem-2707-api-near-merch-store-nearbuilde-0f543913b-ze.zephyrcloud.app",
       "proxy": "https://nearmerch.com",
       "variables": {
         "network": "mainnet",
