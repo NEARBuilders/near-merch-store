@@ -13,32 +13,16 @@ import { CheckoutError } from './services/checkout/errors';
 import { ProductService, ProductServiceLive } from './services/products';
 import { ProductBuilderService, ProductBuilderServiceLive } from './services/product-builder';
 import { AssetService, AssetServiceLive } from './services/assets';
-import { MigrationService, MigrationServiceLive } from './services/migration-service';
 import { StripeService } from './services/stripe';
 import { NewsletterService, NewsletterServiceLive } from './services/newsletter';
 import { DatabaseLive, OrderStore, OrderStoreLive, ProductStore, ProductStoreLive, ProductTypeStore, ProductTypeStoreLive, CollectionStoreLive, AssetStoreLive } from './store';
 import { NewsletterStoreLive } from './store/newsletter';
 import { ProviderConfigStore, ProviderConfigStoreLive } from './store/providers';
 import { computePrintfulUpdate, parsePrintfulWebhook, verifyPrintfulWebhookSignature } from './services/fulfillment/printful/webhook';
-import { LuluBookConfigSchema, type LuluBookConfig } from './services/fulfillment/lulu/types';
 import { handlePingPayWebhookEffect } from './services/payment/pingpay/webhook';
 export * from './schema';
 
-const DEFAULT_LULU_BOOK: LuluBookConfig = {
-  id: 'e7neqq2',
-  title: 'User-owned AI is NEAR',
-  description: 'A collection of talks by the Co-Founders and Builders of NEAR Protocol & NEAR AI',
-  files: [],
-  downloadUrl: 'https://assets.nearmerch.com/e7neqq2_interior.pdf',
-  retailPrice: 20,
-  currency: 'USD',
-  variantName: 'Paperback',
-  sku: '0600X0900BWSTDPB060UC444MXX',
-  podPackageId: '0600X0900BWSTDPB060UC444MXX',
-  pageCount: 120,
-  coverPdfUrl: 'https://assets.nearmerch.com/e7neqq2_cover.pdf',
-  interiorPdfUrl: 'https://assets.nearmerch.com/e7neqq2_interior.pdf',
-};
+
 
 export default createPlugin({
   variables: z.object({
@@ -47,7 +31,6 @@ export default createPlugin({
     nodeUrl: z.string().optional(),
     returnAddress: ReturnAddressSchema.optional(),
     luluEnvironment: z.enum(['sandbox', 'production']).default('production'),
-    luluBooks: z.array(LuluBookConfigSchema).default([DEFAULT_LULU_BOOK]),
     storageProvider: z.enum(["r2", "s3"]).optional(),
     storageBucket: z.string().optional(),
     storageEndpoint: z.string().optional(),
@@ -119,7 +102,6 @@ export default createPlugin({
                   clientKey: config.secrets.LULU_CLIENT_KEY,
                   clientSecret: config.secrets.LULU_CLIENT_SECRET,
                   environment: config.variables.luluEnvironment,
-                  books: config.variables.luluBooks,
                 }
                 : undefined,
           },
@@ -176,7 +158,6 @@ export default createPlugin({
           NewsletterServiceLive,
           AssetServiceLive,
           ProductBuilderServiceLive(runtime),
-          MigrationServiceLive(runtime),
         ),
         storesLayer,
       );
@@ -2045,6 +2026,39 @@ export default createPlugin({
         },
       ),
 
+      updateProduct: builder.updateProduct
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
+          const exit = await managedRuntime.runPromiseExit(
+            Effect.gen(function* () {
+              const productStore = yield* ProductStore;
+              const product = yield* productStore.updateProduct(input.id, {
+                name: input.name,
+                description: input.description,
+                price: input.price,
+                images: input.images,
+                thumbnailImage: input.thumbnailImage,
+              });
+              if (!product) {
+                return { success: false };
+              }
+              return { success: true, product };
+            }),
+          );
+
+          if (Exit.isFailure(exit)) {
+            const error = Cause.squash(exit.cause);
+            if (error instanceof ORPCError) {
+              throw error;
+            }
+            throw new ORPCError("INTERNAL_SERVER_ERROR", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          return exit.value;
+        }),
+
       checkPurchaseGateAccess: builder.checkPurchaseGateAccess.handler(
         async ({ input }) => {
           const hasAccess = await checkPurchaseGateAccess(
@@ -2383,27 +2397,6 @@ export default createPlugin({
             throw errors.NOT_FOUND({
               message: error instanceof Error ? error.message : String(error),
               data: { resource: 'product', resourceId: input.id },
-            });
-          }
-          return exit.value;
-        }),
-
-      // ─── Admin: Migration ───
-
-      migrate: builder.migrate
-        .use(requireAdmin)
-        .handler(async () => {
-          const exit = await managedRuntime.runPromiseExit(
-            Effect.gen(function* () {
-              const service = yield* MigrationService;
-              return yield* service.runMigration();
-            }),
-          );
-          if (Exit.isFailure(exit)) {
-            const error = Cause.squash(exit.cause);
-            if (error instanceof ORPCError) throw error;
-            throw new ORPCError('INTERNAL_SERVER_ERROR', {
-              message: error instanceof Error ? error.message : String(error),
             });
           }
           return exit.value;

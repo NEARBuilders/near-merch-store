@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { Plus } from "lucide-react";
 import { useProducts } from "@/integrations/api";
-import { useRunMigration } from "@/integrations/api/admin";
 
 export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/")({
   component: DashboardOverview,
@@ -10,7 +9,6 @@ export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashbo
 
 function DashboardOverview() {
   const { data: productsData } = useProducts({ limit: 100 });
-  const migrationMutation = useRunMigration();
   const products = productsData?.products || [];
 
   const stats = useMemo(() => {
@@ -69,14 +67,6 @@ function DashboardOverview() {
             <Plus className="size-4" />
             Create Product
           </Link>
-          <button
-            type="button"
-            onClick={() => migrationMutation.mutate()}
-            disabled={migrationMutation.isPending}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-background border border-border/60 text-foreground font-semibold text-sm hover:bg-[#00EC97] hover:border-[#00EC97] hover:text-black transition-colors disabled:opacity-50"
-          >
-            {migrationMutation.isPending ? "Running..." : "Run Migration"}
-          </button>
         </div>
       </div>
     </div>

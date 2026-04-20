@@ -5,13 +5,6 @@ import { z } from 'every-plugin/zod';
 import { FulfillmentContract } from '../contract';
 import { FulfillmentError } from '../errors';
 import { LuluService } from './service';
-import { LuluBookConfigSchema } from './types';
-
-const LULU_PRODUCT_IMAGE_URLS = [
-  'https://assets.nearmerch.com/book-side.png',
-  'https://assets.nearmerch.com/book.png',
-  'https://assets.nearmerch.com/book-front.png',
-];
 
 const mapError = (error: unknown) => {
   if (error instanceof FulfillmentError) {
@@ -34,7 +27,6 @@ export default createPlugin({
   variables: z.object({
     baseUrl: z.string().optional(),
     environment: z.enum(['sandbox', 'production']).default('sandbox'),
-    books: z.array(LuluBookConfigSchema).default([]),
   }),
 
   secrets: z.object({
@@ -46,22 +38,12 @@ export default createPlugin({
 
   initialize: (config) =>
     Effect.gen(function* () {
-      const books = config.variables.books.map((book) => ({
-        ...book,
-        thumbnailUrl: LULU_PRODUCT_IMAGE_URLS[0],
-        files: LULU_PRODUCT_IMAGE_URLS.map((url) => ({
-          type: 'preview',
-          url,
-          previewUrl: url,
-        })),
-      }));
-
       const service = new LuluService({
         clientKey: config.secrets.LULU_CLIENT_KEY,
         clientSecret: config.secrets.LULU_CLIENT_SECRET,
         baseUrl: config.variables.baseUrl,
         environment: config.variables.environment,
-        books,
+        books: [],
       });
 
       console.log('[Lulu Plugin] Initialized successfully');

@@ -250,9 +250,7 @@ export const PingOutputSchema = z.object({
   timestamp: z.string().datetime(),
 });
 
-// ─── Legacy types (will be removed) ───
-
-export const FulfillmentProviderSchema = z.enum(['printful', 'lulu', 'manual']);
+// ─── Provider types ───
 
 export const ProviderVariantSchema = z.object({
   id: z.union([z.string(), z.number()]),
@@ -281,11 +279,6 @@ export const ProviderProductSchema = z.object({
   metadata: ProviderMetadataSchema.optional(),
   providerDetails: z.record(z.string(), z.unknown()).optional(),
 });
-
-// ─── Legacy aliases ───
-
-export const FulfillmentOrderItemSchema = CreateOrderItemSchema;
-export const FulfillmentOrderInputSchema = CreateOrderInputSchema;
 
 // ─── Type exports ───
 
@@ -316,15 +309,8 @@ export type TaxQuoteInput = z.infer<typeof TaxQuoteInputSchema>;
 export type TaxQuoteOutput = z.infer<typeof TaxQuoteOutputSchema>;
 export type PingOutput = z.infer<typeof PingOutputSchema>;
 
-export type FulfillmentProvider = z.infer<typeof FulfillmentProviderSchema>;
 export type ProviderProduct = z.infer<typeof ProviderProductSchema>;
 export type ProviderVariant = z.infer<typeof ProviderVariantSchema>;
-export type FulfillmentOrderItem = z.infer<typeof FulfillmentOrderItemSchema>;
-export type FulfillmentOrderInput = z.infer<typeof CreateOrderInputSchema>;
 
 export type GetPlacementsInput = z.infer<typeof GetPlacementsInputSchema>;
 export type GetPlacementsOutput = z.infer<typeof GetPlacementsOutputSchema>;
-
-// Legacy alias for gradual migration
-export type DesignFile = FulfillmentFile;
-export const DesignFileSchema = FulfillmentFileSchema;

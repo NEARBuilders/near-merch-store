@@ -103,25 +103,32 @@ export function useBuildProduct() {
   });
 }
 
-export function useRunMigration() {
+export function useUpdateProduct() {
   return useMutation({
-    mutationFn: async () => {
-      return await apiClient.migrate();
+    mutationFn: async (input: {
+      id: string;
+      name?: string;
+      description?: string | null;
+      price?: number;
+      images?: Array<{
+        id: string;
+        url: string;
+        type: "primary" | "mockup" | "preview" | "detail" | "catalog";
+        altText?: string;
+        placement?: string;
+        style?: string;
+        variantIds?: string[];
+        order?: number;
+      }>;
+      thumbnailImage?: string | null;
+    }) => {
+      return await apiClient.updateProduct(input);
     },
-    onSuccess: (result) => {
-      toast.success("Migration complete", {
-        description: `${result.variantsMigrated} variants migrated, ${result.assetsCreated} assets created, ${result.luluBooksSeeded} Lulu books seeded`,
-        duration: 8000,
-      });
-      if (result.errors.length > 0) {
-        toast.warning(`${result.errors.length} migration errors`, {
-          description: result.errors.map((e) => e.error).join(", ").slice(0, 200),
-          duration: 10000,
-        });
-      }
+    onSuccess: () => {
+      toast.success("Product updated");
     },
     onError: (error) => {
-      toast.error("Migration failed", {
+      toast.error("Failed to update product", {
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },

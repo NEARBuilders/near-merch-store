@@ -13,7 +13,7 @@ import type {
   ProductMetadata,
 } from "../schema";
 import { OrderStore, ProductStore } from "../store";
-import type { FulfillmentOrderItem } from "./fulfillment/schema";
+import type { CreateOrderItem } from "./fulfillment/schema";
 import type { PaymentLineItem } from "./payment/schema";
 import { CheckoutError } from "./checkout/errors";
 import { getProvidersAddressRequirementError } from "./checkout/provider-address-requirements";
@@ -143,7 +143,7 @@ function buildRecipient(address: ShippingAddress) {
   };
 }
 
-function mapToFulfillmentItems(providerItems: ProviderItemGroup[], selectedRateId?: string): FulfillmentOrderItem[] {
+function mapToFulfillmentItems(providerItems: ProviderItemGroup[], selectedRateId?: string): CreateOrderItem[] {
   return providerItems.map(pi => {
     const config = pi.fulfillmentConfig;
     const providerConfig = config?.providerConfig as Record<string, unknown> | undefined;

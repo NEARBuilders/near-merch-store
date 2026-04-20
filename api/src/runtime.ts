@@ -3,7 +3,6 @@ import { ContractRouterClient } from 'every-plugin/orpc';
 import { FulfillmentContract } from './services/fulfillment';
 import PrintfulPlugin from './services/fulfillment/printful';
 import LuluPlugin from './services/fulfillment/lulu';
-import type { LuluBookConfig } from './services/fulfillment/lulu/types';
 import { PaymentContract } from './services/payment';
 import PingPayPlugin from './services/payment/pingpay';
 import StripePlugin from './services/payment/stripe';
@@ -26,7 +25,6 @@ export interface FulfillmentConfig {
 		clientKey: string;
 		clientSecret: string;
 		environment?: 'sandbox' | 'production';
-		books?: LuluBookConfig[];
 	};
 }
 
@@ -135,7 +133,6 @@ export async function createMarketplaceRuntime(
 				variables: {
 					baseUrl: fulfillmentConfig.lulu.environment === 'production' ? 'https://api.lulu.com' : 'https://api.sandbox.lulu.com',
 					environment: fulfillmentConfig.lulu.environment || 'sandbox',
-					books: fulfillmentConfig.lulu.books || [],
 				},
 				secrets: {
 					LULU_CLIENT_KEY: fulfillmentConfig.lulu.clientKey,
@@ -268,7 +265,6 @@ export async function createMarketplaceRuntime(
 		getExclusiveCheckProvider: (name: string) => exclusiveCheckProviders.find((p) => p.name === name) ?? null,
 		getStorageProvider: () => storageProviders[0] ?? null,
 		shutdown: () => runtime.shutdown(),
-		luluBooks: fulfillmentConfig.lulu?.books ?? [],
 	} as const;
 }
 
@@ -282,5 +278,4 @@ export interface MarketplaceRuntime {
 	readonly getExclusiveCheckProvider: (name: string) => ExclusiveCheckProvider | null;
 	readonly getStorageProvider: () => StorageProvider | null;
 	readonly shutdown: () => Promise<void>;
-	readonly luluBooks: LuluBookConfig[];
 }

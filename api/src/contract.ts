@@ -18,6 +18,7 @@ import {
   OrderStatusEventSchema,
   OrderStatusSchema,
   OrderWithItemsSchema,
+  ProductImageSchema,
   ProductSchema,
   ProductTypeSchema,
   ProviderConfigSchema,
@@ -1079,28 +1080,29 @@ export const contract = oc.router({
     .output(z.object({ success: z.boolean() }))
     .errors({ UNAUTHORIZED }),
 
-  // ─── Admin: Migration ───
+  // ─── Admin: Product Update ───
 
-  migrate: oc
+  updateProduct: oc
     .route({
-      method: "POST",
-      path: "/admin/migrate",
-      summary: "Migrate legacy fulfillment config",
-      description: "Migrates old-format fulfillment_config on product variants to the new shape, creates asset records, and seeds Lulu books.",
-      tags: ["Admin", "Migration"],
+      method: "PATCH",
+      path: "/admin/products/{id}",
+      summary: "Update a product",
+      description: "Updates product details including name, description, price, images, and thumbnail. Only provided fields are updated.",
+      tags: ["Admin", "Products"],
     })
-    .output(z.object({
-      variantsMigrated: z.number(),
-      variantsSkipped: z.number(),
-      assetsCreated: z.number(),
-      luluBooksSeeded: z.number(),
-      errors: z.array(z.object({
-        productId: z.string().optional(),
-        variantId: z.string().optional(),
-        error: z.string(),
-      })),
+    .input(z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      description: z.string().nullable().optional(),
+      price: z.number().positive().optional(),
+      images: z.array(ProductImageSchema).optional(),
+      thumbnailImage: z.string().nullable().optional(),
     }))
-    .errors({ UNAUTHORIZED }),
+    .output(z.object({
+      success: z.boolean(),
+      product: ProductSchema.optional(),
+    }))
+    .errors({ NOT_FOUND, UNAUTHORIZED }),
 
   // ─── Admin: Product Builder ───
 

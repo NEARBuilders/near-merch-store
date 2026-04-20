@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Copy } from "lucide-react";
+import { Copy, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Product } from "@/integrations/api";
@@ -22,23 +22,33 @@ export function ProductTitleCell({ product }: ProductTitleCellProps) {
   };
 
   return (
-    <Link
-      to="/products/$productId"
-      params={{ productId: product.slug }}
-      className="flex items-center gap-2 w-full"
-    >
-      <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors flex-1">{product.title}</p>
+    <div className="flex items-center gap-2 w-full">
+      <Link
+        to="/dashboard/inventory/$productId"
+        params={{ productId: product.id }}
+        className="flex-1 min-w-0"
+      >
+        <p className="font-medium text-sm text-foreground/90 dark:text-muted-foreground hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors truncate">{product.title}</p>
+      </Link>
+      <Link
+        to="/dashboard/inventory/$productId"
+        params={{ productId: product.id }}
+        className="text-foreground/50 dark:text-muted-foreground hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors shrink-0"
+        title="Edit product"
+      >
+        <Pencil className="size-3.5" />
+      </Link>
       <button
         type="button"
         onClick={handleCopy}
         className={cn(
-          "text-foreground/50 dark:text-muted-foreground hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors",
+          "text-foreground/50 dark:text-muted-foreground hover:text-[#00EC97] dark:hover:text-[#00EC97] transition-colors shrink-0",
           copied && "text-[#00EC97]"
         )}
         title={copied ? "Copied!" : "Copy product link"}
       >
         <Copy className="size-3.5" />
       </button>
-    </Link>
+    </div>
   );
 }

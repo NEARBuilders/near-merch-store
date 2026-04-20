@@ -52,6 +52,16 @@ export class ProductStore extends Context.Tag("ProductStore")<
       id: string,
       metadata: ProductMetadata,
     ) => Effect.Effect<Product | null, Error>;
+    readonly updateProduct: (
+      id: string,
+      data: {
+        name?: string;
+        description?: string | null;
+        price?: number;
+        images?: ProductImage[];
+        thumbnailImage?: string | null;
+      },
+    ) => Effect.Effect<Product | null, Error>;
   }
 >() {}
 
@@ -686,6 +696,59 @@ export const ProductStoreLive = Layer.effect(
           },
           catch: (error) =>
             new Error(`Failed to update product metadata: ${error}`),
+        }),
+
+      updateProduct: (id, data) =>
+        Effect.tryPromise({
+          try: async () => {
+            const now = new Date();
+            const updateData: Record<string, unknown> = { updatedAt: now };
+            if (data.name !== undefined) updateData.name = data.name;
+            if (data.description !== undefined) updateData.description = data.description;
+            if (data.price !== undefined) updateData.price = Math.round(data.price * 100);
+            if (data.thumbnailImage !== undefined) updateData.thumbnailImage = data.thumbnailImage;
+
+            await db
+              .update(schema.products)
+              .set(updateData)
+              .where(eq(schema.products.id, id));
+
+            if (data.images !== undefined) {
+              await db
+                .delete(schema.productImages)
+                .where(eq(schema.productImages.productId, id));
+
+              if (data.images.length > 0) {
+                await db.insert(schema.productImages).values(
+                  data.images.map((img, index) => ({
+                    id: img.id || `${id}-img-${index}`,
+                    productId: id,
+                    url: img.url,
+                    type: img.type,
+                    placement: img.placement || null,
+                    style: img.style || null,
+                    variantIds: img.variantIds || null,
+                    order: img.order ?? index,
+                    createdAt: now,
+                  })),
+                );
+              }
+            }
+
+            const results = await db
+              .select()
+              .from(schema.products)
+              .where(eq(schema.products.id, id))
+              .limit(1);
+
+            if (results.length === 0) {
+              return null;
+            }
+
+            return await rowToProduct(results[0]!);
+          },
+          catch: (error) =>
+            new Error(`Failed to update product: ${error}`),
         }),
     };
   }),

@@ -16,7 +16,7 @@ import type {
   CatalogProductDetailOutput,
   CatalogVariantsOutput,
   CreateOrderInput,
-  DesignFile,
+  FulfillmentFile,
   FulfillmentOrder,
   FulfillmentOrderStatus,
   GenerateMockupsInput,
@@ -565,7 +565,7 @@ export class PrintfulService {
         .filter(Boolean) as Array<{
           catalogVariantId: number;
           quantity: number;
-          designFiles?: DesignFile[];
+          designFiles?: FulfillmentFile[];
         }>;
 
       if (items.length === 0) {
