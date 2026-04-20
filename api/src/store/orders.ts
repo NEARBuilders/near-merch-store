@@ -56,7 +56,7 @@ export const OrderStoreLive = Layer.effect(
         unitPrice: item.unitPrice / 100,
         attributes: item.attributes || undefined,
         fulfillmentProvider: item.fulfillmentProvider || undefined,
-        fulfillmentConfig: item.fulfillmentConfig || undefined,
+        fulfillmentConfig: (item.fulfillmentConfig as Record<string, unknown> | null) || undefined,
       }));
     };
 

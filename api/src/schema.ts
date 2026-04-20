@@ -285,7 +285,7 @@ export const OrderItemSchema = z.object({
   unitPrice: z.number(),
   attributes: z.array(AttributeSchema).optional(),
   fulfillmentProvider: z.string().optional(),
-  fulfillmentConfig: FulfillmentConfigSchema.optional(),
+  fulfillmentConfig: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const OrderSchema = z.object({
