@@ -476,7 +476,9 @@ export default createPlugin({
           return exit.value;
         },
       ),
-      updateCollection: builder.updateCollection.handler(async ({ input }) => {
+      updateCollection: builder.updateCollection
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
         const { slug, ...data } = input;
         const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
@@ -499,7 +501,9 @@ export default createPlugin({
       }),
 
       updateCollectionFeaturedProduct:
-        builder.updateCollectionFeaturedProduct.handler(async ({ input }) => {
+        builder.updateCollectionFeaturedProduct
+          .use(requireAdmin)
+          .handler(async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
               const service = yield* ProductService;
@@ -570,7 +574,9 @@ export default createPlugin({
         }
       }),
 
-      updateProductListing: builder.updateProductListing.handler(
+      updateProductListing: builder.updateProductListing
+        .use(requireAdmin)
+        .handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -794,7 +800,9 @@ export default createPlugin({
           return { order };
         }),
 
-      getOrderByCheckoutSession: builder.getOrderByCheckoutSession.handler(
+      getOrderByCheckoutSession: builder.getOrderByCheckoutSession
+        .use(requireAuth)
+        .handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -817,7 +825,9 @@ export default createPlugin({
         },
       ),
 
-      subscribeOrderStatus: builder.subscribeOrderStatus.handler(
+      subscribeOrderStatus: builder.subscribeOrderStatus
+        .use(requireAuth)
+        .handler(
         async function* ({ input, signal }) {
           const TERMINAL_STATUSES = [
             "shipped",
@@ -1560,7 +1570,7 @@ export default createPlugin({
       ),
 
       getProviderConfig: builder.getProviderConfig
-        .use(requireAuth)
+        .use(requireAdmin)
         .handler(async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -1583,7 +1593,7 @@ export default createPlugin({
         }),
 
       configureWebhook: builder.configureWebhook
-        .use(requireAuth)
+        .use(requireAdmin)
         .handler(async ({ input }) => {
           const webhookUrl = input.webhookUrlOverride || '';
 
@@ -1693,7 +1703,7 @@ export default createPlugin({
         }),
 
       disableWebhook: builder.disableWebhook
-        .use(requireAuth)
+        .use(requireAdmin)
         .handler(async ({ input }) => {
           try {
             if (input.provider === 'printful') {
@@ -1763,7 +1773,7 @@ export default createPlugin({
         }),
 
       testProvider: builder.testProvider
-        .use(requireAuth)
+        .use(requireAdmin)
         .handler(async ({ input }) => {
           try {
             let result: { provider: string; status: string; timestamp: string };
@@ -1811,7 +1821,7 @@ export default createPlugin({
         }),
 
       getProviderFieldConfigs: builder.getProviderFieldConfigs
-        .use(requireAuth)
+        .use(requireAdmin)
         .handler(async ({ input }) => {
           const { PRINTFUL_PROVIDER_FIELDS } = await import('./services/fulfillment/printful');
           const { LULU_PROVIDER_FIELDS } = await import('./services/fulfillment/lulu');
@@ -1849,7 +1859,9 @@ export default createPlugin({
         return exit.value;
       }),
 
-      createCategory: builder.createCategory.handler(async ({ input }) => {
+      createCategory: builder.createCategory
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
         const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
@@ -1870,7 +1882,9 @@ export default createPlugin({
         return exit.value;
       }),
 
-      deleteCategory: builder.deleteCategory.handler(async ({ input }) => {
+      deleteCategory: builder.deleteCategory
+        .use(requireAdmin)
+        .handler(async ({ input }) => {
         const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {
             const service = yield* ProductService;
@@ -1891,7 +1905,9 @@ export default createPlugin({
         return exit.value;
       }),
 
-      updateProductCategories: builder.updateProductCategories.handler(
+      updateProductCategories: builder.updateProductCategories
+        .use(requireAdmin)
+        .handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -1917,7 +1933,9 @@ export default createPlugin({
         },
       ),
 
-      updateProductTags: builder.updateProductTags.handler(
+      updateProductTags: builder.updateProductTags
+        .use(requireAdmin)
+        .handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -1940,7 +1958,9 @@ export default createPlugin({
         },
       ),
 
-      updateProductFeatured: builder.updateProductFeatured.handler(
+      updateProductFeatured: builder.updateProductFeatured
+        .use(requireAdmin)
+        .handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -1966,7 +1986,9 @@ export default createPlugin({
         },
       ),
 
-      updateProductType: builder.updateProductType.handler(
+      updateProductType: builder.updateProductType
+        .use(requireAdmin)
+        .handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -1996,7 +2018,9 @@ export default createPlugin({
         },
       ),
 
-      updateProductMetadata: builder.updateProductMetadata.handler(
+      updateProductMetadata: builder.updateProductMetadata
+        .use(requireAdmin)
+        .handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -2092,7 +2116,9 @@ export default createPlugin({
         return exit.value;
       }),
 
-      createProductType: builder.createProductType.handler(
+      createProductType: builder.createProductType
+        .use(requireAdmin)
+        .handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -2116,7 +2142,9 @@ export default createPlugin({
         },
       ),
 
-      updateProductTypeItem: builder.updateProductTypeItem.handler(
+      updateProductTypeItem: builder.updateProductTypeItem
+        .use(requireAdmin)
+        .handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
@@ -2144,7 +2172,9 @@ export default createPlugin({
         },
       ),
 
-      deleteProductType: builder.deleteProductType.handler(
+      deleteProductType: builder.deleteProductType
+        .use(requireAdmin)
+        .handler(
         async ({ input }) => {
           const exit = await managedRuntime.runPromiseExit(
             Effect.gen(function* () {
