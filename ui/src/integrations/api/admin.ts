@@ -234,6 +234,7 @@ export function useSyncProducts() {
         }
       }
     } catch (error) {
+      console.error("[useSyncProducts] ERROR:", error);
       if (error instanceof Error && error.name === "AbortError") {
         return;
       }

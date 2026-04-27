@@ -76,6 +76,18 @@ export function useProducts(options?: {
   });
 }
 
+export function useProduct(id: string) {
+  return useQuery({
+    queryKey: productKeys.detail(id),
+    queryFn: async () => {
+      const data = await apiClient.getProduct({ id });
+      return {
+        product: data.product,
+      };
+    },
+  });
+}
+
 export function useSuspenseProduct(id: string) {
   return useSuspenseQuery({
     queryKey: productKeys.detail(id),

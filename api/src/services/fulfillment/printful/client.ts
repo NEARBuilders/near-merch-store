@@ -39,8 +39,13 @@ export interface PrintfulSyncVariant {
   files: Array<{
     id: number;
     type: string;
-    url: string;
+    url: string | null;
     preview_url?: string | null;
+    thumbnail_url?: string | null;
+    filename?: string;
+    mime_type?: string;
+    status?: string;
+    hash?: string;
   }>;
 }
 
@@ -138,13 +143,23 @@ export class PrintfulClient {
           throw new Error(`Printful V1 API error: ${response.status}`);
         }
 
-        const data = await response.json() as {
-          result: PrintfulSyncProductsResult;
-          paging: { total: number; offset: number; limit: number };
-        };
+        const raw: any = await response.json();
+
+        const result = raw.result;
+        const paging = raw.paging;
+
+        let sync_products: PrintfulSyncProduct[];
+        if (Array.isArray(result)) {
+          sync_products = result;
+        } else if (result?.sync_products && Array.isArray(result.sync_products)) {
+          sync_products = result.sync_products;
+        } else {
+          sync_products = [];
+        }
+
         return {
-          sync_products: data.result?.sync_products || [],
-          paging: data.paging || { total: data.result?.sync_products?.length || 0, offset, limit },
+          sync_products,
+          paging: paging || { total: sync_products.length, offset, limit },
         };
       },
       `getSyncProducts(offset=${offset})`
@@ -213,6 +228,7 @@ export class PrintfulClient {
     image?: string;
     techniques?: string[];
     placements?: string[];
+    placementTechniques?: Record<string, string>;
   } | null> {
     try {
       const result = await this.executeWithRetry(
@@ -224,6 +240,19 @@ export class PrintfulClient {
       const product = data.data;
       const techniques = new Set<string>();
       const placements = new Set<string>();
+      const placementTechniques: Record<string, string> = {};
+
+      if (Array.isArray(product.placements)) {
+        for (const p of product.placements) {
+          if (p.placement) {
+            placements.add(p.placement);
+            if (p.technique) {
+              placementTechniques[p.placement] = p.technique;
+            }
+          }
+        }
+      }
+
       if (product.variants && Array.isArray(product.variants)) {
         for (const variant of product.variants) {
           if (variant.techniques && Array.isArray(variant.techniques)) variant.techniques.forEach((t: string) => techniques.add(t));
@@ -239,6 +268,7 @@ export class PrintfulClient {
         image: product.image ?? undefined,
         techniques: techniques.size > 0 ? Array.from(techniques) : undefined,
         placements: placements.size > 0 ? Array.from(placements) : undefined,
+        placementTechniques: Object.keys(placementTechniques).length > 0 ? placementTechniques : undefined,
       };
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -422,7 +452,7 @@ export class PrintfulClient {
     items: Array<{
       catalog_variant_id: number;
       quantity: number;
-      designFiles?: Array<{ placement: string; url: string }>;
+      designFiles?: Array<{ placement: string; url: string; technique?: string }>;
     }>;
     currency?: string;
     timeoutMs?: number;
@@ -436,16 +466,19 @@ export class PrintfulClient {
     total: number;
     currency: string;
   }> {
-    const orderItems = params.items.map(item => ({
-      source: CatalogItem.source.CATALOG,
-      catalog_variant_id: item.catalog_variant_id,
-      quantity: item.quantity,
-      placements: (item.designFiles || []).map(df => ({
+    const orderItems = params.items.map(item => {
+      const placements = (item.designFiles || []).map(df => ({
         placement: df.placement,
-        technique: 'dtg' as const,
+        technique: df.technique || 'dtg',
         layers: [{ type: 'file' as const, url: df.url }],
-      })),
-    }));
+      }));
+      return {
+        source: CatalogItem.source.CATALOG,
+        catalog_variant_id: item.catalog_variant_id,
+        quantity: item.quantity,
+        ...(placements.length > 0 ? { placements } : {}),
+      };
+    });
 
     const requestBody = {
       recipient: {

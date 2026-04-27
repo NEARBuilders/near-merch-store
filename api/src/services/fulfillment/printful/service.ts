@@ -413,7 +413,7 @@ export class PrintfulService {
             source: 'catalog' as const,
             catalog_variant_id: catalogVariantId,
             quantity: item.quantity,
-            placements,
+            ...(placements.length > 0 ? { placements } : {}),
           };
         });
 
@@ -588,7 +588,7 @@ export class PrintfulService {
             items: items.map(item => ({
               catalog_variant_id: item.catalogVariantId,
               quantity: item.quantity,
-              designFiles: item.designFiles?.map((df: any) => ({ placement: df.slot, url: df.url })),
+              designFiles: item.designFiles?.map((df: any) => ({ placement: df.slot, url: df.url, technique: df.metadata?.technique })),
             })),
             currency: input.currency || 'USD',
             ...(isQuoteMode ? { timeoutMs: 5000, requestTimeoutMs: 5000, retries: 0 } : {}),
@@ -639,6 +639,7 @@ export class PrintfulService {
       status: 'syncing',
       phase: 'listing',
       totalSynced: 0,
+      totalUpdated: 0,
       totalFailed: 0,
       timestamp: Date.now(),
       message: 'Fetching product list from Printful...',
@@ -655,16 +656,18 @@ export class PrintfulService {
         allSyncProducts = [...allSyncProducts, ...result.sync_products];
         const totalProducts = result.paging.total;
 
-        if (allSyncProducts.length >= totalProducts) break;
+        if (allSyncProducts.length >= totalProducts || result.sync_products.length === 0) break;
         offset += PAGE_SIZE;
         await new Promise(r => setTimeout(r, 500));
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
+      console.error('[PrintfulService.syncProducts] ERROR listing products:', error);
       yield {
         status: 'error',
         phase: 'error',
         totalSynced: 0,
+        totalUpdated: 0,
         totalFailed: 0,
         timestamp: Date.now(),
         message: `Failed to list products: ${error instanceof Error ? error.message : String(error)}`,
@@ -678,6 +681,7 @@ export class PrintfulService {
       status: 'syncing',
       phase: 'fetching',
       totalSynced: 0,
+      totalUpdated: 0,
       totalFailed: 0,
       timestamp: Date.now(),
       message: `Found ${total} products. Fetching details...`,
@@ -685,6 +689,7 @@ export class PrintfulService {
     };
 
     let synced = 0;
+    let updated = 0;
     let failed = 0;
 
     for (const syncProduct of allSyncProducts) {
@@ -707,6 +712,7 @@ export class PrintfulService {
           status: 'syncing',
           phase: 'saving',
           totalSynced: synced,
+          totalUpdated: updated,
           totalFailed: failed,
           timestamp: Date.now(),
           currentProductName: sync_product.name,
@@ -720,18 +726,25 @@ export class PrintfulService {
           catalogProduct
         );
 
-        await upsertProduct(productWithImages, new Date());
+        const result = await upsertProduct(productWithImages, new Date());
 
-        synced++;
+        if ((result as any).isNew) {
+          synced++;
+        } else {
+          updated++;
+        }
 
         yield {
           status: 'syncing',
           phase: 'saving',
           totalSynced: synced,
+          totalUpdated: updated,
           totalFailed: failed,
           timestamp: Date.now(),
           currentProductName: sync_product.name,
-          message: `Synced ${synced}/${total}`,
+          message: (result as any).isNew
+            ? `Added ${synced}/${total}`
+            : `Updated ${sync_product.name}`,
           total,
         };
 
@@ -744,6 +757,7 @@ export class PrintfulService {
           status: 'syncing',
           phase: 'saving',
           totalSynced: synced,
+          totalUpdated: updated,
           totalFailed: failed,
           timestamp: Date.now(),
           currentProductName: syncProduct.name,
@@ -757,22 +771,84 @@ export class PrintfulService {
       status: 'completed',
       phase: 'complete',
       totalSynced: synced,
+      totalUpdated: updated,
       totalFailed: failed,
       timestamp: Date.now(),
-      message: `Sync complete: ${synced} synced, ${failed} failed`,
+      message: `Sync complete: ${synced} added, ${updated} updated, ${failed} failed`,
       total,
     };
   }
 
-  private extractDesignFiles(files: Array<{ id: number; type: string; url: string; preview_url?: string | null }>): FulfillmentFile[] {
-    return files
-      .filter(f => f.url)
-      .map(f => ({
-        assetId: String(f.id),
-        url: f.url,
-        slot: f.type?.replace(/_/g, '-').replace('default', 'front') || 'front',
-        metadata: f.preview_url ? { previewUrl: f.preview_url } : undefined,
-      }));
+  private static readonly IGNORED_FILE_TYPES = new Set(['preview', 'printfile', 'label']);
+
+  private static readonly TECHNIQUE_SUFFIXES = [
+    'dtg', 'dtf', 'embroidery', 'digital', 'sublimation',
+    'screen_printing', 'screenprinting', 'heat_transfer',
+  ] as const;
+
+  private static parseFileType(type: string): { placement: string; technique: string | null } {
+    if (type === 'default') return { placement: 'front', technique: null };
+    if (type === 'front' || type === 'back' || type === 'inside_label' || type === 'label_inside') {
+      return { placement: type, technique: null };
+    }
+    for (const suffix of PrintfulService.TECHNIQUE_SUFFIXES) {
+      const idx = type.lastIndexOf('_' + suffix);
+      if (idx > 0) {
+        const placement = type.substring(0, idx);
+        return { placement, technique: suffix === 'dtf' ? 'dtg' : suffix };
+      }
+    }
+    return { placement: type, technique: null };
+  }
+
+  private extractDesignFiles(
+    files: Array<{ id: number; type: string; url: string | null; preview_url?: string | null; thumbnail_url?: string | null; hash?: string; filename?: string; status?: string }>,
+    placementTechniques?: Record<string, string>
+  ): FulfillmentFile[] {
+    const bySlot = new Map<string, { file: typeof files[number]; placement: string; technique: string | null; resolvedUrl: string }>();
+
+    for (const f of files) {
+      const type = f.type?.toLowerCase() || '';
+      if (PrintfulService.IGNORED_FILE_TYPES.has(type)) continue;
+
+      const { placement, technique } = PrintfulService.parseFileType(type);
+      if (bySlot.has(placement)) continue;
+
+      let resolvedUrl: string | null = null;
+
+      if (f.url) {
+        resolvedUrl = f.url;
+      } else if (f.hash) {
+        resolvedUrl = `https://files.cdn.printful.com/files/${f.hash.slice(0, 3)}/${f.hash}.png`;
+      } else if (f.preview_url) {
+        resolvedUrl = f.preview_url;
+      } else if (f.thumbnail_url) {
+        resolvedUrl = f.thumbnail_url;
+      }
+
+      if (!resolvedUrl) continue;
+
+      bySlot.set(placement, { file: f, placement, technique, resolvedUrl });
+    }
+
+    return Array.from(bySlot.values()).map(({ file, placement, technique, resolvedUrl }) => ({
+      assetId: String(file.id),
+      url: resolvedUrl,
+      slot: placement,
+      metadata: {
+        ...(file.preview_url ? { previewUrl: file.preview_url } : {}),
+        ...(technique ? { technique } : placementTechniques?.[placement] ? { technique: placementTechniques[placement] } : {}),
+      },
+    }));
+  }
+
+  private extractGsm(description: string | undefined): number | undefined {
+    if (!description) return undefined;
+    const gsmMatch = description.match(/(\d+(?:\.\d+)?)\s*g\/m²/i);
+    if (gsmMatch?.[1]) return parseFloat(gsmMatch[1]);
+    const ozMatch = description.match(/(\d+(?:\.\d+)?)\s*oz\/yd²/i);
+    if (ozMatch?.[1]) return parseFloat(ozMatch[1]) * 33.906;
+    return undefined;
   }
 
   private transformSyncProductToV2(
@@ -788,10 +864,11 @@ export class PrintfulService {
       image?: string;
       techniques?: string[];
       placements?: string[];
+      placementTechniques?: Record<string, string>;
     } | null
   ): ProductWithImages {
     const optionsMap = new Map<string, Set<string>>();
-    const variants: ProductVariantInput[] = syncVariants.map(v => {
+    const variants = syncVariants.map(v => {
       const catalogVariant = catalogVariants.get(v.variant_id);
 
       if (catalogVariant?.size) {
@@ -803,7 +880,7 @@ export class PrintfulService {
         optionsMap.get('Color')!.add(catalogVariant.color);
       }
 
-      const designFiles = this.extractDesignFiles(v.files);
+      const designFiles = this.extractDesignFiles(v.files, catalogProduct?.placementTechniques);
 
       const fulfillmentConfig: FulfillmentConfig = {
         providerName: 'printful',
@@ -819,7 +896,7 @@ export class PrintfulService {
       if (catalogVariant?.color) attributes.push({ name: 'Color', value: catalogVariant.color });
 
       return {
-        id: `printful-variant-${v.variant_id}`,
+        id: `printful-variant-${v.id}`,
         name: v.name || syncProduct.name,
         sku: v.external_id,
         price: v.retail_price ? parseFloat(v.retail_price) : 0,
@@ -838,15 +915,47 @@ export class PrintfulService {
       position: index + 1,
     }));
 
-    const images: import('../../../schema').ProductImage[] = [];
+    const imageMap = new Map<string, import('../../../schema').ProductImage>();
+
     if (syncProduct.thumbnail_url) {
-      images.push({
-        id: `product-image-0`,
+      imageMap.set(syncProduct.thumbnail_url, {
+        id: `catalog-${syncProduct.id}`,
         url: syncProduct.thumbnail_url,
         type: 'catalog',
         order: 0,
+        variantIds: [],
       });
     }
+
+    let imageOrder = 1;
+    for (const v of syncVariants) {
+      const variantId = `printful-variant-${v.id}`;
+      if (!v.files) continue;
+
+      for (const file of v.files) {
+        const url = file.preview_url || file.url;
+        if (!url) continue;
+
+        if (!imageMap.has(url)) {
+          imageMap.set(url, {
+            id: `file-${file.id}-${v.variant_id}`,
+            url,
+            type: file.type === 'preview' ? 'preview' : 'detail',
+            placement: file.type !== 'preview' && file.type !== 'default' ? file.type : undefined,
+            order: imageOrder++,
+            variantIds: [variantId],
+          });
+        } else {
+          const img = imageMap.get(url)!;
+          if (!img.variantIds) img.variantIds = [];
+          if (!img.variantIds.includes(variantId)) {
+            img.variantIds.push(variantId);
+          }
+        }
+      }
+    }
+
+    const images = Array.from(imageMap.values()).sort((a, b) => a.order - b.order);
 
     const providerDetails: Record<string, unknown> = {};
     if (catalogProduct) {
@@ -855,9 +964,12 @@ export class PrintfulService {
       if (catalogProduct.description) providerDetails.description = catalogProduct.description;
       if (catalogProduct.techniques) providerDetails.techniques = catalogProduct.techniques;
       if (catalogProduct.placements) providerDetails.placements = catalogProduct.placements;
+      if (catalogProduct.description) providerDetails.gsm = this.extractGsm(catalogProduct.description);
     }
 
-    const basePrice = syncVariants[0]?.retail_price ? parseFloat(syncVariants[0].retail_price) : 0;
+    const basePrice = syncVariants.length > 0
+      ? Math.min(...syncVariants.map(v => v.retail_price ? parseFloat(v.retail_price) : Infinity))
+      : 0;
     const baseCurrency = syncVariants[0]?.currency || 'USD';
 
     const id = generateProductId();
@@ -869,7 +981,7 @@ export class PrintfulService {
       publicKey,
       slug,
       name: syncProduct.name,
-      description: catalogProduct?.description,
+      description: undefined,
       price: basePrice,
       currency: baseCurrency,
       productTypeSlug: undefined,

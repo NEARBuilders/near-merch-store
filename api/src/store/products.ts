@@ -30,7 +30,7 @@ export class ProductStore extends Context.Tag("ProductStore")<
     readonly upsert: (
       product: ProductWithImages,
       syncedAt?: Date,
-    ) => Effect.Effect<Product, Error>;
+    ) => Effect.Effect<Product & { isNew: boolean }, Error>;
     readonly delete: (id: string) => Effect.Effect<void, Error>;
     readonly updateListing: (
       id: string,
@@ -444,15 +444,12 @@ export const ProductStoreLive = Layer.effect(
             if (existingProduct) {
               const existingMetadata = existingProduct.metadata as ProductMetadata | null;
               const newProviderDetails = product.metadata?.providerDetails;
-              const newDownloads = product.metadata?.downloads;
-              
-              // Merge strategy: provider-controlled fields (providerDetails, downloads) prefer new data,
-              // while admin-controlled fields (creatorAccountId, fees, purchaseGate, affiliate) preserve existing
+
               const mergedMetadata: ProductMetadata = {
                 creatorAccountId: existingMetadata?.creatorAccountId,
                 fees: existingMetadata?.fees ?? [],
                 providerDetails: newProviderDetails ?? existingMetadata?.providerDetails,
-                downloads: newDownloads ?? existingMetadata?.downloads,
+                downloads: product.metadata?.downloads ?? existingMetadata?.downloads,
                 purchaseGate: existingMetadata?.purchaseGate,
                 affiliate: existingMetadata?.affiliate,
               };
@@ -460,28 +457,40 @@ export const ProductStoreLive = Layer.effect(
               await db
                 .update(schema.products)
                 .set({
-                  name: product.name,
-                  description: product.description || null,
-                  price: Math.round(product.price * 100),
-                  currency: product.currency,
-                  brand: product.brand || null,
-                  productTypeSlug: existingProduct.productTypeSlug || null,
-                  tags: existingProduct.tags || [],
                   options: product.options,
-                  thumbnailImage: product.thumbnailImage || null,
+                  thumbnailImage: product.thumbnailImage || existingProduct.thumbnailImage || null,
+                  currency: product.currency,
+                  brand: product.brand || existingProduct.brand || null,
                   fulfillmentProvider: product.fulfillmentProvider,
                   externalProductId: product.externalProductId || null,
                   source: product.source,
-                  publicKey: existingProduct.publicKey || product.publicKey,
-                  slug: existingProduct.slug || product.slug,
                   metadata: mergedMetadata,
                   lastSyncedAt: now,
                   updatedAt: now,
-                  featured: existingProduct.featured ?? undefined,
-                  listed: existingProduct.listed ?? undefined,
-                  assetId: product.assetId || existingProduct.assetId || null,
                 })
                 .where(eq(schema.products.id, finalId));
+
+              await db
+                .delete(schema.productVariants)
+                .where(eq(schema.productVariants.productId, finalId));
+
+              if (product.variants.length > 0) {
+                await db.insert(schema.productVariants).values(
+                  product.variants.map((variant) => ({
+                    id: variant.id,
+                    productId: finalId,
+                    name: variant.name,
+                    sku: variant.sku || null,
+                    price: Math.round(variant.price * 100),
+                    currency: variant.currency,
+                    attributes: variant.attributes || null,
+                    externalVariantId: variant.externalVariantId || null,
+                    fulfillmentConfig: variant.fulfillmentConfig || null,
+                    inStock: variant.inStock ?? true,
+                    createdAt: now,
+                  })),
+                );
+              }
             } else {
               await db.insert(schema.products).values({
                 id: finalId,
@@ -506,48 +515,40 @@ export const ProductStoreLive = Layer.effect(
                 listed: true,
                 assetId: product.assetId || null,
               });
-            }
 
-            await db
-              .delete(schema.productImages)
-              .where(eq(schema.productImages.productId, finalId));
+              if (product.images.length > 0) {
+                await db.insert(schema.productImages).values(
+                  product.images.map((img, index) => ({
+                    id: img.id || `${finalId}-img-${index}`,
+                    productId: finalId,
+                    url: img.url,
+                    type: img.type,
+                    placement: img.placement || null,
+                    style: img.style || null,
+                    variantIds: img.variantIds || null,
+                    order: img.order ?? index,
+                    createdAt: now,
+                  })),
+                );
+              }
 
-            if (product.images.length > 0) {
-              await db.insert(schema.productImages).values(
-                product.images.map((img, index) => ({
-                  id: img.id || `${finalId}-img-${index}`,
-                  productId: finalId,
-                  url: img.url,
-                  type: img.type,
-                  placement: img.placement || null,
-                  style: img.style || null,
-                  variantIds: img.variantIds || null,
-                  order: img.order ?? index,
-                  createdAt: now,
-                })),
-              );
-            }
-
-            await db
-              .delete(schema.productVariants)
-              .where(eq(schema.productVariants.productId, finalId));
-
-            if (product.variants.length > 0) {
-              await db.insert(schema.productVariants).values(
-                product.variants.map((variant) => ({
-                  id: variant.id,
-                  productId: finalId,
-                  name: variant.name,
-                  sku: variant.sku || null,
-                  price: Math.round(variant.price * 100),
-                  currency: variant.currency,
-                  attributes: variant.attributes || null,
-                  externalVariantId: variant.externalVariantId || null,
-                  fulfillmentConfig: variant.fulfillmentConfig || null,
-                  inStock: variant.inStock ?? true,
-                  createdAt: now,
-                })),
-              );
+              if (product.variants.length > 0) {
+                await db.insert(schema.productVariants).values(
+                  product.variants.map((variant) => ({
+                    id: variant.id,
+                    productId: finalId,
+                    name: variant.name,
+                    sku: variant.sku || null,
+                    price: Math.round(variant.price * 100),
+                    currency: variant.currency,
+                    attributes: variant.attributes || null,
+                    externalVariantId: variant.externalVariantId || null,
+                    fulfillmentConfig: variant.fulfillmentConfig || null,
+                    inStock: variant.inStock ?? true,
+                    createdAt: now,
+                  })),
+                );
+              }
             }
 
             const results = await db
@@ -560,7 +561,8 @@ export const ProductStoreLive = Layer.effect(
               throw new Error("Product not found after upsert");
             }
 
-            return await rowToProduct(results[0]!);
+            const result = await rowToProduct(results[0]!);
+            return { ...result, isNew: !existingProduct } as Product & { isNew: boolean };
           },
           catch: (error) => new Error(`Failed to upsert product: ${error}`),
         }),

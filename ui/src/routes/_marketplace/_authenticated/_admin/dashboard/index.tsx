@@ -78,13 +78,13 @@ function DashboardOverview() {
               <div
                 className="bg-[#00EC97] h-2 rounded-full transition-all duration-300"
                 style={{
-                  width: `${((progress.totalSynced + progress.totalFailed) / progress.total) * 100}%`,
+                  width: `${((progress.totalSynced + progress.totalUpdated + progress.totalFailed) / progress.total) * 100}%`,
                 }}
               />
             </div>
           )}
           <p className="text-xs text-foreground/60">
-            {progress.totalSynced} synced, {progress.totalFailed} failed
+            {progress.totalSynced} added, {progress.totalUpdated} updated, {progress.totalFailed} failed
             {progress.total ? ` of ${progress.total}` : ""}
             {progress.message ? ` — ${progress.message}` : ""}
           </p>

@@ -317,6 +317,7 @@ export const SyncProgressEventSchema = z.object({
   status: z.enum(['idle', 'syncing', 'completed', 'error']),
   phase: z.enum(['listing', 'fetching', 'saving', 'complete', 'error']).optional(),
   totalSynced: z.number().default(0),
+  totalUpdated: z.number().default(0),
   totalFailed: z.number().default(0),
   timestamp: z.number(),
   message: z.string().optional(),
