@@ -26,6 +26,45 @@ export const PrintfulProviderDetailsSchema = z.object({
 export type PrintfulOrderStatus = z.infer<typeof PrintfulOrderStatus>;
 export type PrintfulProviderDetails = z.infer<typeof PrintfulProviderDetailsSchema>;
 
+export const PrintfulSyncFileSchema = z.object({
+  id: z.number(),
+  type: z.string(),
+  url: z.string(),
+  preview_url: z.string().nullable().optional(),
+});
+
+export const PrintfulSyncVariantSchema = z.object({
+  id: z.number(),
+  external_id: z.string(),
+  sync_product_id: z.number(),
+  name: z.string(),
+  synced: z.boolean(),
+  variant_id: z.number(),
+  retail_price: z.string().nullable(),
+  currency: z.string(),
+  product: z.object({
+    variant_id: z.number(),
+    product_id: z.number(),
+    image: z.string(),
+    name: z.string(),
+  }),
+  files: z.array(PrintfulSyncFileSchema),
+});
+
+export const PrintfulSyncProductSchema = z.object({
+  id: z.number(),
+  external_id: z.string(),
+  name: z.string(),
+  variants: z.number(),
+  synced: z.number(),
+  thumbnail_url: z.string().nullable(),
+  is_ignored: z.boolean(),
+});
+
+export type PrintfulSyncFile = z.infer<typeof PrintfulSyncFileSchema>;
+export type PrintfulSyncVariant = z.infer<typeof PrintfulSyncVariantSchema>;
+export type PrintfulSyncProduct = z.infer<typeof PrintfulSyncProductSchema>;
+
 export const PRINTFUL_PROVIDER_FIELDS = {
   brand: { label: 'Brand', order: 1 },
   model: { label: 'Model', order: 2 },
@@ -70,7 +109,7 @@ export const MockupPlacementSchema = z.enum([
 
 export const MockupFormatSchema = z.enum(['jpg', 'png']);
 
-export const MockupConfigSchema = z.object({
+export const PrintfulMockupConfigSchema = z.object({
   styles: z.array(MockupStyleSchema).default(['Lifestyle', 'Flat']),
   placements: z.array(MockupPlacementSchema).default(['front']),
   format: MockupFormatSchema.default('jpg'),
@@ -89,5 +128,5 @@ export const MockupStyleInfoSchema = z.object({
 export type MockupStyle = z.infer<typeof MockupStyleSchema>;
 export type MockupPlacement = z.infer<typeof MockupPlacementSchema>;
 export type MockupFormat = z.infer<typeof MockupFormatSchema>;
-export type MockupConfig = z.infer<typeof MockupConfigSchema>;
+export type PrintfulMockupConfig = z.infer<typeof PrintfulMockupConfigSchema>;
 export type MockupStyleInfo = z.infer<typeof MockupStyleInfoSchema>;

@@ -31,7 +31,9 @@ import {
   DeleteOrdersInputSchema,
   DeleteOrdersOutputSchema,
   GetOrderAuditLogOutputSchema,
+  AssetSchema,
 } from "./schema";
+import { SyncProgressEventSchema, ProviderCatalogProductSchema, CatalogSlotSchema, ProviderCatalogVariantSchema } from "./services/fulfillment/schema";
 
 export const contract = oc.router({
   ping: oc
@@ -567,6 +569,19 @@ export const contract = oc.router({
     .output(z.record(z.string(), z.any()))
     .errors({ UNAUTHORIZED }),
 
+  syncProducts: oc
+    .route({
+      method: "POST",
+      path: "/admin/products/sync",
+      summary: "Sync products from Printful",
+      description:
+        "Triggers a sync of Printful store products into the local product catalog. Returns SSE progress events.",
+      tags: ["Admin", "Products"],
+    })
+    .input(z.object({ provider: z.enum(['printful']).default('printful') }))
+    .output(eventIterator(SyncProgressEventSchema))
+    .errors({ UNAUTHORIZED }),
+
   getCategories: oc
     .route({
       method: "GET",
@@ -826,35 +841,7 @@ export const contract = oc.router({
       offset: z.number().int().min(0).default(0),
     }))
     .output(z.object({
-      products: z.array(z.object({
-        id: z.string(),
-        name: z.string(),
-        brand: z.string().nullable().optional(),
-        model: z.string().nullable().optional(),
-        description: z.string().nullable().optional(),
-        image: z.string().nullable().optional(),
-        providerName: z.string(),
-        slots: z.array(z.object({
-          name: z.string(),
-          label: z.string().optional(),
-          required: z.boolean().optional(),
-          acceptedFormats: z.array(z.string()).optional(),
-        })).optional(),
-        variants: z.array(z.object({
-          id: z.string(),
-          name: z.string(),
-          size: z.string().nullable().optional(),
-          color: z.string().nullable().optional(),
-          colorCode: z.string().nullable().optional(),
-          image: z.string().nullable().optional(),
-          providerRef: z.string(),
-          price: z.object({
-            wholesale: z.number().optional(),
-            retail: z.number().optional(),
-            currency: z.string().optional(),
-          }).nullable().optional(),
-        })).optional(),
-      })),
+      products: z.array(ProviderCatalogProductSchema),
       total: z.number(),
     }))
     .errors({ UNAUTHORIZED }),
@@ -872,21 +859,7 @@ export const contract = oc.router({
       id: z.string(),
     }))
     .output(z.object({
-      product: z.object({
-        id: z.string(),
-        name: z.string(),
-        brand: z.string().nullable().optional(),
-        model: z.string().nullable().optional(),
-        description: z.string().nullable().optional(),
-        image: z.string().nullable().optional(),
-        providerName: z.string(),
-        slots: z.array(z.object({
-          name: z.string(),
-          label: z.string().optional(),
-          required: z.boolean().optional(),
-          acceptedFormats: z.array(z.string()).optional(),
-        })).optional(),
-      }),
+      product: ProviderCatalogProductSchema,
     }))
     .errors({ NOT_FOUND, UNAUTHORIZED }),
 
@@ -903,20 +876,7 @@ export const contract = oc.router({
       id: z.string(),
     }))
     .output(z.object({
-      variants: z.array(z.object({
-        id: z.string(),
-        name: z.string(),
-        size: z.string().nullable().optional(),
-        color: z.string().nullable().optional(),
-        colorCode: z.string().nullable().optional(),
-        image: z.string().nullable().optional(),
-        providerRef: z.string(),
-        price: z.object({
-          wholesale: z.number().optional(),
-          retail: z.number().optional(),
-          currency: z.string().optional(),
-        }).nullable().optional(),
-      })),
+      variants: z.array(ProviderCatalogVariantSchema),
     }))
     .errors({ UNAUTHORIZED }),
 
@@ -933,12 +893,7 @@ export const contract = oc.router({
       catalogProductId: z.string(),
     }))
     .output(z.object({
-      placements: z.array(z.object({
-        name: z.string(),
-        label: z.string().optional(),
-        required: z.boolean().default(true),
-        acceptedFormats: z.array(z.string()).optional(),
-      })),
+      placements: z.array(CatalogSlotSchema),
     }))
     .errors({ BAD_REQUEST, UNAUTHORIZED }),
 
@@ -981,17 +936,7 @@ export const contract = oc.router({
       contentType: z.string().optional(),
       size: z.number().optional(),
     }))
-    .output(z.object({
-      id: z.string(),
-      url: z.string(),
-      type: z.string(),
-      name: z.string().nullable(),
-      storageKey: z.string().nullable(),
-      size: z.number().nullable(),
-      metadata: z.record(z.string(), z.unknown()).nullable(),
-      createdAt: z.string(),
-      updatedAt: z.string(),
-    }))
+    .output(AssetSchema)
     .errors({ BAD_REQUEST, UNAUTHORIZED }),
 
   getAssetSignedUrl: oc
@@ -1026,17 +971,7 @@ export const contract = oc.router({
       name: z.string().optional(),
       metadata: z.record(z.string(), z.unknown()).optional(),
     }))
-    .output(z.object({
-      id: z.string(),
-      url: z.string(),
-      type: z.string(),
-      name: z.string().nullable(),
-      storageKey: z.string().nullable(),
-      size: z.number().nullable(),
-      metadata: z.record(z.string(), z.unknown()).nullable(),
-      createdAt: z.string(),
-      updatedAt: z.string(),
-    }))
+    .output(AssetSchema)
     .errors({ UNAUTHORIZED }),
 
   listAssets: oc
@@ -1053,17 +988,7 @@ export const contract = oc.router({
       offset: z.number().int().min(0).default(0),
     }))
     .output(z.object({
-      assets: z.array(z.object({
-        id: z.string(),
-        url: z.string(),
-        type: z.string(),
-        name: z.string().nullable(),
-        storageKey: z.string().nullable(),
-        size: z.number().nullable(),
-        metadata: z.record(z.string(), z.unknown()).nullable(),
-        createdAt: z.string(),
-        updatedAt: z.string(),
-      })),
+      assets: z.array(AssetSchema),
       total: z.number(),
     }))
     .errors({ UNAUTHORIZED }),

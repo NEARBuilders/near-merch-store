@@ -1,4 +1,5 @@
 import { z } from 'every-plugin/zod';
+import { ProductDownloadSchema } from '../../schema';
 
 // ─── Fulfillment Files (universal) ───
 
@@ -9,12 +10,7 @@ export const FulfillmentFileSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const ProviderDownloadSchema = z.object({
-  url: z.string().url(),
-  label: z.string().optional(),
-  kind: z.enum(['free', 'paid']).default('free'),
-  fileName: z.string().optional(),
-});
+export const ProviderDownloadSchema = ProductDownloadSchema;
 
 export const ProviderMetadataSchema = z.object({
   downloads: z.array(ProviderDownloadSchema).optional(),
@@ -314,3 +310,19 @@ export type ProviderVariant = z.infer<typeof ProviderVariantSchema>;
 
 export type GetPlacementsInput = z.infer<typeof GetPlacementsInputSchema>;
 export type GetPlacementsOutput = z.infer<typeof GetPlacementsOutputSchema>;
+
+// ─── Sync Progress ───
+
+export const SyncProgressEventSchema = z.object({
+  status: z.enum(['idle', 'syncing', 'completed', 'error']),
+  phase: z.enum(['listing', 'fetching', 'saving', 'complete', 'error']).optional(),
+  totalSynced: z.number().default(0),
+  totalUpdated: z.number().default(0),
+  totalFailed: z.number().default(0),
+  timestamp: z.number(),
+  message: z.string().optional(),
+  currentProductName: z.string().optional(),
+  total: z.number().optional(),
+});
+
+export type SyncProgressEvent = z.infer<typeof SyncProgressEventSchema>;

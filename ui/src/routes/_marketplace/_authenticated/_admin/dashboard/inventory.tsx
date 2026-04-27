@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { Fragment, useState, useEffect, useMemo } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
@@ -1720,6 +1720,8 @@ function InventoryManagement() {
           </div>
         </div>
       </div>
+
+      <Outlet />
     </div>
   );
 }

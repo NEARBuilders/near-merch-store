@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { useProducts } from "@/integrations/api";
+import { useSyncProducts } from "@/integrations/api/admin";
 
 export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashboard/")({
   component: DashboardOverview,
@@ -10,6 +11,7 @@ export const Route = createFileRoute("/_marketplace/_authenticated/_admin/dashbo
 function DashboardOverview() {
   const { data: productsData } = useProducts({ limit: 100 });
   const products = productsData?.products || [];
+  const { isSyncing, progress, startSync, cancelSync } = useSyncProducts();
 
   const stats = useMemo(() => {
     const totalProducts = products.length;
@@ -56,6 +58,39 @@ function DashboardOverview() {
         </div>
       </div>
 
+      {/* Sync Progress */}
+      {isSyncing && progress && (
+        <div className="rounded-2xl bg-background border border-border/60 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-foreground/90 dark:text-muted-foreground">
+              Syncing from Printful
+              {progress.currentProductName && ` — ${progress.currentProductName}`}
+            </h3>
+            <button
+              onClick={cancelSync}
+              className="text-xs text-foreground/60 hover:text-foreground/90 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+          {progress.total && progress.total > 0 && (
+            <div className="w-full bg-border/30 rounded-full h-2 mb-2">
+              <div
+                className="bg-[#00EC97] h-2 rounded-full transition-all duration-300"
+                style={{
+                  width: `${((progress.totalSynced + progress.totalUpdated + progress.totalFailed) / progress.total) * 100}%`,
+                }}
+              />
+            </div>
+          )}
+          <p className="text-xs text-foreground/60">
+            {progress.totalSynced} added, {progress.totalUpdated} updated, {progress.totalFailed} failed
+            {progress.total ? ` of ${progress.total}` : ""}
+            {progress.message ? ` — ${progress.message}` : ""}
+          </p>
+        </div>
+      )}
+
       {/* Quick Actions */}
       <div className="rounded-2xl bg-background border border-border/60 p-4">
         <h3 className="text-sm font-medium text-foreground/90 dark:text-muted-foreground mb-3">Quick Actions</h3>
@@ -67,6 +102,14 @@ function DashboardOverview() {
             <Plus className="size-4" />
             Create Product
           </Link>
+          <button
+            onClick={() => startSync("printful")}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground/10 text-foreground font-semibold text-sm hover:bg-foreground/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`size-4 ${isSyncing ? "animate-spin" : ""}`} />
+            {isSyncing ? "Syncing..." : "Sync Printful Products"}
+          </button>
         </div>
       </div>
     </div>

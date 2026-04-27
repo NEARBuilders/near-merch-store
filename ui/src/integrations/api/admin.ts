@@ -1,6 +1,9 @@
 import { apiClient } from "@/utils/orpc";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import type { SyncProgressEvent } from "../../../../api/src/services/fulfillment/schema";
+import type { ProductImage } from "./products";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useState, useCallback, useRef } from "react";
 
 const catalogKeys = {
   all: ["catalog"] as const,
@@ -110,16 +113,7 @@ export function useUpdateProduct() {
       name?: string;
       description?: string | null;
       price?: number;
-      images?: Array<{
-        id: string;
-        url: string;
-        type: "primary" | "mockup" | "preview" | "detail" | "catalog";
-        altText?: string;
-        placement?: string;
-        style?: string;
-        variantIds?: string[];
-        order?: number;
-      }>;
+      images?: Array<ProductImage>;
       thumbnailImage?: string | null;
     }) => {
       return await apiClient.updateProduct(input);
@@ -201,4 +195,62 @@ export function useGenerateProductMockups() {
       });
     },
   });
+}
+
+export type { SyncProgressEvent };
+
+export function useSyncProducts() {
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [progress, setProgress] = useState<SyncProgressEvent | null>(null);
+  const [events, setEvents] = useState<SyncProgressEvent[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
+  const queryClient = useQueryClient();
+
+  const startSync = useCallback(async (provider: string = "printful") => {
+    setIsSyncing(true);
+    setEvents([]);
+    setProgress(null);
+    abortRef.current = new AbortController();
+
+    try {
+      const stream = await apiClient.syncProducts(
+        { provider: provider as "printful" },
+        { signal: abortRef.current.signal }
+      );
+
+      for await (const event of stream) {
+        setProgress(event);
+        setEvents((prev) => [...prev, event]);
+
+        if (event.status === "completed" || event.status === "error") {
+          setIsSyncing(false);
+          if (event.status === "completed") {
+            toast.success(event.message || "Sync completed");
+            queryClient.invalidateQueries({ queryKey: ["products"] });
+          } else {
+            toast.error(event.message || "Sync failed");
+          }
+          break;
+        }
+      }
+    } catch (error) {
+      console.error("[useSyncProducts] ERROR:", error);
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
+      toast.error("Sync failed", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [queryClient]);
+
+  const cancelSync = useCallback(() => {
+    abortRef.current?.abort();
+    setIsSyncing(false);
+    setProgress((prev) => prev ? { ...prev, status: "idle" as const } : null);
+  }, []);
+
+  return { isSyncing, progress, events, startSync, cancelSync };
 }
