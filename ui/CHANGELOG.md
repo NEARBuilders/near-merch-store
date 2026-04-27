@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.0
+
+### Minor Changes
+
+- d06fe44: Resolve Printful client rate limiting issues & re-introduce sync
+
 ## 1.8.0
 
 ### Minor Changes
