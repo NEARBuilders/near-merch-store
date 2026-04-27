@@ -992,7 +992,7 @@ export class PrintfulService {
       variants,
       designFiles: [],
       fulfillmentProvider: 'printful',
-      externalProductId: `printful-sync-${syncProduct.id}`,
+      externalProductId: String(syncProduct.id),
       source: 'printful',
       assetId: undefined,
       metadata: {

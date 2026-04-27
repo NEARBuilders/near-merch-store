@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { getPluginClient, runMigrations, teardown } from '../setup';
 import { 
   clearOrders, 
@@ -24,6 +24,13 @@ describe('Database Integration Tests', () => {
   });
 
   beforeEach(async () => {
+    await clearOrders();
+    await clearOrdersItems();
+    await clearProducts();
+    await clearCollections();
+  });
+
+  afterEach(async () => {
     await clearOrders();
     await clearOrdersItems();
     await clearProducts();

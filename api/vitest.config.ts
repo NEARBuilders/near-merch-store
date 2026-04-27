@@ -12,6 +12,9 @@ export default defineConfig({
     sequence: {
       hooks: 'stack',
     },
+    env: {
+      TEST_DATABASE_URL: 'postgres://postgres:postgres@localhost:5433/api_test',
+    },
   },
   plugins: [
     tsconfigPaths({

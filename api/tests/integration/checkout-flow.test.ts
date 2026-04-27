@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { getPluginClient, runMigrations, teardown } from '../setup';
 import { clearOrders, clearProducts, createTestProduct, createTestProductVariant } from '../helpers';
 import { createHmac } from 'crypto';
@@ -24,6 +24,11 @@ describe('Checkout Flow E2E', () => {
     
     await createTestProduct('gelato_prod_1', { fulfillmentProvider: 'manual' });
     await createTestProductVariant('gelato_var_1', 'gelato_prod_1');
+  });
+
+  afterEach(async () => {
+    await clearOrders();
+    await clearProducts();
   });
 
   const TEST_USER = 'test-user.near';

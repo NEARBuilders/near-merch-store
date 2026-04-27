@@ -44,7 +44,7 @@ psql "$DATABASE_URL" \
 
 echo "Restoring from backup..."
 pg_restore \
-  "$DATABASE_URL" \
+  --dbname="$DATABASE_URL" \
   --no-owner \
   --no-privileges \
   < "$ABS_BACKUP_FILE"

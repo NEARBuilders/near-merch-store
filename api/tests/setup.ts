@@ -12,7 +12,20 @@ import pg from 'postgres';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export const TEST_DB_URL = process.env.API_DATABASE_URL || 'postgres://postgres:postgres@localhost:5433/api';
+export const TEST_DB_URL = process.env.TEST_DATABASE_URL || 'postgres://postgres:postgres@localhost:5433/api_test';
+
+if (
+  !TEST_DB_URL.includes('localhost') &&
+  !TEST_DB_URL.includes('127.0.0.1') &&
+  !TEST_DB_URL.includes('_test') &&
+  !TEST_DB_URL.includes('_test_db')
+) {
+  const masked = TEST_DB_URL.replace(/:\/\/.*@/, '://***@');
+  throw new Error(
+    `[Test Setup] SAFETY: Refusing to run tests against non-local database: ${masked}. ` +
+    `Set TEST_DATABASE_URL to a local or test-specific database.`
+  );
+}
 
 const TEST_CONFIG = {
   variables: pluginDevConfig.config.variables,
