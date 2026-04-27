@@ -7,6 +7,7 @@ import {
   LuluProviderDetailsSchema,
   type LuluProviderDetails,
 } from './services/fulfillment/lulu/types';
+import { FulfillmentFileSchema as FulfillmentFileSchemaBase } from './services/fulfillment/schema';
 
 export {
   PrintfulProviderDetailsSchema,
@@ -14,6 +15,8 @@ export {
   type PrintfulProviderDetails,
   type LuluProviderDetails,
 };
+
+export const FulfillmentFileSchema = FulfillmentFileSchemaBase;
 
 export const AttributeSchema = z.object({
   name: z.string(),
@@ -25,13 +28,6 @@ export const ProductOptionSchema = z.object({
   name: z.string(),
   values: z.array(z.string()),
   position: z.number(),
-});
-
-export const FulfillmentFileSchema = z.object({
-  assetId: z.string(),
-  url: z.string(),
-  slot: z.string().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const FulfillmentConfigSchema = z.object({
@@ -450,6 +446,20 @@ export const ProductCriteriaSchema = z.object({
   offset: z.number().optional(),
   includeUnlisted: z.boolean().optional(),
 });
+
+export const AssetSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  type: z.string(),
+  name: z.string().nullable(),
+  storageKey: z.string().nullable(),
+  size: z.number().nullable(),
+  metadata: z.record(z.string(), z.unknown()).nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type Asset = z.infer<typeof AssetSchema>;
 
 export const OrderWithItemsSchema = z.object({
   id: z.string(),

@@ -6,53 +6,64 @@ import {
   type Shipment,
   type Variant
 } from 'printful-sdk-js-v2';
-import { Effect } from 'every-plugin/effect';
+import { Effect, Schedule } from 'every-plugin/effect';
 import { FulfillmentError } from '../errors';
-import {
-  printfulRateLimiter,
-  type RateLimiter,
-  parseRetryAfterFromError,
-  parseRetryAfterFromHeaders,
-  createRetrySchedule
-} from '../rate-limiter';
-import { printfulCircuitBreakers } from './circuit-breaker';
 
 export type { Address, CatalogItem, Order, Shipment, Variant } from 'printful-sdk-js-v2';
 
+export interface PrintfulSyncProduct {
+  id: number;
+  external_id: string;
+  name: string;
+  variants: number;
+  synced: number;
+  thumbnail_url: string | null;
+  is_ignored: boolean;
+}
+
+export interface PrintfulSyncVariant {
+  id: number;
+  external_id: string;
+  sync_product_id: number;
+  name: string;
+  synced: boolean;
+  variant_id: number;
+  retail_price: string | null;
+  currency: string;
+  product: {
+    variant_id: number;
+    product_id: number;
+    image: string;
+    name: string;
+  };
+  files: Array<{
+    id: number;
+    type: string;
+    url: string;
+    preview_url?: string | null;
+  }>;
+}
+
+export interface PrintfulSyncProductsResult {
+  sync_products: PrintfulSyncProduct[];
+  paging: { total: number; offset: number; limit: number };
+}
+
+export interface PrintfulSyncProductDetail {
+  sync_product: PrintfulSyncProduct;
+  sync_variants: PrintfulSyncVariant[];
+}
+
 export class PrintfulClient {
   private sdk: PrintfulSDK;
-  private rateLimiter: RateLimiter | null = null;
-  private rateLimiterInitPromise: Promise<RateLimiter> | null = null;
   private catalogVariantCache = new Map<number, Variant>();
 
   constructor(
     private readonly apiKey: string,
     private readonly storeId: string,
-    _baseUrl = 'https://api.printful.com'
+    private readonly baseUrl = 'https://api.printful.com'
   ) {
     this.sdk = new PrintfulSDK({ TOKEN: apiKey });
-  }
-
-  async initializeRateLimiter(): Promise<RateLimiter> {
-    if (this.rateLimiter) return this.rateLimiter;
-    if (this.rateLimiterInitPromise) return this.rateLimiterInitPromise;
-
-    this.rateLimiterInitPromise = Effect.runPromise(printfulRateLimiter);
-    try {
-      this.rateLimiter = await this.rateLimiterInitPromise;
-      return this.rateLimiter;
-    } catch (error) {
-      this.rateLimiterInitPromise = null;
-      throw error;
-    }
-  }
-
-  async shutdown(): Promise<void> {
-    if (this.rateLimiter) {
-      await Effect.runPromise(this.rateLimiter.shutdown);
-      this.rateLimiter = null;
-      this.rateLimiterInitPromise = null;
-    }
   }
 
   get catalogV2() { return this.sdk.catalogV2; }
@@ -64,54 +75,40 @@ export class PrintfulClient {
 
   getStoreId(): string { return this.storeId; }
 
-  private async executeWithRateLimit<T>(
+  private async executeWithRetry<T>(
     operation: () => Promise<T>,
     operationName: string,
-    extractHeadersFn?: (result: T) => Record<string, string>,
     options?: { timeoutMs?: number; retries?: number; }
   ): Promise<T> {
-    const limiter = await this.initializeRateLimiter();
     const timeoutMs = options?.timeoutMs ?? 30000;
     const retries = options?.retries ?? 5;
 
+    const retrySchedule = Schedule.exponential('1 second').pipe(
+      Schedule.intersect(Schedule.recurs(retries))
+    ) as unknown as Schedule.Schedule<number>;
+
     const execute = Effect.gen(function* () {
-      const result = yield* limiter.withRateLimit(
-        Effect.tryPromise({
-          try: async () => {
-            const data = await operation();
-            return { data, headers: extractHeadersFn ? extractHeadersFn(data) : {} };
-          },
-          catch: (error) => {
-            const message = error instanceof Error ? error.message : String(error);
-            if (message.includes('429') || message.includes('Too Many Requests') || message.includes('Rate limit')) {
-              let retryAfter = parseRetryAfterFromError(message);
-              if (!retryAfter && error && typeof error === 'object') {
-                const errorWithHeaders = error as any;
-                if (errorWithHeaders.headers) retryAfter = parseRetryAfterFromHeaders(errorWithHeaders.headers);
-              }
-              return FulfillmentError.fromHttpStatus(429, 'printful', message, { retryAfterMs: retryAfter });
-            }
-            const statusCode = error instanceof Error && 'status' in error ? (error as any).status : 500;
-            return FulfillmentError.fromHttpStatus(statusCode, 'printful', message, error);
-          },
-        }) as Effect.Effect<any, FulfillmentError>
-      );
-      if (result.headers && Object.keys(result.headers).length > 0) {
-        yield* limiter.updateFromHeaders(result.headers);
-      }
-      return result.data;
+      const result = yield* Effect.tryPromise({
+        try: async () => {
+          const data = await operation();
+          return data;
+        },
+        catch: (error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          if (message.includes('429') || message.includes('Too Many Requests') || message.includes('Rate limit')) {
+            return FulfillmentError.fromHttpStatus(429, 'printful', message, error);
+          }
+          const statusCode = error instanceof Error && 'status' in error ? (error as any).status : 500;
+          return FulfillmentError.fromHttpStatus(statusCode, 'printful', message, error);
+        },
+      }) as Effect.Effect<T, FulfillmentError>;
+      return result;
     }).pipe(
       Effect.timeout(`${timeoutMs} millis`),
       Effect.retry({
         times: retries,
-        schedule: createRetrySchedule(1000),
-        while: (error) => {
-          if (error instanceof FulfillmentError && error.code === 'RATE_LIMIT') {
-            const retryAfter = (error.cause as any)?.retryAfterMs;
-            return retryAfter && retryAfter > 0;
-          }
-          return error instanceof FulfillmentError && error.isRetryable;
-        },
+        schedule: retrySchedule,
+        while: (error) => error instanceof FulfillmentError && error.isRetryable,
       }),
       Effect.catchAll((error) => {
         if (error instanceof FulfillmentError) return Effect.fail(error);
@@ -120,6 +117,62 @@ export class PrintfulClient {
     ) as Effect.Effect<T, Error>;
 
     return await Effect.runPromise(execute);
+  }
+
+  // ─── Sync Products (V1 API) ───
+
+  async getSyncProducts(limit = 100, offset = 0): Promise<PrintfulSyncProductsResult> {
+    return this.executeWithRetry(
+      async () => {
+        const response = await fetch(
+          `${this.baseUrl}/store/products?limit=${limit}&offset=${offset}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'X-PF-Store-Id': this.storeId,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Printful V1 API error: ${response.status}`);
+        }
+
+        const data = await response.json() as {
+          result: PrintfulSyncProductsResult;
+          paging: { total: number; offset: number; limit: number };
+        };
+        return {
+          sync_products: data.result?.sync_products || [],
+          paging: data.paging || { total: data.result?.sync_products?.length || 0, offset, limit },
+        };
+      },
+      `getSyncProducts(offset=${offset})`
+    );
+  }
+
+  async getSyncProduct(id: number | string): Promise<PrintfulSyncProductDetail> {
+    return this.executeWithRetry(
+      async () => {
+        const response = await fetch(
+          `${this.baseUrl}/store/products/${id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'X-PF-Store-Id': this.storeId,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Printful V1 API error: ${response.status}`);
+        }
+
+        const data = await response.json() as { result: PrintfulSyncProductDetail };
+        return data.result;
+      },
+      `getSyncProduct(${id})`
+    );
   }
 
   // ─── Catalog (V2 SDK) ───
@@ -135,7 +188,7 @@ export class PrintfulClient {
     }>;
     total: number;
   }> {
-    const result = await this.executeWithRateLimit(
+    const result = await this.executeWithRetry(
       () => this.sdk.catalogV2.getProducts(undefined, undefined, limit, undefined, offset),
       'browseCatalog'
     );
@@ -162,7 +215,7 @@ export class PrintfulClient {
     placements?: string[];
   } | null> {
     try {
-      const result = await this.executeWithRateLimit(
+      const result = await this.executeWithRetry(
         () => this.sdk.catalogV2.getProductById(productId),
         `getCatalogProduct(${productId})`
       );
@@ -195,7 +248,7 @@ export class PrintfulClient {
   }
 
   async getCatalogProductVariants(productId: number): Promise<Variant[]> {
-    const result = await this.executeWithRateLimit(
+    const result = await this.executeWithRetry(
       () => this.sdk.catalogV2.getProductVariantsById(productId),
       `getCatalogProductVariants(${productId})`
     );
@@ -209,7 +262,7 @@ export class PrintfulClient {
     currency: string;
   } | null> {
     try {
-      const result = await this.executeWithRateLimit(
+      const result = await this.executeWithRetry(
         () => this.sdk.catalogV2.getVariantPricesById(variantId),
         `getVariantPrice(${variantId})`
       );
@@ -229,7 +282,7 @@ export class PrintfulClient {
   async getCatalogVariant(variantId: number): Promise<Variant | null> {
     if (this.catalogVariantCache.has(variantId)) return this.catalogVariantCache.get(variantId)!;
     try {
-      const result = await this.executeWithRateLimit(
+      const result = await this.executeWithRetry(
         () => this.sdk.catalogV2.getVariantById(variantId),
         `getCatalogVariant(${variantId})`
       );
@@ -289,7 +342,7 @@ export class PrintfulClient {
     recipient: Address;
     order_items: CatalogItem[];
   }): Promise<Order> {
-    const result = await this.executeWithRateLimit(
+    const result = await this.executeWithRetry(
       () => this.sdk.ordersV2.createOrder(this.storeId, orderInput),
       'createOrder'
     );
@@ -297,21 +350,21 @@ export class PrintfulClient {
   }
 
   async confirmOrder(orderId: string | number): Promise<void> {
-    await this.executeWithRateLimit(
+    await this.executeWithRetry(
       () => this.sdk.ordersV2.confirmOrder(orderId, this.storeId),
       `confirmOrder(${orderId})`
     );
   }
 
   async deleteOrder(orderId: string | number): Promise<void> {
-    await this.executeWithRateLimit(
+    await this.executeWithRetry(
       () => this.sdk.ordersV2.deleteOrder(orderId, this.storeId),
       `deleteOrder(${orderId})`
     );
   }
 
   async getOrder(orderId: string): Promise<Order> {
-    const result = await this.executeWithRateLimit(
+    const result = await this.executeWithRetry(
       () => this.sdk.ordersV2.getOrder(orderId, this.storeId),
       `getOrder(${orderId})`
     );
@@ -319,7 +372,7 @@ export class PrintfulClient {
   }
 
   async getOrderShipments(orderId: string): Promise<Shipment[]> {
-    const result = await this.executeWithRateLimit(
+    const result = await this.executeWithRetry(
       () => this.sdk.ordersV2.getShipments(orderId, this.storeId),
       `getOrderShipments(${orderId})`
     );
@@ -342,7 +395,7 @@ export class PrintfulClient {
     min_delivery_date?: string;
     max_delivery_date?: string;
   }>> {
-    const result = await this.executeWithRateLimit(
+    const result = await this.executeWithRetry(
       () => this.sdk.shippingRatesV2.calculateShppingRates(
         this.storeId,
         undefined,
@@ -408,20 +461,18 @@ export class PrintfulClient {
     const requestTimeoutMs = params.requestTimeoutMs ?? timeoutMs;
     const retries = params.retries ?? 5;
 
-    const result = await this.executeWithRateLimit(
+    const result = await this.executeWithRetry(
       () => this.sdk.ordersV2.createOrderEstimationTask(this.storeId, requestBody),
       'createOrderEstimationTask',
-      undefined,
       { timeoutMs: requestTimeoutMs, retries }
     );
 
     const task = result.data as { id: string; status: string };
     const startTime = Date.now();
     while (Date.now() - startTime < timeoutMs) {
-      const pollResult = await this.executeWithRateLimit(
+      const pollResult = await this.executeWithRetry(
         () => this.sdk.ordersV2.getOrderEstimationTask(task.id, this.storeId),
         `getOrderEstimationTask(${task.id})`,
-        undefined,
         { timeoutMs: requestTimeoutMs, retries }
       );
       const estimation = pollResult.data as {
@@ -468,7 +519,7 @@ export class PrintfulClient {
     publicKey: string;
     secretKey: string;
   }> {
-    const response = await this.executeWithRateLimit(
+    const response = await this.executeWithRetry(
       () => this.sdk.webhookV2.createWebhook(
         { default_url: params.defaultUrl, expires_at: params.expiresAt || null, events: params.events } as unknown as Record<string, unknown>,
         this.storeId
@@ -494,7 +545,7 @@ export class PrintfulClient {
   }
 
   async disableWebhooks(): Promise<void> {
-    await this.executeWithRateLimit(
+    await this.executeWithRetry(
       () => this.sdk.webhookV2.disableWebhook(this.storeId),
       'disableWebhooks'
     );
@@ -507,7 +558,7 @@ export class PrintfulClient {
     publicKey: string;
   } | null> {
     try {
-      const response = await this.executeWithRateLimit(
+      const response = await this.executeWithRetry(
         () => this.sdk.webhookV2.getWebhooks(this.storeId),
         'getWebhookConfig'
       );

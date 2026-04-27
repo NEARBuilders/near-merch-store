@@ -1,6 +1,8 @@
 import { createPluginRuntime } from 'every-plugin';
 import { ContractRouterClient } from 'every-plugin/orpc';
 import { FulfillmentContract } from './services/fulfillment';
+import type { SyncProgressEvent } from './services/fulfillment/schema';
+import type { ProductWithImages, Product } from './schema';
 import PrintfulPlugin from './services/fulfillment/printful';
 import LuluPlugin from './services/fulfillment/lulu';
 import { PaymentContract } from './services/payment';
@@ -55,10 +57,18 @@ export interface StorageConfig {
 	region?: string;
 }
 
+export interface FulfillmentSyncCapability {
+  syncProducts(
+    upsertProduct: (product: ProductWithImages, syncedAt?: Date) => Promise<Product>,
+    signal?: AbortSignal
+  ): AsyncGenerator<SyncProgressEvent>;
+}
+
 export interface FulfillmentProvider {
 	name: string;
 	client: ContractRouterClient<typeof FulfillmentContract>;
 	router: any;
+	service?: FulfillmentSyncCapability;
 }
 
 export interface PaymentProvider {
@@ -120,6 +130,7 @@ export async function createMarketplaceRuntime(
 				name: 'printful',
 				client: printful.createClient(),
 				router: printful.router,
+				service: printful.initialized.context.service,
 			});
 			console.log('[MarketplaceRuntime] Printful provider initialized');
 		} catch (error) {

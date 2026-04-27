@@ -1838,6 +1838,40 @@ export default createPlugin({
           return allConfigs;
         }),
 
+      syncProducts: builder.syncProducts
+        .use(requireAdmin)
+        .handler(
+          async function* ({ input, signal }) {
+            const provider = runtime.getProvider(input.provider);
+            if (!provider) {
+              throw new ORPCError('BAD_REQUEST', {
+                message: `Provider ${input.provider} not configured`,
+              });
+            }
+
+            if (!provider.service) {
+              throw new ORPCError('BAD_REQUEST', {
+                message: `Provider ${input.provider} does not support sync`,
+              });
+            }
+
+            const upsertProduct = async (product: any, syncedAt?: Date) => {
+              return await managedRuntime.runPromise(
+                Effect.gen(function* () {
+                  const store = yield* ProductStore;
+                  return yield* store.upsert(product, syncedAt);
+                })
+              );
+            };
+
+            const syncGenerator = provider.service.syncProducts(upsertProduct, signal);
+
+            for await (const event of syncGenerator) {
+              yield event;
+            }
+          },
+        ),
+
       getCategories: builder.getCategories.handler(async () => {
         const exit = await managedRuntime.runPromiseExit(
           Effect.gen(function* () {

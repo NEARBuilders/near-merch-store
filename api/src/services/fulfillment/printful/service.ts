@@ -35,8 +35,13 @@ import type {
   TaxQuoteOutput,
   VariantPriceOutput,
 } from '../schema';
-import { PrintfulClient } from './client';
+import { PrintfulClient, type PrintfulSyncProduct, type PrintfulSyncVariant } from './client';
 import type { MockupStyleInfo } from './types';
+import type { ProductWithImages, ProductVariantInput, Product, FulfillmentConfig } from '../../../schema';
+import type { SyncProgressEvent } from '../schema';
+import { generateProductId, generatePublicKey, generateSlug } from '../../../utils/product-ids';
+
+export type { SyncProgressEvent };
 
 export class PrintfulService {
   private client: PrintfulClient;
@@ -618,6 +623,271 @@ export class PrintfulService {
         throw error;
       }
     });
+  }
+
+  // ─── Sync Products ───
+
+  async *syncProducts(
+    upsertProduct: (product: ProductWithImages, syncedAt?: Date) => Promise<Product>,
+    signal?: AbortSignal
+  ): AsyncGenerator<SyncProgressEvent> {
+    const THROW_IF_ABORTED = () => {
+      if (signal?.aborted) throw new DOMException('Sync aborted', 'AbortError');
+    };
+
+    yield {
+      status: 'syncing',
+      phase: 'listing',
+      totalSynced: 0,
+      totalFailed: 0,
+      timestamp: Date.now(),
+      message: 'Fetching product list from Printful...',
+    };
+
+    let allSyncProducts: PrintfulSyncProduct[] = [];
+    const PAGE_SIZE = 100;
+    let offset = 0;
+
+    try {
+      while (true) {
+        THROW_IF_ABORTED();
+        const result = await this.client.getSyncProducts(PAGE_SIZE, offset);
+        allSyncProducts = [...allSyncProducts, ...result.sync_products];
+        const totalProducts = result.paging.total;
+
+        if (allSyncProducts.length >= totalProducts) break;
+        offset += PAGE_SIZE;
+        await new Promise(r => setTimeout(r, 500));
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      yield {
+        status: 'error',
+        phase: 'error',
+        totalSynced: 0,
+        totalFailed: 0,
+        timestamp: Date.now(),
+        message: `Failed to list products: ${error instanceof Error ? error.message : String(error)}`,
+      };
+      return;
+    }
+
+    const total = allSyncProducts.length;
+
+    yield {
+      status: 'syncing',
+      phase: 'fetching',
+      totalSynced: 0,
+      totalFailed: 0,
+      timestamp: Date.now(),
+      message: `Found ${total} products. Fetching details...`,
+      total,
+    };
+
+    let synced = 0;
+    let failed = 0;
+
+    for (const syncProduct of allSyncProducts) {
+      THROW_IF_ABORTED();
+
+      try {
+        const detail = await this.client.getSyncProduct(syncProduct.id);
+        const { sync_product, sync_variants } = detail;
+
+        const variantIds = sync_variants.map(v => v.variant_id).filter(Boolean);
+        const catalogVariants = await this.client.getCatalogVariantsBatch(variantIds);
+
+        const catalogProductId = sync_variants[0]?.product?.product_id;
+        let catalogProduct: Awaited<ReturnType<typeof this.client.getCatalogProduct>> = null;
+        if (catalogProductId) {
+          catalogProduct = await this.client.getCatalogProduct(catalogProductId);
+        }
+
+        yield {
+          status: 'syncing',
+          phase: 'saving',
+          totalSynced: synced,
+          totalFailed: failed,
+          timestamp: Date.now(),
+          currentProductName: sync_product.name,
+          total,
+        };
+
+        const productWithImages = this.transformSyncProductToV2(
+          sync_product,
+          sync_variants,
+          catalogVariants,
+          catalogProduct
+        );
+
+        await upsertProduct(productWithImages, new Date());
+
+        synced++;
+
+        yield {
+          status: 'syncing',
+          phase: 'saving',
+          totalSynced: synced,
+          totalFailed: failed,
+          timestamp: Date.now(),
+          currentProductName: sync_product.name,
+          message: `Synced ${synced}/${total}`,
+          total,
+        };
+
+        await new Promise(r => setTimeout(r, 200));
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        failed++;
+        console.error(`[PrintfulService] Failed to sync product ${syncProduct.name}:`, error);
+        yield {
+          status: 'syncing',
+          phase: 'saving',
+          totalSynced: synced,
+          totalFailed: failed,
+          timestamp: Date.now(),
+          currentProductName: syncProduct.name,
+          message: `Failed: ${error instanceof Error ? error.message : String(error)}`,
+          total,
+        };
+      }
+    }
+
+    yield {
+      status: 'completed',
+      phase: 'complete',
+      totalSynced: synced,
+      totalFailed: failed,
+      timestamp: Date.now(),
+      message: `Sync complete: ${synced} synced, ${failed} failed`,
+      total,
+    };
+  }
+
+  private extractDesignFiles(files: Array<{ id: number; type: string; url: string; preview_url?: string | null }>): FulfillmentFile[] {
+    return files
+      .filter(f => f.url)
+      .map(f => ({
+        assetId: String(f.id),
+        url: f.url,
+        slot: f.type?.replace(/_/g, '-').replace('default', 'front') || 'front',
+        metadata: f.preview_url ? { previewUrl: f.preview_url } : undefined,
+      }));
+  }
+
+  private transformSyncProductToV2(
+    syncProduct: PrintfulSyncProduct,
+    syncVariants: PrintfulSyncVariant[],
+    catalogVariants: Map<number, Variant>,
+    catalogProduct: {
+      id: number;
+      name: string;
+      brand?: string;
+      model?: string;
+      description?: string;
+      image?: string;
+      techniques?: string[];
+      placements?: string[];
+    } | null
+  ): ProductWithImages {
+    const optionsMap = new Map<string, Set<string>>();
+    const variants: ProductVariantInput[] = syncVariants.map(v => {
+      const catalogVariant = catalogVariants.get(v.variant_id);
+
+      if (catalogVariant?.size) {
+        if (!optionsMap.has('Size')) optionsMap.set('Size', new Set());
+        optionsMap.get('Size')!.add(catalogVariant.size);
+      }
+      if (catalogVariant?.color) {
+        if (!optionsMap.has('Color')) optionsMap.set('Color', new Set());
+        optionsMap.get('Color')!.add(catalogVariant.color);
+      }
+
+      const designFiles = this.extractDesignFiles(v.files);
+
+      const fulfillmentConfig: FulfillmentConfig = {
+        providerName: 'printful',
+        providerConfig: {
+          catalogVariantId: v.variant_id,
+          catalogProductId: v.product.product_id,
+        },
+        files: designFiles,
+      };
+
+      const attributes: Array<{ name: string; value: string }> = [];
+      if (catalogVariant?.size) attributes.push({ name: 'Size', value: catalogVariant.size });
+      if (catalogVariant?.color) attributes.push({ name: 'Color', value: catalogVariant.color });
+
+      return {
+        id: `printful-variant-${v.variant_id}`,
+        name: v.name || syncProduct.name,
+        sku: v.external_id,
+        price: v.retail_price ? parseFloat(v.retail_price) : 0,
+        currency: v.currency || 'USD',
+        attributes,
+        externalVariantId: String(v.variant_id),
+        fulfillmentConfig,
+        inStock: v.synced,
+      };
+    });
+
+    const options = Array.from(optionsMap.entries()).map(([name, values], index) => ({
+      id: `option-${index}`,
+      name,
+      values: Array.from(values),
+      position: index + 1,
+    }));
+
+    const images: import('../../../schema').ProductImage[] = [];
+    if (syncProduct.thumbnail_url) {
+      images.push({
+        id: `product-image-0`,
+        url: syncProduct.thumbnail_url,
+        type: 'catalog',
+        order: 0,
+      });
+    }
+
+    const providerDetails: Record<string, unknown> = {};
+    if (catalogProduct) {
+      if (catalogProduct.brand) providerDetails.brand = catalogProduct.brand;
+      if (catalogProduct.model) providerDetails.model = catalogProduct.model;
+      if (catalogProduct.description) providerDetails.description = catalogProduct.description;
+      if (catalogProduct.techniques) providerDetails.techniques = catalogProduct.techniques;
+      if (catalogProduct.placements) providerDetails.placements = catalogProduct.placements;
+    }
+
+    const basePrice = syncVariants[0]?.retail_price ? parseFloat(syncVariants[0].retail_price) : 0;
+    const baseCurrency = syncVariants[0]?.currency || 'USD';
+
+    const id = generateProductId();
+    const publicKey = generatePublicKey();
+    const slug = generateSlug(syncProduct.name, publicKey);
+
+    return {
+      id,
+      publicKey,
+      slug,
+      name: syncProduct.name,
+      description: catalogProduct?.description,
+      price: basePrice,
+      currency: baseCurrency,
+      productTypeSlug: undefined,
+      tags: [],
+      options,
+      images,
+      thumbnailImage: syncProduct.thumbnail_url ?? undefined,
+      variants,
+      designFiles: [],
+      fulfillmentProvider: 'printful',
+      externalProductId: `printful-sync-${syncProduct.id}`,
+      source: 'printful',
+      assetId: undefined,
+      metadata: {
+        fees: [],
+        providerDetails,
+      },
+    };
   }
 
   // ─── Order Shipments (internal, not in contract) ───

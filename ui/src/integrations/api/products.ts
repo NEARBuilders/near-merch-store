@@ -1,5 +1,15 @@
 import { apiClient } from "@/utils/orpc";
-import type { ProductDownload } from "../../../../api/src/schema";
+import type {
+  FeeConfig,
+  PrintfulProviderDetails,
+  LuluProviderDetails,
+  ProviderDetails,
+  PurchaseGatePluginId,
+  PurchaseGate,
+  ReferralConfig,
+  AffiliateMetadata,
+  ProductMetadata,
+} from "../../../../api/src/schema";
 import {
   useMutation,
   useQueries,
@@ -605,55 +615,16 @@ export function useUpdateProductTypeItem() {
   });
 }
 
-export type FeeConfig = {
-  type: "royalty" | "affiliate" | "platform" | "custom";
-  label: string;
-  recipient: string;
-  bps: number;
-};
-
-export type PrintfulProviderDetails = {
-  brand?: string;
-  model?: string;
-  description?: string;
-  techniques?: string[];
-  placements?: string[];
-  gsm?: number;
-  material?: string;
-};
-
-export type LuluProviderDetails = {
-  pageCount?: number;
-  format?: string;
-};
-
-export type ProviderDetails = {
-  printful?: PrintfulProviderDetails;
-  lulu?: LuluProviderDetails;
-};
-
-export type PurchaseGatePluginId = "legion-holder";
-
-export type PurchaseGate = {
-  pluginId?: PurchaseGatePluginId;
-};
-
-export type ReferralConfig = {
-  enabled?: boolean;
-  feeBps?: number;
-};
-
-export type AffiliateMetadata = {
-  referral?: ReferralConfig;
-};
-
-export type ProductMetadata = {
-  creatorAccountId?: string;
-  fees: FeeConfig[];
-  providerDetails?: ProviderDetails;
-  downloads?: ProductDownload[];
-  purchaseGate?: PurchaseGate;
-  affiliate?: AffiliateMetadata;
+export type {
+  FeeConfig,
+  PrintfulProviderDetails,
+  LuluProviderDetails,
+  ProviderDetails,
+  PurchaseGatePluginId,
+  PurchaseGate,
+  ReferralConfig,
+  AffiliateMetadata,
+  ProductMetadata,
 };
 
 export function getPurchaseGatePluginId(

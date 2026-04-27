@@ -1,10 +1,6 @@
-export interface Category {
-  slug: string;
-  id: string;
-  name: string;
-  description?: string;
-  image?: string;
-}
+import type { apiClient } from "@/utils/orpc";
+
+export type Category = Awaited<ReturnType<typeof apiClient.getCategories>>["categories"][number];
 
 export const productKeys = {
   all: ['products'] as const,
