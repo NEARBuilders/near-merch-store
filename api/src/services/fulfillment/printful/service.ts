@@ -3,7 +3,6 @@ import { Effect, Schedule } from 'every-plugin/effect';
 import {
   MockupGeneratorTask,
   MockupTaskCreation,
-  TechniqueEnum,
   type Address,
   type MockupStyles,
   type Shipment,
@@ -45,13 +44,9 @@ export type { SyncProgressEvent };
 
 export class PrintfulService {
   private client: PrintfulClient;
-  private apiKey: string;
-  private storeId: string;
 
   constructor(apiKey: string, storeId: string, baseUrl = 'https://api.printful.com') {
     this.client = new PrintfulClient(apiKey, storeId, baseUrl);
-    this.apiKey = apiKey;
-    this.storeId = storeId;
   }
 
   // ─── Provider Health ───
@@ -213,18 +208,11 @@ export class PrintfulService {
       return Effect.succeed({ placements: [] });
     }
 
-    const knownPlacements: Record<string, { label?: string; required?: boolean; acceptedFormats?: string[] }> = {
-      front: { label: 'Front', acceptedFormats: ['png', 'jpg', 'svg'] },
-      back: { label: 'Back', acceptedFormats: ['png', 'jpg', 'svg'] },
-      left: { label: 'Left', acceptedFormats: ['png', 'jpg', 'svg'] },
-      right: { label: 'Right', acceptedFormats: ['png', 'jpg', 'svg'] },
-      front_large: { label: 'Front (Large)', acceptedFormats: ['png', 'jpg', 'svg'] },
-      back_large: { label: 'Back (Large)', acceptedFormats: ['png', 'jpg', 'svg'] },
-      label_outside: { label: 'Label (Outside)', acceptedFormats: ['png', 'jpg', 'svg'] },
-      sleeve_left: { label: 'Left Sleeve', acceptedFormats: ['png', 'jpg', 'svg'] },
-      sleeve_right: { label: 'Right Sleeve', acceptedFormats: ['png', 'jpg', 'svg'] },
-      embroidery_front: { label: 'Embroidery (Front)', acceptedFormats: ['png', 'jpg'] },
-      embroidery_back: { label: 'Embroidery (Back)', acceptedFormats: ['png', 'jpg'] },
+    const formatLabel = (name: string): string => {
+      return name
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
     };
 
     return Effect.gen(this, function* () {
@@ -233,12 +221,14 @@ export class PrintfulService {
       const placements: string[] = product.placements || [];
 
       return {
-        placements: placements.map((name: string) => ({
-          name,
-          label: knownPlacements[name]?.label,
-          required: false,
-          acceptedFormats: knownPlacements[name]?.acceptedFormats,
-        })),
+        placements: placements
+          .filter((name: string) => name !== 'mockup')
+          .map((name: string) => ({
+            name,
+            label: formatLabel(name),
+            required: false,
+            acceptedFormats: ['png', 'jpg'],
+          })),
       };
     });
   }
@@ -257,11 +247,13 @@ export class PrintfulService {
         return { status: 'unsupported', images: [] };
       }
 
-      const placements = input.files.map((f: any) => ({
-        placement: f.slot,
-        technique: (f.metadata?.technique as any) || TechniqueEnum.DTG,
-        layers: [{ type: 'file' as const, url: f.url }],
-      }));
+      const placements = input.files
+        .filter((f: any) => f.metadata?.technique)
+        .map((f: any) => ({
+          placement: f.slot,
+          technique: f.metadata.technique,
+          layers: [{ type: 'file' as const, url: f.url }],
+        }));
 
       const payload = {
         format: input.format === 'png' ? MockupTaskCreation.format.PNG : MockupTaskCreation.format.JPG,
@@ -276,7 +268,7 @@ export class PrintfulService {
 
       const response = yield* Effect.tryPromise({
         try: async () => {
-          const result = await this.client.mockupGeneratorV2.createMockupGeneratorTasks(this.storeId, payload);
+           const result = await this.client.mockupGeneratorV2.createMockupGeneratorTasks(this.client.getStoreId(), payload);
           const tasks = (result?.data ?? []) as Array<{ id?: number }>;
           return String(tasks[0]?.id || '');
         },
@@ -403,11 +395,13 @@ export class PrintfulService {
             });
           }
 
-          const placements = (item.files || []).map((df: any) => ({
-            placement: df.slot,
-            technique: (df.metadata?.technique as any) || 'dtg',
-            layers: [{ type: 'file' as const, url: df.url }],
-          }));
+          const placements = (item.files || [])
+            .filter((df: any) => df.metadata?.technique)
+            .map((df: any) => ({
+              placement: df.slot,
+              technique: df.metadata.technique,
+              layers: [{ type: 'file' as const, url: df.url }],
+            }));
 
           return {
             source: 'catalog' as const,
@@ -780,64 +774,50 @@ export class PrintfulService {
   }
 
   private static readonly IGNORED_FILE_TYPES = new Set(['preview', 'printfile', 'label']);
-
-  private static readonly TECHNIQUE_SUFFIXES = [
-    'dtg', 'dtf', 'embroidery', 'digital', 'sublimation',
-    'screen_printing', 'screenprinting', 'heat_transfer',
-  ] as const;
-
-  private static parseFileType(type: string): { placement: string; technique: string | null } {
-    if (type === 'default') return { placement: 'front', technique: null };
-    if (type === 'front' || type === 'back' || type === 'inside_label' || type === 'label_inside') {
-      return { placement: type, technique: null };
-    }
-    for (const suffix of PrintfulService.TECHNIQUE_SUFFIXES) {
-      const idx = type.lastIndexOf('_' + suffix);
-      if (idx > 0) {
-        const placement = type.substring(0, idx);
-        return { placement, technique: suffix === 'dtf' ? 'dtg' : suffix };
-      }
-    }
-    return { placement: type, technique: null };
-  }
+  private static readonly IMAGE_SKIPPED_TYPES = new Set(['printfile', 'label']);
 
   private extractDesignFiles(
-    files: Array<{ id: number; type: string; url: string | null; preview_url?: string | null; thumbnail_url?: string | null; hash?: string; filename?: string; status?: string }>,
-    placementTechniques?: Record<string, string>
+    files: Array<{ id: number; type: string; url: string | null; preview_url?: string | null; thumbnail_url?: string | null; filename?: string; status?: string }>,
+    catalogPlacements: {
+      placementTechniques?: Record<string, string>;
+      primaryPlacement?: { name: string; technique: string };
+    } | null
   ): FulfillmentFile[] {
-    const bySlot = new Map<string, { file: typeof files[number]; placement: string; technique: string | null; resolvedUrl: string }>();
+    const bySlot = new Map<string, { file: typeof files[number]; slot: string; technique: string | null; resolvedUrl: string }>();
 
     for (const f of files) {
       const type = f.type?.toLowerCase() || '';
       if (PrintfulService.IGNORED_FILE_TYPES.has(type)) continue;
 
-      const { placement, technique } = PrintfulService.parseFileType(type);
-      if (bySlot.has(placement)) continue;
+      let slot: string;
+      let technique: string | null = null;
 
-      let resolvedUrl: string | null = null;
-
-      if (f.url) {
-        resolvedUrl = f.url;
-      } else if (f.hash) {
-        resolvedUrl = `https://files.cdn.printful.com/files/${f.hash.slice(0, 3)}/${f.hash}.png`;
-      } else if (f.preview_url) {
-        resolvedUrl = f.preview_url;
-      } else if (f.thumbnail_url) {
-        resolvedUrl = f.thumbnail_url;
+      if (type === 'default') {
+        const primary = catalogPlacements?.primaryPlacement;
+        slot = primary?.name ?? 'default';
+        technique = primary?.technique ?? null;
+      } else if (catalogPlacements?.placementTechniques?.[type]) {
+        slot = type;
+        technique = catalogPlacements.placementTechniques[type];
+      } else {
+        slot = type;
+        technique = catalogPlacements?.placementTechniques?.[slot] ?? null;
       }
 
+      if (bySlot.has(slot)) continue;
+
+      const resolvedUrl = f.url || f.preview_url || f.thumbnail_url || null;
       if (!resolvedUrl) continue;
 
-      bySlot.set(placement, { file: f, placement, technique, resolvedUrl });
+      bySlot.set(slot, { file: f, slot, technique, resolvedUrl });
     }
 
-    return Array.from(bySlot.values()).map(({ file, placement, technique, resolvedUrl }) => ({
+    return Array.from(bySlot.values()).map(({ file, slot, technique, resolvedUrl }) => ({
       assetId: String(file.id),
       url: resolvedUrl,
-      slot: placement,
+      slot,
       metadata: {
-        ...(file.preview_url ? { previewUrl: file.preview_url } : {}),
-        ...(technique ? { technique } : placementTechniques?.[placement] ? { technique: placementTechniques[placement] } : {}),
+        ...(technique ? { technique } : {}),
       },
     }));
   }
@@ -865,6 +845,7 @@ export class PrintfulService {
       techniques?: string[];
       placements?: string[];
       placementTechniques?: Record<string, string>;
+      primaryPlacement?: { name: string; technique: string };
     } | null
   ): ProductWithImages {
     const optionsMap = new Map<string, Set<string>>();
@@ -880,7 +861,7 @@ export class PrintfulService {
         optionsMap.get('Color')!.add(catalogVariant.color);
       }
 
-      const designFiles = this.extractDesignFiles(v.files, catalogProduct?.placementTechniques);
+      const designFiles = this.extractDesignFiles(v.files, catalogProduct);
 
       const fulfillmentConfig: FulfillmentConfig = {
         providerName: 'printful',
@@ -927,7 +908,8 @@ export class PrintfulService {
       });
     }
 
-    let imageOrder = 1;
+    let previewOrder = 1;
+    let detailOrder = 100;
     for (const v of syncVariants) {
       const variantId = `printful-variant-${v.id}`;
       if (!v.files) continue;
@@ -936,13 +918,21 @@ export class PrintfulService {
         const url = file.preview_url || file.url;
         if (!url) continue;
 
+        const rawType = file.type?.toLowerCase() || '';
+        if (PrintfulService.IMAGE_SKIPPED_TYPES.has(rawType)) continue;
+
+        const isPreview = rawType === 'preview';
+        const resolvedSlot = rawType === 'default'
+          ? catalogProduct?.primaryPlacement?.name ?? 'default'
+          : isPreview ? undefined : rawType;
+
         if (!imageMap.has(url)) {
           imageMap.set(url, {
             id: `file-${file.id}-${v.variant_id}`,
             url,
-            type: file.type === 'preview' ? 'preview' : 'detail',
-            placement: file.type !== 'preview' && file.type !== 'default' ? file.type : undefined,
-            order: imageOrder++,
+            type: isPreview ? 'preview' : 'detail',
+            placement: resolvedSlot !== 'default' ? resolvedSlot : undefined,
+            order: isPreview ? previewOrder++ : detailOrder++,
             variantIds: [variantId],
           });
         } else {
@@ -950,6 +940,11 @@ export class PrintfulService {
           if (!img.variantIds) img.variantIds = [];
           if (!img.variantIds.includes(variantId)) {
             img.variantIds.push(variantId);
+          }
+          if (isPreview && img.type === 'catalog') {
+            img.type = 'preview';
+            img.id = `file-${file.id}-${v.variant_id}`;
+            img.order = previewOrder++;
           }
         }
       }
@@ -1103,6 +1098,8 @@ export class PrintfulService {
     catalogProductId: number;
     variantIds: number[];
     designFiles: Array<{ placement: string; url: string }>;
+    placementTechniques?: Record<string, string>;
+    primaryPlacement?: { name: string; technique: string };
     mockupStyleIds?: number[];
     format?: 'jpg' | 'png';
   }): Effect.Effect<ProductImage[], Error> {
@@ -1123,9 +1120,26 @@ export class PrintfulService {
 
       for (const variantId of params.variantIds) {
         try {
+          const files = params.designFiles.map(df => {
+            let technique: string | null = null;
+            if (df.placement === 'default') {
+              technique = params.primaryPlacement?.technique ?? null;
+            } else {
+              technique = params.placementTechniques?.[df.placement] ?? null;
+            }
+            return {
+              assetId: `asset-${df.placement}`,
+              url: df.url,
+              slot: df.placement,
+              ...(technique ? { metadata: { technique } } : {}),
+            };
+          }).filter(f => f.metadata?.technique);
+
+          if (files.length === 0) continue;
+
           const mockupResult = yield* this.generateMockups({
             providerConfig: { catalogProductId: params.catalogProductId },
-            files: params.designFiles.map(df => ({ assetId: `asset-${df.placement}`, url: df.url, slot: df.placement, metadata: { technique: 'dtg' } })),
+            files,
             variantRefs: [String(variantId)],
             mockupStyleIds: styleIds,
             format: params.format || 'jpg',

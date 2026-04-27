@@ -457,6 +457,7 @@ export const ProductStoreLive = Layer.effect(
               await db
                 .update(schema.products)
                 .set({
+                  price: Math.round(product.price * 100),
                   options: product.options,
                   thumbnailImage: product.thumbnailImage || existingProduct.thumbnailImage || null,
                   currency: product.currency,
@@ -490,6 +491,62 @@ export const ProductStoreLive = Layer.effect(
                     createdAt: now,
                   })),
                 );
+              }
+
+              if (product.images.length > 0) {
+                const existingImages = await db
+                  .select({
+                    id: schema.productImages.id,
+                    url: schema.productImages.url,
+                    type: schema.productImages.type,
+                    variantIds: schema.productImages.variantIds,
+                    order: schema.productImages.order,
+                  })
+                  .from(schema.productImages)
+                  .where(eq(schema.productImages.productId, finalId));
+
+                const existingByUrl = new Map(existingImages.map(i => [i.url, i]));
+
+                const newImages: typeof product.images = [];
+                for (const img of product.images) {
+                  const existing = existingByUrl.get(img.url);
+                  if (!existing) {
+                    newImages.push(img);
+                  } else {
+                    const typeChanged = existing.type !== img.type;
+                    const existingVids = existing.variantIds ?? [];
+                    const newVids = img.variantIds ?? [];
+                    const vidsChanged = JSON.stringify(existingVids) !== JSON.stringify(newVids);
+                    if (typeChanged || vidsChanged) {
+                      await db
+                        .update(schema.productImages)
+                        .set({
+                          ...(typeChanged ? { type: img.type } : {}),
+                          ...(vidsChanged ? { variantIds: newVids.length > 0 ? newVids : null } : {}),
+                        })
+                        .where(eq(schema.productImages.id, existing.id));
+                    }
+                  }
+                }
+
+                if (newImages.length > 0) {
+                  const maxOrder = existingImages.length > 0 ? Math.max(...existingImages.map(i => i.order)) + 1 : 0;
+                  let nextOrder = maxOrder;
+
+                  await db.insert(schema.productImages).values(
+                    newImages.map((img) => ({
+                      id: img.id || `${finalId}-img-sync-${nextOrder}`,
+                      productId: finalId,
+                      url: img.url,
+                      type: img.type,
+                      placement: img.placement || null,
+                      style: img.style || null,
+                      variantIds: img.variantIds || null,
+                      order: img.order ?? nextOrder++,
+                      createdAt: now,
+                    })),
+                  );
+                }
               }
             } else {
               await db.insert(schema.products).values({

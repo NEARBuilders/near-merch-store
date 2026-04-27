@@ -45,7 +45,6 @@ export interface PrintfulSyncVariant {
     filename?: string;
     mime_type?: string;
     status?: string;
-    hash?: string;
   }>;
 }
 
@@ -74,7 +73,6 @@ export class PrintfulClient {
   get catalogV2() { return this.sdk.catalogV2; }
   get ordersV2() { return this.sdk.ordersV2; }
   get mockupGeneratorV2() { return this.sdk.mockupGeneratorV2; }
-  get filesV2() { return this.sdk.filesV2; }
   get storesV2() { return this.sdk.storesV2; }
   get webhookV2() { return this.sdk.webhookV2; }
 
@@ -229,6 +227,7 @@ export class PrintfulClient {
     techniques?: string[];
     placements?: string[];
     placementTechniques?: Record<string, string>;
+    primaryPlacement?: { name: string; technique: string };
   } | null> {
     try {
       const result = await this.executeWithRetry(
@@ -239,15 +238,19 @@ export class PrintfulClient {
       if (!data?.data) return null;
       const product = data.data;
       const techniques = new Set<string>();
-      const placements = new Set<string>();
+      const orderedPlacements: string[] = [];
       const placementTechniques: Record<string, string> = {};
+      let primaryPlacement: { name: string; technique: string } | undefined;
 
       if (Array.isArray(product.placements)) {
         for (const p of product.placements) {
           if (p.placement) {
-            placements.add(p.placement);
+            orderedPlacements.push(p.placement);
             if (p.technique) {
               placementTechniques[p.placement] = p.technique;
+            }
+            if (!primaryPlacement && p.placement !== 'mockup' && p.technique) {
+              primaryPlacement = { name: p.placement, technique: p.technique };
             }
           }
         }
@@ -256,7 +259,9 @@ export class PrintfulClient {
       if (product.variants && Array.isArray(product.variants)) {
         for (const variant of product.variants) {
           if (variant.techniques && Array.isArray(variant.techniques)) variant.techniques.forEach((t: string) => techniques.add(t));
-          if (variant.placements && Array.isArray(variant.placements)) variant.placements.forEach((p: string) => placements.add(p));
+          if (variant.placements && Array.isArray(variant.placements)) variant.placements.forEach((p: string) => {
+            if (!orderedPlacements.includes(p)) orderedPlacements.push(p);
+          });
         }
       }
       return {
@@ -267,8 +272,9 @@ export class PrintfulClient {
         description: product.description ?? undefined,
         image: product.image ?? undefined,
         techniques: techniques.size > 0 ? Array.from(techniques) : undefined,
-        placements: placements.size > 0 ? Array.from(placements) : undefined,
+        placements: orderedPlacements.length > 0 ? orderedPlacements : undefined,
         placementTechniques: Object.keys(placementTechniques).length > 0 ? placementTechniques : undefined,
+        primaryPlacement,
       };
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -467,11 +473,13 @@ export class PrintfulClient {
     currency: string;
   }> {
     const orderItems = params.items.map(item => {
-      const placements = (item.designFiles || []).map(df => ({
-        placement: df.placement,
-        technique: df.technique || 'dtg',
-        layers: [{ type: 'file' as const, url: df.url }],
-      }));
+      const placements = (item.designFiles || [])
+        .filter(df => df.technique)
+        .map(df => ({
+          placement: df.placement,
+          technique: df.technique!,
+          layers: [{ type: 'file' as const, url: df.url }],
+        }));
       return {
         source: CatalogItem.source.CATALOG,
         catalog_variant_id: item.catalog_variant_id,

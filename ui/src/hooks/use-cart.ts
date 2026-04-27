@@ -5,7 +5,7 @@ import {
   type Product,
 } from "@/integrations/api";
 import { useCartStore } from "@/stores/cart-store";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 interface CartItemWithProduct extends CartItem {
   id: string;
@@ -49,6 +49,18 @@ export function useCart() {
 
     return result;
   }, [products, items]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const validProductIds = new Set(products.map((p) => p.slug));
+
+    Object.entries(items).forEach(([itemId, item]) => {
+      if (!validProductIds.has(item.productId)) {
+        removeItem(itemId);
+      }
+    });
+  }, [products, items, isLoading, removeItem]);
 
   // Memoize computed values
   const totalCount = useMemo(
