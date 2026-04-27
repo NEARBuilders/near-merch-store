@@ -48,7 +48,7 @@ jobs:
           API_DATABASE_URL: postgres://postgres:postgres@localhost:5432/api
 
       - name: Run integration tests
-        run: bun test
+        run: bun run test
         working-directory: ./api
         env:
           API_DATABASE_URL: postgres://postgres:postgres@localhost:5432/api
