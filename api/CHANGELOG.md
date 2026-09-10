@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.2
+
+### Patch Changes
+
+- ea58d74: Fix provider quote errors not reaching frontend and sanitize debug prefixes (#96)
+
 ## 1.12.1
 
 ### Patch Changes
