@@ -59,6 +59,12 @@ export const Route = createFileRoute("/_marketplace/_authenticated/checkout")({
 type ShippingQuote = Awaited<ReturnType<typeof apiClient.quote>>;
 type ShippingAddress = Parameters<typeof apiClient.quote>[0]['shippingAddress'];
 
+function formatCheckoutErrorMessage(message?: string): string {
+  if (!message) return '';
+  const cleaned = message.replace(/^Checkout\s+[A-Z_]+(?:\s*\[[^\]]*\])?:\s*/i, '').trim();
+  return cleaned || message;
+}
+
 function CheckoutPage() {
   const { cartItems, subtotal } = useCart();
   const cartStoreItems = useCartStore((state) => state.items);
@@ -204,9 +210,10 @@ function CheckoutPage() {
       toast.success('Shipping calculated successfully');
     },
     onError: (error: Error) => {
-      setShippingError(error.message);
+      const friendlyMessage = formatCheckoutErrorMessage(error.message);
+      setShippingError(friendlyMessage);
       setShippingQuote(null);
-      toast.error(error.message || 'Failed to calculate shipping');
+      toast.error(friendlyMessage || 'Failed to calculate shipping');
     },
   });
 
@@ -245,7 +252,8 @@ function CheckoutPage() {
       }
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Order Failed, please contact support (merch@near.foundation)');
+      const friendlyMessage = formatCheckoutErrorMessage(error.message);
+      toast.error(friendlyMessage || 'Order Failed, please contact support (merch@near.foundation)');
     },
   });
 
