@@ -888,6 +888,15 @@ export default createPlugin({
                 });
               }
 
+              if (error.code === "QUOTE_FAILED") {
+                throw new ORPCError("BAD_REQUEST", {
+                  message:
+                    error.cause instanceof Error
+                      ? error.cause.message
+                      : "Shipping is not available to this destination",
+                });
+              }
+
               console.error("[createCheckout] Checkout failed:", error.message);
               if (error.cause)
                 console.error("[createCheckout] Cause:", error.cause);
@@ -924,11 +933,15 @@ export default createPlugin({
           if (error instanceof ORPCError) {
             throw error;
           }
+          // Extract user-friendly message from CheckoutError cause
+          let message = "Failed to calculate shipping";
+          if (error instanceof CheckoutError && error.cause instanceof Error) {
+            message = error.cause.message;
+          } else if (error instanceof Error) {
+            message = error.message;
+          }
           throw new ORPCError("BAD_REQUEST", {
-            message:
-              error instanceof Error
-                ? error.message
-                : "Failed to calculate shipping",
+            message,
           });
         }
 

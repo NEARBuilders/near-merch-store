@@ -203,7 +203,6 @@ function setupApiRoutes(
 		interceptors: [
 			onError((error: unknown) => {
 				formatORPCError(error);
-				throw error;
 			}),
 		],
 	});
@@ -225,7 +224,6 @@ function setupApiRoutes(
 		interceptors: [
 			onError((error: unknown) => {
 				formatORPCError(error);
-				throw error;
 			}),
 		],
 	});
